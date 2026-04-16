@@ -1,4 +1,4 @@
-// lib/server-api.ts
+ // lib/server-api.ts
 import { Blog } from './types/blog';
 import { BackendProperty } from './types/property-utils';
 
@@ -99,5 +99,18 @@ export const serverApi = {
   // Page API
   async getPageBySlug(slug: string): Promise<any> {
     return this.get(`/page/slug/${slug}`, { next: { revalidate: 1800 } });
+  },
+
+  // Cement Rate API
+  async getCementRates(): Promise<any[]> {
+    try {
+      return this.get('/cement-rate', { next: { revalidate: 60, tags: ['cement-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getCementRateBySlug(slug: string): Promise<any> {
+    return this.get(`/cement-rate/slug/${slug}`, { next: { revalidate: 60 } });
   },
 };

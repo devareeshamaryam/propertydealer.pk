@@ -1,4 +1,4 @@
-import {
+ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -23,6 +23,7 @@ import {
   Package2,
   CreditCard,
   Wallet,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -80,6 +81,17 @@ export default function DashboardSidebar() {
     items: [
       { title: "All Packages", href: "/dashboard/packages" },
       { title: "Add New Package", href: "/dashboard/packages/add" },
+    ],
+  };
+
+  const cementRateSection = {
+    title: "Cement Rate",
+    icon: Layers,
+    basePath: "/dashboard/cement-rate",
+    items: [
+      { title: "All Cement Rates", href: "/dashboard/cement-rate" },
+      { title: "Add Cement Rate", href: "/dashboard/cement-rate/add" },
+      { title: "Cement Orders", href: "/dashboard/cement-order" },
     ],
   };
 
@@ -364,6 +376,36 @@ export default function DashboardSidebar() {
                   <SidebarGroupContent>
                     <SidebarMenu className="pl-3">
                       {subscriptionsSection.items.map((item) => (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                            <Link href={item.href}>
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+            {/* Cement Rate */}
+            <Collapsible defaultOpen={isSectionActive(cementRateSection.basePath)}>
+              <SidebarGroup>
+                <CollapsibleTrigger asChild>
+                  <SidebarGroupLabel className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors">
+                    <div className="flex items-center gap-3">
+                      <cementRateSection.icon className="h-5 w-5" />
+                      <span>{cementRateSection.title}</span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                  </SidebarGroupLabel>
+                </CollapsibleTrigger>
+
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu className="pl-3">
+                      {cementRateSection.items.map((item) => (
                         <SidebarMenuItem key={item.href}>
                           <SidebarMenuButton asChild isActive={isActive(item.href)}>
                             <Link href={item.href}>
