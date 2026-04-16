@@ -1,0 +1,58 @@
+{
+  "name": "rent-ghar",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev:api": "npm run start:dev --workspace=apps/api",
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev": "concurrently \"npm:dev:api\" \"npm:dev:web\"",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types",
+    "seed:packages": "curl -X POST http://localhost:3005/api/packages/seed"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/slug": "^5.0.9",
+    "concurrently": "^9.0.0",
+    "prettier": "^3.7.4",
+    "ts-node-dev": "^2.0.0",
+    "turbo": "^2.7.4",
+    "typescript": "5.9.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@10.9.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.975.0",
+    "@aws-sdk/lib-storage": "^3.975.0",
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/mongoose": "^11.0.4",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.0.1",
+    "@squareboat/nest-storage": "^0.1.7",
+    "@tiptap/pm": "^3.20.0",
+    "axios": "^1.13.2",
+    "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.3",
+    "he": "^1.2.0",
+    "mongoose": "^8.0.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "slug": "^11.0.1"
+  },
+  "overrides": {
+    "@nestjs/core": "$@nestjs/core",
+    "@nestjs/common": "$@nestjs/common",
+    "@nestjs/platform-express": "$@nestjs/platform-express"
+  }
+}

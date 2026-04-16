@@ -1,0 +1,16 @@
+{
+  "build": {
+    "builder": "RAILPACK"
+  },
+  "$schema": "https://railway.com/railpack.schema.json",
+  "services": {
+    "web": {
+      "startCommand": "npm run start --workspace=web",
+      "buildCommand": "npm run build --workspace=web",
+      "rootDirectory": "apps/web",
+      "variables": {
+        "RAILPACK_NODE_VERSION": "20"
+      }
+    }
+  }
+}
