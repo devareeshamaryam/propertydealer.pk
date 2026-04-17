@@ -1,6 +1,7 @@
-import { Metadata } from "next";
+ import { Metadata } from "next";
 import { serverApi } from "@/lib/server-api";
 import CementPageClient from "./CementPageClient";
+import { CartProvider } from "@/contexts/CartContext";
 
 export const metadata: Metadata = {
   title: "Today Cement Rate in Pakistan 2026 | PropertyDealer.pk",
@@ -44,10 +45,12 @@ export default async function TodayCementRatePage() {
   }
 
   return (
-    <CementPageClient
-      initialBrands={liveBrands}
-      pageContent={pageContent}
-      pageTitle={pageTitle}
-    />
+    <CartProvider>
+      <CementPageClient
+        initialBrands={liveBrands}
+        pageContent={pageContent}
+        pageTitle={pageTitle}
+      />
+    </CartProvider>
   );
 }

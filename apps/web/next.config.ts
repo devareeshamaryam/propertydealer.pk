@@ -76,13 +76,8 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    // Only rewrite if NEXT_PUBLIC_API_URL is explicitly set
-    // Otherwise, use relative paths (same domain) - no rewriting needed
-    if (!process.env.NEXT_PUBLIC_API_URL) {
-      return [];
-    }
-    
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL;
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010';
+    console.log(`📡 Rewriting /api and /uploads to: ${baseUrl}`);
     
     return [
       {

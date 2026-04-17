@@ -1,23 +1,23 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import CementCard, { CementBrand } from "@/components/Cementcard";
+import CementCard, { CementBrand } from "@/components/CementCard";
 import dynamic from "next/dynamic";
 
-const CartDrawer = dynamic(() => import("@/components/CartDrawer"), { ssr: false });
+const CartDrawer = dynamic(() => import("@/components/Cartdrawer"), { ssr: false });
 
 // ── Fallback static data (used when DB is empty) ──────────────────────────────
 const STATIC_BRANDS: CementBrand[] = [
-  { id: 1,  brand: "Lucky Cement",      slug: "lucky-cement",      title: "Lucky Cement — 50 Kg Bag",      price: 1300, change: +20, city: "Lahore",     weightKg: 50, category: "OPC Cement" },
-  { id: 2,  brand: "Bestway Cement",    slug: "bestway-cement",    title: "Bestway Cement — 50 Kg Bag",    price: 1280, change:   0, city: "Karachi",    weightKg: 50, category: "OPC Cement" },
-  { id: 3,  brand: "Maple Leaf Cement", slug: "maple-leaf-cement", title: "Maple Leaf Cement — 50 Kg Bag", price: 1260, change: -10, city: "Islamabad",  weightKg: 50, category: "OPC Cement" },
-  { id: 4,  brand: "DG Khan Cement",    slug: "dg-khan-cement",    title: "DG Khan Cement — 50 Kg Bag",    price: 1290, change: +10, city: "Lahore",     weightKg: 50, category: "SRC Cement" },
-  { id: 5,  brand: "Fauji Cement",      slug: "fauji-cement",      title: "Fauji Cement — 50 Kg Bag",      price: 1270, change:   0, city: "Rawalpindi", weightKg: 50, category: "OPC Cement" },
-  { id: 6,  brand: "Cherat Cement",     slug: "cherat-cement",     title: "Cherat Cement — 50 Kg Bag",     price: 1250, change: -20, city: "Peshawar",   weightKg: 50, category: "OPC Cement" },
-  { id: 7,  brand: "Power Cement",      slug: "power-cement",      title: "Power Cement — 50 Kg Bag",      price: 1240, change: +15, city: "Karachi",    weightKg: 50, category: "SRC Cement" },
-  { id: 8,  brand: "Askari Cement",     slug: "askari-cement",     title: "Askari Cement — 50 Kg Bag",     price: 1310, change: +30, city: "Lahore",     weightKg: 50, category: "OPC Cement" },
-  { id: 9,  brand: "Pioneer Cement",    slug: "pioneer-cement",    title: "Pioneer Cement — 50 Kg Bag",    price: 1230, change:  -5, city: "Multan",     weightKg: 50, category: "SRC Cement" },
-  { id: 10, brand: "Gharibwal Cement",  slug: "gharibwal-cement",  title: "Gharibwal Cement — 50 Kg Bag",  price: 1220, change:   0, city: "Lahore",     weightKg: 50, category: "OPC Cement" },
+  { id: 1,  brand: "Lucky Cement",      slug: "lucky-cement",      title: "Lucky Cement — 50 Kg Bag",      price: 1300, change: +20, weightKg: 50, category: "OPC Cement" },
+  { id: 2,  brand: "Bestway Cement",    slug: "bestway-cement",    title: "Bestway Cement — 50 Kg Bag",    price: 1280, change:   0, weightKg: 50, category: "OPC Cement" },
+  { id: 3,  brand: "Maple Leaf Cement", slug: "maple-leaf-cement", title: "Maple Leaf Cement — 50 Kg Bag", price: 1260, change: -10, weightKg: 50, category: "OPC Cement" },
+  { id: 4,  brand: "DG Khan Cement",    slug: "dg-khan-cement",    title: "DG Khan Cement — 50 Kg Bag",    price: 1290, change: +10, weightKg: 50, category: "SRC Cement" },
+  { id: 5,  brand: "Fauji Cement",      slug: "fauji-cement",      title: "Fauji Cement — 50 Kg Bag",      price: 1270, change:   0, weightKg: 50, category: "OPC Cement" },
+  { id: 6,  brand: "Cherat Cement",     slug: "cherat-cement",     title: "Cherat Cement — 50 Kg Bag",     price: 1250, change: -20, weightKg: 50, category: "OPC Cement" },
+  { id: 7,  brand: "Power Cement",      slug: "power-cement",      title: "Power Cement — 50 Kg Bag",      price: 1240, change: +15, weightKg: 50, category: "SRC Cement" },
+  { id: 8,  brand: "Askari Cement",     slug: "askari-cement",     title: "Askari Cement — 50 Kg Bag",     price: 1310, change: +30, weightKg: 50, category: "OPC Cement" },
+  { id: 9,  brand: "Pioneer Cement",    slug: "pioneer-cement",    title: "Pioneer Cement — 50 Kg Bag",    price: 1230, change:  -5, weightKg: 50, category: "SRC Cement" },
+  { id: 10, brand: "Gharibwal Cement",  slug: "gharibwal-cement",  title: "Gharibwal Cement — 50 Kg Bag",  price: 1220, change:   0, weightKg: 50, category: "OPC Cement" },
 ];
 
 // ── Helper: normalise API response → CementBrand ─────────────────────────────
@@ -29,7 +29,6 @@ function normaliseBrands(raw: any[]): CementBrand[] {
     title:    r.title ?? `${r.brand} — ${r.weightKg ?? 50} Kg Bag`,
     price:    r.price,
     change:   r.change ?? 0,
-    city:     r.city,
     weightKg: r.weightKg ?? 50,
     category: r.category ?? "OPC Cement",
     image:    r.image,
@@ -55,14 +54,14 @@ export default function CementPageClient({
     ? normaliseBrands(initialBrands)
     : STATIC_BRANDS;
 
-  const CITIES     = ["All Cities", ...Array.from(new Set(ALL_BRANDS.map((b) => b.city)))];
+
   const BRANDS     = ["All Brands", ...Array.from(new Set(ALL_BRANDS.map((b) => b.brand)))];
   const CATEGORIES = ["All Types",  ...Array.from(new Set(ALL_BRANDS.map((b) => b.category)))];
   const MIN_PRICE  = Math.min(...ALL_BRANDS.map((b) => b.price));
   const MAX_PRICE  = Math.max(...ALL_BRANDS.map((b) => b.price));
 
   const [priceRange, setPriceRange]       = useState<[number, number]>([MIN_PRICE, MAX_PRICE]);
-  const [selectedCity, setSelectedCity]   = useState("All Cities");
+
   const [selectedBrand, setSelectedBrand] = useState("All Brands");
   const [selectedCat, setSelectedCat]     = useState("All Types");
   const [sidebarOpen, setSidebarOpen]     = useState(false);
@@ -73,7 +72,6 @@ export default function CementPageClient({
   const results = useMemo(() => {
     return ALL_BRANDS
       .filter((b) => b.price >= priceRange[0] && b.price <= priceRange[1])
-      .filter((b) => selectedCity  === "All Cities"  || b.city     === selectedCity)
       .filter((b) => selectedBrand === "All Brands"  || b.brand    === selectedBrand)
       .filter((b) => selectedCat   === "All Types"   || b.category === selectedCat)
       .sort((a, b) => {
@@ -83,28 +81,28 @@ export default function CementPageClient({
         return 0;
       })
       .slice(0, perPage);
-  }, [ALL_BRANDS, priceRange, selectedCity, selectedBrand, selectedCat, sortBy, perPage]);
+  }, [ALL_BRANDS, priceRange, selectedBrand, selectedCat, sortBy, perPage]);
 
   const resetFilters = () => {
     setPriceRange([MIN_PRICE, MAX_PRICE]);
-    setSelectedCity("All Cities");
+
     setSelectedBrand("All Brands");
     setSelectedCat("All Types");
   };
 
   return (
-    <div className="pt-[72px] bg-gray-50 min-h-screen">
+    <div className="pt-24 bg-gray-50 min-h-screen">
       <CartDrawer />
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-[99] lg:hidden"
+          className="fixed inset-0 bg-black/40 z-50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      <div className="max-w-[1200px] mx-auto px-4 pb-12 pt-5">
+      <div className="max-w-6xl mx-auto px-4 pb-12 pt-5">
 
         {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-xs text-gray-400 mb-5 flex-wrap">
@@ -118,10 +116,10 @@ export default function CementPageClient({
           {/* ── LEFT SIDEBAR ──────────────────────────────────────────── */}
           <aside
             className={`
-              w-[240px] flex-shrink-0 bg-white border border-gray-200 rounded-xl p-4
-              sticky top-[80px] self-start
+              w-60 shrink-0 bg-white border border-gray-200 rounded-xl p-4
+              sticky top-20 self-start
               max-lg:fixed max-lg:top-0 max-lg:left-0 max-lg:h-screen max-lg:overflow-y-auto
-              max-lg:z-[100] max-lg:rounded-none max-lg:w-[260px] max-lg:transition-transform max-lg:duration-300
+              max-lg:z-50 max-lg:rounded-none max-lg:w-64 max-lg:transition-transform max-lg:duration-300
               ${sidebarOpen ? "max-lg:translate-x-0" : "max-lg:-translate-x-full"}
             `}
           >
@@ -155,11 +153,7 @@ export default function CementPageClient({
               </button>
             </div>
 
-            <FilterSection title="City">
-              {CITIES.map((c) => (
-                <RadioOption key={c} name="city" label={c} checked={selectedCity === c} onChange={() => setSelectedCity(c)} />
-              ))}
-            </FilterSection>
+
 
             <FilterSection title="Brands">
               {BRANDS.map((b) => (
@@ -177,8 +171,8 @@ export default function CementPageClient({
 
           {/* ── MAIN CONTENT ──────────────────────────────────────────── */}
           <main className="flex-1 min-w-0">
-            <h1 className="text-xl font-bold text-gray-900 mb-1">
-              Today Cement Rate in Pakistan
+            <h1 className="text-2xl font-bold text-gray-900 mb-1 lg:text-3xl">
+              Today Cement Rate in Pakistan – {new Date().toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' })}
             </h1>
 
             {/* Toolbar */}

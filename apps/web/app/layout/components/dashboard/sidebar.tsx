@@ -185,7 +185,7 @@ export default function DashboardSidebar() {
                       <BookOpen className="h-5 w-5" />
                       <span>Blog Category</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
 
@@ -214,7 +214,7 @@ export default function DashboardSidebar() {
                       <blogSection.icon className="h-5 w-5" />
                       <span>{blogSection.title}</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
 
@@ -247,7 +247,7 @@ export default function DashboardSidebar() {
                   <propertiesSection.icon className="h-5 w-5" />
                   <span>{propertiesSection.title}</span>
                 </div>
-                <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
               </SidebarGroupLabel>
             </CollapsibleTrigger>
 
@@ -283,7 +283,7 @@ export default function DashboardSidebar() {
                   <MapPin className="h-5 w-5" />
                   <span>Locations</span>
                 </div>
-                <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
               </SidebarGroupLabel>
             </CollapsibleTrigger>
 
@@ -337,7 +337,7 @@ export default function DashboardSidebar() {
                       <packagesSection.icon className="h-5 w-5" />
                       <span>{packagesSection.title}</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
 
@@ -368,7 +368,7 @@ export default function DashboardSidebar() {
                       <subscriptionsSection.icon className="h-5 w-5" />
                       <span>{subscriptionsSection.title}</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
 
@@ -398,7 +398,7 @@ export default function DashboardSidebar() {
                       <cementRateSection.icon className="h-5 w-5" />
                       <span>{cementRateSection.title}</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
 
@@ -435,7 +435,7 @@ export default function DashboardSidebar() {
                       <imagesGallerySection.icon className="h-5 w-5" />
                       <span>{imagesGallerySection.title}</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -463,7 +463,7 @@ export default function DashboardSidebar() {
                       <FileTextIcon className="h-5 w-5" />
                       <span>Pages</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -491,7 +491,7 @@ export default function DashboardSidebar() {
                       <User className="h-5 w-5" />
                       <span>Users</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
                 <CollapsibleContent>

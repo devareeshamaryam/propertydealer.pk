@@ -1,8 +1,6 @@
-import { Module } from '@nestjs/common';
+ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
@@ -18,18 +16,25 @@ import { UserModule } from './user/user.module';
 import { StorageModule } from '../../../packages/storage/storage.module';
 import { ImportModule } from './import/import.module';
 import { IndexNowModule } from './indexnow/indexnow.module';
+import { CementRateModule } from './cement-rate/cement-rate.module';
+import { CementOrderModule } from './cement-order/cement-order.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import * as path from 'path';
+
+const cwd = process.cwd();
+const isInAppsApi = cwd.includes(path.join('apps', 'api')) || cwd.endsWith('apps\\api');
+const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.join(cwd, 'uploads');
 
 @Module({
   imports: [
     StorageModule,
+    ServeStaticModule.forRoot({
+      rootPath: uploadsPath,
+      serveRoot: '/uploads',
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    // 🔒 SECURITY: Rate limiting to prevent brute force and DDoS (CRITICAL)
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 minute
-      limit: 100,  // 100 requests per minute (general limit)
-    }]),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
@@ -68,16 +73,11 @@ import { IndexNowModule } from './indexnow/indexnow.module';
     UserModule,
     ImportModule,
     IndexNowModule,
+    CementRateModule,
+    CementOrderModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    // 🔒 SECURITY: Global rate limiting guard (CRITICAL)
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
-  ],
+  providers: [AppService],
 })
 export class AppModule {}
 

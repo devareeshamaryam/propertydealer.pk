@@ -18,10 +18,10 @@ async function bootstrap() {
         defaultSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         scriptSrc: ["'self'"],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: ["'self'", "data:", "https:", "http:", "*"],
       },
     },
-    crossOriginEmbedderPolicy: false, // Allow external images
+    crossOriginEmbedderPolicy: false,
   }));
   
   app.use(cookieParser());
@@ -31,14 +31,14 @@ async function bootstrap() {
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
-  // Increase timeout for slow requests (especially from bots like Googlebot)
+  // Increase timeout for slow requests
   app.use((req: any, res: any, next: any) => {
     req.setTimeout(30000); // 30 seconds
     res.setTimeout(30000); // 30 seconds
     next();
   });
 
-  // 🔒 SECURITY: Enforce HTTPS in production (HIGH PRIORITY)
+  // 🔒 SECURITY: Enforce HTTPS in production
   if (process.env.NODE_ENV === 'production') {
     app.use((req: any, res: any, next: any) => {
       if (!req.secure && req.get('x-forwarded-proto') !== 'https') {
@@ -47,21 +47,11 @@ async function bootstrap() {
       next();
     });
   }
+  
+  // Serve static files for local storage - handled by ServeStaticModule in AppModule
+  console.log(`🚀 API starting Middleware initialized...`);
 
-  // Serve static files for local storage
-  if (process.env.STORAGE_DISK === 'local' || !process.env.STORAGE_DISK) {
-    const path = await import('path');
-    const join = path.join;
-    const express = await import('express');
-    const cwd = process.cwd();
-    const isInAppsApi =
-      cwd.includes(join('apps', 'api')) || cwd.endsWith('apps\\api');
-    const uploadsPath = isInAppsApi
-      ? join(cwd, '..', '..', 'uploads') // Go up to monorepo root
-      : join(cwd, 'uploads'); // Use current directory
-    app.use('/uploads/', express.static(uploadsPath));
-    console.log(`📁 Serving static files from: ${uploadsPath}`);
-  }
+
   const allowedOrigins = [
     process.env.APP_URL || 'http://localhost:3000',
     'http://localhost:3001',

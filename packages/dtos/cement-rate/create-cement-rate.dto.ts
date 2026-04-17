@@ -1,22 +1,22 @@
-import { IsString, IsNumber, IsOptional, IsBoolean, Min } from 'class-validator';
+ import { IsString, IsNumber, IsOptional, IsBoolean, IsArray, Min, IsNotEmpty } from 'class-validator';
 
-export class UpdateCementRateDto {
+export class CreateCementRateDto {
   @IsString()
-  @IsOptional()
-  brand?: string;
+  @IsNotEmpty()
+  brand: string;
 
   @IsNumber()
   @Min(0)
-  @IsOptional()
-  price?: number;
+  @IsNotEmpty()
+  price: number;
 
   @IsNumber()
   @IsOptional()
   change?: number;
 
   @IsString()
-  @IsOptional()
-  city?: string;
+  @IsNotEmpty()
+  city: string;
 
   @IsNumber()
   @IsOptional()
@@ -33,6 +33,11 @@ export class UpdateCementRateDto {
   @IsString()
   @IsOptional()
   image?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  images?: string[];
 
   @IsString()
   @IsOptional()

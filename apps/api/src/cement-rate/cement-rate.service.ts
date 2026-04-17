@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { CementRate, CementRateDocument } from '@rent-ghar/db/schemas/cement-rate.schema';
+import { CreateCementRateDto, UpdateCementRateDto } from './dto';
 
 @Injectable()
 export class CementRateService {
@@ -10,9 +11,8 @@ export class CementRateService {
     private cementRateModel: Model<CementRateDocument>,
   ) {}
 
-  async findAll(city?: string, category?: string): Promise<CementRateDocument[]> {
+  async findAll(category?: string): Promise<CementRateDocument[]> {
     const query: any = { isActive: true };
-    if (city) query.city = city;
     if (category) query.category = category;
     return this.cementRateModel.find(query).sort({ createdAt: -1 }).exec();
   }
@@ -34,18 +34,22 @@ export class CementRateService {
     return rate;
   }
 
-  async create(dto: any): Promise<CementRateDocument> {
+  async create(dto: CreateCementRateDto): Promise<CementRateDocument> {
     const rate = new this.cementRateModel(dto);
     return rate.save();
   }
 
-  async update(id: string, dto: any): Promise<CementRateDocument> {
+  async update(id: string, dto: UpdateCementRateDto): Promise<CementRateDocument> {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
-    const rate = await this.cementRateModel
-      .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
-      .exec();
+    const rate = await this.cementRateModel.findById(id).exec();
     if (!rate) throw new NotFoundException('Cement rate not found');
-    return rate;
+
+    Object.assign(rate, dto);
+    // Explicitly mark fields to trigger the pre('save') slug regeneration
+    if (dto.brand) rate.markModified('brand');
+    if (dto.category) rate.markModified('category');
+
+    return rate.save();
   }
 
   async remove(id: string): Promise<void> {

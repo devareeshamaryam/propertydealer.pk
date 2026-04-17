@@ -1,12 +1,21 @@
-// lib/api.ts
+ // lib/api.ts
 import axios from "axios";
 import { BackendProperty } from "./types/property-utils";
 
 const getBaseURL = () => {
+  // Server-side (SSR/API routes): use internal URL to hit backend directly
+  // without going through nginx — avoids loopback issues on production
+  if (typeof window === "undefined") {
+    const internalUrl = process.env.INTERNAL_API_URL;
+    if (internalUrl) {
+      return internalUrl.endsWith("/") ? `${internalUrl}api` : `${internalUrl}/api`;
+    }
+  }
+
+  // Client-side (browser): use public-facing URL
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) return "/api";
-  const baseURL = apiUrl.endsWith("/") ? `${apiUrl}api` : `${apiUrl}/api`;
-  return baseURL;
+  return apiUrl.endsWith("/") ? `${apiUrl}api` : `${apiUrl}/api`;
 };
 
 // In-memory access token storage — works even when cross-origin cookies are blocked

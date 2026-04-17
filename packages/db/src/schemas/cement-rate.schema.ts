@@ -23,8 +23,6 @@ export class CementRate {
   @Prop({ default: 0 })
   change: number;
 
-  @Prop({ required: true, trim: true })
-  city: string;
 
   @Prop({ default: 50 })
   weightKg: number;
@@ -48,8 +46,8 @@ export class CementRate {
 export const CementRateSchema = SchemaFactory.createForClass(CementRate);
 
 CementRateSchema.pre('save', function () {
-  if (this.isModified('brand') || !this.slug) {
-    this.slug = this.brand
+  if (this.isModified('brand') || this.isModified('category') || !this.slug) {
+    this.slug = `${this.brand}-${this.category}`
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
@@ -59,5 +57,5 @@ CementRateSchema.pre('save', function () {
   }
 });
 
-CementRateSchema.index({ city: 1, category: 1 });
+CementRateSchema.index({ category: 1 });
 CementRateSchema.index({ isActive: 1, createdAt: -1 });

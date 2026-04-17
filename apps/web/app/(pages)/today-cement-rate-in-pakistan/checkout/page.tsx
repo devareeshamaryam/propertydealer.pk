@@ -206,7 +206,7 @@ export default function CheckoutPage() {
               value={deliveryInstruction}
               onChange={(e) => setDeliveryInstruction(e.target.value)}
               placeholder="Instructions for delivery team (Optional)."
-              className="w-full border border-gray-200 rounded p-3 text-sm focus:outline-none focus:ring-1 focus:ring-black min-h-[80px] resize-y"
+              className="w-full border border-gray-200 rounded p-3 text-sm focus:outline-none focus:ring-1 focus:ring-black min-h-20 resize-y"
             ></textarea>
           </div>
 
