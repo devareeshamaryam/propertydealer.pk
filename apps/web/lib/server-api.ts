@@ -113,4 +113,17 @@ export const serverApi = {
   async getCementRateBySlug(slug: string): Promise<any> {
     return this.get(`/cement-rate/slug/${slug}`, { next: { revalidate: 60 } });
   },
+
+  // Material Rate API
+  async getMaterialRates(materialType: string): Promise<any[]> {
+    try {
+      return this.get(`/material-rate?materialType=${encodeURIComponent(materialType)}`, { next: { revalidate: 60, tags: ['material-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getMaterialRateBySlug(slug: string): Promise<any> {
+    return this.get(`/material-rate/slug/${slug}`, { next: { revalidate: 60 } });
+  },
 };

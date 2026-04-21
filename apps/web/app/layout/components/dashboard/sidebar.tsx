@@ -24,6 +24,7 @@ import {
   CreditCard,
   Wallet,
   Layers,
+  Hammer,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -92,6 +93,16 @@ export default function DashboardSidebar() {
       { title: "All Cement Rates", href: "/dashboard/cement-rate" },
       { title: "Add Cement Rate", href: "/dashboard/cement-rate/add" },
       { title: "Cement Orders", href: "/dashboard/cement-order" },
+    ],
+  };
+
+  const materialRateSection = {
+    title: "Material Rates",
+    icon: Hammer,
+    basePath: "/dashboard/material-rate",
+    items: [
+      { title: "All Material Rates", href: "/dashboard/material-rate" },
+      { title: "Add Material Rate", href: "/dashboard/material-rate/add" },
     ],
   };
 
@@ -398,14 +409,45 @@ export default function DashboardSidebar() {
                       <cementRateSection.icon className="h-5 w-5" />
                       <span>{cementRateSection.title}</span>
                     </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-\[state=open\]:rotate-180" />
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
                   </SidebarGroupLabel>
                 </CollapsibleTrigger>
-
+        
                 <CollapsibleContent>
                   <SidebarGroupContent>
                     <SidebarMenu className="pl-3">
                       {cementRateSection.items.map((item) => (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton asChild isActive={isActive(item.href)}>
+                            <Link href={item.href}>
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroupContent>
+                </CollapsibleContent>
+              </SidebarGroup>
+            </Collapsible>
+        
+            {/* Material Rates */}
+            <Collapsible defaultOpen={isSectionActive(materialRateSection.basePath)}>
+              <SidebarGroup>
+                <CollapsibleTrigger asChild>
+                  <SidebarGroupLabel className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors">
+                    <div className="flex items-center gap-3">
+                      <materialRateSection.icon className="h-5 w-5" />
+                      <span>{materialRateSection.title}</span>
+                    </div>
+                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+                  </SidebarGroupLabel>
+                </CollapsibleTrigger>
+        
+                <CollapsibleContent>
+                  <SidebarGroupContent>
+                    <SidebarMenu className="pl-3">
+                      {materialRateSection.items.map((item) => (
                         <SidebarMenuItem key={item.href}>
                           <SidebarMenuButton asChild isActive={isActive(item.href)}>
                             <Link href={item.href}>

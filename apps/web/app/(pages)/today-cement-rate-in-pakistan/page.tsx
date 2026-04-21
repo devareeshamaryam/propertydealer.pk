@@ -3,6 +3,8 @@ import { serverApi } from "@/lib/server-api";
 import CementPageClient from "./CementPageClient";
 import { CartProvider } from "@/contexts/CartContext";
 
+export const revalidate = 60; // Revalidate every 60 seconds
+
 export const metadata: Metadata = {
   title: "Today Cement Rate in Pakistan 2026 | PropertyDealer.pk",
   description:

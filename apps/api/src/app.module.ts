@@ -18,6 +18,14 @@ import { ImportModule } from './import/import.module';
 import { IndexNowModule } from './indexnow/indexnow.module';
 import { CementRateModule } from './cement-rate/cement-rate.module';
 import { CementOrderModule } from './cement-order/cement-order.module';
+import { MaterialRateModule } from './material-rate/material-rate.module';
+import { DoorRateModule } from './door-rate/door-rate.module';
+import { WoodRateModule } from './wood-rate/wood-rate.module';
+import { SandRateModule } from './sand-rate/sand-rate.module';
+import { TileRateModule } from './tile-rate/tile-rate.module';
+import { BajriRateModule } from './bajri-rate/bajri-rate.module';
+import { SteelRateModule } from './steel-rate/steel-rate.module';
+import { BricksRateModule } from './bricks-rate/bricks-rate.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import * as path from 'path';
 
@@ -75,6 +83,14 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     IndexNowModule,
     CementRateModule,
     CementOrderModule,
+    MaterialRateModule,
+    DoorRateModule,
+    WoodRateModule,
+    SandRateModule,
+    TileRateModule,
+    BajriRateModule,
+    SteelRateModule,
+    BricksRateModule,
   ],
   controllers: [AppController],
   providers: [AppService],
