@@ -1,27 +1,9 @@
  'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Home, Youtube, Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin, ArrowUpRight } from 'lucide-react';
-import { pageApi } from '@/lib/api/page/page.api';
+import { Home, Youtube, Facebook, Linkedin, Mail, Phone, MapPin, ArrowUpRight } from 'lucide-react';
 
 const Footer = () => {
-  const [pages, setPages] = useState<any[]>([]);
-
-  useEffect(() => {
-    const fetchPublishedPages = async () => {
-      try {
-        const data = await pageApi.getPublishedPages();
-        if (Array.isArray(data)) {
-          setPages(data);
-        }
-      } catch (error) {
-        console.error('Error fetching footer pages:', error);
-      }
-    };
-    fetchPublishedPages();
-  }, []);
-
   const cities = [
     { name: 'Lahore',     href: '/properties/all/lahore'     },
     { name: 'Islamabad',  href: '/properties/all/islamabad'  },
@@ -59,14 +41,13 @@ const Footer = () => {
               <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30 group-hover:scale-105 transition-transform">
                 <Home className="w-5 h-5 text-white" />
               </div>
-              <span className="text-xl font-bold tracking-tight">
-                Property<span className="text-primary">Dealer</span>
+              <span className="text-xl font-bold tracking-tight text-white">
+                Property <span className="text-white">Dealer</span>
               </span>
             </Link>
 
             <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-xs">
-              Pakistan's premier property portal connecting buyers, sellers, and renters. Trusted since 2007.
-            </p>
+ Property Dealer is a Pakistani real-estate portal where people can buy, sell, and rent properties such as houses, plots, apartments, commercial buildings, and land. Trusted since 2007.             </p>
 
             {/* Socials */}
             <div className="flex gap-2">
@@ -153,7 +134,7 @@ const Footer = () => {
 
         {/* ── Bottom bar ── */}
         <div className="border-t border-white/5 mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
-          <p>© 2025–2026 PropertyDealer. All rights reserved.</p>
+          <p>© 2026 PropertyDealer. All rights reserved.</p>
           <p className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
             Trusted since 2007

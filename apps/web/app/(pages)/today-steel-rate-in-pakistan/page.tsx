@@ -6,32 +6,31 @@ export const revalidate = 60; // Revalidate every 60 seconds
 
 export const metadata: Metadata = {
   title: "Today Steel Rate in Pakistan 2026 | PropertyDealer.pk",
-  description:
-    "Check today's latest steel rates in Pakistan. Updated daily prices of all major steel brands including Amreli, Mughal, Ittefaq and more across Lahore, Karachi, Islamabad.",
-  keywords: [
-    "steel rate in Pakistan",
-    "today steel price",
-    "saria rate today",
-    "steel price Pakistan",
-    "iron rate in Pakistan",
-  ],
-  alternates: {
-    canonical: "/today-steel-rate-in-pakistan",
-  },
-  openGraph: {
-    title: "Today Steel Rate in Pakistan 2026 | PropertyDealer.pk",
-    description: "Check today's latest steel rates in Pakistan. Updated daily prices.",
-    type: "article",
-  },
+  description: "Check today's latest steel rates in Pakistan. Updated daily prices from top brands and suppliers.",
 };
+
+async function getSteelRates() {
+  try {
+    const apiUrl = process.env.INTERNAL_API_URL || "http://localhost:3010";
+    const res = await fetch(`${apiUrl}/api/steel-rate`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching steel rates:", error);
+    return [];
+  }
+}
 
 export default async function SteelRatePage() {
   let rates: any[] = [];
   let pageContent: string | null = null;
   let pageTitle: string | null = null;
 
+  // Fetch rates + CMS page content in parallel
   const [ratesResult, pageResult] = await Promise.allSettled([
-    serverApi.getMaterialRates("Steel"),
+    getSteelRates(),
     serverApi.getPageBySlug("today-steel-rate-in-pakistan"),
   ]);
 

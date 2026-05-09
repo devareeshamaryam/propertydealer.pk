@@ -6,31 +6,31 @@ export const revalidate = 60; // Revalidate every 60 seconds
 
 export const metadata: Metadata = {
   title: "Today Tile Rate in Pakistan 2026 | PropertyDealer.pk",
-  description:
-    "Check today's latest tile rates in Pakistan. Updated daily prices of all major tile brands and suppliers across Lahore, Karachi, Islamabad and more.",
-  keywords: [
-    "tile rate in Pakistan",
-    "today tile price",
-    "tile rate today",
-    "tile price Pakistan",
-  ],
-  alternates: {
-    canonical: "/today-tile-rate-in-pakistan",
-  },
-  openGraph: {
-    title: "Today Tile Rate in Pakistan 2026 | PropertyDealer.pk",
-    description: "Check today's latest tile rates in Pakistan. Updated daily prices.",
-    type: "article",
-  },
+  description: "Check today's latest tile rates in Pakistan. Updated daily prices from top brands and suppliers.",
 };
+
+async function getTileRates() {
+  try {
+    const apiUrl = process.env.INTERNAL_API_URL || "http://localhost:3010";
+    const res = await fetch(`${apiUrl}/api/tile-rate`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching tile rates:", error);
+    return [];
+  }
+}
 
 export default async function TileRatePage() {
   let rates: any[] = [];
   let pageContent: string | null = null;
   let pageTitle: string | null = null;
 
+  // Fetch rates + CMS page content in parallel
   const [ratesResult, pageResult] = await Promise.allSettled([
-    serverApi.getMaterialRates("Tile"),
+    getTileRates(),
     serverApi.getPageBySlug("today-tile-rate-in-pakistan"),
   ]);
 

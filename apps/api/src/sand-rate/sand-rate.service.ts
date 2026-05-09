@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { SandRate, SandRateDocument } from '@rent-ghar/db/schemas/sand-rate.schema';
@@ -30,7 +30,14 @@ export class SandRateService {
   }
 
   async findBySlug(slug: string): Promise<SandRateDocument> {
-    const rate = await this.sandRateModel.findOne({ slug }).exec();
+    // 1. Pehle slug se dhundho
+    let rate = await this.sandRateModel.findOne({ slug }).exec();
+
+    // 2. Agar nahi mila aur valid ObjectId hai toh _id se dhundho
+    if (!rate && isValidObjectId(slug)) {
+      rate = await this.sandRateModel.findById(slug).exec();
+    }
+
     if (!rate) throw new NotFoundException(`Sand rate not found: ${slug}`);
     return rate;
   }

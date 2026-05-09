@@ -1,4 +1,4 @@
-import { serverApi } from "@/lib/server-api";
+ import { serverApi } from "@/lib/server-api";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import MaterialDetailClient from "@/components/MaterialRate/MaterialDetailClient";
@@ -10,7 +10,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const rate = await serverApi.getMaterialRateBySlug(slug);
+    const rate = await serverApi.getSandRateBySlug(slug);
     return {
       title: `${rate.brand} Sand Price in Pakistan | PropertyDealer.pk`,
       description: `Today's ${rate.brand} sand price is Rs ${rate.price}/${rate.unit}. Check latest rates and order online.`,
@@ -32,7 +32,7 @@ export default async function SandDetailPage({ params }: Props) {
 
   let rate: any;
   try {
-    rate = await serverApi.getMaterialRateBySlug(slug);
+    rate = await serverApi.getSandRateBySlug(slug);
   } catch {
     notFound();
   }

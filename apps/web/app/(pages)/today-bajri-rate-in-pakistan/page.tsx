@@ -6,32 +6,31 @@ export const revalidate = 60; // Revalidate every 60 seconds
 
 export const metadata: Metadata = {
   title: "Today Bajri Rate in Pakistan 2026 | PropertyDealer.pk",
-  description:
-    "Check today's latest bajri rates in Pakistan. Updated daily prices of all major bajri suppliers across Lahore, Karachi, Islamabad and more.",
-  keywords: [
-    "bajri rate in Pakistan",
-    "today bajri price",
-    "bajri rate today",
-    "bajri price Pakistan",
-    "crush rate in Pakistan",
-  ],
-  alternates: {
-    canonical: "/today-bajri-rate-in-pakistan",
-  },
-  openGraph: {
-    title: "Today Bajri Rate in Pakistan 2026 | PropertyDealer.pk",
-    description: "Check today's latest bajri rates in Pakistan. Updated daily prices.",
-    type: "article",
-  },
+  description: "Check today's latest bajri rates in Pakistan. Updated daily prices from top brands and suppliers.",
 };
+
+async function getBajriRates() {
+  try {
+    const apiUrl = process.env.INTERNAL_API_URL || "http://localhost:3010";
+    const res = await fetch(`${apiUrl}/api/bajri-rate`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching bajri rates:", error);
+    return [];
+  }
+}
 
 export default async function BajriRatePage() {
   let rates: any[] = [];
   let pageContent: string | null = null;
   let pageTitle: string | null = null;
 
+  // Fetch rates + CMS page content in parallel
   const [ratesResult, pageResult] = await Promise.allSettled([
-    serverApi.getMaterialRates("Bajri"),
+    getBajriRates(),
     serverApi.getPageBySlug("today-bajri-rate-in-pakistan"),
   ]);
 

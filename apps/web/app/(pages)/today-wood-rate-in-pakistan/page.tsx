@@ -6,31 +6,31 @@ export const revalidate = 60; // Revalidate every 60 seconds
 
 export const metadata: Metadata = {
   title: "Today Wood Rate in Pakistan 2026 | PropertyDealer.pk",
-  description:
-    "Check today's latest wood rates in Pakistan. Updated daily prices of all major wood brands and suppliers across Lahore, Karachi, Islamabad and more.",
-  keywords: [
-    "wood rate in Pakistan",
-    "today wood price",
-    "timber rate today",
-    "wood price Pakistan",
-  ],
-  alternates: {
-    canonical: "/today-wood-rate-in-pakistan",
-  },
-  openGraph: {
-    title: "Today Wood Rate in Pakistan 2026 | PropertyDealer.pk",
-    description: "Check today's latest wood rates in Pakistan. Updated daily prices.",
-    type: "article",
-  },
+  description: "Check today's latest wood rates in Pakistan. Updated daily prices from top brands and suppliers.",
 };
+
+async function getWoodRates() {
+  try {
+    const apiUrl = process.env.INTERNAL_API_URL || "http://localhost:3010";
+    const res = await fetch(`${apiUrl}/api/wood-rate`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching wood rates:", error);
+    return [];
+  }
+}
 
 export default async function WoodRatePage() {
   let rates: any[] = [];
   let pageContent: string | null = null;
   let pageTitle: string | null = null;
 
+  // Fetch rates + CMS page content in parallel
   const [ratesResult, pageResult] = await Promise.allSettled([
-    serverApi.getMaterialRates("Wood"),
+    getWoodRates(),
     serverApi.getPageBySlug("today-wood-rate-in-pakistan"),
   ]);
 

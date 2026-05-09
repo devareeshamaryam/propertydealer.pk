@@ -1,4 +1,4 @@
-"use client";
+ "use client";
 
 import { useState, useMemo } from "react";
 import MaterialCard, { MaterialRate } from "@/components/MaterialRate/MaterialCard";
@@ -8,7 +8,8 @@ function normaliseRates(raw: any[]): MaterialRate[] {
   return raw.map((r, i) => ({
     id:           r._id ?? i + 1,
     brand:        r.brand,
-    slug:         r.slug ?? r.brand.toLowerCase().replace(/\s+/g, "-"),
+    // Use _id as slug when slug is missing — backend findBySlug now handles _id too
+    slug:         r.slug || r._id || String(i + 1),
     price:        r.price,
     change:       r.change ?? 0,
     city:         r.city ?? "",
@@ -45,14 +46,12 @@ export default function MaterialPageClient({
 
   const BRANDS    = ["All Brands", ...Array.from(new Set(ALL_RATES.map((b) => b.brand)))];
   const CATEGORIES = ["All Types", ...Array.from(new Set(ALL_RATES.map((b) => b.category ?? "Standard")))];
-  const CITIES    = ["All Cities", ...Array.from(new Set(ALL_RATES.map((b) => b.city).filter(Boolean)))];
   const MIN_PRICE = ALL_RATES.length > 0 ? Math.min(...ALL_RATES.map((b) => b.price)) : 0;
   const MAX_PRICE = ALL_RATES.length > 0 ? Math.max(...ALL_RATES.map((b) => b.price)) : 100000;
 
   const [priceRange, setPriceRange]       = useState<[number, number]>([MIN_PRICE, MAX_PRICE]);
   const [selectedBrand, setSelectedBrand] = useState("All Brands");
   const [selectedCat, setSelectedCat]     = useState("All Types");
-  const [selectedCity, setSelectedCity]   = useState("All Cities");
   const [sidebarOpen, setSidebarOpen]     = useState(false);
   const [viewMode, setViewMode]           = useState<ViewMode>("grid");
   const [sortBy, setSortBy]               = useState<SortKey>("latest");
@@ -64,14 +63,13 @@ export default function MaterialPageClient({
       .filter((b) => b.price >= priceRange[0] && b.price <= priceRange[1])
       .filter((b) => selectedBrand === "All Brands" || b.brand === selectedBrand)
       .filter((b) => selectedCat   === "All Types"  || b.category === selectedCat)
-      .filter((b) => selectedCity  === "All Cities"  || b.city === selectedCity)
       .sort((a, b) => {
         if (sortBy === "price-asc")  return a.price - b.price;
         if (sortBy === "price-desc") return b.price - a.price;
         if (sortBy === "name")       return a.brand.localeCompare(b.brand);
         return 0;
       });
-  }, [ALL_RATES, priceRange, selectedBrand, selectedCat, selectedCity, sortBy]);
+  }, [ALL_RATES, priceRange, selectedBrand, selectedCat, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const results = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
@@ -80,13 +78,11 @@ export default function MaterialPageClient({
     setPriceRange([MIN_PRICE, MAX_PRICE]);
     setSelectedBrand("All Brands");
     setSelectedCat("All Types");
-    setSelectedCity("All Cities");
     setCurrentPage(1);
   };
 
   return (
     <div className="pt-24 bg-gray-50 min-h-screen">
-      {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-50 lg:hidden"
@@ -103,7 +99,7 @@ export default function MaterialPageClient({
         </nav>
 
         <div className="flex gap-6 items-start">
-          {/* ── LEFT SIDEBAR ──────────────────────────────────────────── */}
+          {/* ── LEFT SIDEBAR ── */}
           <aside
             className={`
               w-60 shrink-0 bg-white border border-gray-200 rounded-xl p-4
@@ -155,16 +151,9 @@ export default function MaterialPageClient({
                 <RadioOption key={cat} name="category" label={cat} checked={selectedCat === cat} onChange={() => { setSelectedCat(cat); setCurrentPage(1); }} />
               ))}
             </FilterSection>
-
-            <FilterSection title="Cities">
-              {CITIES.map((c) => (
-                <RadioOption key={c} name="city" label={c} checked={selectedCity === c} onChange={() => { setSelectedCity(c); setCurrentPage(1); }}
-                  count={c !== "All Cities" ? ALL_RATES.filter((x) => x.city === c).length : undefined} />
-              ))}
-            </FilterSection>
           </aside>
 
-          {/* ── MAIN CONTENT ──────────────────────────────────────────── */}
+          {/* ── MAIN CONTENT ── */}
           <main className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold text-gray-900 mb-1 lg:text-3xl">
               {pageTitle} – {new Date().toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -276,7 +265,7 @@ export default function MaterialPageClient({
               </div>
             )}
 
-            {/* ── CMS Page Description ─────────────────────────────────── */}
+            {/* CMS Page Description */}
             {pageContent && (
               <div className="mt-10 pt-8 border-t border-gray-200">
                 {cmsPageTitle && (
@@ -314,8 +303,6 @@ export default function MaterialPageClient({
     </div>
   );
 }
-
-// ── Reusable sub-components ────────────────────────────────────────────────────
 
 function FilterSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (

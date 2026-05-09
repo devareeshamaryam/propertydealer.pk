@@ -45,15 +45,13 @@ export default function MaterialPageClient({
 
   const BRANDS    = ["All Brands", ...Array.from(new Set(ALL_RATES.map((b) => b.brand)))];
   const CATEGORIES = ["All Types", ...Array.from(new Set(ALL_RATES.map((b) => b.category ?? "Standard")))];
-  const CITIES    = ["All Cities", ...Array.from(new Set(ALL_RATES.map((b) => b.city).filter(Boolean)))];
-  const MIN_PRICE = ALL_RATES.length > 0 ? Math.min(...ALL_RATES.map((b) => b.price)) : 0;
+    const MIN_PRICE = ALL_RATES.length > 0 ? Math.min(...ALL_RATES.map((b) => b.price)) : 0;
   const MAX_PRICE = ALL_RATES.length > 0 ? Math.max(...ALL_RATES.map((b) => b.price)) : 100000;
 
   const [priceRange, setPriceRange]       = useState<[number, number]>([MIN_PRICE, MAX_PRICE]);
   const [selectedBrand, setSelectedBrand] = useState("All Brands");
   const [selectedCat, setSelectedCat]     = useState("All Types");
-  const [selectedCity, setSelectedCity]   = useState("All Cities");
-  const [sidebarOpen, setSidebarOpen]     = useState(false);
+    const [sidebarOpen, setSidebarOpen]     = useState(false);
   const [viewMode, setViewMode]           = useState<ViewMode>("grid");
   const [sortBy, setSortBy]               = useState<SortKey>("latest");
   const [perPage, setPerPage]             = useState(16);
@@ -64,14 +62,13 @@ export default function MaterialPageClient({
       .filter((b) => b.price >= priceRange[0] && b.price <= priceRange[1])
       .filter((b) => selectedBrand === "All Brands" || b.brand === selectedBrand)
       .filter((b) => selectedCat   === "All Types"  || b.category === selectedCat)
-      .filter((b) => selectedCity  === "All Cities"  || b.city === selectedCity)
-      .sort((a, b) => {
+            .sort((a, b) => {
         if (sortBy === "price-asc")  return a.price - b.price;
         if (sortBy === "price-desc") return b.price - a.price;
         if (sortBy === "name")       return a.brand.localeCompare(b.brand);
         return 0;
       });
-  }, [ALL_RATES, priceRange, selectedBrand, selectedCat, selectedCity, sortBy]);
+  }, [ALL_RATES, priceRange, selectedBrand, selectedCat, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / perPage));
   const results = filtered.slice((currentPage - 1) * perPage, currentPage * perPage);
@@ -80,7 +77,6 @@ export default function MaterialPageClient({
     setPriceRange([MIN_PRICE, MAX_PRICE]);
     setSelectedBrand("All Brands");
     setSelectedCat("All Types");
-    setSelectedCity("All Cities");
     setCurrentPage(1);
   };
 
@@ -156,13 +152,7 @@ export default function MaterialPageClient({
               ))}
             </FilterSection>
 
-            <FilterSection title="Cities">
-              {CITIES.map((c) => (
-                <RadioOption key={c} name="city" label={c} checked={selectedCity === c} onChange={() => { setSelectedCity(c); setCurrentPage(1); }}
-                  count={c !== "All Cities" ? ALL_RATES.filter((x) => x.city === c).length : undefined} />
-              ))}
-            </FilterSection>
-          </aside>
+                      </aside>
 
           {/* ── MAIN CONTENT ──────────────────────────────────────────── */}
           <main className="flex-1 min-w-0">

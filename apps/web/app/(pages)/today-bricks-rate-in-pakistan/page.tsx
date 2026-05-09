@@ -6,32 +6,31 @@ export const revalidate = 60; // Revalidate every 60 seconds
 
 export const metadata: Metadata = {
   title: "Today Bricks Rate in Pakistan 2026 | PropertyDealer.pk",
-  description:
-    "Check today's latest bricks rates in Pakistan. Updated daily prices of all major brick brands and suppliers across Lahore, Karachi, Islamabad and more.",
-  keywords: [
-    "bricks rate in Pakistan",
-    "today bricks price",
-    "brick rate today",
-    "bricks price Pakistan",
-    "eent rate in Pakistan",
-  ],
-  alternates: {
-    canonical: "/today-bricks-rate-in-pakistan",
-  },
-  openGraph: {
-    title: "Today Bricks Rate in Pakistan 2026 | PropertyDealer.pk",
-    description: "Check today's latest bricks rates in Pakistan. Updated daily prices.",
-    type: "article",
-  },
+  description: "Check today's latest bricks rates in Pakistan. Updated daily prices from top brands and suppliers.",
 };
+
+async function getBricksRates() {
+  try {
+    const apiUrl = process.env.INTERNAL_API_URL || "http://localhost:3010";
+    const res = await fetch(`${apiUrl}/api/bricks-rate`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    return res.json();
+  } catch (error) {
+    console.error("Error fetching bricks rates:", error);
+    return [];
+  }
+}
 
 export default async function BricksRatePage() {
   let rates: any[] = [];
   let pageContent: string | null = null;
   let pageTitle: string | null = null;
 
+  // Fetch rates + CMS page content in parallel
   const [ratesResult, pageResult] = await Promise.allSettled([
-    serverApi.getMaterialRates("Bricks"),
+    getBricksRates(),
     serverApi.getPageBySlug("today-bricks-rate-in-pakistan"),
   ]);
 

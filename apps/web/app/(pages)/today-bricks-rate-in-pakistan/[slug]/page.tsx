@@ -1,4 +1,4 @@
-import { serverApi } from "@/lib/server-api";
+ import { serverApi } from "@/lib/server-api";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import MaterialDetailClient from "@/components/MaterialRate/MaterialDetailClient";
@@ -10,7 +10,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const rate = await serverApi.getMaterialRateBySlug(slug);
+    const rate = await serverApi.getBricksRateBySlug(slug);
     return {
       title: `${rate.brand} Bricks Price in Pakistan | PropertyDealer.pk`,
       description: `Today's ${rate.brand} bricks price is Rs ${rate.price}/${rate.unit}. Check latest rates and order online.`,
@@ -29,13 +29,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BricksDetailPage({ params }: Props) {
   const { slug } = await params;
-
   let rate: any;
   try {
-    rate = await serverApi.getMaterialRateBySlug(slug);
+    rate = await serverApi.getBricksRateBySlug(slug);
   } catch {
     notFound();
   }
-
   return <MaterialDetailClient rate={rate} materialType="Bricks" />;
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { SteelRate, SteelRateDocument } from '@rent-ghar/db/schemas/steel-rate.schema';
@@ -30,7 +30,10 @@ export class SteelRateService {
   }
 
   async findBySlug(slug: string): Promise<SteelRateDocument> {
-    const rate = await this.steelRateModel.findOne({ slug }).exec();
+    let rate = await this.steelRateModel.findOne({ slug }).exec();
+    if (!rate && isValidObjectId(slug)) {
+      rate = await this.steelRateModel.findById(slug).exec();
+    }
     if (!rate) throw new NotFoundException(`Steel rate not found: ${slug}`);
     return rate;
   }

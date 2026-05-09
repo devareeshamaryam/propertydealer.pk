@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { TileRate, TileRateDocument } from '@rent-ghar/db/schemas/tile-rate.schema';
@@ -30,7 +30,10 @@ export class TileRateService {
   }
 
   async findBySlug(slug: string): Promise<TileRateDocument> {
-    const rate = await this.tileRateModel.findOne({ slug }).exec();
+    let rate = await this.tileRateModel.findOne({ slug }).exec();
+    if (!rate && isValidObjectId(slug)) {
+      rate = await this.tileRateModel.findById(slug).exec();
+    }
     if (!rate) throw new NotFoundException(`Tile rate not found: ${slug}`);
     return rate;
   }

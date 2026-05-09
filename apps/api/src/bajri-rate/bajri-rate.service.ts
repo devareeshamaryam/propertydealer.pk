@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { BajriRate, BajriRateDocument } from '@rent-ghar/db/schemas/bajri-rate.schema';
@@ -30,7 +30,10 @@ export class BajriRateService {
   }
 
   async findBySlug(slug: string): Promise<BajriRateDocument> {
-    const rate = await this.bajriRateModel.findOne({ slug }).exec();
+    let rate = await this.bajriRateModel.findOne({ slug }).exec();
+    if (!rate && isValidObjectId(slug)) {
+      rate = await this.bajriRateModel.findById(slug).exec();
+    }
     if (!rate) throw new NotFoundException(`Bajri rate not found: ${slug}`);
     return rate;
   }

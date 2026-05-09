@@ -2,10 +2,6 @@
 import { Blog } from './types/blog';
 import { BackendProperty } from './types/property-utils';
 
-// For server-side (SSR/SSG) fetches, use the internal URL to avoid routing
-// through the public internet/nginx when both Next.js and the API share the same host.
-// INTERNAL_API_URL should be set to http://localhost:<API_PORT> in production.
-// Falls back to NEXT_PUBLIC_API_URL (browser-facing URL) then localhost:3005.
 const RAW_API_URL =
   process.env.INTERNAL_API_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
@@ -16,14 +12,7 @@ const BASE_URL = RAW_API_URL.trim().endsWith('/')
 
 console.log('🚀 Server API Base URL:', BASE_URL);
 
-/**
- * Server-side API utility that uses standard fetch with Next.js caching.
- * This is meant to be used in Server Components.
- */
 export const serverApi = {
-  /**
-   * Fetch data with revalidation tags/time for optimal performance.
-   */
   async get<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = path.startsWith('/') ? `${BASE_URL}${path}` : `${BASE_URL}/${path}`;
     
@@ -31,7 +20,7 @@ export const serverApi = {
       const response = await fetch(url, {
         ...options,
         next: {
-          revalidate: 3600, // Default cache for 1 hour
+          revalidate: 3600,
           ...options.next,
         },
       });
@@ -55,7 +44,7 @@ export const serverApi = {
 
   // City API
   async getCities(): Promise<any[]> {
-    return this.get('/cities', { next: { revalidate: 60, tags: ['cities'] } }); // Cache cities for 1 minute
+    return this.get('/cities', { next: { revalidate: 60, tags: ['cities'] } });
   },
 
   async getCityByName(name: string): Promise<any> {
@@ -65,11 +54,11 @@ export const serverApi = {
   // Property API
   async getProperties(params: string = ''): Promise<any> {
     const path = params ? `/properties?${params}` : '/properties';
-    return this.get(path, { next: { revalidate: 60 } }); // Cache properties for 1 minute
+    return this.get(path, { next: { revalidate: 60 } });
   },
 
   async getTypes(): Promise<string[]> {
-    return this.get('/properties/types', { next: { revalidate: 60 } }); // Cache types for 1 minute
+    return this.get('/properties/types', { next: { revalidate: 60 } });
   },
 
   async getAreaBySlug(slug: string, cityId?: string): Promise<any> {
@@ -93,7 +82,7 @@ export const serverApi = {
 
   // Blog API
   async getPublishedBlogs(): Promise<Blog[]> {
-    return this.get('/blog/published', { next: { revalidate: 1800 } }); // Cache blogs for 30 minutes
+    return this.get('/blog/published', { next: { revalidate: 1800 } });
   },
 
   // Page API
@@ -114,7 +103,7 @@ export const serverApi = {
     return this.get(`/cement-rate/slug/${slug}`, { next: { revalidate: 60 } });
   },
 
-  // Material Rate API
+  // Material Rate API (generic)
   async getMaterialRates(materialType: string): Promise<any[]> {
     try {
       return this.get(`/material-rate?materialType=${encodeURIComponent(materialType)}`, { next: { revalidate: 60, tags: ['material-rates'] } });
@@ -125,5 +114,96 @@ export const serverApi = {
 
   async getMaterialRateBySlug(slug: string): Promise<any> {
     return this.get(`/material-rate/slug/${slug}`, { next: { revalidate: 60 } });
+  },
+
+  // Sand Rate API
+  async getSandRates(): Promise<any[]> {
+    try {
+      return this.get('/sand-rate', { next: { revalidate: 60, tags: ['sand-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getSandRateBySlug(slug: string): Promise<any> {
+    return this.get(`/sand-rate/slug/${slug}`, { next: { revalidate: 60 } });
+  },
+
+  // Steel Rate API
+  async getSteelRates(): Promise<any[]> {
+    try {
+      return this.get('/steel-rate', { next: { revalidate: 60, tags: ['steel-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getSteelRateBySlug(slug: string): Promise<any> {
+    return this.get(`/steel-rate/slug/${slug}`, { next: { revalidate: 60 } });
+  },
+
+  // Wood Rate API
+  async getWoodRates(): Promise<any[]> {
+    try {
+      return this.get('/wood-rate', { next: { revalidate: 60, tags: ['wood-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getWoodRateBySlug(slug: string): Promise<any> {
+    return this.get(`/wood-rate/slug/${slug}`, { next: { revalidate: 60 } });
+  },
+
+  // Door Rate API
+  async getDoorRates(): Promise<any[]> {
+    try {
+      return this.get('/door-rate', { next: { revalidate: 60, tags: ['door-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getDoorRateBySlug(slug: string): Promise<any> {
+    return this.get(`/door-rate/slug/${slug}`, { next: { revalidate: 60 } });
+  },
+
+  // Bajri Rate API
+  async getBajriRates(): Promise<any[]> {
+    try {
+      return this.get('/bajri-rate', { next: { revalidate: 60, tags: ['bajri-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getBajriRateBySlug(slug: string): Promise<any> {
+    return this.get(`/bajri-rate/slug/${slug}`, { next: { revalidate: 60 } });
+  },
+
+  // Tile Rate API
+  async getTileRates(): Promise<any[]> {
+    try {
+      return this.get('/tile-rate', { next: { revalidate: 60, tags: ['tile-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getTileRateBySlug(slug: string): Promise<any> {
+    return this.get(`/tile-rate/slug/${slug}`, { next: { revalidate: 60 } });
+  },
+
+  // Bricks Rate API
+  async getBricksRates(): Promise<any[]> {
+    try {
+      return this.get('/bricks-rate', { next: { revalidate: 60, tags: ['bricks-rates'] } });
+    } catch {
+      return [];
+    }
+  },
+
+  async getBricksRateBySlug(slug: string): Promise<any> {
+    return this.get(`/bricks-rate/slug/${slug}`, { next: { revalidate: 60 } });
   },
 };
