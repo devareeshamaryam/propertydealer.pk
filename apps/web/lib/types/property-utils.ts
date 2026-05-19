@@ -46,7 +46,8 @@ export interface BackendProperty {
   features?: string[];
   mainPhotoUrl?: string;
   additionalPhotosUrls?: string[];
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'draft';
+  source?: string;
   owner?: any;
   createdAt?: string;
   updatedAt?: string;

@@ -87,15 +87,32 @@ export class PropertyService {
         }).select('_id title slug').exec();
         await this.ensureSlugForProperties(missing);
     }
-    async create(userId: string, dto: CreatePropertyDto, mainPhotoUrl?: string, additionalPhotosUrls?: string[], userRole?: string) {
+    async create(userId: string, dto: CreatePropertyDto, mainPhotoUrl?: string, additionalPhotosUrls?: string[], userRole?: string, options?: { source?: string; status?: 'pending' | 'approved' | 'rejected' | 'draft' }) {
         // Validation: Verify user exists if not admin (though controller handles auth)
         // Check subscription unless user is admin
         let subscriptionId: string | undefined;
         const fs = require('fs');
 
-        fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Start create. User: ${userId}, Role: ${userRole}\n`);
+        // Resolve final status with role-based safety:
+        // - ADMIN can set anything (default 'pending' for backward compatibility)
+        // - non-admin can save as 'draft' or submit as 'pending' (default)
+        // - non-admin cannot self-approve / reject — gets coerced to 'pending'
+        const requested = options?.status ?? dto.status;
+        let finalStatus: 'pending' | 'approved' | 'rejected' | 'draft' = 'pending';
+        if (requested === 'draft') {
+            finalStatus = 'draft';
+        } else if (userRole === 'ADMIN' && requested) {
+            finalStatus = requested;
+        }
 
-        if (userRole !== 'ADMIN') {
+        const source = options?.source || 'manual';
+
+        fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Start create. User: ${userId}, Role: ${userRole}, Status: ${finalStatus}, Source: ${source}\n`);
+
+        // Drafts do not consume subscription slots — they aren't published yet.
+        const consumesSubscription = userRole !== 'ADMIN' && finalStatus !== 'draft';
+
+        if (consumesSubscription) {
           fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Checking subscription for user ${userId}\n`);
           // SYNC: Before checking subscription, ensure the count is accurate
           const actualCount = await this.propertyModel.countDocuments({ 
@@ -148,7 +165,8 @@ export class PropertyService {
               owner: userId,
               mainPhotoUrl,
               additionalPhotosUrls: additionalPhotosUrls || [],
-              status: 'pending',
+              status: finalStatus,
+              source,
               latitude: dto.latitude ? Number(dto.latitude) : undefined,
               longitude: dto.longitude ? Number(dto.longitude) : undefined,
             })
@@ -498,9 +516,14 @@ export class PropertyService {
         }
       }
 
-      async updateStatus(id: string) {
-        const property = await this.propertyModel.findByIdAndUpdate(id, { status: 'approved' }, { new: true }).exec();
-        
+      async updateStatus(id: string, status: 'pending' | 'approved' | 'rejected' | 'draft' = 'approved') {
+        const allowed: Array<'pending' | 'approved' | 'rejected' | 'draft'> = ['pending', 'approved', 'rejected', 'draft'];
+        if (!allowed.includes(status)) {
+            throw new BadRequestException(`Invalid status: ${status}`);
+        }
+
+        const property = await this.propertyModel.findByIdAndUpdate(id, { status }, { new: true }).exec();
+
         if (property && property.status === 'approved' && property.slug) {
             const host = this.configService.get<string>('APP_HOST') || 'propertydealer.pk';
             const url = `https://${host}/p/${property.slug}`;
@@ -547,6 +570,17 @@ export class PropertyService {
             latitude: dto.latitude ? Number(dto.latitude) : undefined,
             longitude: dto.longitude ? Number(dto.longitude) : undefined,
           };
+
+          // Status changes via update() — role-based:
+          // - ADMIN: any status allowed
+          // - non-admin owner: can flip between 'draft' and 'pending' only
+          if (dto.status) {
+            if (userRole === 'ADMIN') {
+              updateData.status = dto.status;
+            } else if (dto.status === 'draft' || dto.status === 'pending') {
+              updateData.status = dto.status;
+            }
+          }
 
           if (dto.slug && dto.slug.trim() !== '') {
             // Explicitly requested a new slug

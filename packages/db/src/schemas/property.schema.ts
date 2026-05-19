@@ -75,8 +75,12 @@ export class Property extends Document {
   @Prop({ default: false })
   isFeatured: boolean
 
-  @Prop({ default: 'pending', index: true })
-  status: 'pending' | 'approved' | 'rejected'
+  @Prop({ default: 'pending', index: true, enum: ['pending', 'approved', 'rejected', 'draft'] })
+  status: 'pending' | 'approved' | 'rejected' | 'draft'
+
+  // Optional source tag (e.g. 'manual', 'api', 'n8n') so admin can see automated vs manual drafts
+  @Prop({ type: String, default: 'manual' })
+  source?: string
 
   @Prop({ type: Number })
   latitude?: number

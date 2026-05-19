@@ -94,6 +94,10 @@ export default function EditProperty() {
 
   const [features, setFeatures] = useState<string[]>([''])
 
+  // Track existing status so we can offer publish-from-draft semantics in the
+  // submit buttons. Possible values match the backend: pending|approved|rejected|draft.
+  const [currentStatus, setCurrentStatus] = useState<'pending' | 'approved' | 'rejected' | 'draft' | undefined>(undefined)
+
   const params = useParams()
   const propertyId = params.id as string
 
@@ -196,6 +200,7 @@ export default function EditProperty() {
         setExistingImages(property.additionalPhotosUrls || [])
 
         setFeatures(property.features && property.features.length > 0 ? property.features : [''])
+        setCurrentStatus(property.status)
       } catch (error: any) {
         console.error('Error fetching property:', error)
         toast.error('Error', {
@@ -365,19 +370,32 @@ export default function EditProperty() {
     return mapping[type] || type.toLowerCase()
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // `targetStatus` lets the same handler power three buttons:
+  //   - undefined  -> just save (preserve existing status)
+  //   - 'draft'    -> save and force draft
+  //   - 'pending'  -> publish (re-submit for approval / publish if admin)
+  const handleSubmit = async (e: React.FormEvent, targetStatus?: 'draft' | 'pending') => {
     e.preventDefault()
 
-    // Validation
-    if (!propertyType || !cityId || !areaId || !title || !location || !bedrooms || !bathrooms || !areaSize || !price || !description || !contactNumber) {
-      toast.error('Please fill in all required fields')
-      return
-    }
+    const isDraftSave = targetStatus === 'draft'
 
-    // Main image is optional when editing (only required if no existing preview)
-    if (!mainImageFile && !mainImagePreview) {
-      toast.error('Please upload a main photo or keep the existing one')
-      return
+    // Validation: drafts only require a title; otherwise enforce full set.
+    if (isDraftSave) {
+      if (!title) {
+        toast.error('Please enter at least a title to save as draft')
+        return
+      }
+    } else {
+      if (!propertyType || !cityId || !areaId || !title || !location || !bedrooms || !bathrooms || !areaSize || !price || !description || !contactNumber) {
+        toast.error('Please fill in all required fields')
+        return
+      }
+
+      // Main image is optional when editing (only required if no existing preview)
+      if (!mainImageFile && !mainImagePreview) {
+        toast.error('Please upload a main photo or keep the existing one')
+        return
+      }
     }
 
     setIsLoading(true)
@@ -429,12 +447,22 @@ export default function EditProperty() {
         })
       }
 
+      // Communicate desired status change to backend (role-based enforcement
+      // happens server-side: non-admins can only flip between draft/pending).
+      if (targetStatus) formData.append('status', targetStatus)
+
       // Update property using the property ID
       const response = await propertyApi.update(propertyId, formData)
 
-      toast.success('Property updated successfully!', {
-        description: 'Your property has been updated.',
-      })
+      const successMsg = isDraftSave
+        ? 'Saved as draft'
+        : targetStatus === 'pending'
+          ? 'Property submitted for approval'
+          : 'Property updated successfully!'
+      const successDesc = isDraftSave
+        ? 'You can publish it later from the dashboard.'
+        : 'Your property has been updated.'
+      toast.success(successMsg, { description: successDesc })
 
       // Redirect to dashboard after a short delay
       setTimeout(() => {
@@ -464,7 +492,7 @@ export default function EditProperty() {
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Update Property</h1>
           <p className="text-gray-600 mb-8">Fill in the details to update your property</p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={(e) => handleSubmit(e)} className="space-y-6">
             {/* Listing Type */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -940,11 +968,11 @@ export default function EditProperty() {
             </div>
 
             {/* Submit Buttons */}
-            <div className="flex gap-4 pt-6">
+            <div className="flex flex-wrap gap-4 pt-6">
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 bg-gray-800 hover:bg-gray-900"
+                className="flex-1 min-w-[180px] bg-gray-800 hover:bg-gray-900"
               >
                 {isLoading ? (
                   <>
@@ -952,7 +980,44 @@ export default function EditProperty() {
                     Submitting...
                   </>
                 ) : (
-                  'Update Property'
+                  currentStatus === 'draft' ? 'Save Changes' : 'Update Property'
+                )}
+              </Button>
+
+              {/* If currently a draft, expose a Publish button to flip status */}
+              {currentStatus === 'draft' && (
+                <Button
+                  type="button"
+                  onClick={(e: any) => handleSubmit(e, 'pending')}
+                  disabled={isLoading}
+                  className="min-w-[160px] bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    'Publish'
+                  )}
+                </Button>
+              )}
+
+              {/* Always allow saving the current draft (or downgrading) */}
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={(e: any) => handleSubmit(e, 'draft')}
+                disabled={isLoading}
+                className="min-w-[160px]"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save as Draft'
                 )}
               </Button>
               <Button

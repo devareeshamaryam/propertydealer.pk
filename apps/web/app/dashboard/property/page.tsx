@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { propertyApi } from '@/lib/api';
 import { BackendProperty } from '@/lib/types/property-utils';
-import { Loader2, Eye, Edit, Trash2, RefreshCcw, Check, X } from 'lucide-react';
+import { Loader2, Eye, Edit, Trash2, RefreshCcw, Check, X, Send, FileText } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -36,6 +36,8 @@ export default function DashboardHome() {
   const [error, setError] = useState<string | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<BackendProperty | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
+  // Filter the table by status. 'all' shows everything.
+  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'rejected'>('all');
 
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
@@ -72,12 +74,26 @@ export default function DashboardHome() {
     }
   };
 
-  const updateStatus = async (propertyId: string) => {
+  // Toggle/explicit-set property status. When `targetStatus` is provided we set
+  // it directly (used by the Publish-from-draft action); otherwise we toggle
+  // between approved <-> pending (legacy behaviour).
+  const updateStatus = async (
+    propertyId: string,
+    currentStatus?: string,
+    targetStatus?: 'pending' | 'approved' | 'rejected' | 'draft',
+  ) => {
     try {
-      const response = await propertyApi.updateStatus(propertyId);
-      console.log(response);
+      const next: 'pending' | 'approved' | 'rejected' | 'draft' =
+        targetStatus ?? (currentStatus === 'approved' ? 'pending' : 'approved');
+      const response = await propertyApi.updateStatus(propertyId, next);
       if (response.success) {
-        toast.success('Status updated successfully');
+        toast.success(
+          next === 'approved'
+            ? 'Property approved'
+            : next === 'pending'
+              ? 'Sent for approval'
+              : `Status set to ${next}`,
+        );
         // Refresh the list
         const data = await propertyApi.getAllProperties();
         setProperties(Array.isArray(data) ? data : []);
@@ -86,20 +102,16 @@ export default function DashboardHome() {
       }
     } catch (error) {
       console.error('Error updating status:', error);
+      toast.error('Failed to update status');
     }
   }
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      approved: 'default',
-      pending: 'secondary',
-      rejected: 'destructive',
-    };
-
     const colors: Record<string, string> = {
       approved: 'bg-green-100 text-green-800 hover:bg-green-100',
       pending: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
       rejected: 'bg-red-100 text-red-800 hover:bg-red-100',
+      draft: 'bg-slate-200 text-slate-700 hover:bg-slate-200',
     };
 
     return (
@@ -133,6 +145,34 @@ export default function DashboardHome() {
           <Button onClick={() => router.push('/dashboard/property/add-property')}>
             Add New Property
           </Button>
+        </div>
+
+        {/* Status filter tabs */}
+        <div className="mt-6 flex flex-wrap gap-2">
+          {(['all', 'draft', 'pending', 'approved', 'rejected'] as const).map((s) => {
+            const count =
+              s === 'all'
+                ? properties.length
+                : properties.filter((p) => p.status === s).length;
+            const active = statusFilter === s;
+            return (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatusFilter(s)}
+                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  active
+                    ? 'bg-gray-900 text-white border-gray-900'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+                <span className={`ml-2 inline-flex items-center justify-center text-xs rounded-full px-2 ${active ? 'bg-white/20' : 'bg-gray-100'}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -171,7 +211,9 @@ export default function DashboardHome() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {properties.map((property) => (
+              {properties
+                .filter((p) => statusFilter === 'all' || p.status === statusFilter)
+                .map((property) => (
                 <TableRow key={property._id}>
                   <TableCell className="font-medium">
                     <div className="max-w-[200px]">
@@ -213,12 +255,25 @@ export default function DashboardHome() {
 
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {isAdmin && (
+                      {/* Publish-from-draft: available to owners and admins.
+                          Server enforces role-based status changes. */}
+                      {property.status === 'draft' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-md hover:bg-emerald-50"
+                          onClick={() => updateStatus(property._id, property.status, isAdmin ? 'approved' : 'pending')}
+                          title={isAdmin ? 'Publish (approve)' : 'Submit for approval'}
+                        >
+                          <Send className="w-4 h-4 text-emerald-600" />
+                        </Button>
+                      )}
+                      {isAdmin && property.status !== 'draft' && (
                         <Button
                           variant="ghost"
                           size="sm"
                           className="btn btn-sm rounded-md hover:bg-green-50"
-                          onClick={() => updateStatus(property._id)}
+                          onClick={() => updateStatus(property._id, property.status)}
                           title={property.status === 'approved' ? 'Unapprove' : 'Approve'}
                         >
                           {property.status === 'approved' ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-red-600" />}

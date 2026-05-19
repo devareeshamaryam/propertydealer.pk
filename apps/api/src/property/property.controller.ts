@@ -92,7 +92,12 @@ export class PropertyController {
     try {
       const created = await this.propertyService.create(userId, dto as any, mainPhotoUrl, additionalPhotosUrls, userRole)
       fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Controller: property created successfully\n`);
-      return { message: 'Property submitted for approval', property: created }
+      const message = (created as any)?.status === 'draft'
+        ? 'Property saved as draft'
+        : (created as any)?.status === 'approved'
+          ? 'Property published successfully'
+          : 'Property submitted for approval';
+      return { message, property: created }
     } catch (error: any) {
       console.error('Error creating property in service:', error);
       fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Controller Error: ${(error as any)?.message}\nStack: ${(error as any)?.stack}\n`);
@@ -238,8 +243,11 @@ export class PropertyController {
 
   @Patch(':id/update-status')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async updateStatus(@Param('id') id: string) {
-    return await this.propertyService.updateStatus(id)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status?: 'pending' | 'approved' | 'rejected' | 'draft',
+  ) {
+    return await this.propertyService.updateStatus(id, status || 'approved')
   }
 
   @Delete(':id')

@@ -201,8 +201,8 @@ export const propertyApi = {
     return response.data;
   },
 
-  updateStatus: async (propertyId: string) => {
-    const response = await api.patch(`/properties/${propertyId}/update-status`);
+  updateStatus: async (propertyId: string, status?: 'pending' | 'approved' | 'rejected' | 'draft') => {
+    const response = await api.patch(`/properties/${propertyId}/update-status`, status ? { status } : {});
     return response.data;
   },
   // Create a new property

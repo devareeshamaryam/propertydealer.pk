@@ -265,7 +265,7 @@ export default function AddProperty() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, asDraft: boolean = false) => {
     e.preventDefault()
 
     const computedSlug = slug?.trim() ? slug : generateSlug(title)
@@ -274,15 +274,24 @@ export default function AddProperty() {
       setIsSlugEdited(false)
     }
 
-    // Validation
-    if (!propertyType || !cityId || !areaId || !title || !computedSlug || !location || !bedrooms || !bathrooms || !areaSize || !price || !description || !contactNumber) {
-      toast.error('Please fill in all required fields')
-      return
-    }
+    // Validation. Drafts are intentionally lenient — only the title is required
+    // so that admins can save partially-filled WIP listings (matches WordPress
+    // draft behaviour). Publish/submit still requires the full set of fields.
+    if (asDraft) {
+      if (!title) {
+        toast.error('Please enter at least a title to save as draft')
+        return
+      }
+    } else {
+      if (!propertyType || !cityId || !areaId || !title || !computedSlug || !location || !bedrooms || !bathrooms || !areaSize || !price || !description || !contactNumber) {
+        toast.error('Please fill in all required fields')
+        return
+      }
 
-    if (!mainImageFile && !mainImageUrl) {
-      toast.error('Please upload a main photo or select one from the gallery')
-      return
+      if (!mainImageFile && !mainImageUrl) {
+        toast.error('Please upload a main photo or select one from the gallery')
+        return
+      }
     }
 
     setIsLoading(true)
@@ -334,12 +343,19 @@ export default function AddProperty() {
         })
       }
 
+      // Indicate intent to backend so it can apply role-based status logic
+      if (asDraft) formData.append('status', 'draft')
+
       // Submit to API
       const response = await propertyApi.create(formData)
 
-      toast.success('Property submitted successfully!', {
-        description: 'Your property is pending approval and will be visible once approved.',
-      })
+      const successMsg = asDraft
+        ? 'Saved as draft'
+        : 'Property submitted successfully!'
+      const successDesc = asDraft
+        ? 'You can find it under Drafts and publish it later from the dashboard.'
+        : 'Your property is pending approval and will be visible once approved.'
+      toast.success(successMsg, { description: successDesc })
 
       // Redirect to dashboard after a short delay
       setTimeout(() => {
@@ -369,7 +385,7 @@ export default function AddProperty() {
           <h1 className="text-3xl font-bold text-gray-800 mb-2">Add New Property</h1>
           <p className="text-gray-600 mb-8">Fill in the details to list your property</p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
             {/* Listing Type */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -915,11 +931,11 @@ export default function AddProperty() {
             </div>
 
             {/* Submit Buttons */}
-            <div className="flex gap-4 pt-6">
+            <div className="flex flex-wrap gap-4 pt-6">
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="flex-1 bg-gray-800 hover:bg-gray-900"
+                className="flex-1 min-w-[180px] bg-gray-800 hover:bg-gray-900"
               >
                 {isLoading ? (
                   <>
@@ -928,6 +944,22 @@ export default function AddProperty() {
                   </>
                 ) : (
                   'Publish Property'
+                )}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={(e: any) => handleSubmit(e, true)}
+                disabled={isLoading}
+                className="min-w-[160px]"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save as Draft'
                 )}
               </Button>
               <Button

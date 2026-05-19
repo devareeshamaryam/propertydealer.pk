@@ -103,7 +103,7 @@ async function bootstrap() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // Explicit methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Explicit headers
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'], // Explicit headers (x-api-key for ListingApi)
     maxAge: 3600, // Cache preflight for 1 hour
   });
 
