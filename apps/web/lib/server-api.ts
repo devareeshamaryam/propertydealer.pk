@@ -194,6 +194,15 @@ export const serverApi = {
     return this.get(`/tile-rate/slug/${slug}`, { next: { revalidate: 60 } });
   },
 
+  // Tile Category API
+  async getTileCategories(): Promise<any[]> {
+    try {
+      return this.get('/tile-category', { next: { revalidate: 300, tags: ['tile-categories'] } });
+    } catch {
+      return [];
+    }
+  },
+
   // Bricks Rate API
   async getBricksRates(): Promise<any[]> {
     try {

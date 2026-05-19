@@ -1,25 +1,35 @@
-import { Metadata } from "next";
+ import { Metadata } from "next";
 import { serverApi } from "@/lib/server-api";
 import MaterialPageClient from "./MaterialPageClient";
 
-export const revalidate = 60; // Revalidate every 60 seconds
+export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Today Tile Rate in Pakistan 2026 | PropertyDealer.pk",
-  description: "Check today's latest tile rates in Pakistan. Updated daily prices from top brands and suppliers.",
-};
-
-async function getTileRates() {
+export async function generateMetadata(): Promise<Metadata> {
   try {
-    const apiUrl = process.env.INTERNAL_API_URL || "http://localhost:3010";
-    const res = await fetch(`${apiUrl}/api/tile-rate`, {
-      cache: "no-store",
-    });
-    if (!res.ok) return [];
-    return res.json();
-  } catch (error) {
-    console.error("Error fetching tile rates:", error);
-    return [];
+    const page = await serverApi.getPageBySlug("today-tile-rate-in-pakistan");
+    return {
+      title: page?.metaTitle || "Today Tile Rate in Pakistan 2026 | PropertyDealer.pk",
+      description: page?.metaDescription || "Check today's latest tile rates in Pakistan. Updated daily prices from top brands and suppliers.",
+      keywords: page?.keywords || ["tile rate in Pakistan", "today tile price", "floor tiles price", "wall tiles rate"],
+      alternates: { canonical: "/today-tile-rate-in-pakistan" },
+      openGraph: {
+        title: page?.metaTitle || "Today Tile Rate in Pakistan 2026 | PropertyDealer.pk",
+        description: page?.metaDescription || "Check today's latest tile rates in Pakistan.",
+        type: "article",
+      },
+    };
+  } catch {
+    return {
+      title: "Today Tile Rate in Pakistan 2026 | PropertyDealer.pk",
+      description: "Check today's latest tile rates in Pakistan. Updated daily prices from top brands and suppliers.",
+      keywords: ["tile rate in Pakistan", "today tile price", "floor tiles price", "wall tiles rate"],
+      alternates: { canonical: "/today-tile-rate-in-pakistan" },
+      openGraph: {
+        title: "Today Tile Rate in Pakistan 2026 | PropertyDealer.pk",
+        description: "Check today's latest tile rates in Pakistan.",
+        type: "article",
+      },
+    };
   }
 }
 
@@ -27,11 +37,12 @@ export default async function TileRatePage() {
   let rates: any[] = [];
   let pageContent: string | null = null;
   let pageTitle: string | null = null;
+  let tileCategories: any[] = [];
 
-  // Fetch rates + CMS page content in parallel
-  const [ratesResult, pageResult] = await Promise.allSettled([
-    getTileRates(),
+  const [ratesResult, pageResult, categoriesResult] = await Promise.allSettled([
+    serverApi.getTileRates(),
     serverApi.getPageBySlug("today-tile-rate-in-pakistan"),
+    serverApi.getTileCategories(),
   ]);
 
   if (ratesResult.status === "fulfilled") {
@@ -43,6 +54,10 @@ export default async function TileRatePage() {
     pageTitle = pageResult.value.title ?? null;
   }
 
+  if (categoriesResult.status === "fulfilled") {
+    tileCategories = categoriesResult.value ?? [];
+  }
+
   return (
     <MaterialPageClient
       initialRates={rates}
@@ -50,6 +65,7 @@ export default async function TileRatePage() {
       pageTitle="Today Tile Rate in Pakistan"
       pageContent={pageContent}
       cmsPageTitle={pageTitle}
+      tileCategories={tileCategories}
     />
   );
 }

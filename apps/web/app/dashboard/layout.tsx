@@ -54,6 +54,7 @@ export default function DashboardLayout({
     '/dashboard/blog-category',
     '/dashboard/images-gallery',
     '/dashboard/cement-rate',
+    '/dashboard/tile-category',
     // '/dashboard/city',
     // '/dashboard/area',
   ];

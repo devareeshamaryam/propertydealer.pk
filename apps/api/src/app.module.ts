@@ -26,6 +26,7 @@ import { TileRateModule } from './tile-rate/tile-rate.module';
 import { BajriRateModule } from './bajri-rate/bajri-rate.module';
 import { SteelRateModule } from './steel-rate/steel-rate.module';
 import { BricksRateModule } from './bricks-rate/bricks-rate.module';
+import { TileCategoryModule } from './tile-category/tile-category.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import * as path from 'path';
 
@@ -91,6 +92,7 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     BajriRateModule,
     SteelRateModule,
     BricksRateModule,
+    TileCategoryModule,
   ],
   controllers: [AppController],
   providers: [AppService],
