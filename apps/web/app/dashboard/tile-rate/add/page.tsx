@@ -1,5 +1,5 @@
-'use client';
-import { useState, useRef } from 'react';
+ 'use client';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, Image as ImageIcon, X, Plus } from 'lucide-react';
@@ -14,20 +14,37 @@ const RichEditor = dynamic(() => import('@/components/RichEditor'), {
   loading: () => <div className="h-96 w-full bg-gray-100 animate-pulse rounded-lg" />,
 });
 
+interface TileCategory {
+  _id: string;
+  name: string;
+  slug: string;
+}
+
 export default function AddTileRatePage() {
   const router = useRouter();
   const mainFileRef = useRef<HTMLInputElement>(null);
   const extraFileRef = useRef<HTMLInputElement>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [categories, setCategories] = useState<TileCategory[]>([]);
+  const [catsLoading, setCatsLoading] = useState(true);
+
   const [form, setForm] = useState({
-    brand: '', price: '', change: '0', city: '', category: '', 
+    brand: '', price: '', change: '0', city: '', category: '',
     unit: '', description: '', isActive: 'true',
   });
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [extraImages, setExtraImages] = useState<Array<{ file: File; preview: string }>>([]);
+
+  // ── Fetch categories on mount ──────────────────────────────────
+  useEffect(() => {
+    api.get('/tile-category')
+      .then((res) => setCategories(res.data ?? []))
+      .catch(() => toast.error('Failed to load tile categories'))
+      .finally(() => setCatsLoading(false));
+  }, []);
 
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
 
@@ -86,7 +103,7 @@ export default function AddTileRatePage() {
       await api.post('/tile-rate', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
+
       toast.success('Tile rate added successfully!');
       router.push('/dashboard/tile-rate');
     } catch (err: any) {
@@ -179,10 +196,29 @@ export default function AddTileRatePage() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
+
+            {/* ✅ Dynamic Category Dropdown */}
             <div className="space-y-1.5">
               <Label htmlFor="category">Category</Label>
-              <Input id="category" value={form.category} onChange={e => set('category', e.target.value)} />
+              {catsLoading ? (
+                <div className="h-10 bg-gray-100 animate-pulse rounded-md" />
+              ) : (
+                <select
+                  id="category"
+                  value={form.category}
+                  onChange={e => set('category', e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">-- Select Category --</option>
+                  {categories.map((cat) => (
+                    <option key={cat._id} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="unit">Unit</Label>
               <Input id="unit" placeholder="e.g. Per Sq Ft" value={form.unit} onChange={e => set('unit', e.target.value)} />

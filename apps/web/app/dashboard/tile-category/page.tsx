@@ -1,120 +1,54 @@
-'use client';
+ 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Plus, Trash2, Loader2, ArrowLeft, Save } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, GripVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import api from '@/lib/api';
 
-interface Subcategory {
+interface TileCategory {
+  _id: string;
   name: string;
   slug: string;
+  image?: string;
+  order: number;
+  isActive: boolean;
+  subcategories: { name: string; slug: string }[];
+  createdAt: string;
 }
 
-function generateSlug(text: string): string {
-  return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-}
-
-export default function EditTileCategoryPage() {
+export default function TileCategoryListPage() {
   const router = useRouter();
-  const { id } = useParams();
+  const [categories, setCategories] = useState<TileCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
-
-  const [form, setForm] = useState({
-    name: '',
-    slug: '',
-    order: 0,
-    isActive: true,
-  });
-
-  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
-  const [newSub, setNewSub] = useState({ name: '', slug: '' });
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchCategory();
-  }, [id]);
+    fetchCategories();
+  }, []);
 
-  const fetchCategory = async () => {
+  const fetchCategories = async () => {
     try {
-      const response = await api.get(`/tile-category/${id}`);
-      const cat = response.data;
-      setForm({
-        name: cat.name,
-        slug: cat.slug,
-        order: cat.order ?? 0,
-        isActive: cat.isActive,
-      });
-      setSubcategories(cat.subcategories ?? []);
-      if (cat.image) setImagePreview(cat.image);
+      const response = await api.get('/tile-category/admin/all');
+      setCategories(response.data);
     } catch (error) {
-      toast.error('Failed to fetch category');
-      router.push('/dashboard/tile-category');
+      toast.error('Failed to fetch tile categories');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-  };
-
-  const addSubcategory = () => {
-    if (!newSub.name.trim()) return;
-    setSubcategories((prev) => [
-      ...prev,
-      { name: newSub.name.trim(), slug: newSub.slug || generateSlug(newSub.name) },
-    ]);
-    setNewSub({ name: '', slug: '' });
-  };
-
-  const removeSubcategory = (index: number) => {
-    setSubcategories((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async () => {
-    if (!form.name.trim()) {
-      toast.error('Category name is required');
-      return;
-    }
-
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return;
     try {
-      setSaving(true);
-
-      if (imageFile) {
-        const formData = new FormData();
-        formData.append('name', form.name.trim());
-        formData.append('slug', form.slug.trim());
-        formData.append('order', String(form.order));
-        formData.append('isActive', String(form.isActive));
-        formData.append('subcategories', JSON.stringify(subcategories));
-        formData.append('image', imageFile);
-        await api.put(`/tile-category/${id}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-      } else {
-        await api.put(`/tile-category/${id}`, {
-          name: form.name.trim(),
-          slug: form.slug.trim(),
-          order: form.order,
-          isActive: form.isActive,
-          subcategories,
-        });
-      }
-
-      toast.success('Category updated successfully!');
-      router.push('/dashboard/tile-category');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to update category');
+      setDeleting(id);
+      await api.delete(`/tile-category/${id}`);
+      toast.success('Category deleted successfully');
+      fetchCategories();
+    } catch (error) {
+      toast.error('Failed to delete category');
     } finally {
-      setSaving(false);
+      setDeleting(null);
     }
   };
 
@@ -127,155 +61,111 @@ export default function EditTileCategoryPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4 mr-1" /> Back
-        </Button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Tile Category</h1>
-          <p className="text-gray-500 mt-1">Update category details and subcategories</p>
+          <h1 className="text-3xl font-bold text-gray-900">Tile Categories</h1>
+          <p className="text-gray-500 mt-1">Manage tile categories and subcategories</p>
         </div>
-      </div>
-
-      <div className="bg-white rounded-lg border p-6 space-y-5">
-
-        {/* Name */}
-        <div className="space-y-1.5">
-          <Label>Category Name *</Label>
-          <Input
-            placeholder="e.g. Floor Tiles"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          />
-        </div>
-
-        {/* Slug */}
-        <div className="space-y-1.5">
-          <Label>Slug</Label>
-          <Input
-            placeholder="floor-tiles"
-            value={form.slug}
-            onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-          />
-          <p className="text-xs text-gray-400">URL-friendly identifier</p>
-        </div>
-
-        {/* Image */}
-        <div className="space-y-1.5">
-          <Label>Category Image</Label>
-          {imagePreview && (
-            <img src={imagePreview} alt="Current" className="w-32 h-24 object-cover rounded-lg border mb-2" />
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-          />
-          <p className="text-xs text-gray-400">Upload new image to replace current one</p>
-        </div>
-
-        {/* Order */}
-        <div className="space-y-1.5">
-          <Label>Display Order</Label>
-          <Input
-            type="number"
-            value={form.order}
-            onChange={(e) => setForm((f) => ({ ...f, order: Number(e.target.value) }))}
-            className="w-32"
-          />
-          <p className="text-xs text-gray-400">Lower number = shown first</p>
-        </div>
-
-        {/* Status */}
-        <div className="flex items-center gap-3">
-          <input
-            type="checkbox"
-            id="isActive"
-            checked={form.isActive}
-            onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
-            className="accent-black w-4 h-4"
-          />
-          <Label htmlFor="isActive" className="cursor-pointer">Active (visible on website)</Label>
-        </div>
-
-        {/* Subcategories */}
-        <div className="space-y-3 border-t pt-4">
-          <Label className="text-base font-semibold">Subcategories</Label>
-
-          {subcategories.length > 0 && (
-            <div className="space-y-2">
-              {subcategories.map((sub, i) => (
-                <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
-                  <div className="flex-1 flex gap-3">
-                    <Input
-                      value={sub.name}
-                      onChange={(e) => {
-                        const updated = [...subcategories];
-                        updated[i] = { ...updated[i], name: e.target.value };
-                        setSubcategories(updated);
-                      }}
-                      className="text-sm"
-                      placeholder="Name"
-                    />
-                    <Input
-                      value={sub.slug}
-                      onChange={(e) => {
-                        const updated = [...subcategories];
-                        updated[i] = { ...updated[i], slug: e.target.value };
-                        setSubcategories(updated);
-                      }}
-                      className="text-sm font-mono"
-                      placeholder="slug"
-                    />
-                  </div>
-                  <Button variant="ghost" size="sm" onClick={() => removeSubcategory(i)}>
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="flex gap-2 items-end">
-            <div className="flex-1 space-y-1">
-              <Label className="text-xs text-gray-500">Name</Label>
-              <Input
-                placeholder="e.g. Ceramic Floor Tiles"
-                value={newSub.name}
-                onChange={(e) => setNewSub((s) => ({
-                  ...s,
-                  name: e.target.value,
-                  slug: generateSlug(e.target.value),
-                }))}
-                onKeyDown={(e) => e.key === 'Enter' && addSubcategory()}
-              />
-            </div>
-            <div className="flex-1 space-y-1">
-              <Label className="text-xs text-gray-500">Slug</Label>
-              <Input
-                placeholder="ceramic-floor-tiles"
-                value={newSub.slug}
-                onChange={(e) => setNewSub((s) => ({ ...s, slug: e.target.value }))}
-                onKeyDown={(e) => e.key === 'Enter' && addSubcategory()}
-              />
-            </div>
-            <Button variant="outline" onClick={addSubcategory} className="mb-0.5">
-              <Plus className="w-4 h-4" />
-            </Button>
-          </div>
-          <p className="text-xs text-gray-400">Press Enter or click + to add subcategory</p>
-        </div>
-      </div>
-
-      <div className="flex gap-3">
-        <Button onClick={handleSubmit} disabled={saving} className="flex items-center gap-2">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Saving...' : 'Save Changes'}
+        <Button
+          onClick={() => router.push('/dashboard/tile-category/add')}
+          className="flex items-center gap-2"
+        >
+          <Plus className="w-4 h-4" /> Add Category
         </Button>
-        <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
       </div>
+
+      {categories.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg border">
+          <p className="text-gray-500">No categories found. Add your first one!</p>
+          <Button
+            onClick={() => router.push('/dashboard/tile-category/add')}
+            className="mt-4"
+          >
+            Add Category
+          </Button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg border overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Image</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slug</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subcategories</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {categories.map((cat) => (
+                <tr key={cat._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-sm text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <GripVertical className="w-4 h-4 text-gray-300" />
+                      {cat.order}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    {cat.image ? (
+                      <img
+                        src={cat.image}
+                        alt={cat.name}
+                        className="w-12 h-10 object-cover rounded-md border"
+                      />
+                    ) : (
+                      <div className="w-12 h-10 bg-gray-100 rounded-md border flex items-center justify-center text-gray-300 text-xs">
+                        No img
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{cat.name}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500 font-mono">{cat.slug}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {cat.subcategories?.length > 0 ? (
+                      <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                        {cat.subcategories.length} subcategories
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">None</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      cat.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {cat.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-right space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => router.push(`/dashboard/tile-category/edit/${cat._id}`)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDelete(cat._id)}
+                      disabled={deleting === cat._id}
+                    >
+                      {deleting === cat._id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      )}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-'use client';
+ 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { toast } from 'sonner';
@@ -77,6 +77,26 @@ export default function EditTileCategoryPage() {
 
   const removeSubcategory = (index: number) => {
     setSubcategories((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateSubcategoryName = (i: number, value: string) => {
+    setSubcategories((prev) => {
+      const updated = [...prev];
+      const current = updated[i];
+      if (!current) return prev;
+      updated[i] = { name: value, slug: current.slug };
+      return updated;
+    });
+  };
+
+  const updateSubcategorySlug = (i: number, value: string) => {
+    setSubcategories((prev) => {
+      const updated = [...prev];
+      const current = updated[i];
+      if (!current) return prev;
+      updated[i] = { name: current.name, slug: value };
+      return updated;
+    });
   };
 
   const handleSubmit = async () => {
@@ -211,21 +231,13 @@ export default function EditTileCategoryPage() {
                   <div className="flex-1 flex gap-3">
                     <Input
                       value={sub.name}
-                      onChange={(e) => {
-                        const updated = [...subcategories];
-                        updated[i] = { ...updated[i], name: e.target.value };
-                        setSubcategories(updated);
-                      }}
+                      onChange={(e) => updateSubcategoryName(i, e.target.value)}
                       className="text-sm"
                       placeholder="Name"
                     />
                     <Input
                       value={sub.slug}
-                      onChange={(e) => {
-                        const updated = [...subcategories];
-                        updated[i] = { ...updated[i], slug: e.target.value };
-                        setSubcategories(updated);
-                      }}
+                      onChange={(e) => updateSubcategorySlug(i, e.target.value)}
                       className="text-sm font-mono"
                       placeholder="slug"
                     />
