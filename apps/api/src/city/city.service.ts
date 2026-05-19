@@ -4,12 +4,25 @@ import { Model } from 'mongoose';
 import { City, CityDocument } from '@rent-ghar/db/schemas/city.schema';
 import { CreateCityDto } from '@rent-ghar/dtos/city/createcity.dto';
 import { UpdateCityDto } from '@rent-ghar/dtos/city/updatecity.dto';
+import { RedisCacheService } from '../redis-cache/redis-cache.service';
+import { RevalidateService } from '../revalidate/revalidate.service';
+
+const TAG_CITIES = 'cities';
 
 @Injectable()
 export class CityService {
     constructor(
-        @InjectModel(City.name) private cityModel: Model<CityDocument>
+        @InjectModel(City.name) private cityModel: Model<CityDocument>,
+        private readonly cache: RedisCacheService,
+        private readonly revalidate: RevalidateService,
     ) {}
+
+    private async bustCityCaches() {
+        await this.revalidate.revalidate({
+            tags: [TAG_CITIES],
+            paths: ['/', '/properties'],
+        });
+    }
     private toTitleCase(str: string): string {
         return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
     }
@@ -58,7 +71,9 @@ export class CityService {
             if (createCityDto.typeContents) cityData.typeContents = createCityDto.typeContents;
             
             const createdCity = new this.cityModel(cityData);
-            return await createdCity.save();
+            const saved = await createdCity.save();
+            this.bustCityCaches().catch(() => {});
+            return saved;
         } catch (error: any) {
             // Handle MongoDB duplicate key error
             if (error.code === 11000 || error.codeName === 'DuplicateKey') {
@@ -75,12 +90,20 @@ export class CityService {
     }
 
     async findAllCities(): Promise<CityDocument[]> {
-        try {
-            return await this.cityModel.find().sort({ name: 1 }).exec(); // Sort alphabetically by default
-        } catch (error) {
-            console.error('Error in findAllCities:', error);
-            throw error;
-        }
+        // ⚡ Cache: cities list rarely changes; this endpoint is hit on
+        // every page render that builds the location filter.
+        return this.cache.wrap(
+            this.cache.buildKey('cities:all', []),
+            async () => {
+                try {
+                    return await this.cityModel.find().sort({ name: 1 }).exec();
+                } catch (error) {
+                    console.error('Error in findAllCities:', error);
+                    throw error;
+                }
+            },
+            { ttl: 60, tags: [TAG_CITIES] },
+        );
     }
 
     async findCityById(id: string): Promise<CityDocument> {
@@ -92,13 +115,19 @@ export class CityService {
     }
 
     async findCityByName(name: string): Promise<CityDocument> {
-        const city = await this.cityModel.findOne({ 
-            name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } 
-        }).exec();
-        if (!city) {
-            throw new NotFoundException(`City ${name} not found`);
-        }
-        return city as CityDocument;
+        return this.cache.wrap(
+            this.cache.buildKey('city:name', [name.trim().toLowerCase()]),
+            async () => {
+                const city = await this.cityModel.findOne({
+                    name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }
+                }).exec();
+                if (!city) {
+                    throw new NotFoundException(`City ${name} not found`);
+                }
+                return city as CityDocument;
+            },
+            { ttl: 60, tags: [TAG_CITIES] },
+        );
     }
 
     async updateCity(id: string, updateCityDto: UpdateCityDto): Promise<CityDocument> {
@@ -156,6 +185,7 @@ export class CityService {
             if (!city) {
                 throw new NotFoundException('City not found');
             }
+            this.bustCityCaches().catch(() => {});
             return city;
         } catch (error: any) {
             // Handle MongoDB duplicate key error
@@ -177,5 +207,6 @@ export class CityService {
         if (!city) {
             throw new NotFoundException('City not found');
         }
+        this.bustCityCaches().catch(() => {});
     }
 }

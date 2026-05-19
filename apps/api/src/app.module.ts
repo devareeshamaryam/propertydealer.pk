@@ -1,8 +1,12 @@
  import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { RedisCacheModule } from './redis-cache/redis-cache.module';
+import { RevalidateModule } from './revalidate/revalidate.module';
 import { AuthModule } from './auth/auth.module';
 import { PropertyModule } from './property/property.module';
 import { CityModule } from './city/city.module';
@@ -45,15 +49,45 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    // 🔒 SECURITY: Global rate limiter — was previously a no-op because
+    // ThrottlerModule was never imported even though @Throttle() decorators
+    // existed on auth/login/register. Without this module those decorators
+    // do nothing.
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000,        // 1 second
+        limit: 10,         // 10 req/sec/IP — burst protection
+      },
+      {
+        name: 'medium',
+        ttl: 60_000,      // 1 minute
+        limit: 120,        // 120 req/min/IP — typical browsing
+      },
+      {
+        name: 'long',
+        ttl: 60 * 60_000, // 1 hour
+        limit: 5_000,      // hard ceiling per IP per hour
+      },
+    ]),
+    // ⚡ Redis cache (60s default TTL) and revalidation webhook caller —
+    // both are global so any service can inject them.
+    RedisCacheModule,
+    RevalidateModule,
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const uri = configService.get<string>('MONGODB_URI') || 'mongodb+srv://admin:admin1234@cluster0.lmunqjj.mongodb.net/rent-ghar';
-        
-        console.log('🔌 Attempting MongoDB connection...');
+        // 🔒 SECURITY: Never fall back to a hardcoded Atlas connection. If
+        // MONGODB_URI is missing we crash early and loudly so production
+        // misconfiguration is visible immediately.
+        const uri = configService.get<string>('MONGODB_URI');
         if (!uri) {
-          console.error('❌ MONGODB_URI is not defined in environment variables');
+          throw new Error(
+            'MONGODB_URI is not defined. Refusing to start with insecure default credentials.'
+          );
         }
+
+        console.log('🔌 Attempting MongoDB connection...');
         return {
           uri: uri,
           connectionFactory: (connection) => {
@@ -97,7 +131,15 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     ListingApiModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // 🔒 SECURITY: Apply ThrottlerGuard globally so the @Throttle() decorators
+    // on auth endpoints (and any future endpoint) are actually enforced.
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
 

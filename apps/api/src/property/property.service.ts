@@ -8,6 +8,14 @@ import { SubscriptionService } from '../subscription/subscription.service';
 import { IndexNowService } from '../indexnow/indexnow.service';
 import { ConfigService } from '@nestjs/config';
 import { distinct } from 'rxjs';
+import { RedisCacheService } from '../redis-cache/redis-cache.service';
+import { RevalidateService } from '../revalidate/revalidate.service';
+
+// Cache tags used across all property reads. Any write that affects public
+// listings should invalidate at least 'properties'. Slug-specific reads also
+// register against 'property:slug:<slug>' so individual pages can be busted.
+const TAG_PROPERTIES = 'properties';
+const TAG_PROPERTY_TYPES = 'property-types';
 
 @Injectable()
 export class PropertyService {
@@ -17,7 +25,24 @@ export class PropertyService {
         private subscriptionService: SubscriptionService,
         private indexNowService: IndexNowService,
         private configService: ConfigService,
+        private readonly cache: RedisCacheService,
+        private readonly revalidate: RevalidateService,
     ) {}
+
+    /**
+     * Drop every cache entry tied to public property listings and ping the
+     * Next.js front-end so its ISR pages re-render. Called on every write.
+     * Optionally pass an `affectedSlug` to also bust the per-property page.
+     */
+    private async bustPropertyCaches(affectedSlug?: string) {
+        const tags = [TAG_PROPERTIES, TAG_PROPERTY_TYPES];
+        const paths = ['/', '/properties'];
+        if (affectedSlug) {
+            tags.push(`property:slug:${affectedSlug}`);
+            paths.push(`/p/${affectedSlug}`);
+        }
+        await this.revalidate.revalidate({ tags, paths });
+    }
 
     private toSlug(value: string): string {
         return value
@@ -172,6 +197,13 @@ export class PropertyService {
             })
             const saved = await property.save()
             fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Property saved successfully. ID: ${saved._id}\n`);
+
+            // Bust caches only when the new property is publicly visible.
+            // Drafts/pending listings don't appear on the public site, so
+            // there's nothing to invalidate.
+            if (saved.status === 'approved') {
+                this.bustPropertyCaches(saved.slug).catch(() => {});
+            }
             return saved;
         } catch (error) {
             fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service Error: ${error}\n`);
@@ -203,7 +235,18 @@ export class PropertyService {
         page?: number;
         limit?: number;
       }) {
+        // ⚡ Cache: wrap the entire query in Redis (60s). Filter object is
+        // serialized into the key so each unique filter combo gets its own
+        // cache slot. Tag = 'properties' so any property write invalidates
+        // every list page in one shot.
+        const cacheKey = this.cache.buildKey('properties:list', [filters || {}]);
+        return this.cache.wrap(cacheKey, async () => this.findAllApprovedImpl(filters), {
+            ttl: 60,
+            tags: [TAG_PROPERTIES],
+        });
+      }
 
+      private async findAllApprovedImpl(filters?: any) {
         try {
           const query: any = { status: 'approved' };
           
@@ -490,6 +533,17 @@ export class PropertyService {
       }
 
       async findPropertyBySlug(slug: string) {
+        // ⚡ Cache: per-slug page is the most-hit endpoint after the home
+        // page; tag includes the slug so we can bust just one entry on edit.
+        const normalizedSlug = this.toSlug(slug);
+        const cacheKey = this.cache.buildKey('property:slug', [normalizedSlug]);
+        return this.cache.wrap(cacheKey, () => this.findPropertyBySlugImpl(slug), {
+            ttl: 60,
+            tags: [TAG_PROPERTIES, `property:slug:${normalizedSlug}`],
+        });
+      }
+
+      private async findPropertyBySlugImpl(slug: string) {
         const normalizedSlug = this.toSlug(slug);
         let property = await this.propertyModel.findOne({ slug: normalizedSlug, status: 'approved' }).exec();
         if (!property) {
@@ -531,6 +585,10 @@ export class PropertyService {
                 console.error('Failed to submit URL to IndexNow:', err);
             });
         }
+
+        // Always bust caches on any status change. Going approved->pending
+        // (un-publish) must also remove the property from public lists.
+        this.bustPropertyCaches(property?.slug).catch(() => {});
 
         return {
             success: true,
@@ -615,6 +673,11 @@ export class PropertyService {
           }
 
           const updatedProperty = await this.propertyModel.findByIdAndUpdate(id, updateData, { new: true }).exec();
+
+          // Bust caches if the listing is (or just became) publicly visible.
+          if (updatedProperty?.status === 'approved' || property.status === 'approved') {
+              this.bustPropertyCaches(updatedProperty?.slug || property.slug).catch(() => {});
+          }
           return updatedProperty;
         } catch (error) {
           console.error('Error updating property:', error);
@@ -635,6 +698,11 @@ export class PropertyService {
           }
 
           await this.propertyModel.findByIdAndDelete(id).exec();
+
+          // Even if the listing wasn't approved, bust caches conservatively
+          // so any stale list pages refresh immediately.
+          this.bustPropertyCaches(property.slug).catch(() => {});
+
           return {
             success: true,
             message: 'Property deleted successfully'
@@ -646,6 +714,15 @@ export class PropertyService {
       }
 
       async getLocationStats(city: string, listingType?: string, propertyType?: string): Promise<any> {
+        // ⚡ Cache: city stats are aggregation-heavy and rarely change.
+        const cacheKey = this.cache.buildKey('properties:stats', [city, listingType, propertyType]);
+        return this.cache.wrap(cacheKey, () => this.getLocationStatsImpl(city, listingType, propertyType), {
+            ttl: 60,
+            tags: [TAG_PROPERTIES],
+        });
+      }
+
+      private async getLocationStatsImpl(city: string, listingType?: string, propertyType?: string): Promise<any> {
         try {
             const cityRegex = new RegExp(`${city}`, 'i');
             
@@ -789,6 +866,15 @@ export class PropertyService {
     }
 
     async getPropertyTypes(): Promise<string[]> {
+        // ⚡ Cache: tiny payload, very high request volume from filter UIs.
+        return this.cache.wrap(
+            this.cache.buildKey('properties:types', []),
+            () => this.getPropertyTypesImpl(),
+            { ttl: 60, tags: [TAG_PROPERTY_TYPES] },
+        );
+    }
+
+    private async getPropertyTypesImpl(): Promise<string[]> {
         try {
             const types = await this.propertyModel.distinct('propertyType').exec();
             const defaults = ['house', 'apartment', 'flat', 'commercial', 'office'];

@@ -16,6 +16,10 @@ function generateSlug(text: string): string {
 
 import { IndexNowService } from '../indexnow/indexnow.service';
 import { ConfigService } from '@nestjs/config';
+import { RedisCacheService } from '../redis-cache/redis-cache.service';
+import { RevalidateService } from '../revalidate/revalidate.service';
+
+const TAG_PAGES = 'pages';
 
 @Injectable()
 export class PageService {
@@ -23,7 +27,19 @@ export class PageService {
         @InjectModel(Page.name) private readonly pageModel: Model<PageDocument>,
         private indexNowService: IndexNowService,
         private configService: ConfigService,
+        private readonly cache: RedisCacheService,
+        private readonly revalidate: RevalidateService,
     ) {}
+
+    private async bustPageCaches(slug?: string) {
+        const tags = [TAG_PAGES];
+        const paths: string[] = [];
+        if (slug) {
+            tags.push(`page:slug:${slug}`);
+            paths.push(`/${slug}`);
+        }
+        await this.revalidate.revalidate({ tags, paths });
+    }
 
     async create(createPageDto: CreatePageDto): Promise<PageDocument> {
         try {
@@ -66,6 +82,7 @@ export class PageService {
                     });
                 }
 
+                this.bustPageCaches(savedPage.slug).catch(() => {});
                 return savedPage;
             } catch (saveError: any) {
                 // If duplicate slug error, try to generate a unique one
@@ -124,7 +141,11 @@ export class PageService {
     }
 
     async getPublished(): Promise<PageDocument[]> {
-        return this.pageModel.find({ status: "PUBLISHED" }).sort({ createdAt: -1 }).exec();
+        return this.cache.wrap(
+            this.cache.buildKey('pages:published', []),
+            () => this.pageModel.find({ status: 'PUBLISHED' }).sort({ createdAt: -1 }).exec(),
+            { ttl: 60, tags: [TAG_PAGES] },
+        );
     }
 
     async getById(id: string): Promise<PageDocument | null> {
@@ -138,7 +159,12 @@ export class PageService {
         if (!slug || !slug.trim()) {
             throw new BadRequestException('Slug is required');
         }
-        return this.pageModel.findOne({ slug: slug.trim().toLowerCase(), status: 'PUBLISHED' }).exec();
+        const normalized = slug.trim().toLowerCase();
+        return this.cache.wrap(
+            this.cache.buildKey('page:slug', [normalized]),
+            () => this.pageModel.findOne({ slug: normalized, status: 'PUBLISHED' }).exec(),
+            { ttl: 60, tags: [TAG_PAGES, `page:slug:${normalized}`] },
+        );
     }
 
     async update(id: string, updatePageDto: UpdatePageDto): Promise<PageDocument> {
@@ -176,6 +202,7 @@ export class PageService {
             });
         }
 
+        this.bustPageCaches(page.slug).catch(() => {});
         return page;
     }
 
@@ -187,6 +214,7 @@ export class PageService {
         if (!page) {
             throw new NotFoundException(`Page with ID ${id} not found`);
         }
+        this.bustPageCaches(page.slug).catch(() => {});
         return page;
     }
 }

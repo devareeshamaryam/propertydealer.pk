@@ -5,10 +5,22 @@ import { Model, isValidObjectId } from 'mongoose';
 import { Area, AreaDocument } from '@rent-ghar/db/schemas/area.schema';
 import { CreateAreaDto } from '@rent-ghar/dtos/area/createarea.dto';
 import { UpdateAreaDto } from '@rent-ghar/dtos/area/updatearea.dto';
+import { RedisCacheService } from '../redis-cache/redis-cache.service';
+import { RevalidateService } from '../revalidate/revalidate.service';
+
+const TAG_AREAS = 'areas';
 
 @Injectable()
 export class AreaService {
-  constructor(@InjectModel(Area.name) private areaModel: Model<AreaDocument>) {}
+  constructor(
+    @InjectModel(Area.name) private areaModel: Model<AreaDocument>,
+    private readonly cache: RedisCacheService,
+    private readonly revalidate: RevalidateService,
+  ) {}
+
+  private async bustAreaCaches() {
+    await this.revalidate.revalidate({ tags: [TAG_AREAS], paths: ['/properties'] });
+  }
 
   async createArea(createAreaDto: CreateAreaDto): Promise<AreaDocument> {
     // Validate city ID
@@ -37,15 +49,22 @@ export class AreaService {
     if (createAreaDto.saleContent) areaData.saleContent = createAreaDto.saleContent;
 
     const createdArea = new this.areaModel(areaData);
-    return await createdArea.save();
+    const saved = await createdArea.save();
+    this.bustAreaCaches().catch(() => {});
+    return saved;
   }
 
   async findAllAreas(): Promise<AreaDocument[]> {
-    return await this.areaModel
-      .find()
-      .populate('city', 'name state country')
-      .sort({ createdAt: -1 })
-      .exec();
+    return this.cache.wrap(
+      this.cache.buildKey('areas:all', []),
+      () =>
+        this.areaModel
+          .find()
+          .populate('city', 'name state country')
+          .sort({ createdAt: -1 })
+          .exec(),
+      { ttl: 60, tags: [TAG_AREAS] },
+    );
   }
 
   async findAreaById(id: string): Promise<AreaDocument> {
@@ -82,11 +101,16 @@ export class AreaService {
     if (!isValidObjectId(cityId)) {
       throw new NotFoundException('Invalid city ID');
     }
-    return await this.areaModel
-      .find({ city: cityId })
-      .populate('city', 'name state country')
-      .sort({ name: 1 })
-      .exec();
+    return this.cache.wrap(
+      this.cache.buildKey('areas:by-city', [cityId]),
+      () =>
+        this.areaModel
+          .find({ city: cityId })
+          .populate('city', 'name state country')
+          .sort({ name: 1 })
+          .exec(),
+      { ttl: 60, tags: [TAG_AREAS] },
+    );
   }
 
   async findAreaBySlug(slug: string, cityId?: string): Promise<AreaDocument> {
@@ -159,6 +183,7 @@ export class AreaService {
       saleMetaDescription: area.saleMetaDescription
     });
 
+    this.bustAreaCaches().catch(() => {});
     return area;
   }
 
@@ -170,5 +195,6 @@ export class AreaService {
     if (!area) {
       throw new NotFoundException('Area not found');
     }
+    this.bustAreaCaches().catch(() => {});
   }
 }

@@ -7,6 +7,10 @@ import { CreateBlogDto } from '@rent-ghar/dtos/blog/createblog.dto';
 import { UpdateBlogDto } from '@rent-ghar/dtos/blog/updateblog.dto';
 import { IndexNowService } from '../indexnow/indexnow.service';
 import { ConfigService } from '@nestjs/config';
+import { RedisCacheService } from '../redis-cache/redis-cache.service';
+import { RevalidateService } from '../revalidate/revalidate.service';
+
+const TAG_BLOGS = 'blogs';
 
 @Injectable()
 export class BlogService {
@@ -15,21 +19,39 @@ export class BlogService {
         @InjectModel(Category.name) private categoryModel: Model<any>,
         private indexNowService: IndexNowService,
         private configService: ConfigService,
+        private readonly cache: RedisCacheService,
+        private readonly revalidate: RevalidateService,
     ){}
+
+    private async bustBlogCaches(slug?: string) {
+        const tags = [TAG_BLOGS];
+        const paths = ['/blog', '/'];
+        if (slug) {
+            tags.push(`blog:slug:${slug}`);
+            paths.push(`/blog/${slug}`);
+        }
+        await this.revalidate.revalidate({ tags, paths });
+    }
 
 
     async findPublishedBlogs(): Promise<BlogDocument[]> {
-        try {
-            return await this.blogModel
-                .find({ status: 'published' })
-                .populate('author', 'name email')
-                .populate('categories', 'name slug')
-                .exec();
-        } catch (error) {
-            console.error('Error fetching published blogs:', error);
-            // Return empty array instead of throwing to prevent 500 errors
-            return [];
-        }
+        // ⚡ Cache: blog list is hit on every home-page render.
+        return this.cache.wrap(
+            this.cache.buildKey('blogs:published', []),
+            async () => {
+                try {
+                    return await this.blogModel
+                        .find({ status: 'published' })
+                        .populate('author', 'name email')
+                        .populate('categories', 'name slug')
+                        .exec();
+                } catch (error) {
+                    console.error('Error fetching published blogs:', error);
+                    return [];
+                }
+            },
+            { ttl: 60, tags: [TAG_BLOGS] },
+        );
     }
     async findActiveBlogs(): Promise<BlogDocument[]> {
         return await this.blogModel
@@ -112,6 +134,9 @@ export class BlogService {
             });
         }
 
+        // Bust caches for any new blog (drafts won't show on the public site
+        // but invalidating is cheap and keeps admin lists fresh too).
+        this.bustBlogCaches(blog.slug).catch(() => {});
         return blog;
         } catch (error: any) {
             console.error('❌ Error in createBlog service:', error.message);
@@ -221,6 +246,7 @@ export class BlogService {
             });
         }
 
+        this.bustBlogCaches(blog.slug).catch(() => {});
         return blog;
     }
 
@@ -232,6 +258,7 @@ export class BlogService {
         if (!blog) {
             throw new NotFoundException('Blog not found');
         }
+        this.bustBlogCaches(blog.slug).catch(() => {});
     }
 
     async incrementViews(id: string): Promise<void> {

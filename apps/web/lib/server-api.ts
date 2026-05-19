@@ -52,55 +52,60 @@ export const serverApi = {
   },
 
   // Property API
+  // Note: tag values must match the tags emitted by the API on writes
+  // (see RevalidateService callers in NestJS). Mismatches mean the page
+  // won't refresh until natural TTL elapses.
   async getProperties(params: string = ''): Promise<any> {
     const path = params ? `/properties?${params}` : '/properties';
-    return this.get(path, { next: { revalidate: 60 } });
+    return this.get(path, { next: { revalidate: 60, tags: ['properties'] } });
   },
 
   async getTypes(): Promise<string[]> {
-    return this.get('/properties/types', { next: { revalidate: 60 } });
+    return this.get('/properties/types', { next: { revalidate: 60, tags: ['property-types'] } });
   },
 
   async getAreaBySlug(slug: string, cityId?: string): Promise<any> {
     const query = cityId ? `?cityId=${cityId}` : '';
-    return this.get(`/areas/slug/${slug}${query}`, { next: { revalidate: 3600 } });
+    return this.get(`/areas/slug/${slug}${query}`, { next: { revalidate: 60, tags: ['areas'] } });
   },
 
   async getAreasByCity(cityId: string): Promise<any[]> {
-    return this.get(`/areas?cityId=${cityId}`, { next: { revalidate: 3600 } });
+    return this.get(`/areas?cityId=${cityId}`, { next: { revalidate: 60, tags: ['areas'] } });
   },
 
   async getPropertyBySlug(slug: string): Promise<any> {
-    return this.get(`/properties/slug/${slug}`, { next: { revalidate: 1800 } });
+    return this.get(`/properties/slug/${slug}`, {
+      next: { revalidate: 60, tags: ['properties', `property:slug:${slug}`] },
+    });
   },
 
   async getLocationStats(city: string): Promise<any> {
-    return this.get(`/properties/stats/locations?city=${encodeURIComponent(city)}`, { 
-      next: { revalidate: 900 } 
+    return this.get(`/properties/stats/locations?city=${encodeURIComponent(city)}`, {
+      next: { revalidate: 60, tags: ['properties'] },
     });
   },
 
   // Blog API
   async getPublishedBlogs(): Promise<Blog[]> {
-    return this.get('/blog/published', { next: { revalidate: 1800 } });
+    return this.get('/blog/published', { next: { revalidate: 60, tags: ['blogs'] } });
   },
 
   // Page API
   async getPageBySlug(slug: string): Promise<any> {
-    return this.get(`/page/slug/${slug}`, { next: { revalidate: 1800 } });
+    return this.get(`/page/slug/${slug}`, { next: { revalidate: 60, tags: ['pages', `page:slug:${slug}`] } });
   },
 
   // Cement Rate API
   async getCementRates(): Promise<any[]> {
     try {
-      return this.get('/cement-rate', { next: { revalidate: 60, tags: ['cement-rates'] } });
+      return this.get('/cement-rate', { next: { revalidate: 60, tags: ['material-rates'] } });
     } catch {
       return [];
     }
   },
 
   async getCementRateBySlug(slug: string): Promise<any> {
-    return this.get(`/cement-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/cement-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 
   // Material Rate API (generic)
@@ -113,7 +118,7 @@ export const serverApi = {
   },
 
   async getMaterialRateBySlug(slug: string): Promise<any> {
-    return this.get(`/material-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/material-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 
   // Sand Rate API
@@ -126,7 +131,7 @@ export const serverApi = {
   },
 
   async getSandRateBySlug(slug: string): Promise<any> {
-    return this.get(`/sand-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/sand-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 
   // Steel Rate API
@@ -139,7 +144,7 @@ export const serverApi = {
   },
 
   async getSteelRateBySlug(slug: string): Promise<any> {
-    return this.get(`/steel-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/steel-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 
   // Wood Rate API
@@ -152,7 +157,7 @@ export const serverApi = {
   },
 
   async getWoodRateBySlug(slug: string): Promise<any> {
-    return this.get(`/wood-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/wood-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 
   // Door Rate API
@@ -165,7 +170,7 @@ export const serverApi = {
   },
 
   async getDoorRateBySlug(slug: string): Promise<any> {
-    return this.get(`/door-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/door-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 
   // Bajri Rate API
@@ -178,7 +183,7 @@ export const serverApi = {
   },
 
   async getBajriRateBySlug(slug: string): Promise<any> {
-    return this.get(`/bajri-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/bajri-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 
   // Tile Rate API
@@ -191,7 +196,7 @@ export const serverApi = {
   },
 
   async getTileRateBySlug(slug: string): Promise<any> {
-    return this.get(`/tile-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/tile-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 
   // Tile Category API
@@ -213,6 +218,6 @@ export const serverApi = {
   },
 
   async getBricksRateBySlug(slug: string): Promise<any> {
-    return this.get(`/bricks-rate/slug/${slug}`, { next: { revalidate: 60 } });
+    return this.get(`/bricks-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 };

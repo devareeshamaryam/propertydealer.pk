@@ -78,17 +78,24 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010';
     console.log(`📡 Rewriting /api and /uploads to: ${baseUrl}`);
-    
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${baseUrl}/api/:path*`,
-      },
-      {
-        source: '/uploads/:path*',
-        destination: `${baseUrl}/uploads/:path*`,
-      },
-    ];
+
+    // Use `afterFiles` so Next.js App Router routes (e.g. /api/revalidate)
+    // are matched FIRST and only un-handled /api/* paths fall through to the
+    // backend NestJS server.
+    return {
+      beforeFiles: [],
+      afterFiles: [
+        {
+          source: '/api/:path*',
+          destination: `${baseUrl}/api/:path*`,
+        },
+        {
+          source: '/uploads/:path*',
+          destination: `${baseUrl}/uploads/:path*`,
+        },
+      ],
+      fallback: [],
+    };
   },
 };
 
