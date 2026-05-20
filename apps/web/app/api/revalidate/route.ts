@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+ import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 
 /**
@@ -71,7 +71,10 @@ export async function POST(request: NextRequest) {
 
   for (const tag of tags) {
     try {
-      revalidateTag(tag);
+      // Cast to `any` to guard against mismatched Next.js type definitions
+      // that incorrectly expect a second argument. The runtime API only ever
+      // takes one argument (the tag string).
+      (revalidateTag as (tag: string) => void)(tag);
       revalidatedTags.push(tag);
     } catch (err: any) {
       errors.push({ kind: 'tag', value: tag, message: err?.message ?? String(err) });
