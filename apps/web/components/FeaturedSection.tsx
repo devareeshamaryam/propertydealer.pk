@@ -1,4 +1,4 @@
-'use client'
+ 'use client'
 import { Heart, MapPin, Bed, Bath, Maximize, Loader2 } from 'lucide-react';
 import Image from 'next/image';
 import {
@@ -37,54 +37,54 @@ type FeaturedProperty = {
 
 const PropertyCard = ({ property }: { property: FeaturedProperty }) => {
   return (
-    <div className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+    <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
       <Link href={`/properties/${property.slug || toSlug(property.title)}`}>
-        <div className="relative h-64 overflow-hidden group cursor-pointer">
+        <div className="relative h-36 sm:h-52 lg:h-64 overflow-hidden group cursor-pointer">
           <Image
             src={property.image}
             alt={property.title}
             fill
             className="object-cover transition-transform duration-500 group-hover:scale-110"
-            sizes="(max-w-768px) 100vw, (max-w-1200px) 50vw, 33vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
           />
         </div>
       </Link>
 
-      <div className="p-5 flex flex-col flex-1">
+      <div className="p-3 sm:p-5 flex flex-col flex-1">
         <Link href={`/properties/${property.slug || toSlug(property.title)}`}>
-          <h3 className="text-xl font-bold text-gray-900 mb-3 hover:text-primary transition-colors cursor-pointer line-clamp-1">
+          <h3 className="text-sm sm:text-xl font-bold text-gray-900 mb-1 sm:mb-3 hover:text-primary transition-colors cursor-pointer line-clamp-2">
             {property.title}
           </h3>
         </Link>
 
-        <div className="flex items-center text-gray-600 mb-4">
-          <MapPin className="w-4 h-4 mr-2" />
-          <p className="text-sm truncate">{property.location}</p>
+        <div className="flex items-center text-gray-600 mb-2 sm:mb-4">
+          <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
+          <p className="text-xs sm:text-sm truncate">{property.location}</p>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mb-6 text-gray-600">
-          <div className="flex items-center gap-1.5">
-            <Bed className="w-4 h-4" />
-            <span className="text-xs font-medium">{property.beds} Beds</span>
+        <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-3 sm:mb-6 text-gray-600">
+          <div className="flex items-center gap-1">
+            <Bed className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+            <span className="text-[10px] sm:text-xs font-medium">{property.beds} Beds</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Bath className="w-4 h-4" />
-            <span className="text-xs font-medium">{property.baths} Baths</span>
+          <div className="flex items-center gap-1">
+            <Bath className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+            <span className="text-[10px] sm:text-xs font-medium">{property.baths} Baths</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Maximize className="w-4 h-4" />
-            <span className="text-xs font-medium whitespace-nowrap">{property.marla}</span>
+          <div className="flex items-center gap-1">
+            <Maximize className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
+            <span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">{property.marla}</span>
           </div>
         </div>
 
-        <div className="mt-auto flex items-center justify-between pt-4 border-t border-gray-100">
+        <div className="mt-auto flex items-center justify-between pt-2 sm:pt-4 border-t border-gray-100">
           <div>
-            <p className="text-[10px] uppercase font-bold text-gray-400 mb-0.5 tracking-wider">{property.priceLabel || 'Monthly Rent'}</p>
-            <p className="text-xl font-extrabold text-gray-900">{property.price}</p>
+            <p className="text-[8px] sm:text-[10px] uppercase font-bold text-gray-400 mb-0.5 tracking-wider">{property.priceLabel || 'Monthly Rent'}</p>
+            <p className="text-sm sm:text-xl font-extrabold text-gray-900 leading-tight">{property.price}</p>
           </div>
 
           <Link href={`/properties/${property.slug || toSlug(property.title)}`}>
-            <button className="px-4 py-2 bg-black text-white rounded-lg text-xs font-bold hover:bg-gray-800 transition-all duration-300 hover:shadow-lg uppercase tracking-wider">
+            <button className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-black text-white rounded-lg text-[10px] sm:text-xs font-bold hover:bg-gray-800 transition-all duration-300 hover:shadow-lg uppercase tracking-wider">
               Explore
             </button>
           </Link>
@@ -147,14 +147,14 @@ const FeaturedSection: React.FC<FeaturedSectionProps> = ({ initialProperties }) 
   }, [initialProperties]);
 
   return (
-    <section className="py-20 bg-white">
+    <section className="py-12 sm:py-20 bg-white">
       <div className="max-w-[1440px] mx-auto px-4 lg:px-8">
-        <div className="max-w-3xl mb-12">
+        <div className="max-w-3xl mb-8 sm:mb-12">
           <Badge text="Featured Listings" />
-          <h2 className="text-4xl md:text-5xl font-extrabold text-gray-900 mt-4 mb-6 leading-tight">
+          <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 mt-4 mb-4 sm:mb-6 leading-tight">
             Premium Properties Handpicked for You
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl leading-relaxed">
+          <p className="text-base sm:text-lg text-gray-600 max-w-2xl leading-relaxed">
             Discover our collection of high-end homes and investment opportunities in Pakistan's prime locations.
           </p>
         </div>
@@ -187,19 +187,22 @@ const FeaturedSection: React.FC<FeaturedSectionProps> = ({ initialProperties }) 
               }}
               className="w-full"
             >
-              <CarouselContent className="-ml-4 md:-ml-6">
+              {/* Mobile: show 1.6 cards so next card peeks; sm+: 2 cards; lg: 3; xl: 4 */}
+              <CarouselContent className="-ml-3 sm:-ml-4 md:-ml-6">
                 {featuredProperties.map((property, index) => (
                   <CarouselItem
                     key={property.slug || property.id || `property-${index}`}
-                    className="pl-4 md:pl-6 sm:basis-1/2 lg:basis-1/3 xl:basis-1/4"
+                    className="pl-3 sm:pl-4 md:pl-6 basis-[62%] sm:basis-1/2 lg:basis-1/3 xl:basis-1/4"
                   >
                     <PropertyCard property={property} />
                   </CarouselItem>
                 ))}
               </CarouselContent>
-              <div className="hidden lg:flex absolute -top-20 right-0 gap-3">
-                <CarouselPrevious className="static translate-y-0 h-12 w-12 rounded-2xl border-gray-100" />
-                <CarouselNext className="static translate-y-0 h-12 w-12 rounded-2xl bg-black text-white hover:bg-gray-800" />
+
+              {/* All screen nav arrows */}
+              <div className="flex justify-end mt-4 lg:mt-0 lg:absolute lg:-top-20 lg:right-0 gap-3">
+                <CarouselPrevious className="static translate-y-0 h-9 w-9 lg:h-12 lg:w-12 rounded-xl lg:rounded-2xl border-gray-200" />
+                <CarouselNext className="static translate-y-0 h-9 w-9 lg:h-12 lg:w-12 rounded-xl lg:rounded-2xl bg-black text-white hover:bg-gray-800" />
               </div>
             </Carousel>
           </div>

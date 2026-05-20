@@ -1,4 +1,4 @@
-'use client'
+ 'use client'
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -112,28 +112,28 @@ const PopularLocations: React.FC<PopularLocationsProps> = ({ initialCities }) =>
             <p className="text-gray-500 font-medium">Fetching locations...</p>
           </div>
         ) : cities.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {cities.map((city) => (
               <Link
                 key={city._id}
                 href={`/properties/all/${city.slug}`}
-                className="group relative h-64 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500"
+                className="group relative h-44 sm:h-64 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500"
               >
                 <Image
                   src={city.image}
                   alt={`${city.name} Real Estate`}
                   fill
                   className="object-cover transition-transform duration-700 group-hover:scale-110"
-                  sizes="(max-w-768px) 100vw, (max-w-1200px) 50vw, 33vw"
+                  sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                <div className="absolute bottom-6 left-6 right-6">
-                  <div className="flex items-center gap-2 text-white/80 text-sm font-medium mb-1">
-                    <MapPin className="w-4 h-4" />
+                <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6">
+                  <div className="flex items-center gap-1 sm:gap-2 text-white/80 text-xs sm:text-sm font-medium mb-0.5 sm:mb-1">
+                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
                     <span>Pakistan</span>
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-1">{toTitleCase(city.name)}</h3>
-                  <p className="text-white/90 text-sm font-semibold">{city.count} Properties</p>
+                  <h3 className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{toTitleCase(city.name)}</h3>
+                  <p className="text-white/90 text-xs sm:text-sm font-semibold">{city.count} Properties</p>
                 </div>
               </Link>
             ))}

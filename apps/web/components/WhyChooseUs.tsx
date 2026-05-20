@@ -1,4 +1,4 @@
-'use client'
+ 'use client'
 import React from 'react';
 import { ShieldCheck, UserCheck, PhoneCall, Key } from 'lucide-react';
 
@@ -38,14 +38,14 @@ const WhyChooseUs = () => {
           <p className="text-gray-600 max-w-2xl mx-auto font-medium">We provide a seamless and secure property experience tailored to the Pakistani market.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
           {features.map((feature, index) => (
-            <div key={index} className="p-8 rounded-3xl border border-gray-100 hover:border-black/5 hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 group">
-              <div className={`w-14 h-14 ${feature.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500`}>
-                <feature.icon className="w-7 h-7" />
+            <div key={index} className="p-4 md:p-8 rounded-2xl md:rounded-3xl border border-gray-100 hover:border-black/5 hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 group">
+              <div className={`w-10 h-10 md:w-14 md:h-14 ${feature.color} rounded-xl md:rounded-2xl flex items-center justify-center mb-3 md:mb-6 group-hover:scale-110 transition-transform duration-500`}>
+                <feature.icon className="w-5 h-5 md:w-7 md:h-7" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">{feature.title}</h3>
-              <p className="text-gray-600 text-sm leading-relaxed font-medium">{feature.description}</p>
+              <h3 className="text-sm md:text-xl font-bold text-gray-900 mb-1.5 md:mb-3 leading-snug">{feature.title}</h3>
+              <p className="text-gray-600 text-xs md:text-sm leading-relaxed font-medium">{feature.description}</p>
             </div>
           ))}
         </div>
