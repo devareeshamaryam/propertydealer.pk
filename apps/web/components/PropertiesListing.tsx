@@ -87,6 +87,8 @@ export default function PropertiesListing({
   const [sheetAreas,    setSheetAreas]    = useState<AreaOption[]>([]);
   const [loadingAreas,  setLoadingAreas]  = useState(false);
   const [showAllAreas,  setShowAllAreas]  = useState(false);
+  const [showAllMainAreas, setShowAllMainAreas] = useState(false);
+  const AREAS_INITIAL_COUNT = 8;
 
   const [sheetPriceMin, setSheetPriceMin] = useState('');
   const [sheetPriceMax, setSheetPriceMax] = useState('');
@@ -172,7 +174,6 @@ export default function PropertiesListing({
     const marlaSlug = marla ? `/${marla}marla` : '';
     const areaPath  = aSlug ? `/${aSlug}` : '';
 
-    // FIX 1: No-city case now includes tSlug + marlaSlug
     if (!cs) {
       return `/properties/${pp}${tSlug}${marlaSlug}`;
     }
@@ -180,28 +181,31 @@ export default function PropertiesListing({
   };
   // ────────────────────────────────────────────────────────────────────────────
 
-  // FIX 2: handleMarlaClick — supports marla + 1 kanal (20 marla)
+  // CHANGE: handleMarlaClick — always changes URL (useCleanUrls ya query params dono mein)
   const handleMarlaClick = (marla: number) => {
     const isDeselecting = selectedMarla === marla;
     const newMarla = isDeselecting ? null : marla;
 
-    if (useCleanUrls) {
-      if (newMarla === 20) {
-        // 1 Kanal → custom URL slug
-        const pp    = purpose === 'buy' ? 'sale' : purpose;
-        const cs    = matchedCity ? `/${cityToSlug(matchedCity)}` : '';
-        const tSlug = type && type !== 'all' ? `/${type.toLowerCase()}` : '';
-        router.push(`/properties/${pp}${cs}${tSlug}/1kanal`);
-      } else {
-        router.push(buildCleanUrl({ marlaOverride: newMarla }));
-      }
+    if (newMarla === 20) {
+      // 1 Kanal → /1kanal slug
+      const pp    = purpose === 'buy' ? 'sale' : purpose;
+      const cs    = matchedCity ? `/${cityToSlug(matchedCity)}` : '';
+      const tSlug = type && type !== 'all' ? `/${type.toLowerCase()}` : '';
+      router.push(`/properties/${pp}${cs}${tSlug}/1kanal`);
+    } else if (useCleanUrls) {
+      router.push(buildCleanUrl({ marlaOverride: newMarla }));
     } else {
-      setSelectedMarla(newMarla);
-      handleFilterChange({
-        ...advancedFilters,
-        marlaMin: newMarla ?? undefined,
-        marlaMax: newMarla ?? undefined,
-      });
+      // Non-clean URL: query params update karo
+      const params = new URLSearchParams(searchParams.toString());
+      if (newMarla) {
+        params.set('marlaMin', newMarla.toString());
+        params.set('marlaMax', newMarla.toString());
+      } else {
+        params.delete('marlaMin');
+        params.delete('marlaMax');
+      }
+      const qs = params.toString();
+      router.push(qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
     }
   };
 
@@ -418,7 +422,6 @@ export default function PropertiesListing({
     }
   };
 
-  // FIX 3: navigateType — removed && matchedCity
   const navigateType = (t: string) => {
     setIsLocationPanelOpen(false);
     const supportsMarla = t === 'house' || t === 'plot';
@@ -465,22 +468,18 @@ export default function PropertiesListing({
   if (error && !properties.length) return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 pt-32 pb-16">
-        {/* SEO-FRIENDLY FALLBACK CONTENT FOR GOOGLEBOT */}
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-bold mb-6">
             Properties for {purpose === 'buy' ? 'Sale' : purpose === 'rent' ? 'Rent' : 'Rent & Sale'}
             {matchedCity ? ` in ${toTitleCase(matchedCity)}` : ' in Pakistan'}
           </h1>
-          
           <div className="prose prose-lg max-w-none mb-8">
             <p className="text-lg text-muted-foreground">
-              Welcome to Property Dealer, Pakistan's leading property marketplace. 
-              Browse thousands of verified property listings including houses, apartments, 
+              Welcome to Property Dealer, Pakistan's leading property marketplace.
+              Browse thousands of verified property listings including houses, apartments,
               plots, and commercial properties across major cities.
             </p>
           </div>
-
-          {/* Popular Links for Googlebot */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 my-8">
             <div className="border rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Popular Cities</h2>
@@ -492,7 +491,6 @@ export default function PropertiesListing({
                 <li><a href="/properties/rent/faisalabad" className="text-primary hover:underline">Properties in Faisalabad</a></li>
               </ul>
             </div>
-
             <div className="border rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Property Types</h2>
               <ul className="space-y-2">
@@ -503,7 +501,6 @@ export default function PropertiesListing({
                 <li><a href="/properties/rent/commercial" className="text-primary hover:underline">Commercial Properties</a></li>
               </ul>
             </div>
-
             <div className="border rounded-lg p-6">
               <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
               <ul className="space-y-2">
@@ -515,8 +512,6 @@ export default function PropertiesListing({
               </ul>
             </div>
           </div>
-
-          {/* Additional SEO Content */}
           <div className="prose max-w-none my-8">
             <h2 className="text-2xl font-bold mb-4">Why Choose Property Dealer?</h2>
             <ul className="list-disc pl-6 space-y-2 text-muted-foreground">
@@ -527,8 +522,6 @@ export default function PropertiesListing({
               <li>Free property listing for owners and agents</li>
             </ul>
           </div>
-
-          {/* User-facing error (still visible but with context) */}
           <div className="mt-12 text-center border-t pt-8">
             <p className="text-sm text-muted-foreground mb-4">
               We're experiencing temporary technical difficulties loading the latest listings.
@@ -567,7 +560,8 @@ export default function PropertiesListing({
   const filterSheetAreaLoading = sheetCity ? loadingAreas : loadingAllAreas;
   const visibleFilterAreas     = showAllAreas ? filterSheetAreaList : filterSheetAreaList.slice(0, 8);
 
-  const showMarlaChips = type.toLowerCase() === 'house' || type.toLowerCase() === 'plot';
+  // CHANGE: City select hone par bhi marla chips show hon (sirf house/plot tak mehfood nahi)
+  const showMarlaChips = !!(matchedCity) || type.toLowerCase() === 'house' || type.toLowerCase() === 'plot';
 
   return (
     <div className="min-h-screen bg-background">
@@ -583,7 +577,6 @@ export default function PropertiesListing({
 
           <div className="flex-1 overflow-y-auto bg-white">
             <div className="p-4 space-y-6">
-
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-black">City</Label>
                 <div className="relative">
@@ -795,14 +788,70 @@ export default function PropertiesListing({
                 )}
               </div>
 
+              {/* CHANGE: lg:hidden hata diya — marla chips desktop + mobile dono par show hon */}
               {showMarlaChips && (
-                <div className="lg:hidden flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap">
                   {SIZE_OPTIONS.map(opt => (
                     <button key={opt.marlaMin} onClick={() => handleMarlaClick(opt.marlaMin)}
                       className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-colors ${selectedMarla === opt.marlaMin ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
                       {opt.label}
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* Popular Locations — pehle 8 show, baqi "View More" se */}
+              {matchedCity && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                      Popular Locations in {toTitleCase(matchedCity)}
+                    </h3>
+                  </div>
+                  {loadingMainAreas ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-400">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Loading areas...
+                    </div>
+                  ) : mainAreas.length > 0 ? (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {(showAllMainAreas ? mainAreas : mainAreas.slice(0, AREAS_INITIAL_COUNT)).map(area => {
+                          const isSelected = currentAreaId === area.id;
+                          return (
+                            <button
+                              key={area.id}
+                              onClick={() => navigateArea(area)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                                isSelected
+                                  ? 'bg-black text-white border-black'
+                                  : 'bg-white text-gray-700 border-gray-300 hover:border-gray-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              <MapPin className="w-3 h-3 opacity-60" />
+                              {toTitleCase(area.name)}
+                              {area.count > 0 && (
+                                <span className={`text-[10px] ${isSelected ? 'opacity-70' : 'text-gray-400'}`}>
+                                  ({area.count})
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {mainAreas.length > AREAS_INITIAL_COUNT && (
+                        <button
+                          onClick={() => setShowAllMainAreas(v => !v)}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors mt-1"
+                        >
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAllMainAreas ? 'rotate-180' : ''}`} />
+                          {showAllMainAreas
+                            ? 'Show Less'
+                            : `View More (${mainAreas.length - AREAS_INITIAL_COUNT} more locations)`}
+                        </button>
+                      )}
+                    </>
+                  ) : null}
                 </div>
               )}
 

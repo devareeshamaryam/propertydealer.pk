@@ -1,13 +1,23 @@
-import { Metadata } from "next";
+ import { Metadata } from "next";
 import { serverApi } from "@/lib/server-api";
 import MaterialPageClient from "./MaterialPageClient";
 
-export const revalidate = 60; // Revalidate every 60 seconds
+export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Today Bricks Rate in Pakistan 2026 | PropertyDealer.pk",
-  description: "Check today's latest bricks rates in Pakistan. Updated daily prices from top brands and suppliers.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const page = await serverApi.getPageBySlug("today-bricks-rate-in-pakistan");
+    return {
+      title: page?.metaTitle || "Today Bricks Rate in Pakistan 2026 | PropertyDealer.pk",
+      description: page?.metaDescription || "Check today's latest bricks rates in Pakistan. Updated daily prices from top brands and suppliers.",
+    };
+  } catch {
+    return {
+      title: "Today Bricks Rate in Pakistan 2026 | PropertyDealer.pk",
+      description: "Check today's latest bricks rates in Pakistan. Updated daily prices from top brands and suppliers.",
+    };
+  }
+}
 
 async function getBricksRates() {
   try {
@@ -28,7 +38,6 @@ export default async function BricksRatePage() {
   let pageContent: string | null = null;
   let pageTitle: string | null = null;
 
-  // Fetch rates + CMS page content in parallel
   const [ratesResult, pageResult] = await Promise.allSettled([
     getBricksRates(),
     serverApi.getPageBySlug("today-bricks-rate-in-pakistan"),

@@ -1,19 +1,12 @@
-'use client';
+ 'use client';
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { propertyApi } from '@/lib/api';
-import Link from 'next/link';
 
 interface SearchSidebarProps {
   city?: string;
@@ -34,21 +27,6 @@ interface SearchSidebarProps {
   className?: string;
 }
 
-
-interface LocationStat {
-  name: string;
-  id: string; // areaId
-  count: number;
-  slug?: string;
-}
-
-interface StatsData {
-  locations: LocationStat[];
-  summary: Record<string, number>;
-  listingTypes: Record<string, number>;
-  total: number;
-}
-
 export default function SearchSidebar({
   city,
   purpose,
@@ -59,36 +37,11 @@ export default function SearchSidebar({
   className = ""
 }: SearchSidebarProps) {
 
-  // Local state for filters to avoid excessive API calls while typing
   const [localFilters, setLocalFilters] = useState(filters);
-  const [stats, setStats] = useState<StatsData | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
 
-  // Sync local state when props change
   useEffect(() => {
     setLocalFilters(filters);
   }, [filters]);
-
-  // Fetch location stats when city or purpose changes
-  useEffect(() => {
-    if (city) {
-      fetchLocationStats();
-    }
-  }, [city, purpose]);
-
-  const fetchLocationStats = async () => {
-    try {
-      setLoadingStats(true);
-      // listingType 'sale' corresponds to purpose 'buy'
-      const listingType = purpose === 'buy' ? 'sale' : (purpose === 'rent' ? 'rent' : undefined);
-      const data = await propertyApi.getLocationStats(city || '', listingType);
-      setStats(data);
-    } catch (error) {
-      console.error('Error fetching location stats:', error);
-    } finally {
-      setLoadingStats(false);
-    }
-  };
 
   const handleApplyFilters = () => {
     onFilterChange(localFilters);
@@ -115,15 +68,6 @@ export default function SearchSidebar({
       [key]: value
     }));
   };
-
-  const toSlug = (value: string): string => {
-    return value
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  };
-
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -229,60 +173,8 @@ export default function SearchSidebar({
           </Button>
         </div>
       </div>
-
-      {/* Location Stats Section */}
-      {city && (
-        <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
-          <div className="p-4 border-b bg-muted/30">
-            <h3 className="font-semibold">Popular Locations</h3>
-            <p className="text-xs text-muted-foreground">in {city}</p>
-          </div>
-
-          <div className="p-0">
-            {loadingStats ? (
-              <div className="p-8 flex justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : stats && stats.locations.length > 0 ? (
-              <div className="max-h-[300px] overflow-y-auto scrollbar-thin">
-                <ul className="divide-y">
-                  {stats.locations.map((loc) => (
-                    <li key={loc.id}>
-                      <Link
-                        href={(() => {
-                          if (useCleanUrls && city && loc.slug) {
-                            const purposePath = purpose === 'buy' ? 'sale' : (purpose === 'all' ? 'all' : purpose);
-                            const citySlug = toSlug(city);
-                            // Clean URL: /properties/sale/lahore/dha
-                            return `/properties/${purposePath}/${citySlug}/${loc.slug}`;
-                          }
-                          // Fallback URL: /properties?city=lahore&areaId=...&purpose=sale
-                          const query = `areaId=${loc.id}${purpose !== 'all' ? `&purpose=${purpose}` : ''}&city=${city}`;
-                          return `/properties?${query}`;
-                        })()}
-                        className="flex justify-between items-center py-3 px-4 hover:bg-muted/50 transition-colors text-sm group"
-                      >
-
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-3 h-3 text-muted-foreground group-hover:text-primary transition-colors" />
-                          <span className="text-foreground group-hover:text-primary transition-colors">{loc.name}</span>
-                        </div>
-                        <Badge variant="secondary" className="px-1.5 h-5 text-[10px] font-normal">
-                          {loc.count}
-                        </Badge>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div className="p-6 text-center text-muted-foreground text-sm">
-                No locations found
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* NOTE: Popular Locations section yahan se hata di — ab PropertiesListing.tsx mein
+          property listings ke upar chips ki shakal mein show hoti hai */}
     </div>
   );
 }

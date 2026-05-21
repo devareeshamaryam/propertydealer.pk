@@ -1,13 +1,23 @@
-import { Metadata } from "next";
+ import { Metadata } from "next";
 import { serverApi } from "@/lib/server-api";
 import MaterialPageClient from "./MaterialPageClient";
 
-export const revalidate = 60; // Revalidate every 60 seconds
+export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Today Steel Rate in Pakistan 2026 | PropertyDealer.pk",
-  description: "Check today's latest steel rates in Pakistan. Updated daily prices from top brands and suppliers.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const page = await serverApi.getPageBySlug("today-steel-rate-in-pakistan");
+    return {
+      title: page?.metaTitle || "Today Steel Rate in Pakistan 2026 | PropertyDealer.pk",
+      description: page?.metaDescription || "Check today's latest steel rates in Pakistan. Updated daily prices from top brands and suppliers.",
+    };
+  } catch {
+    return {
+      title: "Today Steel Rate in Pakistan 2026 | PropertyDealer.pk",
+      description: "Check today's latest steel rates in Pakistan. Updated daily prices from top brands and suppliers.",
+    };
+  }
+}
 
 async function getSteelRates() {
   try {
@@ -28,7 +38,6 @@ export default async function SteelRatePage() {
   let pageContent: string | null = null;
   let pageTitle: string | null = null;
 
-  // Fetch rates + CMS page content in parallel
   const [ratesResult, pageResult] = await Promise.allSettled([
     getSteelRates(),
     serverApi.getPageBySlug("today-steel-rate-in-pakistan"),
