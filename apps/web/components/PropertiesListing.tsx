@@ -154,7 +154,6 @@ export default function PropertiesListing({
     return map[t] || `${t}s`;
   };
 
-  // ── URL builder ─────────────────────────────────────────────────────────────
   const buildCleanUrl = (opts: {
     purposeOverride?: string;
     cityOverride?: string;
@@ -179,15 +178,12 @@ export default function PropertiesListing({
     }
     return `/properties/${pp}/${cs}${areaPath}${tSlug}${marlaSlug}`;
   };
-  // ────────────────────────────────────────────────────────────────────────────
 
-  // CHANGE: handleMarlaClick — always changes URL (useCleanUrls ya query params dono mein)
   const handleMarlaClick = (marla: number) => {
     const isDeselecting = selectedMarla === marla;
     const newMarla = isDeselecting ? null : marla;
 
     if (newMarla === 20) {
-      // 1 Kanal → /1kanal slug
       const pp    = purpose === 'buy' ? 'sale' : purpose;
       const cs    = matchedCity ? `/${cityToSlug(matchedCity)}` : '';
       const tSlug = type && type !== 'all' ? `/${type.toLowerCase()}` : '';
@@ -195,7 +191,6 @@ export default function PropertiesListing({
     } else if (useCleanUrls) {
       router.push(buildCleanUrl({ marlaOverride: newMarla }));
     } else {
-      // Non-clean URL: query params update karo
       const params = new URLSearchParams(searchParams.toString());
       if (newMarla) {
         params.set('marlaMin', newMarla.toString());
@@ -375,14 +370,47 @@ export default function PropertiesListing({
     })();
   }, [matchedCity, purpose, type, advancedFilters, searchParams, currentPage, initialAreaId]);
 
+  // ✅ FIX: SEO description correctly picks up marla/size-specific content too
   const effectiveRichDescription = useMemo(() => {
     if (richDescription) return richDescription;
-    if ((type && type !== 'all') || !!(initialAreaId || initialAreaSlug)) return undefined;
     if (!matchedCity || !allCities.length) return undefined;
-    const d = allCities.find(c => c.name.toLowerCase() === matchedCity.toLowerCase());
-    if (!d) return undefined;
-    return purpose === 'rent' ? d.rentContent : purpose === 'buy' ? d.saleContent : d.description;
-  }, [richDescription, matchedCity, allCities, purpose, type, initialAreaId, initialAreaSlug]);
+
+    const cityData = allCities.find(c => c.name.toLowerCase() === matchedCity.toLowerCase());
+    if (!cityData) return undefined;
+
+    // 1. Size-specific content (e.g. 5 Marla page)
+    if (initialMarla && cityData.sizeContents?.length) {
+      const marlaKey = initialMarla === 20 ? '1kanal' : `${initialMarla}marla`;
+      const purposeKey = purpose === 'buy' ? 'sale' : purpose;
+      const match = cityData.sizeContents.find(
+        (s: any) =>
+          s.size === marlaKey &&
+          (s.purpose === purposeKey || s.purpose === 'all')
+      );
+      if (match?.content) return match.content;
+    }
+
+    // 2. Type-specific content (e.g. House for Rent)
+    if (type && type !== 'all' && cityData.typeContents?.length) {
+      const purposeKey = purpose === 'buy' ? 'sale' : purpose;
+      const match = cityData.typeContents.find(
+        (t: any) =>
+          t.propertyType?.toLowerCase() === type.toLowerCase() &&
+          (t.purpose === purposeKey || t.purpose === 'all')
+      );
+      if (match?.content) return match.content;
+    }
+
+    // 3. Area-specific: skip general content (no override for area pages)
+    if (initialAreaId || initialAreaSlug) return undefined;
+
+    // 4. Purpose-specific content
+    if (purpose === 'rent') return cityData.rentContent || undefined;
+    if (purpose === 'buy')  return cityData.saleContent || undefined;
+
+    // 5. Fallback: general description
+    return cityData.description || undefined;
+  }, [richDescription, matchedCity, allCities, purpose, type, initialAreaId, initialAreaSlug, initialMarla]);
 
   useEffect(() => {
     setProperties([]);
@@ -560,11 +588,11 @@ export default function PropertiesListing({
   const filterSheetAreaLoading = sheetCity ? loadingAreas : loadingAllAreas;
   const visibleFilterAreas     = showAllAreas ? filterSheetAreaList : filterSheetAreaList.slice(0, 8);
 
-  // CHANGE: City select hone par bhi marla chips show hon (sirf house/plot tak mehfood nahi)
   const showMarlaChips = !!(matchedCity) || type.toLowerCase() === 'house' || type.toLowerCase() === 'plot';
 
   return (
-    <div className="min-h-screen bg-background">
+    // ✅ FIX: wrapper div ab flex-col hai taake SEO section properly neeche aa sake
+    <div className="min-h-screen bg-background flex flex-col">
 
       <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
         <SheetContent side="bottom" className="h-screen w-full p-0 rounded-none border-0 lg:hidden flex flex-col">
@@ -698,7 +726,8 @@ export default function PropertiesListing({
         </SheetContent>
       </Sheet>
 
-      <section className="py-8 md:py-10">
+      {/* ── Main listings section ─────────────────────────────────────────── */}
+      <section className="py-8 md:py-10 flex-1">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row gap-8">
 
@@ -788,7 +817,6 @@ export default function PropertiesListing({
                 )}
               </div>
 
-              {/* CHANGE: lg:hidden hata diya — marla chips desktop + mobile dono par show hon */}
               {showMarlaChips && (
                 <div className="flex gap-2 flex-wrap">
                   {SIZE_OPTIONS.map(opt => (
@@ -800,7 +828,6 @@ export default function PropertiesListing({
                 </div>
               )}
 
-              {/* Popular Locations — pehle 8 show, baqi "View More" se */}
               {matchedCity && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -897,17 +924,21 @@ export default function PropertiesListing({
               </div>
             </div>
           </div>
-
-          {effectiveRichDescription && (
-            <section className="pt-24 pb-6 md:pt-28 md:pb-8 bg-secondary/50">
-              <div className="container mx-auto px-4">
-                <div className="mt-6 prose prose-sm max-w-4xl text-muted-foreground prose-headings:text-foreground prose-a:text-primary"
-                  dangerouslySetInnerHTML={{ __html: effectiveRichDescription }} />
-              </div>
-            </section>
-          )}
         </div>
       </section>
+
+      {/* ✅ FIX: SEO Description — container ke BAHAR, apni full-width section mein */}
+      {effectiveRichDescription && (
+        <section className="py-12 bg-secondary/50">
+          <div className="container mx-auto px-4">
+            <div
+              className="prose prose-sm max-w-4xl text-muted-foreground prose-headings:text-foreground prose-a:text-primary"
+              dangerouslySetInnerHTML={{ __html: effectiveRichDescription }}
+            />
+          </div>
+        </section>
+      )}
+
     </div>
   );
 }
