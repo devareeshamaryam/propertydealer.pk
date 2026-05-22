@@ -1,4 +1,4 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 export type CityDocument = City & Document;
 
@@ -7,9 +7,9 @@ export class City {
   @Prop({ required: true, nameCase: true, trim: true })
   name: string;
 
-  @Prop({ required: false, lowercase: true , trim: true})
+  @Prop({ required: false, lowercase: true, trim: true })
   areaSlug?: string;
-  
+
   @Prop({ required: false, lowercase: true, trim: true })
   state?: string;
 
@@ -55,9 +55,9 @@ export class City {
       purpose: { type: String, enum: ['rent', 'sale', 'all'], required: true },
       metaTitle: String,
       metaDescription: String,
-      content: String
+      content: String,
     }],
-    default: []
+    default: [],
   })
   typeContents?: {
     propertyType: string;
@@ -67,11 +67,31 @@ export class City {
     content?: string;
   }[];
 
+  // 🆕 Size-specific SEO content (2 Marla, 3 Marla, 5 Marla, 10 Marla, 1 Kanal)
+  @Prop({
+    type: [{
+      size: {
+        type: String,
+        enum: ['2marla', '3marla', '5marla', '10marla', '1kanal'],
+        required: true,
+      },
+      purpose: { type: String, enum: ['rent', 'sale', 'all'], required: true },
+      metaTitle: String,
+      metaDescription: String,
+      content: String,
+    }],
+    default: [],
+  })
+  sizeContents?: {
+    size: '2marla' | '3marla' | '5marla' | '10marla' | '1kanal';
+    purpose: 'rent' | 'sale' | 'all';
+    metaTitle?: string;
+    metaDescription?: string;
+    content?: string;
+  }[];
+
   @Prop({ trim: true })
   thumbnail?: string; // City Image URL
-
-  // Areas are optional - a city can exist without areas initially
-  // Areas will reference the city, not the other way around
 }
 
 export const CitySchema = SchemaFactory.createForClass(City);

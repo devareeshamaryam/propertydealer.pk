@@ -10,19 +10,33 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk'
 interface PageProps {
   params: Promise<{
     city: string;
-    segments: string[]; // catch-all: ['type'] | ['area'] | ['area', 'type'] | ['type', '2marla'] etc.
+    segments: string[];
   }>;
 }
 
-// ── Marla slug parser ────────────────────────────────────────────────────────
-// '2marla' → 2, '10marla' → 10, '1kanal' → 20, anything else → null
 function parseMarlaSlug(seg: string): number | null {
   const marlaMatch = seg.match(/^(\d+)marla$/i);
   if (marlaMatch) return parseInt(marlaMatch[1]!, 10);
   if (seg.toLowerCase() === '1kanal') return 20;
   return null;
 }
-// ────────────────────────────────────────────────────────────────────────────
+
+// ── Helper: sizeSlug from marla number ───────────────────────────────────────
+function toSizeSlug(marla: number): string {
+  return marla === 20 ? '1kanal' : `${marla}marla`;
+}
+
+// ── Helper: find sizeContents entry ─────────────────────────────────────────
+function findSizeEntry(cityData: any, marla: number, purposes: string[]) {
+  const slug = toSizeSlug(marla);
+  for (const p of purposes) {
+    const entry = cityData?.sizeContents?.find(
+      (s: any) => s.size === slug && s.purpose === p
+    );
+    if (entry) return entry;
+  }
+  return null;
+}
 
 async function resolveSegments(citySlug: string, segments: string[]) {
   try {
@@ -31,24 +45,20 @@ async function resolveSegments(citySlug: string, segments: string[]) {
 
     const propertyTypes = await serverApi.getTypes();
 
-    // Marla segment pehle nikalo — baaki segments pe normal logic chalao
     const marlaSegIdx = segments.findIndex(s => parseMarlaSlug(s) !== null);
     const marla = marlaSegIdx >= 0 ? parseMarlaSlug(segments[marlaSegIdx]!) : null;
     const cleanSegments = segments.filter((_, i) => i !== marlaSegIdx);
 
     if (cleanSegments.length === 0) {
-      // Sirf marla tha — city only page
       return { cityData, areaData: null, propertyType: null, areaSlug: null, marla };
     }
 
     if (cleanSegments.length === 1) {
       const seg = cleanSegments[0] as string;
       const matchedType = propertyTypes.find(t => t.toLowerCase() === seg.toLowerCase());
-
       if (matchedType) {
         return { cityData, areaData: null, propertyType: matchedType, areaSlug: null, marla };
       }
-
       try {
         const areaData = await serverApi.getAreaBySlug(seg, cityData._id);
         return { cityData, areaData, propertyType: null, areaSlug: seg, marla };
@@ -61,7 +71,6 @@ async function resolveSegments(citySlug: string, segments: string[]) {
       const areaSeg = cleanSegments[0] as string;
       const typeSeg = cleanSegments[1] as string;
       const matchedType = propertyTypes.find(t => t.toLowerCase() === typeSeg.toLowerCase()) || null;
-
       try {
         const areaData = await serverApi.getAreaBySlug(areaSeg, cityData._id);
         return { cityData, areaData, propertyType: matchedType, areaSlug: areaSeg, marla };
@@ -84,13 +93,8 @@ export async function generateMetadata(
   const { city: citySlug, segments } = await props.params;
   const { cityData, areaData, propertyType, marla } = await resolveSegments(citySlug, segments);
 
-  const purpose = 'Rent & Sale';
+  const purpose  = 'Rent & Sale';
   const cityName = cityData ? toTitleCase(cityData.name) : toTitleCase(citySlug);
-
-  const findTypeContent = (type: string) =>
-    cityData?.typeContents?.find(
-      (tc: any) => tc.propertyType.toLowerCase() === type.toLowerCase() && tc.purpose === 'all'
-    ) || null;
 
   if (areaData && propertyType) {
     const areaName = toTitleCase(areaData.name);
@@ -111,28 +115,37 @@ export async function generateMetadata(
     };
   }
 
-  if (propertyType) {
-    const tc = findTypeContent(propertyType);
-    // Type plural: Houses, Plots, Apartments etc.
-    const typePlural = propertyType.toLowerCase() === 'house'
-      ? 'Houses'
-      : propertyType.toLowerCase() === 'plot'
-        ? 'Plots'
-        : `${toTitleCase(propertyType)}s`;
-    // Marla prefix: "3 Marla " or "1 Kanal " or ""
-    const marlaPrefix = marla
-      ? (marla === 20 ? '1 Kanal ' : `${marla} Marla `)
-      : '';
-    // Purpose suffix: "For Sale" | "For Rent" | "For Rent & Sale"
-    const purposeSuffix = 'For Rent & Sale';
-    // Final: "3 Marla Houses For Rent & Sale in Lahore"
-    const autoTitle = `${marlaPrefix}${typePlural} ${purposeSuffix} in ${cityName}`;
-    const autoDesc  = `Find ${marlaPrefix.toLowerCase()}${typePlural.toLowerCase()} for rent & sale in ${cityName}. Browse verified listings on Property Dealer.`;
-    return {
-      title: tc?.metaTitle?.trim() || autoTitle,
-      description: tc?.metaDescription?.trim() || autoDesc,
-      alternates: { canonical: `/properties/all/${citySlug}/${segments.join('/')}` },
-    };
+  if (cityData) {
+    // 🆕 sizeContents meta — marla + propertyType
+    if (marla && propertyType && !areaData) {
+      const sizeEntry = findSizeEntry(cityData, marla, ['all', 'rent', 'sale']);
+      if (sizeEntry?.metaTitle?.trim()) {
+        return {
+          title: sizeEntry.metaTitle,
+          description: sizeEntry.metaDescription || undefined,
+          alternates: { canonical: `/properties/all/${citySlug}/${segments.join('/')}` },
+        };
+      }
+    }
+
+    if (propertyType) {
+      const tc = cityData?.typeContents?.find(
+        (tc: any) => tc.propertyType.toLowerCase() === propertyType.toLowerCase() && tc.purpose === 'all'
+      ) || null;
+      const typePlural = propertyType.toLowerCase() === 'house'
+        ? 'Houses'
+        : propertyType.toLowerCase() === 'plot'
+          ? 'Plots'
+          : `${toTitleCase(propertyType)}s`;
+      const marlaPrefix = marla ? (marla === 20 ? '1 Kanal ' : `${marla} Marla `) : '';
+      const autoTitle   = `${marlaPrefix}${typePlural} For Rent & Sale in ${cityName}`;
+      const autoDesc    = `Find ${marlaPrefix.toLowerCase()}${typePlural.toLowerCase()} for rent & sale in ${cityName}. Browse verified listings on Property Dealer.`;
+      return {
+        title: tc?.metaTitle?.trim() || autoTitle,
+        description: tc?.metaDescription?.trim() || autoDesc,
+        alternates: { canonical: `/properties/all/${citySlug}/${segments.join('/')}` },
+      };
+    }
   }
 
   return { title: `Properties in ${cityName}` };
@@ -145,27 +158,35 @@ export default async function AllCitySegmentsPage(props: PageProps) {
   if (!cityData) console.error(`City ${city} not found`);
 
   const listingType = propertyType || 'all';
-  const areaId = areaData?._id;
+  const areaId      = areaData?._id;
 
+  // typeContents fallback (existing)
   const specificContent = propertyType && !areaData
     ? cityData?.typeContents?.find(
-      (tc: any) =>
-        tc.propertyType.toLowerCase() === propertyType.toLowerCase() &&
-        tc.purpose === 'all'
-    ) || null
+        (tc: any) =>
+          tc.propertyType.toLowerCase() === propertyType.toLowerCase() &&
+          tc.purpose === 'all'
+      ) || null
+    : null;
+
+  // 🆕 sizeContents — marla specific content (highest priority)
+  const sizeEntry = marla && propertyType && cityData && !areaData
+    ? findSizeEntry(cityData, marla, ['all', 'rent', 'sale'])
     : null;
 
   const richDescription = areaData && propertyType
     ? undefined
     : areaData
       ? (areaData.description || undefined)
-      : (specificContent?.content?.trim() ? specificContent.content : undefined);
+      : sizeEntry?.content?.trim()                    // 🆕 size-specific first
+        ? sizeEntry.content
+        : (specificContent?.content?.trim() ? specificContent.content : undefined);
 
-  // --- Schema.org ---
-  const cityName = cityData ? toTitleCase(cityData.name) : toTitleCase(city);
-  const areaName = areaData ? toTitleCase(areaData.name) : null;
-  const typeName = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType)) : null;
-  const pageUrl = `${BASE_URL}/properties/all/${city}/${segments.join('/')}`;
+  // Schema
+  const cityName  = cityData ? toTitleCase(cityData.name) : toTitleCase(city);
+  const areaName  = areaData ? toTitleCase(areaData.name) : null;
+  const typeName  = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType)) : null;
+  const pageUrl   = `${BASE_URL}/properties/all/${city}/${segments.join('/')}`;
   const pageTitle = [
     typeName ? (typeName === 'Property' ? 'Property' : `${typeName}s`) : 'Properties',
     'for Rent & Sale',
@@ -175,20 +196,14 @@ export default async function AllCitySegmentsPage(props: PageProps) {
   let schemaProperties: any[] = [];
   try {
     const params: Record<string, string> = { city, limit: '20', page: '1' };
-    if (areaId) params.areaId = areaId;
-    if (listingType !== 'all') params.type = listingType;
-    if (marla) { params.marlaMin = String(marla); params.marlaMax = String(marla); }
-    const qs = new URLSearchParams(params).toString();
+    if (areaId)                params.areaId   = areaId;
+    if (listingType !== 'all') params.type     = listingType;
+    if (marla)               { params.marlaMin = String(marla); params.marlaMax = String(marla); }
+    const qs  = new URLSearchParams(params).toString();
     const res = await serverApi.getProperties(qs);
     const rawProps: any[] = Array.isArray(res) ? res : (res as any).properties || [];
-    schemaProperties = rawProps.map((p: any) => ({
-      id: p._id,
-      slug: p.slug,
-      name: p.title,
-    }));
-  } catch {
-    // Schema is non-critical — fail silently
-  }
+    schemaProperties = rawProps.map((p: any) => ({ id: p._id, slug: p.slug, name: p.title }));
+  } catch { /* non-critical */ }
 
   const breadcrumbs = [
     { name: 'Home', url: `${BASE_URL}/` },
@@ -206,12 +221,9 @@ export default async function AllCitySegmentsPage(props: PageProps) {
     url: pageUrl,
     title: pageTitle,
     cityName,
-    properties: schemaProperties.map(p => ({
-      title: p.name,
-      url: `${BASE_URL}/p/${p.slug || p.id}`
-    })),
+    properties: schemaProperties.map(p => ({ title: p.name, url: `${BASE_URL}/p/${p.slug || p.id}` })),
     totalItems: schemaProperties.length,
-    crumbs: breadcrumbs
+    crumbs: breadcrumbs,
   });
 
   return (

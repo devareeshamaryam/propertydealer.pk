@@ -1,4 +1,4 @@
-'use client'
+ 'use client'
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { cityApi } from '@/lib/api/city/city.api';

@@ -1,4 +1,4 @@
-import PropertiesListing from '@/components/PropertiesListing';
+ import PropertiesListing from '@/components/PropertiesListing';
 import { Suspense } from 'react';
 import { Metadata } from 'next';
 import { serverApi } from '@/lib/server-api';
@@ -34,10 +34,7 @@ async function resolve(segments: string[]) {
   const rest        = segments.filter(s => !isSizeSegment(s));
 
   if (rest.length >= 1 && KNOWN_TYPES.includes(rest[0]!.toLowerCase())) {
-    return {
-      cityData: null, citySlug: '', areaData: null, areaSlug: null,
-      propertyType: rest[0]!, marla,
-    };
+    return { cityData: null, citySlug: '', areaData: null, areaSlug: null, propertyType: rest[0]!, marla };
   }
 
   const citySlug = rest[0] || '';
@@ -47,13 +44,11 @@ async function resolve(segments: string[]) {
   if (!cityData) {
     return { cityData: null, citySlug, areaData: null, areaSlug: null, propertyType: null, marla };
   }
-
   if (!rest[1]) {
     return { cityData, citySlug, areaData: null, areaSlug: null, propertyType: null, marla };
   }
 
   const seg2 = rest[1].toLowerCase();
-
   if (KNOWN_TYPES.includes(seg2)) {
     return { cityData, citySlug, areaData: null, areaSlug: null, propertyType: rest[1]!, marla };
   }
@@ -62,8 +57,24 @@ async function resolve(segments: string[]) {
   try { areaData = await serverApi.getAreaBySlug(rest[1]!, cityData._id); } catch { /* not found */ }
 
   const propertyType = rest[2] && KNOWN_TYPES.includes(rest[2].toLowerCase()) ? rest[2]! : null;
-
   return { cityData, citySlug, areaData, areaSlug: rest[1]!, propertyType, marla };
+}
+
+// ── Helper: sizeSlug from marla number ───────────────────────────────────────
+function toSizeSlug(marla: number): string {
+  return marla === 20 ? '1kanal' : `${marla}marla`;
+}
+
+// ── Helper: find sizeContents entry ─────────────────────────────────────────
+function findSizeEntry(cityData: any, marla: number, purposes: string[]) {
+  const slug = toSizeSlug(marla);
+  for (const p of purposes) {
+    const entry = cityData?.sizeContents?.find(
+      (s: any) => s.size === slug && s.purpose === p
+    );
+    if (entry) return entry;
+  }
+  return null;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -76,11 +87,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType))
     : 'Properties';
   const areaName = areaData ? toTitleCase(areaData.name) : null;
-
-  const locationStr = areaName
-    ? `${areaName}${cityName ? `, ${cityName}` : ''}`
-    : cityName || 'Pakistan';
-
+  const locationStr = areaName ? `${areaName}${cityName ? `, ${cityName}` : ''}` : cityName || 'Pakistan';
   const marlaStr = marla ? ` - ${marla >= 20 ? `${marla / 20} Kanal` : `${marla} Marla`}` : '';
 
   if (areaData) {
@@ -92,6 +99,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   if (cityData) {
+    // 🆕 sizeContents meta — marla + propertyType
+    if (marla && propertyType && !areaData) {
+      const sizeEntry = findSizeEntry(cityData, marla, ['sale', 'all']);
+      if (sizeEntry?.metaTitle?.trim()) {
+        return {
+          title: sizeEntry.metaTitle,
+          description: sizeEntry.metaDescription || undefined,
+          alternates: { canonical: `/properties/sale/${segments.filter(s => !isSizeSegment(s)).join('/')}` },
+        };
+      }
+    }
+
     const findTypeContent = (type: string) =>
       cityData?.typeContents?.find(
         (tc: any) => tc.propertyType.toLowerCase() === type.toLowerCase() &&
@@ -115,9 +134,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: propertyType
-      ? `${typeName} for ${purpose} in Pakistan${marlaStr}`
-      : `Properties for ${purpose} in Pakistan`,
+    title: propertyType ? `${typeName} for ${purpose} in Pakistan${marlaStr}` : `Properties for ${purpose} in Pakistan`,
     description: `Search and find properties for ${purpose.toLowerCase()} across Pakistan on Property Dealer.`,
     alternates: { canonical: `/properties/sale${segments.length ? `/${segments.join('/')}` : ''}` },
   };
@@ -131,6 +148,7 @@ export default async function SalePage({ params }: PageProps) {
   const areaId      = areaData?._id;
   const cityName    = cityData ? toTitleCase(cityData.name) : '';
 
+  // typeContents fallback (existing)
   const specificContent = propertyType && cityData && !areaData
     ? cityData?.typeContents?.find(
         (tc: any) => tc.propertyType.toLowerCase() === propertyType.toLowerCase() &&
@@ -138,13 +156,20 @@ export default async function SalePage({ params }: PageProps) {
       ) || null
     : null;
 
+  // 🆕 sizeContents — marla specific content (highest priority)
+  const sizeEntry = marla && propertyType && cityData && !areaData
+    ? findSizeEntry(cityData, marla, ['sale', 'all'])
+    : null;
+
   const richDescription = areaData && propertyType
     ? undefined
     : areaData
       ? (areaData.saleContent?.trim() || areaData.description || undefined)
-      : propertyType
-        ? (specificContent?.content?.trim() || undefined)
-        : (cityData?.saleContent || undefined);
+      : sizeEntry?.content?.trim()                    // 🆕 size-specific first
+        ? sizeEntry.content
+        : propertyType
+          ? (specificContent?.content?.trim() || undefined)
+          : (cityData?.saleContent || undefined);
 
   const typeName  = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType)) : null;
   const areaName  = areaData ? toTitleCase(areaData.name) : null;

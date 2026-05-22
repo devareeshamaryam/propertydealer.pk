@@ -1,4 +1,25 @@
-import { IsNotEmpty, IsOptional, IsString } from "class-validator";
+ import { IsNotEmpty, IsOptional, IsString, IsArray, ValidateNested, IsEnum } from "class-validator";
+import { Type } from "class-transformer";
+
+export class SizeContentDto {
+    @IsEnum(['2marla', '3marla', '5marla', '10marla', '1kanal'])
+    size: '2marla' | '3marla' | '5marla' | '10marla' | '1kanal';
+
+    @IsEnum(['rent', 'sale', 'all'])
+    purpose: 'rent' | 'sale' | 'all';
+
+    @IsOptional()
+    @IsString()
+    metaTitle?: string;
+
+    @IsOptional()
+    @IsString()
+    metaDescription?: string;
+
+    @IsOptional()
+    @IsString()
+    content?: string;
+}
 
 export class CreateCityDto {
     @IsNotEmpty({ message: 'City name is required' })
@@ -69,4 +90,11 @@ export class CreateCityDto {
         metaDescription?: string;
         content?: string;
     }[];
+
+    // 🆕 Size-specific SEO content
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => SizeContentDto)
+    sizeContents?: SizeContentDto[];
 }
