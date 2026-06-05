@@ -1,11 +1,15 @@
-import PropertiesListing from '@/components/PropertiesListing';
+ import PropertiesListing from '@/components/PropertiesListing';
 import { Suspense } from 'react';
 import { Metadata, ResolvingMetadata } from 'next';
+import { notFound } from 'next/navigation';
 import { serverApi } from '@/lib/server-api';
 import { toTitleCase } from '@/lib/utils';
 import { buildCollectionPageSchema } from '@/lib/schema/listing-schema';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
+
+// Agar city segment mein yeh values aayein tou yeh misrouted URL hai
+const PROPERTY_TYPES = ['house', 'plot', 'apartment', 'commercial', 'flat', 'room'];
 
 interface PageProps {
   params: Promise<{ city: string }>;
@@ -19,6 +23,11 @@ export async function generateMetadata(
   const { city: citySlug } = await props.params;
   const searchParams = await props.searchParams;
   const type = (searchParams.type as string) || '';
+
+  // Bad URL — property type city segment mein aa gaya
+  if (PROPERTY_TYPES.includes(citySlug.toLowerCase())) {
+    return { title: 'Not Found' };
+  }
 
   try {
     const cityData = await serverApi.getCityByName(citySlug);
@@ -61,6 +70,12 @@ export default async function AllCityPage(props: PageProps) {
   const { city } = await props.params;
   const searchParams = await props.searchParams;
   const type = (searchParams.type as string) || '';
+
+  // Bad URL — property type city segment mein aa gaya, 404 dikhao
+  if (PROPERTY_TYPES.includes(city.toLowerCase())) {
+    notFound();
+  }
+
   let cityDetails: any = null;
 
   try {

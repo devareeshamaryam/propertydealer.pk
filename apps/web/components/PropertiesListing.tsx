@@ -370,7 +370,6 @@ export default function PropertiesListing({
     })();
   }, [matchedCity, purpose, type, advancedFilters, searchParams, currentPage, initialAreaId]);
 
-  // ✅ FIX: SEO description correctly picks up marla/size-specific content too
   const effectiveRichDescription = useMemo(() => {
     if (richDescription) return richDescription;
     if (!matchedCity || !allCities.length) return undefined;
@@ -378,7 +377,6 @@ export default function PropertiesListing({
     const cityData = allCities.find(c => c.name.toLowerCase() === matchedCity.toLowerCase());
     if (!cityData) return undefined;
 
-    // 1. Size-specific content (e.g. 5 Marla page)
     if (initialMarla && cityData.sizeContents?.length) {
       const marlaKey = initialMarla === 20 ? '1kanal' : `${initialMarla}marla`;
       const purposeKey = purpose === 'buy' ? 'sale' : purpose;
@@ -390,7 +388,6 @@ export default function PropertiesListing({
       if (match?.content) return match.content;
     }
 
-    // 2. Type-specific content (e.g. House for Rent)
     if (type && type !== 'all' && cityData.typeContents?.length) {
       const purposeKey = purpose === 'buy' ? 'sale' : purpose;
       const match = cityData.typeContents.find(
@@ -401,14 +398,11 @@ export default function PropertiesListing({
       if (match?.content) return match.content;
     }
 
-    // 3. Area-specific: skip general content (no override for area pages)
     if (initialAreaId || initialAreaSlug) return undefined;
 
-    // 4. Purpose-specific content
     if (purpose === 'rent') return cityData.rentContent || undefined;
     if (purpose === 'buy')  return cityData.saleContent || undefined;
 
-    // 5. Fallback: general description
     return cityData.description || undefined;
   }, [richDescription, matchedCity, allCities, purpose, type, initialAreaId, initialAreaSlug, initialMarla]);
 
@@ -591,7 +585,6 @@ export default function PropertiesListing({
   const showMarlaChips = !!(matchedCity) || type.toLowerCase() === 'house' || type.toLowerCase() === 'plot';
 
   return (
-    // ✅ FIX: wrapper div ab flex-col hai taake SEO section properly neeche aa sake
     <div className="min-h-screen bg-background flex flex-col">
 
       <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
@@ -828,8 +821,9 @@ export default function PropertiesListing({
                 </div>
               )}
 
+              {/* ✅ FIX: Popular Locations — mobile par hidden, desktop par visible */}
               {matchedCity && (
-                <div className="space-y-3">
+                <div className="hidden lg:block space-y-3">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-muted-foreground" />
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">

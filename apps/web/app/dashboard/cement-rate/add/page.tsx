@@ -6,6 +6,7 @@ import { Loader2, ArrowLeft, Image as ImageIcon, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -34,6 +35,7 @@ export default function AddCementRatePage() {
   const [form, setForm] = useState({
     brand: '', price: '', change: '0',
     weightKg: '50', category: 'OPC Cement', description: '',
+    metaTitle: '', metaDescription: '',
   });
 
   // Main image
@@ -90,12 +92,14 @@ export default function AddCementRatePage() {
     try {
       setSubmitting(true);
       const fd = new FormData();
-      fd.append('brand',       form.brand.trim());
-      fd.append('price',       form.price);
-      fd.append('change',      form.change);
-      fd.append('weightKg',    form.weightKg);
-      fd.append('category',    form.category);
-      fd.append('description', form.description);
+      fd.append('brand',           form.brand.trim());
+      fd.append('price',           form.price);
+      fd.append('change',          form.change);
+      fd.append('weightKg',        form.weightKg);
+      fd.append('category',        form.category);
+      fd.append('description',     form.description);
+      fd.append('metaTitle',       form.metaTitle.trim());
+      fd.append('metaDescription', form.metaDescription.trim());
 
       if (imageFile) fd.append('image', imageFile);
 
@@ -231,6 +235,50 @@ export default function AddCementRatePage() {
           <div className="space-y-1.5">
             <Label>Description</Label>
             <RichEditor value={form.description} onChange={v => set('description', v)} />
+          </div>
+
+          {/* ── SEO Meta Fields ─────────────────────────────────────────── */}
+          <div className="border-t pt-6 space-y-4">
+            <div>
+              <h2 className="text-base font-semibold text-gray-800">SEO Settings</h2>
+              <p className="text-xs text-gray-400 mt-0.5">These appear in Google search results for this cement brand page.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="metaTitle">Meta Title</Label>
+              <Input
+                id="metaTitle"
+                placeholder="e.g. Lucky Cement Price Today in Pakistan – Rs 1300 per bag"
+                value={form.metaTitle}
+                onChange={e => set('metaTitle', e.target.value)}
+                maxLength={70}
+              />
+              <p className="text-xs text-gray-400 flex justify-between">
+                <span>Recommended: 50–70 characters</span>
+                <span className={form.metaTitle.length > 70 ? 'text-red-500' : ''}>
+                  {form.metaTitle.length}/70
+                </span>
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="metaDescription">Meta Description</Label>
+              <Textarea
+                id="metaDescription"
+                placeholder="e.g. Check today's Lucky Cement price in Pakistan. Currently Rs 1300 per 50kg bag. Latest rates updated daily."
+                value={form.metaDescription}
+                onChange={e => set('metaDescription', e.target.value)}
+                maxLength={160}
+                rows={3}
+                className="resize-none"
+              />
+              <p className="text-xs text-gray-400 flex justify-between">
+                <span>Recommended: 120–160 characters</span>
+                <span className={form.metaDescription.length > 160 ? 'text-red-500' : ''}>
+                  {form.metaDescription.length}/160
+                </span>
+              </p>
+            </div>
           </div>
 
           {/* Submit */}

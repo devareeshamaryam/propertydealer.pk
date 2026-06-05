@@ -1,4 +1,4 @@
-import {
+ import {
   Controller, Get, Post, Put, Delete,
   Param, Query, Request, BadRequestException,
   HttpCode, HttpStatus,
@@ -20,9 +20,7 @@ export class CementRateController {
 
   // ── Public ──────────────────────────────────────────────────────────────
   @Get()
-  async findAll(
-    @Query('category') category?: string,
-  ) {
+  async findAll(@Query('category') category?: string) {
     return this.cementRateService.findAll(category);
   }
 
@@ -54,52 +52,44 @@ export class CementRateController {
       console.log('📝 Creating cement rate...');
       const files: any[] = req.files ?? [];
       const body = req.body;
-      
+
       console.log('📦 Request body:', body);
       console.log('📁 Files received:', files.length);
 
-      // Validate required fields
-      if (!body.brand) {
-        throw new BadRequestException('Brand is required');
-      }
-      if (!body.price) {
-        throw new BadRequestException('Price is required');
-      }
+      if (!body.brand) throw new BadRequestException('Brand is required');
+      if (!body.price) throw new BadRequestException('Price is required');
 
       let imageUrl: string | undefined;
       const imageFile = files.find(f => f.fieldname === 'image');
       if (imageFile) {
-        console.log('📸 Uploading main image...');
         const key = await this.storageService.upload(imageFile, 'cement-rates');
         imageUrl = this.storageService.getUrl(key);
-        console.log('✅ Main image uploaded:', imageUrl);
       }
 
       const extraFiles = files.filter(f => f.fieldname === 'images' || f.fieldname === 'images[]');
       const extraUrls: string[] = [];
       for (const file of extraFiles) {
-        console.log('📸 Uploading additional image...');
         const key = await this.storageService.upload(file, 'cement-rates');
         extraUrls.push(this.storageService.getUrl(key));
       }
-      console.log(`✅ Uploaded ${extraUrls.length} additional images`);
 
       const dto: CreateCementRateDto = {
-        brand:       body.brand,
-        price:       Number(body.price),
-        change:      body.change ? Number(body.change) : 0,
-        weightKg:    body.weightKg ? Number(body.weightKg) : 50,
-        category:    body.category ?? 'OPC Cement',
-        title:       body.title || undefined,
-        description: body.description || undefined,
-        isActive:    body.isActive !== undefined ? body.isActive === 'true' || body.isActive === true : true,
+        brand:           body.brand,
+        price:           Number(body.price),
+        change:          body.change ? Number(body.change) : 0,
+        weightKg:        body.weightKg ? Number(body.weightKg) : 50,
+        category:        body.category ?? 'OPC Cement',
+        title:           body.title || undefined,
+        description:     body.description || undefined,
+        metaTitle:       body.metaTitle?.trim() || undefined,
+        metaDescription: body.metaDescription?.trim() || undefined,
+        isActive:        body.isActive !== undefined ? body.isActive === 'true' || body.isActive === true : true,
         ...(imageUrl             ? { image: imageUrl }    : {}),
         ...(extraUrls.length > 0 ? { images: extraUrls } : {}),
       };
 
-      console.log('💾 Saving cement rate to database...');
       const result = await this.cementRateService.create(dto);
-      console.log('✅ Cement rate created successfully:', result._id);
+      console.log('✅ Cement rate created:', result._id);
       return result;
     } catch (error) {
       console.error('❌ Error creating cement rate:', error);
@@ -117,10 +107,12 @@ export class CementRateController {
       const files: any[] = req.files ?? [];
       const body = req.body;
 
+      // ✅ Body log karo — debug ke liye
+      console.log('📦 Update body:', JSON.stringify(body, null, 2));
+
       let imageUrl: string | undefined;
       const imageFile = files.find(f => f.fieldname === 'image');
       if (imageFile) {
-        console.log('📸 Uploading new main image...');
         const key = await this.storageService.upload(imageFile, 'cement-rates');
         imageUrl = this.storageService.getUrl(key);
       }
@@ -139,8 +131,6 @@ export class CementRateController {
           : [body.existingImages];
       }
 
-      const mergedImages = [...keptImages, ...newExtraUrls];
-
       const dto: UpdateCementRateDto = {
         ...(body.brand       ? { brand: body.brand }               : {}),
         ...(body.price       ? { price: Number(body.price) }       : {}),
@@ -149,10 +139,21 @@ export class CementRateController {
         ...(body.category    ? { category: body.category }         : {}),
         ...(body.title       ? { title: body.title }               : {}),
         ...(body.description !== undefined ? { description: body.description } : {}),
-        ...(body.isActive    !== undefined ? { isActive: body.isActive === 'true' || body.isActive === true } : {}),
-        ...(imageUrl         ? { image: imageUrl }                 : {}),
-        images: mergedImages,
+        ...(body.metaTitle !== undefined
+          ? { metaTitle: body.metaTitle?.trim() }
+          : {}),
+        ...(body.metaDescription !== undefined
+          ? { metaDescription: body.metaDescription?.trim() }
+          : {}),
+        ...(body.isActive !== undefined
+          ? { isActive: body.isActive === 'true' || body.isActive === true }
+          : {}),
+        ...(imageUrl ? { image: imageUrl } : {}),
+        images: [...keptImages, ...newExtraUrls],
       };
+
+      // ✅ DTO bhi log karo
+      console.log('📋 Update DTO:', JSON.stringify(dto, null, 2));
 
       console.log('💾 Updating cement rate in database...');
       const result = await this.cementRateService.update(id, dto);

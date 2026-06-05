@@ -23,7 +23,6 @@ export class CementRate {
   @Prop({ default: 0 })
   change: number;
 
-
   @Prop({ default: 50 })
   weightKg: number;
 
@@ -31,13 +30,19 @@ export class CementRate {
   category: string;
 
   @Prop({ trim: true })
-  image?: string;         // main/first image
+  image?: string;
 
   @Prop({ type: [String], default: [] })
-  images: string[];       // ✅ additional images array
+  images: string[];
 
   @Prop({ type: String })
   description?: string;
+
+  @Prop({ type: String, trim: true })
+  metaTitle?: string;
+
+  @Prop({ type: String, trim: true })
+  metaDescription?: string;
 
   @Prop({ default: true })
   isActive: boolean;

@@ -10,8 +10,10 @@ export interface CementRateData {
   weightKg?: number;
   category?: string;
   image?: string;
-  images?: string[];   // ✅ added
+  images?: string[];
   description?: string;
+  metaTitle?: string;       // ✅ added
+  metaDescription?: string; // ✅ added
   isActive?: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -25,8 +27,10 @@ export interface CreateCementRateData {
   category?: string;
   title?: string;
   image?: string;
-  images?: string[];   // ✅ added
+  images?: string[];
   description?: string;
+  metaTitle?: string;       // ✅ added
+  metaDescription?: string; // ✅ added
   isActive?: boolean;
 }
 

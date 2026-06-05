@@ -1,4 +1,4 @@
-import PropertyDetail from '@/components/PropertyDetail';
+ import PropertyDetail from '@/components/PropertyDetail';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { serverApi } from '@/lib/server-api';
 import { Metadata } from 'next';
@@ -65,13 +65,11 @@ export default async function PropertyDetailPage({ params }: PageProps) {
     console.error('Error fetching property for page:', error);
   }
 
-  // Build structured data schemas
   let propertySchema = null;
   let breadcrumbSchema = null;
   let breadcrumbItems: Array<{ name: string; url: string }> = [];
 
   if (property) {
-    // Extract city/area names from populated area object
     const areaObj = typeof property.area === 'object' ? property.area : null;
     const areaName = areaObj?.name;
     const areaSlug = areaObj?.areaSlug;
@@ -103,7 +101,6 @@ export default async function PropertyDetailPage({ params }: PageProps) {
       features: property.features,
     });
 
-    // Build breadcrumb: Home > Properties > City > Area (optional) > Property
     const crumbs: Array<{ name: string; url: string }> = [
       { name: 'Home', url: BASE_URL },
       { name: `Properties for ${isSale ? 'Sale' : 'Rent'}`, url: `${BASE_URL}/properties/${purposePath}` },
@@ -134,10 +131,16 @@ export default async function PropertyDetailPage({ params }: PageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
         />
       )}
-      <div className="container mx-auto px-4 py-6">
-        {breadcrumbItems.length > 0 && <Breadcrumbs items={breadcrumbItems} />}
-        <PropertyDetail slug={slug} initialProperty={property} />
-      </div>
+
+      {/* Breadcrumbs: sirf desktop pe show karo, mobile pe hidden */}
+      {breadcrumbItems.length > 0 && (
+        <div className="hidden md:block container mx-auto px-4 pt-24 pb-0">
+          <Breadcrumbs items={breadcrumbItems} />
+        </div>
+      )}
+
+      {/* PropertyDetail apni spacing khud handle karta hai */}
+      <PropertyDetail slug={slug} initialProperty={property} />
     </>
   );
 }

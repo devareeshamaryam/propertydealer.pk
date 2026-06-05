@@ -6,6 +6,7 @@ import { Loader2, ArrowLeft, Image as ImageIcon, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -37,22 +38,23 @@ export default function EditCementRatePage() {
   const mainFileRef  = useRef<HTMLInputElement>(null);
   const extraFileRef = useRef<HTMLInputElement>(null);
 
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading]       = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     brand: '', price: '', change: '0',
     weightKg: '50', category: 'OPC Cement', description: '',
+    metaTitle: '', metaDescription: '',
   });
 
   // Main image
-  const [existingImage, setExistingImage] = useState<string | null>(null);
-  const [newMainFile, setNewMainFile]     = useState<File | null>(null);
+  const [existingImage, setExistingImage]   = useState<string | null>(null);
+  const [newMainFile, setNewMainFile]       = useState<File | null>(null);
   const [newMainPreview, setNewMainPreview] = useState<string | null>(null);
 
   // Extra images — existing (URLs) + new (files)
-  const [existingExtras, setExistingExtras] = useState<string[]>([]);  // kept URLs
-  const [newExtras, setNewExtras]           = useState<NewImage[]>([]); // newly added
+  const [existingExtras, setExistingExtras] = useState<string[]>([]);
+  const [newExtras, setNewExtras]           = useState<NewImage[]>([]);
 
   const set = (field: string, value: string) => setForm(f => ({ ...f, [field]: value }));
 
@@ -61,14 +63,16 @@ export default function EditCementRatePage() {
     cementRateApi.getRateById(id)
       .then(rate => {
         setForm({
-          brand:       rate.brand ?? '',
-          price:       String(rate.price ?? ''),
-          change:      String(rate.change ?? 0),
-          weightKg:    String(rate.weightKg ?? 50),
-          category:    rate.category ?? 'OPC Cement',
-          description: rate.description ?? '',
+          brand:           rate.brand ?? '',
+          price:           String(rate.price ?? ''),
+          change:          String(rate.change ?? 0),
+          weightKg:        String(rate.weightKg ?? 50),
+          category:        rate.category ?? 'OPC Cement',
+          description:     rate.description ?? '',
+          metaTitle:       rate.metaTitle ?? '',
+          metaDescription: rate.metaDescription ?? '',
         });
-        if (rate.image)  setExistingImage(rate.image);
+        if (rate.image)         setExistingImage(rate.image);
         if (rate.images?.length) setExistingExtras(rate.images);
       })
       .catch(() => toast.error('Failed to load cement rate'))
@@ -124,20 +128,18 @@ export default function EditCementRatePage() {
     try {
       setSubmitting(true);
       const fd = new FormData();
-      fd.append('brand',       form.brand.trim());
-      fd.append('price',       form.price);
-      fd.append('change',      form.change);
-      fd.append('weightKg',    form.weightKg);
-      fd.append('category',    form.category);
-      fd.append('description', form.description);
+      fd.append('brand',           form.brand.trim());
+      fd.append('price',           form.price);
+      fd.append('change',          form.change);
+      fd.append('weightKg',        form.weightKg);
+      fd.append('category',        form.category);
+      fd.append('description',     form.description);
+      fd.append('metaTitle',       form.metaTitle.trim());
+      fd.append('metaDescription', form.metaDescription.trim());
 
-      // Main image — new file or keep existing
       if (newMainFile) fd.append('image', newMainFile);
 
-      // Send kept existing extra images so backend merges correctly
       existingExtras.forEach(url => fd.append('existingImages', url));
-
-      // New extra images
       newExtras.forEach(({ file }) => fd.append('images', file));
 
       await cementRateApi.updateRate(id, fd);
@@ -213,7 +215,6 @@ export default function EditCementRatePage() {
               className="hidden" ref={extraFileRef} />
 
             <div className="flex flex-wrap gap-3">
-              {/* Existing images from DB */}
               {existingExtras.map((url) => (
                 <div key={url} className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200">
                   <img src={getFullUrl(url)} alt="" className="w-full h-full object-cover" />
@@ -224,7 +225,6 @@ export default function EditCementRatePage() {
                 </div>
               ))}
 
-              {/* Newly added images */}
               {newExtras.map((img, i) => (
                 <div key={i} className="relative w-24 h-24 rounded-lg overflow-hidden border border-blue-300">
                   <img src={img.preview} alt="" className="w-full h-full object-cover" />
@@ -236,7 +236,6 @@ export default function EditCementRatePage() {
                 </div>
               ))}
 
-              {/* Add button */}
               <button type="button" onClick={() => extraFileRef.current?.click()}
                 className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-500 flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-gray-600 transition-colors">
                 <Plus className="w-5 h-5" />
@@ -275,8 +274,6 @@ export default function EditCementRatePage() {
               value={form.weightKg} onChange={e => set('weightKg', e.target.value)} />
           </div>
 
-
-
           {/* Category */}
           <div className="space-y-1.5">
             <Label>Cement Type</Label>
@@ -292,6 +289,50 @@ export default function EditCementRatePage() {
           <div className="space-y-1.5">
             <Label>Description</Label>
             <RichEditor value={form.description} onChange={v => set('description', v)} />
+          </div>
+
+          {/* ── SEO Meta Fields ─────────────────────────────────────────── */}
+          <div className="border-t pt-6 space-y-4">
+            <div>
+              <h2 className="text-base font-semibold text-gray-800">SEO Settings</h2>
+              <p className="text-xs text-gray-400 mt-0.5">These appear in Google search results for this cement brand page.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="metaTitle">Meta Title</Label>
+              <Input
+                id="metaTitle"
+                placeholder="e.g. Lucky Cement Price Today in Pakistan – Rs 1300 per bag"
+                value={form.metaTitle}
+                onChange={e => set('metaTitle', e.target.value)}
+                maxLength={70}
+              />
+              <p className="text-xs text-gray-400 flex justify-between">
+                <span>Recommended: 50–70 characters</span>
+                <span className={form.metaTitle.length > 70 ? 'text-red-500' : ''}>
+                  {form.metaTitle.length}/70
+                </span>
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="metaDescription">Meta Description</Label>
+              <Textarea
+                id="metaDescription"
+                placeholder="e.g. Check today's Lucky Cement price in Pakistan. Currently Rs 1300 per 50kg bag. Latest rates updated daily."
+                value={form.metaDescription}
+                onChange={e => set('metaDescription', e.target.value)}
+                maxLength={160}
+                rows={3}
+                className="resize-none"
+              />
+              <p className="text-xs text-gray-400 flex justify-between">
+                <span>Recommended: 120–160 characters</span>
+                <span className={form.metaDescription.length > 160 ? 'text-red-500' : ''}>
+                  {form.metaDescription.length}/160
+                </span>
+              </p>
+            </div>
           </div>
 
           {/* Submit */}

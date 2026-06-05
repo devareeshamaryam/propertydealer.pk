@@ -1,4 +1,4 @@
-import { serverApi } from '@/lib/server-api';
+ import { serverApi } from '@/lib/server-api';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
@@ -6,8 +6,19 @@ type PageProps = {
   params: Promise<{ slug: string }>
 }
 
+// ✅ Static files jo is route pe nahi aane chahiye
+function isStaticFile(slug: string): boolean {
+  return slug.includes('.') || slug === 'og-image' || slug === 'favicon';
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+
+  // ✅ Static file request aaye toh metadata nahi banao
+  if (isStaticFile(slug)) {
+    return { title: 'PropertyDealer' };
+  }
+
   try {
     const page = await serverApi.getPageBySlug(slug);
 
@@ -38,6 +49,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CustomPage({ params }: PageProps) {
   const { slug } = await params;
 
+  // ✅ Static file request aaye toh 404 karo
+  if (isStaticFile(slug)) {
+    notFound();
+  }
+
   try {
     const page = await serverApi.getPageBySlug(slug);
 
@@ -45,21 +61,9 @@ export default async function CustomPage({ params }: PageProps) {
       notFound();
     }
 
-    // ← Add this debug log (check Vercel logs, PM2 logs, or browser console via hydration)
-    console.log('Raw page.content:', page.content);
-    console.log('First 200 chars:', page.content.slice(0, 200));
-
-    // Also render it safely for inspection
     return (
       <div className="container mx-auto px-4 pt-24 pb-16 min-h-screen bg-background">
         <h1 className="text-4xl font-bold text-foreground mb-8">{page.title}</h1>
-
-        {/* Debug: show raw string */}
-        {/* <pre className="bg-gray-100 p-4 rounded overflow-auto text-sm mb-8">
-          {page.content}
-        </pre> */}
-
-        {/* Your original render */}
         <div
           className="prose prose-lg max-w-none text-muted-foreground leading-relaxed"
           dangerouslySetInnerHTML={{ __html: page.content }}

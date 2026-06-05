@@ -47,8 +47,15 @@ export const serverApi = {
     return this.get('/cities', { next: { revalidate: 60, tags: ['cities'] } });
   },
 
-  async getCityByName(name: string): Promise<any> {
-    return this.get(`/cities/name/${name}`, { next: { revalidate: 60, tags: ['cities'] } });
+  async getCityByName(name: string): Promise<any | null> {
+    try {
+      return await this.get(`/cities/name/${name}`, {
+        next: { revalidate: 60, tags: ['cities'] },
+      });
+    } catch (error: any) {
+      if (error.message?.includes('404')) return null;
+      throw error;
+    }
   },
 
   // Property API
