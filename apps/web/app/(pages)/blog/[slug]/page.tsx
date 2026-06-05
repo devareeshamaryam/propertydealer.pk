@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       : categories;
 
     return {
-      title: `${metaTitle} | RentGhar Blog`,
+     title: metaTitle,
       description: metaDescription,
       keywords: keywords.join(', '),
       authors: [{ name: authorName, ...(authorEmail && { email: authorEmail }) }],
