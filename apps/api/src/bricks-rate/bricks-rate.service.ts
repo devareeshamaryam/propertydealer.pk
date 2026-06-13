@@ -3,13 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { BricksRate, BricksRateDocument } from '@rent-ghar/db/schemas/bricks-rate.schema';
 import { CreateBricksRateDto, UpdateBricksRateDto } from './dto';
+import { RevalidateService } from '../revalidate/revalidate.service'; // ✅ ADD
+
+const TAG = 'bricks-rates';
 
 @Injectable()
 export class BricksRateService {
   constructor(
     @InjectModel(BricksRate.name)
     private bricksRateModel: Model<BricksRateDocument>,
+    private readonly revalidate: RevalidateService, // ✅ ADD
   ) {}
+
+  private async bustCaches(slug?: string) {
+    const tags = [TAG, 'material-rates'];
+    const paths = ['/today-bricks-rate-in-pakistan'];
+    if (slug) paths.push('/today-bricks-rate-in-pakistan/' + slug);
+    await this.revalidate.revalidate({ tags, paths });
+  }
 
   async findAll(city?: string, category?: string): Promise<BricksRateDocument[]> {
     const query: any = { isActive: true };
@@ -40,7 +51,9 @@ export class BricksRateService {
 
   async create(dto: CreateBricksRateDto): Promise<BricksRateDocument> {
     const rate = new this.bricksRateModel(dto);
-    return rate.save();
+    const saved = await rate.save();
+    this.bustCaches(saved.slug).catch(() => {}); // ✅ ADD
+    return saved;
   }
 
   async update(id: string, dto: UpdateBricksRateDto): Promise<BricksRateDocument> {
@@ -49,6 +62,7 @@ export class BricksRateService {
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();
     if (!rate) throw new NotFoundException('Bricks rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
     return rate;
   }
 
@@ -56,5 +70,6 @@ export class BricksRateService {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
     const rate = await this.bricksRateModel.findByIdAndDelete(id).exec();
     if (!rate) throw new NotFoundException('Bricks rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
   }
 }

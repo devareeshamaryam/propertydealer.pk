@@ -3,13 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { TileRate, TileRateDocument } from '@rent-ghar/db/schemas/tile-rate.schema';
 import { CreateTileRateDto, UpdateTileRateDto } from './dto';
+import { RevalidateService } from '../revalidate/revalidate.service'; // ✅ ADD
+
+const TAG = 'tile-rates';
 
 @Injectable()
 export class TileRateService {
   constructor(
     @InjectModel(TileRate.name)
     private tileRateModel: Model<TileRateDocument>,
+    private readonly revalidate: RevalidateService, // ✅ ADD
   ) {}
+
+  private async bustCaches(slug?: string) {
+    const tags = [TAG, 'material-rates'];
+    const paths = ['/today-tile-rate-in-pakistan'];
+    if (slug) paths.push('/today-tile-rate-in-pakistan/' + slug);
+    await this.revalidate.revalidate({ tags, paths });
+  }
 
   async findAll(city?: string, category?: string): Promise<TileRateDocument[]> {
     const query: any = { isActive: true };
@@ -40,7 +51,9 @@ export class TileRateService {
 
   async create(dto: CreateTileRateDto): Promise<TileRateDocument> {
     const rate = new this.tileRateModel(dto);
-    return rate.save();
+    const saved = await rate.save();
+    this.bustCaches(saved.slug).catch(() => {}); // ✅ ADD
+    return saved;
   }
 
   async update(id: string, dto: UpdateTileRateDto): Promise<TileRateDocument> {
@@ -49,6 +62,7 @@ export class TileRateService {
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();
     if (!rate) throw new NotFoundException('Tile rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
     return rate;
   }
 
@@ -56,5 +70,6 @@ export class TileRateService {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
     const rate = await this.tileRateModel.findByIdAndDelete(id).exec();
     if (!rate) throw new NotFoundException('Tile rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
   }
 }

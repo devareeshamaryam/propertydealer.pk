@@ -3,13 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { DoorRate, DoorRateDocument } from '@rent-ghar/db/schemas/door-rate.schema';
 import { CreateDoorRateDto, UpdateDoorRateDto } from './dto';
+import { RevalidateService } from '../revalidate/revalidate.service'; // ✅ ADD
+
+const TAG = 'door-rates';
 
 @Injectable()
 export class DoorRateService {
   constructor(
     @InjectModel(DoorRate.name)
     private doorRateModel: Model<DoorRateDocument>,
+    private readonly revalidate: RevalidateService, // ✅ ADD
   ) {}
+
+  private async bustCaches(slug?: string) {
+    const tags = [TAG, 'material-rates'];
+    const paths = ['/today-door-rate-in-pakistan'];
+    if (slug) paths.push('/today-door-rate-in-pakistan/' + slug);
+    await this.revalidate.revalidate({ tags, paths });
+  }
 
   async findAll(city?: string, category?: string): Promise<DoorRateDocument[]> {
     const query: any = { isActive: true };
@@ -40,7 +51,9 @@ export class DoorRateService {
 
   async create(dto: CreateDoorRateDto): Promise<DoorRateDocument> {
     const rate = new this.doorRateModel(dto);
-    return rate.save();
+    const saved = await rate.save();
+    this.bustCaches(saved.slug).catch(() => {}); // ✅ ADD
+    return saved;
   }
 
   async update(id: string, dto: UpdateDoorRateDto): Promise<DoorRateDocument> {
@@ -49,6 +62,7 @@ export class DoorRateService {
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();
     if (!rate) throw new NotFoundException('Door rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
     return rate;
   }
 
@@ -56,5 +70,6 @@ export class DoorRateService {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
     const rate = await this.doorRateModel.findByIdAndDelete(id).exec();
     if (!rate) throw new NotFoundException('Door rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
   }
 }

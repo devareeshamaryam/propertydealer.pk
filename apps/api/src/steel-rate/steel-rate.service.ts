@@ -3,13 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { SteelRate, SteelRateDocument } from '@rent-ghar/db/schemas/steel-rate.schema';
 import { CreateSteelRateDto, UpdateSteelRateDto } from './dto';
+import { RevalidateService } from '../revalidate/revalidate.service'; // ✅ ADD
+
+const TAG = 'steel-rates';
 
 @Injectable()
 export class SteelRateService {
   constructor(
     @InjectModel(SteelRate.name)
     private steelRateModel: Model<SteelRateDocument>,
+    private readonly revalidate: RevalidateService, // ✅ ADD
   ) {}
+
+  private async bustCaches(slug?: string) {
+    const tags = [TAG, 'material-rates'];
+    const paths = ['/today-steel-rate-in-pakistan'];
+    if (slug) paths.push('/today-steel-rate-in-pakistan/' + slug);
+    await this.revalidate.revalidate({ tags, paths });
+  }
 
   async findAll(city?: string, category?: string): Promise<SteelRateDocument[]> {
     const query: any = { isActive: true };
@@ -40,7 +51,9 @@ export class SteelRateService {
 
   async create(dto: CreateSteelRateDto): Promise<SteelRateDocument> {
     const rate = new this.steelRateModel(dto);
-    return rate.save();
+    const saved = await rate.save();
+    this.bustCaches(saved.slug).catch(() => {}); // ✅ ADD
+    return saved;
   }
 
   async update(id: string, dto: UpdateSteelRateDto): Promise<SteelRateDocument> {
@@ -49,6 +62,7 @@ export class SteelRateService {
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();
     if (!rate) throw new NotFoundException('Steel rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
     return rate;
   }
 
@@ -56,5 +70,6 @@ export class SteelRateService {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
     const rate = await this.steelRateModel.findByIdAndDelete(id).exec();
     if (!rate) throw new NotFoundException('Steel rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
   }
 }

@@ -3,13 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { BajriRate, BajriRateDocument } from '@rent-ghar/db/schemas/bajri-rate.schema';
 import { CreateBajriRateDto, UpdateBajriRateDto } from './dto';
+import { RevalidateService } from '../revalidate/revalidate.service'; // ✅ ADD
+
+const TAG = 'bajri-rates';
 
 @Injectable()
 export class BajriRateService {
   constructor(
     @InjectModel(BajriRate.name)
     private bajriRateModel: Model<BajriRateDocument>,
+    private readonly revalidate: RevalidateService, // ✅ ADD
   ) {}
+
+  private async bustCaches(slug?: string) {
+    const tags = [TAG, 'material-rates'];
+    const paths = ['/today-bajri-rate-in-pakistan'];
+    if (slug) paths.push('/today-bajri-rate-in-pakistan/' + slug);
+    await this.revalidate.revalidate({ tags, paths });
+  }
 
   async findAll(city?: string, category?: string): Promise<BajriRateDocument[]> {
     const query: any = { isActive: true };
@@ -40,7 +51,9 @@ export class BajriRateService {
 
   async create(dto: CreateBajriRateDto): Promise<BajriRateDocument> {
     const rate = new this.bajriRateModel(dto);
-    return rate.save();
+    const saved = await rate.save();
+    this.bustCaches(saved.slug).catch(() => {}); // ✅ ADD
+    return saved;
   }
 
   async update(id: string, dto: UpdateBajriRateDto): Promise<BajriRateDocument> {
@@ -49,6 +62,7 @@ export class BajriRateService {
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();
     if (!rate) throw new NotFoundException('Bajri rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
     return rate;
   }
 
@@ -56,5 +70,6 @@ export class BajriRateService {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
     const rate = await this.bajriRateModel.findByIdAndDelete(id).exec();
     if (!rate) throw new NotFoundException('Bajri rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
   }
 }

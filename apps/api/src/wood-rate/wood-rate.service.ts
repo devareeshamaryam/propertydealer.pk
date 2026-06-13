@@ -3,13 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { WoodRate, WoodRateDocument } from '@rent-ghar/db/schemas/wood-rate.schema';
 import { CreateWoodRateDto, UpdateWoodRateDto } from './dto';
+import { RevalidateService } from '../revalidate/revalidate.service'; // ✅ ADD
+
+const TAG = 'wood-rates';
 
 @Injectable()
 export class WoodRateService {
   constructor(
     @InjectModel(WoodRate.name)
     private woodRateModel: Model<WoodRateDocument>,
+    private readonly revalidate: RevalidateService, // ✅ ADD
   ) {}
+
+  private async bustCaches(slug?: string) {
+    const tags = [TAG, 'material-rates'];
+    const paths = ['/today-wood-rate-in-pakistan'];
+    if (slug) paths.push('/today-wood-rate-in-pakistan/' + slug);
+    await this.revalidate.revalidate({ tags, paths });
+  }
 
   async findAll(city?: string, category?: string): Promise<WoodRateDocument[]> {
     const query: any = { isActive: true };
@@ -40,7 +51,9 @@ export class WoodRateService {
 
   async create(dto: CreateWoodRateDto): Promise<WoodRateDocument> {
     const rate = new this.woodRateModel(dto);
-    return rate.save();
+    const saved = await rate.save();
+    this.bustCaches(saved.slug).catch(() => {}); // ✅ ADD
+    return saved;
   }
 
   async update(id: string, dto: UpdateWoodRateDto): Promise<WoodRateDocument> {
@@ -49,6 +62,7 @@ export class WoodRateService {
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();
     if (!rate) throw new NotFoundException('Wood rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
     return rate;
   }
 
@@ -56,5 +70,6 @@ export class WoodRateService {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
     const rate = await this.woodRateModel.findByIdAndDelete(id).exec();
     if (!rate) throw new NotFoundException('Wood rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
   }
 }

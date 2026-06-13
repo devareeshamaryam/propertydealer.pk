@@ -3,13 +3,24 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
 import { SandRate, SandRateDocument } from '@rent-ghar/db/schemas/sand-rate.schema';
 import { CreateSandRateDto, UpdateSandRateDto } from './dto';
+import { RevalidateService } from '../revalidate/revalidate.service'; // ✅ ADD
+
+const TAG = 'sand-rates';
 
 @Injectable()
 export class SandRateService {
   constructor(
     @InjectModel(SandRate.name)
     private sandRateModel: Model<SandRateDocument>,
+    private readonly revalidate: RevalidateService, // ✅ ADD
   ) {}
+
+  private async bustCaches(slug?: string) {
+    const tags = [TAG, 'material-rates'];
+    const paths = ['/today-sand-rate-in-pakistan'];
+    if (slug) paths.push('/today-sand-rate-in-pakistan/' + slug);
+    await this.revalidate.revalidate({ tags, paths });
+  }
 
   async findAll(city?: string, category?: string): Promise<SandRateDocument[]> {
     const query: any = { isActive: true };
@@ -30,21 +41,19 @@ export class SandRateService {
   }
 
   async findBySlug(slug: string): Promise<SandRateDocument> {
-    // 1. Pehle slug se dhundho
     let rate = await this.sandRateModel.findOne({ slug }).exec();
-
-    // 2. Agar nahi mila aur valid ObjectId hai toh _id se dhundho
     if (!rate && isValidObjectId(slug)) {
       rate = await this.sandRateModel.findById(slug).exec();
     }
-
     if (!rate) throw new NotFoundException(`Sand rate not found: ${slug}`);
     return rate;
   }
 
   async create(dto: CreateSandRateDto): Promise<SandRateDocument> {
     const rate = new this.sandRateModel(dto);
-    return rate.save();
+    const saved = await rate.save();
+    this.bustCaches(saved.slug).catch(() => {}); // ✅ ADD
+    return saved;
   }
 
   async update(id: string, dto: UpdateSandRateDto): Promise<SandRateDocument> {
@@ -53,6 +62,7 @@ export class SandRateService {
       .findByIdAndUpdate(id, dto, { new: true, runValidators: true })
       .exec();
     if (!rate) throw new NotFoundException('Sand rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
     return rate;
   }
 
@@ -60,5 +70,6 @@ export class SandRateService {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
     const rate = await this.sandRateModel.findByIdAndDelete(id).exec();
     if (!rate) throw new NotFoundException('Sand rate not found');
+    this.bustCaches(rate.slug).catch(() => {}); // ✅ ADD
   }
 }
