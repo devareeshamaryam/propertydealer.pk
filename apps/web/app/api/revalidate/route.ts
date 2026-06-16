@@ -1,4 +1,4 @@
-   import { revalidatePath, revalidateTag } from 'next/cache';
+ import { revalidatePath, revalidateTag } from 'next/cache';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
@@ -14,15 +14,16 @@ export async function POST(req: NextRequest) {
     const paths: string[] = body.paths ?? [];
 
     for (const tag of tags) {
-      revalidateTag(tag, '/blog');
+      revalidateTag(tag);
     }
 
     for (const path of paths) {
-      revalidatePath(path);
+      revalidatePath(path, 'layout');
     }
 
-    revalidateTag('blogs', '/blog');
-    revalidatePath('/blog');
+    // Default — blogs hamesha fresh
+    revalidateTag('blogs');
+    revalidatePath('/blog', 'layout');
 
     return NextResponse.json({
       revalidated: true,
