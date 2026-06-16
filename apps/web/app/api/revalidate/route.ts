@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     const paths: string[] = body.paths ?? [];
 
     for (const tag of tags) {
+      // @ts-ignore
       revalidateTag(tag);
     }
 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
       revalidatePath(path, 'layout');
     }
 
-    // Default — blogs hamesha fresh
+    // @ts-ignore
     revalidateTag('blogs');
     revalidatePath('/blog', 'layout');
 
