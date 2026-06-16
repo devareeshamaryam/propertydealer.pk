@@ -1,4 +1,4 @@
-import 'reflect-metadata';
+ import 'reflect-metadata';
 import 'tsconfig-paths/register';
 import { NestFactory } from '@nestjs/core';
 // Reload triggered by Antigravity at 2026-03-11
@@ -38,19 +38,10 @@ async function bootstrap() {
     next();
   });
 
-  // 🔒 SECURITY: Enforce HTTPS in production
-  if (process.env.NODE_ENV === 'production') {
-    app.use((req: any, res: any, next: any) => {
-      if (!req.secure && req.get('x-forwarded-proto') !== 'https') {
-        return res.redirect(301, `https://${req.headers.host}${req.url}`);
-      }
-      next();
-    });
-  }
+  // NOTE: HTTPS redirect removed — Nginx handles HTTPS, NestJS runs on HTTP internally
   
   // Serve static files for local storage - handled by ServeStaticModule in AppModule
   console.log(`🚀 API starting Middleware initialized...`);
-
 
   const allowedOrigins = [
     process.env.APP_URL || 'http://localhost:3000',
@@ -85,9 +76,7 @@ async function bootstrap() {
   // 🔒 SECURITY: Improved CORS configuration (CRITICAL)
   app.enableCors({
     origin: (origin, callback) => {
-      // Only allow no-origin for health checks
       if (!origin) {
-        // In production, be more strict - only allow for specific endpoints
         if (process.env.NODE_ENV === 'production') {
           console.warn('⚠️ Request with no origin in production');
         }
@@ -102,9 +91,9 @@ async function bootstrap() {
       }
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], // Explicit methods
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'], // Explicit headers (x-api-key for ListingApi)
-    maxAge: 3600, // Cache preflight for 1 hour
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
+    maxAge: 3600,
   });
 
   app.setGlobalPrefix('api');
@@ -112,8 +101,8 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       transform: true,
-      forbidNonWhitelisted: false, // Allow extra properties to avoid errors
-      skipMissingProperties: true, // Skip validation for missing properties
+      forbidNonWhitelisted: false,
+      skipMissingProperties: true,
     }),
   );
 
