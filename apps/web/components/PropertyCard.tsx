@@ -1,6 +1,7 @@
  'use client'
 import { useRouter } from 'next/navigation';
 import { MapPin, Bed, Bath, Maximize, Play, Phone } from 'lucide-react';
+import Image from 'next/image';
 import { Property } from '@/lib/data';
 import { toTitleCase } from '@/lib/utils';
 
@@ -67,14 +68,16 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
         className="md:hidden cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 flex flex-col"
         onClick={handleCardClick}
       >
-        {/* Image on top when hideActions */}
         {hideActions ? (
           <>
             <div className="relative w-full overflow-hidden bg-secondary" style={{ height: '110px' }}>
-              <img
+              {/* ✅ next/image */}
+              <Image
                 src={imageUrl}
                 alt={property.name}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                fill
+                className="object-cover"
+                sizes="(max-width: 768px) 100vw, 250px"
                 onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
               />
               <div className="absolute top-1.5 left-1.5">
@@ -108,14 +111,15 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
           </>
         ) : (
           <>
-            {/* Top row: image + details */}
             <div className="flex flex-row" style={{ height: '110px' }}>
-              {/* Image */}
               <div className="relative shrink-0 overflow-hidden bg-secondary" style={{ width: '120px' }}>
-                <img
+                {/* ✅ next/image */}
+                <Image
                   src={imageUrl}
                   alt={property.name}
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                  fill
+                  className="object-cover"
+                  sizes="120px"
                   onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
                 />
                 <div className="absolute top-1.5 left-1.5">
@@ -132,7 +136,6 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
                 )}
               </div>
 
-              {/* Details */}
               <div className="flex flex-col flex-1 px-2.5 py-2 min-w-0 justify-between">
                 <div>
                   <p className="text-sm font-bold text-primary leading-tight">
@@ -159,7 +162,6 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
               </div>
             </div>
 
-            {/* WhatsApp + Call buttons — mobile */}
             <div className="flex border-t border-[#25D366]">
               <button
                 onClick={handleCall}
@@ -189,14 +191,15 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
         className="hidden md:flex flex-col cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300"
         onClick={handleCardClick}
       >
-        {/* Top row: image + details */}
         <div className="flex flex-row" style={{ height: '190px' }}>
-          {/* Image */}
           <div className="relative shrink-0 overflow-hidden bg-secondary" style={{ width: '250px' }}>
-            <img
+            {/* ✅ next/image */}
+            <Image
               src={imageUrl}
               alt={property.name}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+              fill
+              className="object-cover"
+              sizes="250px"
               onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
             />
             <div className="absolute top-3 left-3 flex gap-2">
@@ -216,7 +219,6 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
             </div>
           </div>
 
-          {/* Details */}
           <div className="flex flex-col flex-1 p-4 min-w-0 justify-between">
             <div>
               <p className="text-xl font-bold text-primary leading-tight">
@@ -249,7 +251,6 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
           </div>
         </div>
 
-        {/* WhatsApp + Call buttons — desktop (hidden if hideActions) */}
         {!hideActions && (
           <div className="flex border-t border-[#25D366]">
             <button
