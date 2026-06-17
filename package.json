@@ -12,6 +12,7 @@
     "seed:packages": "curl -X POST http://localhost:3005/api/packages/seed"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^16.2.9",
     "@types/bcrypt": "^6.0.0",
     "@types/ioredis": "^4.28.10",
     "@types/leaflet": "^1.9.21",

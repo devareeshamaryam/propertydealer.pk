@@ -18,7 +18,6 @@ const nextConfig: NextConfig = {
 
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
-    // ✅ CSS chunking optimize — render blocking CSS kam karo
     optimizeCss: true,
   },
 
@@ -51,9 +50,18 @@ const nextConfig: NextConfig = {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010';
     console.log(`📡 Rewriting /api and /uploads to: ${baseUrl}`);
     return {
-      beforeFiles: [],
+      beforeFiles: [
+        // ✅ Sitemap XML rewrites
+        { source: '/sitemap-pages.xml',      destination: '/sitemap-pages'      },
+        { source: '/sitemap-areas.xml',      destination: '/sitemap-areas'      },
+        { source: '/sitemap-blogs.xml',      destination: '/sitemap-blogs'      },
+        { source: '/sitemap-properties.xml', destination: '/sitemap-properties' },
+        { source: '/sitemap-rates.xml',      destination: '/sitemap-rates'      },
+        { source: '/sitemap-cities.xml',     destination: '/sitemap-cities'     },
+        { source: '/sitemap-city-:slug.xml', destination: '/sitemap-city-:slug' },
+      ],
       afterFiles: [
-        { source: '/api/:path*',     destination: `${baseUrl}/api/:path*` },
+        { source: '/api/:path*',     destination: `${baseUrl}/api/:path*`     },
         { source: '/uploads/:path*', destination: `${baseUrl}/uploads/:path*` },
       ],
       fallback: [],
