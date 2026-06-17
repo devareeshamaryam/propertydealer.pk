@@ -2,9 +2,7 @@
 
 const nextConfig: NextConfig = {
   images: {
-    // ✅ WebP/AVIF automatic conversion
     formats: ['image/avif', 'image/webp'],
-    // ✅ Image cache 60 days
     minimumCacheTTL: 60 * 60 * 24 * 60,
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
@@ -18,15 +16,14 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // ✅ Reduce unused JS — tree shaking
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    // ✅ CSS chunking optimize — render blocking CSS kam karo
+    optimizeCss: true,
   },
 
-  // ✅ Compress responses
   compress: true,
 
-  // 🔒 Security headers + performance headers
   async headers() {
     return [
       {
@@ -41,9 +38,8 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy',        value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
-      // ✅ Static assets long cache
       {
-        source: '/(_next/static|fonts|images)/:path*',
+        source: '/_next/static/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
         ],
