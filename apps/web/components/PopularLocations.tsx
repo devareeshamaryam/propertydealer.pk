@@ -18,11 +18,7 @@ const DEFAULT_CITY_IMAGES: Record<string, string> = {
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=800&q=80';
 
 const cityToSlug = (cityName: string): string => {
-  return cityName
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  return cityName.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 };
 
 interface PopularLocationsProps {
@@ -33,9 +29,10 @@ const CITY_ORDER = ['lahore', 'islamabad', 'karachi', 'multan', 'gujranwala', 'f
 
 const PopularLocations: React.FC<PopularLocationsProps> = ({ initialCities }) => {
   const [cities, setCities] = useState<any[]>(initialCities || []);
-  const [loading, setLoading] = useState(!initialCities);
+  const [loading, setLoading] = useState(!initialCities || initialCities.length === 0);
 
   useEffect(() => {
+    // ✅ Agar server se data aa gaya toh client fetch mat karo
     if (initialCities && initialCities.length > 0) return;
 
     const fetchCitiesWithCounts = async () => {
@@ -43,7 +40,6 @@ const PopularLocations: React.FC<PopularLocationsProps> = ({ initialCities }) =>
         setLoading(true);
         const cityList = await cityApi.getAll();
 
-        // Filter and sort according to CITY_ORDER
         const topCities = cityList
           .filter((city: any) => {
             const cityName = city.name.trim().toLowerCase();
@@ -59,29 +55,21 @@ const PopularLocations: React.FC<PopularLocationsProps> = ({ initialCities }) =>
             return getIndex(nameA) - getIndex(nameB);
           });
 
-        // Fetch stats for each city to get property counts
-        const citiesWithStats = await Promise.all(
-          topCities.map(async (city: any) => {
-            try {
-              const stats = await propertyApi.getLocationStats(city.name);
-              return {
-                ...city,
-                count: stats.total || 0,
-                slug: cityToSlug(city.name),
-                image: city.thumbnail || DEFAULT_CITY_IMAGES[city.name.trim().toLowerCase()] || DEFAULT_CITY_IMAGES['faisalabad'] || FALLBACK_IMAGE
-              };
-            } catch (err) {
-              return {
-                ...city,
-                count: 0,
-                slug: cityToSlug(city.name),
-                image: city.thumbnail || DEFAULT_CITY_IMAGES[city.name.trim().toLowerCase()] || DEFAULT_CITY_IMAGES['faisalabad'] || FALLBACK_IMAGE
-              };
-            }
-          })
+        // ✅ Parallel fetch — await Promise.all sequential nahi
+        const statsResults = await Promise.allSettled(
+          topCities.map((city: any) => propertyApi.getLocationStats(city.name))
         );
 
-        // Property count sorting removed to respect CITY_ORDER
+        const citiesWithStats = topCities.map((city: any, index: number) => {
+ const statsResult = statsResults[index];
+const count = statsResult?.status === 'fulfilled' ? (statsResult as PromiseFulfilledResult<any>).value?.total ?? 0 : 0;          return {
+            ...city,
+            count,
+            slug: cityToSlug(city.name),
+            image: city.thumbnail || DEFAULT_CITY_IMAGES[city.name.trim().toLowerCase()] || FALLBACK_IMAGE,
+          };
+        });
+
         setCities(citiesWithStats);
       } catch (error) {
         console.error('Error fetching cities:', error);
@@ -133,7 +121,10 @@ const PopularLocations: React.FC<PopularLocationsProps> = ({ initialCities }) =>
                     <span>Pakistan</span>
                   </div>
                   <h3 className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{toTitleCase(city.name)}</h3>
-                  <p className="text-white/90 text-xs sm:text-sm font-semibold">{city.count} Properties</p>
+                  {/* ✅ Count 0 ho toh hide karo */}
+                  {city.count > 0 && (
+                    <p className="text-white/90 text-xs sm:text-sm font-semibold">{city.count} Properties</p>
+                  )}
                 </div>
               </Link>
             ))}

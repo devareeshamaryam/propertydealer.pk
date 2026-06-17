@@ -1,9 +1,8 @@
-import HeroSection from "@/components/HeroSection";
+ import HeroSection from "@/components/HeroSection";
 import FeaturedSection from "@/components/FeaturedSection";
 import TestimonialSection from "@/components/TestimonialSection";
 import BlogSection from "@/components/BlogSection";
 import ExploreTools from "@/components/ExploreTools";
-import AboutBrief from "@/components/AboutBrief";
 import PopularLocations from "@/components/PopularLocations";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import AgentSignupSection from "@/components/AgentSignupSection";
@@ -21,11 +20,8 @@ export const metadata: Metadata = {
   },
 };
 
-// Home Page - Server Component
-// =============================
 export default async function Home() {
-  // 1. Fetch data on the server with Next.js caching
-  // Promise.allSettled ensures one failing API doesn't crash the entire homepage
+  // ✅ Sab kuch ek saath fetch — parallel requests
   const [citiesResult, propertiesResult, typesResult, blogsResult] =
     await Promise.allSettled([
       serverApi.getCities(),
@@ -34,7 +30,6 @@ export default async function Home() {
       serverApi.getPublishedBlogs(),
     ]);
 
-  // Log any failures for debugging
   if (citiesResult.status === "rejected")
     console.error("❌ Cities fetch failed:", citiesResult.reason?.message || citiesResult.reason);
   if (propertiesResult.status === "rejected")
@@ -44,50 +39,26 @@ export default async function Home() {
   if (blogsResult.status === "rejected")
     console.error("❌ Blogs fetch failed:", blogsResult.reason?.message || blogsResult.reason);
 
-  const citiesData: any[] =
-    citiesResult.status === "fulfilled" ? citiesResult.value ?? [] : [];
-  const propertiesData: any =
-    propertiesResult.status === "fulfilled" ? propertiesResult.value : [];
-  const typesData: any[] =
-    typesResult.status === "fulfilled" ? typesResult.value ?? [] : [];
-  const blogsData: any[] =
-    blogsResult.status === "fulfilled" ? blogsResult.value ?? [] : [];
+  const citiesData: any[] = citiesResult.status === "fulfilled" ? citiesResult.value ?? [] : [];
+  const propertiesData: any = propertiesResult.status === "fulfilled" ? propertiesResult.value : [];
+  const typesData: any[] = typesResult.status === "fulfilled" ? typesResult.value ?? [] : [];
+  const blogsData: any[] = blogsResult.status === "fulfilled" ? blogsResult.value ?? [] : [];
 
-  // 2. Pre-process Cities for PopularLocations
   const cityToSlug = (name: string) =>
-    name
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+    name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
   const DEFAULT_CITY_IMAGES: Record<string, string> = {
-    karachi:
-      "https://images.unsplash.com/photo-1570533113000-67623306634d?w=800&q=80",
-    lahore:
-      "https://images.unsplash.com/photo-1596422846543-75c6fc18a5ce?w=800&q=80",
-    islamabad:
-      "https://images.unsplash.com/photo-1621538356947-f495bf847683?w=800&q=80",
-    faisalabad:
-      "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80",
-    multan:
-      "https://images.unsplash.com/photo-1570533113000-67623306634d?w=800&q=80",
-    gujranwala:
-      "https://images.unsplash.com/photo-1596422846543-75c6fc18a5ce?w=800&q=80",
+    karachi: "https://images.unsplash.com/photo-1570533113000-67623306634d?w=800&q=80",
+    lahore: "https://images.unsplash.com/photo-1596422846543-75c6fc18a5ce?w=800&q=80",
+    islamabad: "https://images.unsplash.com/photo-1621538356947-f495bf847683?w=800&q=80",
+    faisalabad: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80",
+    multan: "https://images.unsplash.com/photo-1570533113000-67623306634d?w=800&q=80",
+    gujranwala: "https://images.unsplash.com/photo-1596422846543-75c6fc18a5ce?w=800&q=80",
   };
-  const FALLBACK_IMAGE =
-    "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=800&q=80";
+  const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=800&q=80";
+  const CITY_ORDER = ["lahore", "islamabad", "karachi", "multan", "gujranwala", "faisalabad"];
 
-  const CITY_ORDER = [
-    "lahore",
-    "islamabad",
-    "karachi",
-    "multan",
-    "gujranwala",
-    "faisalabad",
-  ];
-
-  // Filter cities based on CITY_ORDER first, then process
+  // ✅ Filter + sort cities pehle
   const filteredCities = citiesData
     .filter((city: any) => {
       const cityName = (city?.name ?? "").trim().toLowerCase();
@@ -103,58 +74,39 @@ export default async function Home() {
       return getIndex(nameA) - getIndex(nameB);
     });
 
-  const processedCities = await Promise.all(
-    filteredCities.map(async (city: any) => {
-      const nameKey = (city?.name ?? "").trim().toLowerCase();
-      const cityImage =
-        city?.thumbnail ||
-        DEFAULT_CITY_IMAGES[nameKey] ||
-        DEFAULT_CITY_IMAGES["faisalabad"] ||
-        FALLBACK_IMAGE;
-      try {
-        const stats = await serverApi.getLocationStats(city.name);
-        return {
-          ...city,
-          count: stats?.total ?? 0,
-          slug: cityToSlug(city.name),
-          image: cityImage,
-        };
-      } catch {
-        return {
-          ...city,
-          count: 0,
-          slug: cityToSlug(city.name),
-          image: cityImage,
-        };
-      }
-    })
+  // ✅ Location stats parallel fetch — sab ek saath, ek ke baad ek nahi
+  const cityStatsResults = await Promise.allSettled(
+    filteredCities.map((city: any) => serverApi.getLocationStats(city.name))
   );
 
-  // 3. Pre-process Properties for FeaturedSection and Hero suggestions
+  const processedCities = filteredCities.map((city: any, index: number) => {
+    const nameKey = (city?.name ?? "").trim().toLowerCase();
+ const statsResult = cityStatsResults[index];
+const count = statsResult?.status === "fulfilled" ? (statsResult as PromiseFulfilledResult<any>).value?.total ?? 0 : 0;    return {
+      ...city,
+      count,
+      slug: cityToSlug(city.name),
+      image: city?.thumbnail || DEFAULT_CITY_IMAGES[nameKey] || FALLBACK_IMAGE,
+    };
+  });
+
+  // Properties
   const backendProperties = Array.isArray(propertiesData)
     ? propertiesData
     : (propertiesData as any)?.properties ?? [];
 
   const transformedProperties = backendProperties
     .map((p: any) => {
-      try {
-        return mapBackendToFrontendProperty(p);
-      } catch {
-        return null;
-      }
+      try { return mapBackendToFrontendProperty(p); }
+      catch { return null; }
     })
     .filter(Boolean);
 
   const featuredProperties = transformedProperties.map((property: any) => ({
     id: property.id,
-    image:
-      property.image ||
-      "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80",
+    image: property.image || "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80",
     title: property.name,
-    location: `${property.location ?? ""}, ${property.city ?? ""}`.replace(
-      /^, |, $/g,
-      ""
-    ),
+    location: `${property.location ?? ""}, ${property.city ?? ""}`.replace(/^, |, $/g, ""),
     price: `Rs. ${(property.price ?? 0).toLocaleString("en-PK")}`,
     priceLabel: property.purpose === "buy" ? "Total Price" : "Monthly Rent",
     beds: property.bedrooms ?? 0,
@@ -163,17 +115,13 @@ export default async function Home() {
     slug: property.slug,
   }));
 
-  // 4. Pre-process Types for HeroSection
   const processedTypes = typesData
     .filter((t: any) => typeof t === "string")
     .map((t: string) => t.charAt(0).toUpperCase() + t.slice(1));
 
   const sortedProcessedTypes = sortPropertyTypes(processedTypes, t => t);
-
-  // 5. Pre-process Blogs for BlogSection
   const processedBlogs = transformBlogsToPosts(blogsData).slice(0, 6);
 
-  // 6. Build ItemList Schema for Featured Properties
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
   const itemListSchema = {
     '@context': 'https://schema.org',
@@ -201,12 +149,10 @@ export default async function Home() {
 
   return (
     <>
-      {/* ItemList Schema for Featured Properties */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
       />
-      
       <HeroSection
         initialCities={citiesData
           .map((c: any) => ({ _id: c._id, name: c.name }))
