@@ -84,15 +84,13 @@ const count = statsResult?.status === 'fulfilled' ? (statsResult as PromiseFulfi
   return (
     <section className="py-16 bg-gray-50">
       <div className="max-w-[1440px] mx-auto px-4 lg:px-8">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-4">
-          <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">Explore Popular Locations</h2>
-            <p className="text-gray-600 max-w-xl">Find properties in the most sought-after cities across Pakistan. From bustling metros to serene suburbs.</p>
-          </div>
-          <Link href="/properties" className="group flex items-center gap-2 text-black font-bold hover:gap-3 transition-all">
-            View All Cities <ArrowRight className="w-5 h-5" />
+        <div className="flex flex-row justify-between items-start mb-3 gap-3">
+          <h2 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-gray-900">Explore Popular Locations</h2>
+          <Link href="/properties" className="group flex items-center gap-1.5 sm:gap-2 text-black font-bold hover:gap-3 transition-all text-sm sm:text-base shrink-0 pt-1 sm:pt-2">
+            View All Cities <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
           </Link>
         </div>
+        <p className="text-gray-600 max-w-xl mb-6 sm:mb-10 text-sm sm:text-base">Find properties in the most sought-after cities across Pakistan. From bustling metros to serene suburbs.</p>
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 bg-white/50 rounded-3xl border border-dashed border-gray-300">
@@ -100,35 +98,72 @@ const count = statsResult?.status === 'fulfilled' ? (statsResult as PromiseFulfi
             <p className="text-gray-500 font-medium">Fetching locations...</p>
           </div>
         ) : cities.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {cities.map((city) => (
-              <Link
-                key={city._id}
-                href={`/properties/all/${city.slug}`}
-                className="group relative h-44 sm:h-64 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500"
-              >
-                <Image
-                  src={city.image}
-                  alt={`${city.name} Real Estate`}
-                  fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-110"
-                  sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6">
-                  <div className="flex items-center gap-1 sm:gap-2 text-white/80 text-xs sm:text-sm font-medium mb-0.5 sm:mb-1">
-                    <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span>Pakistan</span>
+          <>
+            {/* ══════════════════════════════════════════════════════
+                MOBILE — compact: small round image + text beside it
+            ══════════════════════════════════════════════════════ */}
+            <div className="sm:hidden grid grid-cols-2 gap-x-3 gap-y-4">
+              {cities.map((city, index) => (
+                <Link
+                  key={`mobile-${city._id ?? index}`}
+                  href={`/properties/all/${city.slug}`}
+                  className="flex items-center gap-2.5"
+                >
+                  <div className="w-10 h-10 shrink-0 rounded-full overflow-hidden relative">
+                    <Image
+                      src={city.image}
+                      alt={`${city.name} Real Estate`}
+                      fill
+                      loading="lazy"
+                      className="object-cover"
+                      sizes="40px"
+                    />
                   </div>
-                  <h3 className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{toTitleCase(city.name)}</h3>
-                  {/* ✅ Count 0 ho toh hide karo */}
-                  {city.count > 0 && (
-                    <p className="text-white/90 text-xs sm:text-sm font-semibold">{city.count} Properties</p>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-gray-900 truncate">{toTitleCase(city.name)}</p>
+                    {city.count > 0 && (
+                      <p className="text-[11px] text-gray-400">{city.count} Properties</p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            {/* ══════════════════════════════════════════════════════
+                DESKTOP / TABLET — original card grid, unchanged
+            ══════════════════════════════════════════════════════ */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {cities.map((city, index) => (
+                <Link
+                  key={`desktop-${city._id ?? index}`}
+                  href={`/properties/all/${city.slug}`}
+                  className="group relative h-44 sm:h-64 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500"
+                >
+                  <Image
+                    src={city.image}
+                    alt={`${city.name} Real Estate`}
+                    fill
+                    priority={index < 2}
+                    fetchPriority={index < 2 ? 'high' : 'auto'}
+                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                  <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6">
+                    <div className="flex items-center gap-1 sm:gap-2 text-white/80 text-xs sm:text-sm font-medium mb-0.5 sm:mb-1">
+                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>Pakistan</span>
+                    </div>
+                    <h3 className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{toTitleCase(city.name)}</h3>
+                    {/* ✅ Count 0 ho toh hide karo */}
+                    {city.count > 0 && (
+                      <p className="text-white/90 text-xs sm:text-sm font-semibold">{city.count} Properties</p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
         ) : (
           <div className="text-center py-20 bg-white/50 rounded-3xl border border-dashed border-gray-300">
             <p className="text-gray-500 font-medium">No locations found.</p>

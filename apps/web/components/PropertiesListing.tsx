@@ -559,11 +559,13 @@ export default function PropertiesListing({
 
   const typeTabs = [
     { key: 'all', label: 'All Properties', count: properties.length },
-    ...propertyTypes.map(t => ({
-      key: t.toLowerCase(),
-      label: typeLabel(t),
-      count: properties.filter(p => p.type?.toLowerCase() === t.toLowerCase()).length,
-    })),
+    ...propertyTypes
+      .filter(t => t.toLowerCase() !== 'other')
+      .map(t => ({
+        key: t.toLowerCase(),
+        label: typeLabel(t),
+        count: properties.filter(p => p.type?.toLowerCase() === t.toLowerCase()).length,
+      })),
   ];
 
   const locationPanelAreas   = matchedCity ? mainAreas : allAreas;
@@ -582,7 +584,7 @@ export default function PropertiesListing({
   const filterSheetAreaLoading = sheetCity ? loadingAreas : loadingAllAreas;
   const visibleFilterAreas     = showAllAreas ? filterSheetAreaList : filterSheetAreaList.slice(0, 8);
 
-  const showMarlaChips = !!(matchedCity) || type.toLowerCase() === 'house' || type.toLowerCase() === 'plot';
+  const showMarlaChips = type.toLowerCase() === 'house' || type.toLowerCase() === 'plot' || !!(matchedCity);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -758,7 +760,8 @@ export default function PropertiesListing({
 
               <div className="lg:hidden relative">
                 <div className="relative">
-                  <div className="flex flex-wrap gap-x-5 gap-y-0 pr-28">
+                  {/* ✅ FIX: gap-x-2 so all tabs fit in 2 lines (Plots & Shops move to line 2) */}
+                  <div className="flex flex-wrap gap-x-2 gap-y-0 pr-28">
                     {typeTabs.map(tab => {
                       const isActive = tab.key === 'all'
                         ? (type === 'all' || !type)

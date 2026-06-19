@@ -30,7 +30,44 @@ const Footer = () => {
       {/* ── Top divider accent ── */}
       <div className="h-1 w-full bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
 
-      <div className="container mx-auto px-4 pt-14 pb-8">
+      {/* ══════════════════════════════════════════════════════════════
+          MOBILE FOOTER (sm:hidden) — simplified: name, socials, copyright
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="sm:hidden container mx-auto px-4 pt-6 pb-5 flex flex-col items-center text-center">
+        <Link href="/" className="inline-flex items-center mb-3 group">
+          <span className="text-base font-bold tracking-tight text-white">
+            Property <span className="text-white">Dealer</span>
+          </span>
+        </Link>
+
+        <div className="flex gap-1.5 mb-4">
+          {socials.map(({ icon: Icon, href, label }) => (
+            <a
+              key={label}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={label}
+              className="w-7 h-7 rounded-md bg-white/5 hover:bg-primary hover:scale-110 flex items-center justify-center transition-all duration-200 border border-white/10 hover:border-primary"
+            >
+              <Icon className="w-3 h-3" />
+            </a>
+          ))}
+        </div>
+
+        <div className="border-t border-white/5 w-full pt-3 flex flex-col items-center gap-1 text-[11px] text-gray-500">
+          <p>© 2026 PropertyDealer. All rights reserved.</p>
+          <p className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
+            Trusted since 2007
+          </p>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════
+          DESKTOP / TABLET FOOTER (hidden sm:block) — unchanged
+      ══════════════════════════════════════════════════════════════ */}
+      <div className="hidden sm:block container mx-auto px-4 pt-14 pb-8">
 
         {/* ── Main grid ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
