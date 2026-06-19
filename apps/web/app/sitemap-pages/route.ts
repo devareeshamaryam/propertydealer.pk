@@ -1,16 +1,11 @@
-// app/sitemap-pages.xml/route.ts
+ // app/sitemap-pages.xml/route.ts
 // ─── STATIC PAGES SITEMAP ──────────────────────────────────────────────────
-// Ye sitemap tamam static pages cover karta hai:
-// - Home, About, Blog index, Properties index
-// - Today rates pages (cement, steel, bajri, bricks, etc.)
-// - Special pages
 
 import { NextResponse } from 'next/server';
 import { serverApi } from '@/lib/server-api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealers.pk';
 
-// Static pages jo hamesha same rehte hain
 const STATIC_PAGES = [
   { url: '/',                                      priority: '1.0', changefreq: 'daily'   },
   { url: '/about',                                 priority: '0.6', changefreq: 'monthly' },
@@ -24,7 +19,6 @@ const STATIC_PAGES = [
   { url: '/emap',                                  priority: '0.5', changefreq: 'weekly'  },
   { url: '/hotels',                                priority: '0.6', changefreq: 'weekly'  },
   { url: '/random',                                priority: '0.4', changefreq: 'weekly'  },
-  // Today rates pages (sab auto-update hote hain)
   { url: '/today-cement-rate-in-pakistan',         priority: '0.8', changefreq: 'daily'   },
   { url: '/today-steel-rate-in-pakistan',          priority: '0.8', changefreq: 'daily'   },
   { url: '/today-bajri-rate-in-pakistan',          priority: '0.8', changefreq: 'daily'   },
@@ -37,7 +31,6 @@ const STATIC_PAGES = [
   { url: '/p',                                     priority: '0.5', changefreq: 'daily'   },
 ];
 
-// Property types for sale/rent/all combinations
 const PROPERTY_TYPES = [
   'house', 'apartment', 'flat', 'plot', 'shop', 'office',
   'land', 'commercial', 'factory', 'hotel', 'restaurant'
@@ -73,23 +66,28 @@ export async function GET() {
       });
     }
 
-    // 2. City-based property pages (sale + rent + all) — DB se fetch
+    // 2. City-based property pages — DB se fresh fetch
     try {
-      const cities = await serverApi.getCities(); // tamam cities fetch karo
+      // FIX: Direct array handle — getCities() array return karta hai
+      const citiesRes = await serverApi.getCities();
+      const cities: any[] = Array.isArray(citiesRes) ? citiesRes : [];
+
+      console.log(`[sitemap-pages] Cities fetched: ${cities.length}`);
+
       for (const city of cities) {
         const slug = city.slug || city.name?.toLowerCase().replace(/\s+/g, '-');
         if (!slug) continue;
 
-        // City level pages
         for (const purpose of ['sale', 'rent', 'all']) {
           urls.push({
             loc:        `${BASE_URL}/properties/${purpose}/${slug}`,
-            lastmod:    city.updatedAt ? new Date(city.updatedAt).toISOString().split('T')[0]! : today,
+            lastmod:    city.updatedAt
+              ? new Date(city.updatedAt).toISOString().split('T')[0]!
+              : today,
             changefreq: 'daily',
             priority:   '0.8',
           });
 
-          // City + type combinations
           for (const type of PROPERTY_TYPES) {
             urls.push({
               loc:        `${BASE_URL}/properties/${purpose}/${slug}/${type}`,
@@ -104,15 +102,18 @@ export async function GET() {
       console.error('[sitemap-pages] Cities fetch failed:', err);
     }
 
+    console.log(`[sitemap-pages] Total URLs: ${urls.length}`);
+
     const xml = generateXml(urls);
 
     return new NextResponse(xml, {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        // 1 ghante ka cache — pages frequently change nahi hote
-        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
+        // FIX: 1 ghante ka cache
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200',
       },
     });
+
   } catch (err) {
     console.error('[sitemap-pages] Error:', err);
     return new NextResponse('Error generating sitemap', { status: 500 });

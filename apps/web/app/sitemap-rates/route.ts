@@ -1,20 +1,11 @@
-// app/sitemap-rates.xml/route.ts
+ // app/sitemap-rates.xml/route.ts
 // ─── RATES SITEMAP ─────────────────────────────────────────────────────────
-// Ye sitemap cover karta hai:
-// - Tamam "today rate" pages (cement, steel, bajri, bricks, etc.)
-// - Individual product detail pages:
-//   /today-cement-rate-in-pakistan/lucky-cement
-//   /today-steel-rate-in-pakistan/amreli-steel
-//   etc.
-//
-// Ye pages daily update hote hain isliye changefreq: 'daily'
 
 import { NextResponse } from 'next/server';
 import { serverApi } from '@/lib/server-api';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealers.pk';
 
-// Rate category pages + unka API method mapping
 const RATE_CATEGORIES = [
   { pageSlug: 'today-cement-rate-in-pakistan', fetchFn: 'getCementRates', priority: '0.8' },
   { pageSlug: 'today-steel-rate-in-pakistan',  fetchFn: 'getSteelRates',  priority: '0.8' },
@@ -63,10 +54,11 @@ export async function GET() {
           continue;
         }
 
+        // FIX: Fresh fetch — rates daily change hoti hain
         const rates: any[] = await fetchMethod.call(serverApi);
-        const ratesList: any[] = Array.isArray(rates)
-          ? rates
-          : (rates as any).data || [];
+        const ratesList: any[] = Array.isArray(rates) ? rates : (rates as any).data || [];
+
+        console.log(`[sitemap-rates] ${category.fetchFn}: ${ratesList.length} rates fetched`);
 
         for (const rate of ratesList) {
           const slug = rate.slug
@@ -92,14 +84,18 @@ export async function GET() {
       }
     }
 
+    console.log(`[sitemap-rates] Total URLs: ${urls.length}`);
+
     const xml = generateXml(urls);
 
     return new NextResponse(xml, {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200',
+        // FIX: 30 min cache — rates daily update hoti hain
+        'Cache-Control': 'public, max-age=1800, stale-while-revalidate=3600',
       },
     });
+
   } catch (err) {
     console.error('[sitemap-rates] Fatal error:', err);
     return new NextResponse('Error generating sitemap', { status: 500 });

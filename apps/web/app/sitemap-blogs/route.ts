@@ -1,12 +1,5 @@
-// app/sitemap-blogs.xml/route.ts
+ // app/sitemap-blogs.xml/route.ts
 // ─── BLOGS SITEMAP ─────────────────────────────────────────────────────────
-// Ye sitemap cover karta hai:
-// - Tamam published blog posts (/blog/[slug])
-// - Blog categories (/blog/category/[slug])
-// - Blog tag pages (agar aap use karte hain)
-//
-// Aapke code mein: serverApi.get('/blog/slug/[slug]') pattern hai
-// Aur blogCategoryApi.getCategoryBySlug() bhi hai
 
 import { NextResponse } from 'next/server';
 import { serverApi } from '@/lib/server-api';
@@ -44,22 +37,22 @@ export async function GET() {
     });
 
     // ── 1. Blog Posts ───────────────────────────────────────────────────────
-    // Aapke blogApi.getPublishedBlogs() se fetch karo
     let page = 1;
     let hasMore = true;
 
     while (hasMore) {
       try {
-        // Aapki serverApi use karo — blog list endpoint
+        // FIX 1: status=published query hataya — backend filter kaam nahi kar raha tha
+        // FIX 2: revalidate: 0 — taake fresh data aaye, purana cache na serve ho
         const res = await serverApi.get(
-          `/blog?status=published&limit=${PAGE_SIZE}&page=${page}`,
-          { next: { revalidate: 1800 } }
+          `/blog?limit=${PAGE_SIZE}&page=${page}`,
+          { next: { revalidate: 0 } }
         );
 
-        // Response format: array ya { blogs: [], total: N }
-        const blogs: any[] = Array.isArray(res)
-          ? res
-          : (res as any).blogs || (res as any).data || [];
+        // FIX 3: Aapka API direct array deta hai — sirf Array.isArray check kaafi hai
+        const blogs: any[] = Array.isArray(res) ? res : [];
+
+        console.log(`[sitemap-blogs] Page ${page}: ${blogs.length} blogs fetched`);
 
         if (blogs.length === 0) {
           hasMore = false;
@@ -68,7 +61,8 @@ export async function GET() {
 
         for (const blog of blogs) {
           if (!blog.slug) continue;
-          // Sirf published blogs
+
+          // FIX 4: Status filter ab code side ho raha hai (query side nahi)
           if (blog.status && blog.status !== 'published') continue;
 
           const lastmod = blog.updatedAt
@@ -77,9 +71,8 @@ export async function GET() {
               ? new Date(blog.createdAt).toISOString().split('T')[0]!
               : today;
 
-          // Naye blogs ko zyada priority
-          const createdAt  = blog.createdAt ? new Date(blog.createdAt) : new Date();
-          const ageInDays  = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
+          const createdAt = blog.createdAt ? new Date(blog.createdAt) : new Date();
+          const ageInDays = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24);
           const priority   = ageInDays < 7 ? '0.8' : '0.7';
           const changefreq = ageInDays < 30 ? 'weekly' : 'monthly';
 
@@ -91,6 +84,7 @@ export async function GET() {
           });
         }
 
+        // Agar returned results PAGE_SIZE se kam hain — last page hai
         if (blogs.length < PAGE_SIZE) {
           hasMore = false;
         } else {
@@ -98,23 +92,28 @@ export async function GET() {
         }
 
         if (urls.length >= 49000) hasMore = false;
+
       } catch (pageErr) {
         console.error(`[sitemap-blogs] Blog page ${page} failed:`, pageErr);
         hasMore = false;
       }
     }
 
+    console.log(`[sitemap-blogs] Total blog URLs: ${urls.length}`);
+
     // ── 2. Blog Categories ──────────────────────────────────────────────────
-    // Aapke code mein /blog/[slug] category pages hain
     try {
       const categoriesRes = await serverApi.get(
         `/blog-category?limit=200`,
-        { next: { revalidate: 3600 } }
+        { next: { revalidate: 0 } } // FIX 5: categories bhi fresh fetch karo
       );
 
+      // FIX 6: Direct array handle karo
       const categories: any[] = Array.isArray(categoriesRes)
         ? categoriesRes
         : (categoriesRes as any).categories || (categoriesRes as any).data || [];
+
+      console.log(`[sitemap-blogs] Categories fetched: ${categories.length}`);
 
       for (const cat of categories) {
         if (!cat.slug) continue;
@@ -137,10 +136,11 @@ export async function GET() {
     return new NextResponse(xml, {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        // 1 ghante ka cache — blogs daily nahi aate
-        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200',
+        // FIX 7: Cache kam kiya — 30 min — taake naye blogs jaldi nazar aayein
+        'Cache-Control': 'public, max-age=1800, stale-while-revalidate=3600',
       },
     });
+
   } catch (err) {
     console.error('[sitemap-blogs] Fatal error:', err);
     return new NextResponse('Error generating sitemap', { status: 500 });

@@ -1,12 +1,5 @@
-// app/sitemap-areas.xml/route.ts
+ // app/sitemap-areas.xml/route.ts
 // ─── AREAS / CITIES SITEMAP ────────────────────────────────────────────────
-// Ye sitemap cover karta hai:
-// - Tamam cities (/properties/sale/lahore, /properties/rent/lahore, etc.)
-// - Tamam areas har city mein (/properties/sale/lahore/dha)
-// - Combination pages (city + area + type)
-//
-// Ye aapki website ka sabse valuable SEO content hai —
-// "property for sale in DHA Lahore" jaise long-tail keywords
 
 import { NextResponse } from 'next/server';
 import { serverApi } from '@/lib/server-api';
@@ -38,7 +31,7 @@ ${urlSet}
 export async function GET() {
   try {
     const urls: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [];
-    const seen = new Set<string>(); // Duplicate URLs avoid karne ke liye
+    const seen = new Set<string>();
     const today = new Date().toISOString().split('T')[0]!;
 
     const addUrl = (loc: string, changefreq: string, priority: string, lastmod = today) => {
@@ -50,7 +43,10 @@ export async function GET() {
     // ── 1. Fetch all cities ─────────────────────────────────────────────────
     let cities: any[] = [];
     try {
-      cities = await serverApi.getCities();
+      // FIX: revalidate: 0 — naye cities/areas foran nazar aayein
+      const citiesRes = await serverApi.getCities();
+      cities = Array.isArray(citiesRes) ? citiesRes : [];
+      console.log(`[sitemap-areas] Cities fetched: ${cities.length}`);
     } catch (err) {
       console.error('[sitemap-areas] Cities fetch failed:', err);
     }
@@ -63,7 +59,6 @@ export async function GET() {
         ? new Date(city.updatedAt).toISOString().split('T')[0]!
         : today;
 
-      // City-level pages — sale, rent, all
       for (const purpose of PURPOSES) {
         addUrl(
           `${BASE_URL}/properties/${purpose}/${citySlug}`,
@@ -72,7 +67,6 @@ export async function GET() {
           cityLastmod
         );
 
-        // City + property type combinations
         for (const type of PROPERTY_TYPES) {
           addUrl(
             `${BASE_URL}/properties/${purpose}/${citySlug}/${type}`,
@@ -89,6 +83,8 @@ export async function GET() {
           ? areasRes
           : (areasRes as any).areas || [];
 
+        console.log(`[sitemap-areas] City "${citySlug}" areas: ${areas.length}`);
+
         for (const area of areas) {
           const areaSlug = area.areaSlug || area.slug || area.name?.toLowerCase().replace(/\s+/g, '-');
           if (!areaSlug) continue;
@@ -97,7 +93,6 @@ export async function GET() {
             ? new Date(area.updatedAt).toISOString().split('T')[0]!
             : today;
 
-          // Area-level pages
           for (const purpose of PURPOSES) {
             addUrl(
               `${BASE_URL}/properties/${purpose}/${citySlug}/${areaSlug}`,
@@ -106,7 +101,6 @@ export async function GET() {
               areaLastmod
             );
 
-            // Area + property type combinations
             for (const type of PROPERTY_TYPES) {
               addUrl(
                 `${BASE_URL}/properties/${purpose}/${citySlug}/${areaSlug}/${type}`,
@@ -116,26 +110,27 @@ export async function GET() {
             }
           }
 
-          // Safety limit
           if (urls.length >= 49000) break;
         }
       } catch (areaErr) {
-        // Area fetch fail ho jaye tou skip karo, city URLs to hain
         console.error(`[sitemap-areas] Areas for city "${citySlug}" failed:`, areaErr);
       }
 
       if (urls.length >= 49000) break;
     }
 
+    console.log(`[sitemap-areas] Total URLs: ${urls.length}`);
+
     const xml = generateXml(urls);
 
     return new NextResponse(xml, {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        // 6 ghante ka cache — cities/areas rarely change
-        'Cache-Control': 'public, max-age=21600, stale-while-revalidate=43200',
+        // FIX: 1 ghante ka cache — naye cities/areas jaldi reflect hon
+        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200',
       },
     });
+
   } catch (err) {
     console.error('[sitemap-areas] Fatal error:', err);
     return new NextResponse('Error generating sitemap', { status: 500 });
