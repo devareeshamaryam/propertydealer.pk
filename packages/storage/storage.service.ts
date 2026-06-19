@@ -1,10 +1,12 @@
-// apps/api/src/storage/storage.service.ts
+ // apps/api/src/storage/storage.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+ import sharp from 'sharp';
+ import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 // import { getSignedUrl } from '@aws-sdk/s3-request-presigner'; // optional for private files
 
 @Injectable()
@@ -182,6 +184,71 @@ export class StorageService {
     // For S3, implement DeleteObjectCommand
     // This is a placeholder
     return false;
+  }
+
+  // ── NEW: Generate a 300×300 JPEG thumbnail on the fly ──────────────────────
+  async getThumbnail(key: string): Promise<Buffer | null> {
+    try {
+      if (this.disk === 's3') {
+        const command = new GetObjectCommand({ Bucket: this.bucket!, Key: key });
+        const response = await this.s3Client!.send(command);
+
+        // Stream ko Buffer mein convert karo
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+          chunks.push(chunk);
+        }
+        const imageBuffer = Buffer.concat(chunks);
+
+        return await sharp(imageBuffer)
+          .resize(300, 300, { fit: 'cover', position: 'center' })
+          .jpeg({ quality: 75, progressive: true })
+          .toBuffer();
+      }
+
+      // Local storage ke liye
+      const filePath = path.join(this.localRoot, key);
+      if (!fsSync.existsSync(filePath)) {
+        this.logger.warn(`Thumbnail: file not found at ${filePath}`);
+        return null;
+      }
+
+      return await sharp(filePath)
+        .resize(300, 300, { fit: 'cover', position: 'center' })
+        .jpeg({ quality: 75, progressive: true })
+        .toBuffer();
+    } catch (error) {
+      this.logger.error(`Thumbnail generation failed for key "${key}": ${error}`);
+      return null;
+    }
+  }
+
+  // ── NEW: Paginated file listing with optional search ───────────────────────
+  async listFilesPaginated(
+    folder: string,
+    page = 1,
+    limit = 50,
+    search = '',
+  ): Promise<{ images: any[]; total: number; totalPages: number }> {
+    const allFiles = await this.listFiles(folder);
+
+    // Search filter: key ke andar search string dhundo (case-insensitive)
+    const filtered = search
+      ? allFiles.filter((f) => f.key.toLowerCase().includes(search.toLowerCase()))
+      : allFiles;
+
+    const total = filtered.length;
+    const start = (page - 1) * limit;
+
+    const images = filtered
+      .slice(start, start + limit)
+      .map((f) => ({
+        ...f,
+        // Controller ka thumbnail endpoint use karo
+        thumbnailUrl: `/properties/images/thumbnail/${encodeURIComponent(f.key)}`,
+      }));
+
+    return { images, total, totalPages: Math.ceil(total / limit) };
   }
 
   // Optional: stream / download method if needed

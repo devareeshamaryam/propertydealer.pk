@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, Query, UseGuards, UseInterceptors, Request, Param, Patch, Delete, Put, UploadedFile, UnauthorizedException, BadRequestException, Header } from '@nestjs/common';
+ import { Body, Controller, Get, Post, Query, UseGuards, UseInterceptors, Request, Param, Patch, Delete, Put, UploadedFile, UnauthorizedException, BadRequestException, Header, Res } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { StorageService } from '@rent-ghar/storage/storage.service';
 import { PropertyService } from './property.service';
 import { CreatePropertyDto } from './dto/create-property.dto'; // Local DTO with validation
@@ -282,15 +283,51 @@ export class PropertyController {
     return { key, url };
   }
 
+  // ── REPLACED: purana listImages → paginated + search support ──────────────
   @Get('images/list')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async listImages(@Query('folder') folder?: string) {
+  async listImages(
+    @Query('folder') folder?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
     try {
-      const images = await this.storageService.listFiles(folder || 'properties');
-      return { images, count: images.length };
+      const result = await this.storageService.listFilesPaginated(
+        folder || 'properties',
+        page ? parseInt(page) : 1,
+        limit ? parseInt(limit) : 50,
+        search || '',
+      );
+      return result;
     } catch (error) {
       console.error('Error listing images:', error);
       throw error;
+    }
+  }
+
+  // ── NEW: thumbnail endpoint ────────────────────────────────────────────────
+  @Get('images/thumbnail/:key')
+  async getThumbnail(
+    @Param('key') key: string,
+    @Res() res: Response,
+  ) {
+    const decodedKey = decodeURIComponent(key);
+
+    // Security: path traversal se bachao
+    if (decodedKey.includes('..') || decodedKey.startsWith('/')) {
+      return res.status(400).send('Invalid key');
+    }
+
+    res.set('Cache-Control', 'public, max-age=604800, immutable');
+    res.set('Content-Type', 'image/jpeg');
+
+    try {
+      const buffer = await this.storageService.getThumbnail(decodedKey);
+      if (!buffer) return res.status(404).send('Image not found');
+      res.send(buffer);
+    } catch {
+      res.status(500).send('Thumbnail generation failed');
     }
   }
 

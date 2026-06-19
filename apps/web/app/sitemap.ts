@@ -19,7 +19,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/sitemap-areas.xml`,      lastModified: new Date() },
     // Cement, steel, bajri etc rates
     { url: `${BASE_URL}/sitemap-rates.xml`,      lastModified: new Date() },
-    // ✅ City sitemaps index — har city ka alag sitemap
-    { url: `${BASE_URL}/sitemap-cities.xml`,     lastModified: new Date() },
-  ];
+   ];
 }
