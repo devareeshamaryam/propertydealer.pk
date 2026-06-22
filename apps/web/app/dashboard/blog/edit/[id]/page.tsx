@@ -1,4 +1,4 @@
- 'use client'
+'use client'
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -242,75 +242,70 @@ export default function EditBlogPage() {
                                     )}
                                 />
 
-                                <FormField control={form.control} name="status" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Status</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select status" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                <SelectItem value="draft">Draft</SelectItem>
-                                                <SelectItem value="published">Published</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField control={form.control} name="status" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Status</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select status" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    <SelectItem value="draft">Draft</SelectItem>
+                                                    <SelectItem value="published">Published</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
 
-                                <FormField control={form.control} name="featuredImage" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Featured Image</FormLabel>
-                                        <FormControl>
-                                            <div>
-                                                {field.value ? (
-                                                    <div
-                                                        className="relative w-full rounded-lg overflow-hidden border border-gray-200 bg-gray-50"
-                                                        style={{ minHeight: '200px' }}
-                                                    >
-                                                        <img
-                                                            src={field.value}
-                                                            alt="Featured preview"
-                                                            className="w-full object-cover"
-                                                            style={{ maxHeight: '300px', objectFit: 'cover' }}
+                                    <FormField control={form.control} name="featuredImage" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Featured Image</FormLabel>
+                                            <FormControl>
+                                                <div className="space-y-2">
+                                                    <div className="flex gap-2">
+                                                        <Input
+                                                            placeholder="https://example.com/image.jpg"
+                                                            {...field}
                                                         />
-                                                        <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-all flex items-center justify-center gap-3 opacity-0 hover:opacity-100">
-                                                            <button
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            size="icon"
+                                                            onClick={() => setImagePickerOpen(true)}
+                                                            title="Choose from gallery"
+                                                        >
+                                                            <ImageIcon className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
+                                                    {field.value && (
+                                                        <div className="flex items-center gap-3 mt-2">
+                                                            <div className="w-16 h-16 rounded-md overflow-hidden bg-muted">
+                                                                <img
+                                                                    src={field.value}
+                                                                    alt="Featured preview"
+                                                                    className="w-full h-full object-cover"
+                                                                />
+                                                            </div>
+                                                            <Button
                                                                 type="button"
-                                                                className="bg-white text-gray-800 px-4 py-2 rounded-md text-sm font-medium cursor-pointer"
-                                                                onClick={() => setImagePickerOpen(true)}
-                                                            >
-                                                                Change Image
-                                                            </button>
-                                                            <button
-                                                                type="button"
-                                                                className="bg-red-500 text-white px-4 py-2 rounded-md text-sm font-medium cursor-pointer"
+                                                                variant="ghost"
+                                                                size="sm"
                                                                 onClick={() => field.onChange("")}
                                                             >
-                                                                Remove
-                                                            </button>
+                                                                Remove image
+                                                            </Button>
                                                         </div>
-                                                    </div>
-                                                ) : (
-                                                    <div
-                                                        onClick={() => setImagePickerOpen(true)}
-                                                        className="w-full border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 hover:border-gray-400 transition-all cursor-pointer flex flex-col items-center justify-center gap-3"
-                                                        style={{ minHeight: '200px' }}
-                                                    >
-                                                        <ImageIcon className="w-10 h-10 text-gray-400" />
-                                                        <div className="text-center">
-                                                            <p className="text-sm font-medium text-gray-600">Click to select image</p>
-                                                            <p className="text-xs text-gray-400 mt-1">Choose from your gallery</p>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+                                                    )}
+                                                </div>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
 
                                 <FormField control={form.control} name="tags" render={({ field }) => (
                                     <FormItem>
@@ -444,3 +439,4 @@ export default function EditBlogPage() {
         </>
     )
 }
+
