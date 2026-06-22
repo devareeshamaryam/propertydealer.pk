@@ -309,7 +309,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
         <div className="bg-white px-4 pt-20 pb-4">
 
           {/* Hero Text — one line, centered, slightly bold */}
-          <p className="text-center text-sm font-bold text-gray-500 mb-5 tracking-wide">
+          <p className="text-center text-sm font-bold text-gray-800 mb-5 tracking-wide">
              Find your perfect home in Pakistan
           </p>
 

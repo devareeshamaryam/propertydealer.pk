@@ -1,19 +1,23 @@
  'use client'
 import { Heart, MapPin, Bed, Bath, Maximize, Loader2 } from 'lucide-react';
 import Image from 'next/image';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel"
+import dynamic from 'next/dynamic';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { propertyApi } from '@/lib/api';
 import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/property-utils';
 import { Property } from '@/lib/data';
 import { toTitleCase } from '../lib/utils';
+
+// ✅ LCP FIX: Carousel (embla) JS is heavy and was being parsed/executed
+// before the heading could paint, delaying LCP by ~2.4s. Loading it
+// dynamically (client-only, no SSR) lets the heading render immediately
+// while the carousel hydrates slightly after.
+const Carousel = dynamic(() => import('@/components/ui/carousel').then(m => m.Carousel), { ssr: false });
+const CarouselContent = dynamic(() => import('@/components/ui/carousel').then(m => m.CarouselContent), { ssr: false });
+const CarouselItem = dynamic(() => import('@/components/ui/carousel').then(m => m.CarouselItem), { ssr: false });
+const CarouselNext = dynamic(() => import('@/components/ui/carousel').then(m => m.CarouselNext), { ssr: false });
+const CarouselPrevious = dynamic(() => import('@/components/ui/carousel').then(m => m.CarouselPrevious), { ssr: false });
 
 const toSlug = (value: string) =>
   value
