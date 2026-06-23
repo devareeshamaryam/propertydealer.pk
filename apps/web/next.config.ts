@@ -47,7 +47,22 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010';
+    // 📡 Determine the correct NestJS API URL.
+    // ⚠️ CRITICAL: DO NOT proxy to localhost:3010 or the public domain (propertydealer.pk) as it causes infinite proxy loops.
+    let baseUrl = process.env.INTERNAL_API_URL;
+    
+    if (!baseUrl) {
+      const publicUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (publicUrl && !publicUrl.includes('propertydealer.pk') && !publicUrl.includes('localhost:3010')) {
+        baseUrl = publicUrl;
+      }
+    }
+    
+    if (!baseUrl) {
+      // Fallback: PM2 runs NestJS on 5000 in production, dev runs on 3005
+      baseUrl = process.env.NODE_ENV === 'production' ? 'http://localhost:5000' : 'http://localhost:3005';
+    }
+
     console.log(`📡 Rewriting /api and /uploads to: ${baseUrl}`);
     return {
       beforeFiles: [
