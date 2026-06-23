@@ -106,10 +106,9 @@ export function ImagePickerDialog({
     }
   };
 
-  // ✅ Reusable gallery grid (used in both tabs and fallback mode)
   const GalleryGrid = () => (
     <>
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 shrink-0">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -151,7 +150,6 @@ export function ImagePickerDialog({
           </p>
         </div>
       ) : (
-        // ✅ max-h removed — flex-1 + overflow-y-auto handles scrolling
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 overflow-y-auto pr-1 flex-1">
           {filteredImages.map((image) => {
             const isSelected = selectedKey === image.key;
@@ -195,15 +193,44 @@ export function ImagePickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* ✅ flex flex-col + max-h-[90vh] + overflow-hidden = buttons always visible */}
       <DialogContent className="max-w-4xl flex flex-col max-h-[90vh] overflow-hidden">
-        <DialogHeader>
+        
+        {/* Header */}
+        <DialogHeader className="shrink-0">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        {/* ✅ flex-1 + overflow-hidden so this area grows but doesn't overflow */}
-        <div className="mt-4 flex flex-col flex-1 overflow-hidden gap-4">
+        {/* ✅ Buttons — header ke neeche, hamesha visible */}
+        <div className="flex justify-end gap-2 pb-3 border-b shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setUrlInput("");
+              setSelectedKey(null);
+              onOpenChange(false);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={
+              activeTab === "gallery"
+                ? !selectedKey
+                : !urlInput.trim() || !isValidUrl(urlInput)
+            }
+            onClick={handleConfirm}
+          >
+            {activeTab === "gallery" ? "Use Selected Image" : "Use URL"}
+          </Button>
+        </div>
+
+        {/* ✅ Scrollable content area */}
+        <div className="flex flex-col flex-1 overflow-hidden gap-4">
           {allowUrlInput ? (
             <Tabs
               value={activeTab}
@@ -221,7 +248,6 @@ export function ImagePickerDialog({
                 </TabsTrigger>
               </TabsList>
 
-              {/* ✅ TabsContent must also flex-col + overflow-hidden */}
               <TabsContent
                 value="gallery"
                 className="flex flex-col flex-1 overflow-hidden gap-3 mt-3"
@@ -229,7 +255,7 @@ export function ImagePickerDialog({
                 <GalleryGrid />
               </TabsContent>
 
-              <TabsContent value="url" className="mt-3">
+              <TabsContent value="url" className="mt-3 overflow-y-auto">
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm font-medium mb-2 block">Image URL</label>
@@ -273,40 +299,12 @@ export function ImagePickerDialog({
               </TabsContent>
             </Tabs>
           ) : (
-            // Fallback gallery-only mode
             <div className="flex flex-col flex-1 overflow-hidden gap-3">
               <GalleryGrid />
             </div>
           )}
         </div>
 
-        {/* ✅ Footer — always visible at bottom, never scrolls away */}
-        <div className="flex justify-end gap-2 pt-4 border-t mt-2 shrink-0">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setUrlInput("");
-              setSelectedKey(null);
-              onOpenChange(false);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={
-              activeTab === "gallery"
-                ? !selectedKey
-                : !urlInput.trim() || !isValidUrl(urlInput)
-            }
-            onClick={handleConfirm}
-          >
-            {activeTab === "gallery" ? "Use Selected Image" : "Use URL"}
-          </Button>
-        </div>
       </DialogContent>
     </Dialog>
   );
