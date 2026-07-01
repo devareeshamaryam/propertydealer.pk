@@ -1,4 +1,25 @@
-import { IsOptional, IsNotEmpty, IsString, IsMongoId } from "class-validator";
+ import { IsOptional, IsNotEmpty, IsString, IsMongoId, IsArray, ValidateNested, IsEnum } from "class-validator";
+import { Type } from "class-transformer";
+
+export class SizeContentDto {
+  @IsEnum(['2marla', '3marla', '5marla', '10marla', '1kanal'])
+  size: '2marla' | '3marla' | '5marla' | '10marla' | '1kanal';
+
+  @IsEnum(['rent', 'sale', 'all'])
+  purpose: 'rent' | 'sale' | 'all';
+
+  @IsOptional()
+  @IsString()
+  metaTitle?: string;
+
+  @IsOptional()
+  @IsString()
+  metaDescription?: string;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
+}
 
 export class CreateAreaDto {
   @IsNotEmpty()
@@ -52,4 +73,11 @@ export class CreateAreaDto {
   @IsOptional()
   @IsString()
   saleContent?: string;
+
+  // 🆕 Size-specific SEO content
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SizeContentDto)
+  sizeContents?: SizeContentDto[];
 }

@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { ImagePickerDialog } from "@/components/ImagePickerDialog";
 import { Image as ImageIcon, X, Trash2, PlusCircle } from "lucide-react";
 import cityApi from "@/lib/api/city/city.api";
+import areaApi, { CreateAreaData, SizeContentItem } from "@/lib/api/area/area.api";
 import { propertyApi } from "@/lib/api";
 import { toTitleCase } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,6 +30,13 @@ const SIZE_OPTIONS = [
   { value: "10marla", label: "10 Marla" },
   { value: "1kanal",  label: "1 Kanal"  },
 ];
+
+interface AreaItem {
+  _id?: string;
+  name: string;
+  areaSlug?: string;
+  sizeContents: SizeContentItem[];
+}
 
 const formSchema = z.object({
   name: z.string().min(2, { message: "City name must be at least 2 characters" }),
@@ -69,6 +77,13 @@ export default function EditCityPage() {
   const [loading, setLoading] = useState(true);
   const [imageDialogOpen, setImageDialogOpen] = useState(false);
   const [availableTypes, setAvailableTypes] = useState<string[]>([]);
+
+  // 🆕 Area-related state
+  const [cityAreas, setCityAreas] = useState<AreaItem[]>([]);
+  const [selectedAreaId, setSelectedAreaId] = useState<string>(""); // "" = new area
+  const [areaName, setAreaName] = useState("");
+  const [areaSizeContents, setAreaSizeContents] = useState<SizeContentItem[]>([]);
+  const [savingArea, setSavingArea] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -113,7 +128,13 @@ export default function EditCityPage() {
       try { const types = await propertyApi.getTypes(); setAvailableTypes(types || []); }
       catch (e) { console.error(e); }
     };
-    if (cityId) { fetchCity(); fetchTypes(); }
+    const fetchAreas = async () => {
+      try {
+        const areas = await areaApi.getAll(cityId);
+        setCityAreas(areas || []);
+      } catch (e) { console.error(e); }
+    };
+    if (cityId) { fetchCity(); fetchTypes(); fetchAreas(); }
   }, [cityId, form, router]);
 
   const addTypeContent = () => {
@@ -127,6 +148,67 @@ export default function EditCityPage() {
     form.setValue("sizeContents", [...cur, { size: "5marla", purpose: "all", metaTitle: "", metaDescription: "", content: "" }]);
   };
   const removeSizeContent = (i: number) => form.setValue("sizeContents", (form.getValues("sizeContents") || []).filter((_, idx) => idx !== i));
+
+  // 🆕 Area handlers — "new" sentinel used because Radix Select disallows empty string values
+  const handleSelectArea = (id: string) => {
+    if (id === "new") {
+      setSelectedAreaId("");
+      setAreaName("");
+      setAreaSizeContents([]);
+      return;
+    }
+    setSelectedAreaId(id);
+    const found = cityAreas.find((a) => a._id === id);
+    setAreaName(found?.name || "");
+    setAreaSizeContents(found?.sizeContents || []);
+  };
+
+  const addAreaSizeContent = () => {
+    setAreaSizeContents((prev) => [...prev, { size: "5marla", purpose: "all", metaTitle: "", metaDescription: "", content: "" }]);
+  };
+
+  const removeAreaSizeContent = (idx: number) => {
+    setAreaSizeContents((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateAreaSizeContentField = (idx: number, field: keyof SizeContentItem, value: string) => {
+    setAreaSizeContents((prev) => prev.map((item, i) => (i === idx ? { ...item, [field]: value } : item)));
+  };
+
+  const generateSlug = (name: string) =>
+    name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+  const saveArea = async () => {
+    if (!areaName.trim()) {
+      toast.error("Error", { description: "Area name is required." });
+      return;
+    }
+    setSavingArea(true);
+    try {
+      const payload: Partial<CreateAreaData> = {
+        name: toTitleCase(areaName.trim()),
+        city: cityId,
+        areaSlug: generateSlug(areaName),
+        sizeContents: areaSizeContents,
+      };
+
+      if (selectedAreaId) {
+        await areaApi.update(selectedAreaId, payload);
+        toast.success("Area updated successfully!");
+      } else {
+        const created = await areaApi.create(payload as CreateAreaData);
+        toast.success("Area created successfully!");
+        setSelectedAreaId(created._id);
+      }
+
+      const refreshed = await areaApi.getAll(cityId);
+      setCityAreas(refreshed || []);
+    } catch (error: any) {
+      toast.error("Error", { description: error?.response?.data?.message || "Failed to save area." });
+    } finally {
+      setSavingArea(false);
+    }
+  };
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
@@ -276,7 +358,7 @@ export default function EditCityPage() {
                           <FormItem><FormLabel>Property Type</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl><SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger></FormControl>
-                              <SelectContent>{availableTypes.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                              <SelectContent>{availableTypes.filter((t) => t && t.trim() !== "").map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                             </Select><FormMessage />
                           </FormItem>
                         )} />
@@ -314,7 +396,7 @@ export default function EditCityPage() {
                   )}
                 </div>
 
-                {/* ── 🆕 Property Size Specific Content ─────────────────── */}
+                {/* ── Property Size Specific Content ─────────────────── */}
                 <div className="mt-8 space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -387,6 +469,164 @@ export default function EditCityPage() {
                     <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-orange-200">
                       <p className="text-gray-500 italic">No size-specific content added yet.</p>
                       <p className="text-xs text-gray-400 mt-1">Click "Add Size Content" to add 2/3/5/10 Marla or 1 Kanal SEO content.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── 🆕 Area Specific Content (saved independently from City) ─────────────────── */}
+                <div className="mt-8 space-y-6 border-t pt-8">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800">Area Specific Content</h3>
+                    <p className="text-sm text-gray-500">
+                      Select an existing area or add a new one, then add size-wise SEO content for it.
+                      e.g. "10 Marla House for Sale in DHA Phase 7, {form.watch('name') || 'City'}"
+                    </p>
+                  </div>
+
+                  <div className="p-6 bg-white border border-orange-100 rounded-xl shadow-sm space-y-6">
+                    {/* Area selector + name */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-1.5 block">Select Area</label>
+                        <Select value={selectedAreaId || "new"} onValueChange={handleSelectArea}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="-- New Area --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">-- New Area --</SelectItem>
+                            {cityAreas
+                              .filter((a) => a._id && a._id.trim() !== "")
+                              .map((a) => (
+                                <SelectItem key={a._id} value={a._id as string}>{a.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 mb-1.5 block">Area Name</label>
+                        <Input
+                          placeholder="e.g. DHA Phase 7"
+                          value={areaName}
+                          onChange={(e) => setAreaName(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {areaName.trim() && (
+                      <p className="text-xs text-gray-400 font-mono bg-gray-50 px-3 py-2 rounded">
+                        /properties/all/{(form.watch('name') || 'city').toLowerCase()}/{generateSlug(areaName)}
+                      </p>
+                    )}
+
+                    {/* Area's size contents */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-md font-semibold text-gray-700">Size Specific Content for this Area</h4>
+                        <Button type="button" variant="outline" size="sm" onClick={addAreaSizeContent} className="flex items-center gap-2">
+                          <PlusCircle className="h-4 w-4" />Add Size Content
+                        </Button>
+                      </div>
+
+                      {areaSizeContents.map((item, index) => (
+                        <div key={index} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-4 relative group">
+                          <Button type="button" variant="ghost" size="icon"
+                            className="absolute top-2 right-2 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeAreaSizeContent(index)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Property Size</label>
+                              <Select value={item.size} onValueChange={(val) => updateAreaSizeContentField(index, "size", val)}>
+                                <SelectTrigger><SelectValue placeholder="Select size" /></SelectTrigger>
+                                <SelectContent>
+                                  {SIZE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Purpose</label>
+                              <Select value={item.purpose} onValueChange={(val) => updateAreaSizeContentField(index, "purpose", val)}>
+                                <SelectTrigger><SelectValue placeholder="Select purpose" /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">All (Buy &amp; Rent)</SelectItem>
+                                  <SelectItem value="rent">Rent</SelectItem>
+                                  <SelectItem value="sale">Sale</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+
+                          {/* Live URL preview */}
+                          <p className="text-xs text-gray-400 font-mono bg-white px-3 py-2 rounded border">
+                            /properties/{item.purpose || 'all'}/
+                            {(form.watch('name') || 'city').toLowerCase()}/
+                            {generateSlug(areaName) || 'area'}/
+                            {item.size || '5marla'}
+                          </p>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Meta Title</label>
+                              <Input
+                                placeholder="SEO Title"
+                                value={item.metaTitle || ""}
+                                onChange={(e) => updateAreaSizeContentField(index, "metaTitle", e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-sm font-medium text-gray-700 mb-1.5 block">Meta Description</label>
+                              <Input
+                                placeholder="SEO Description"
+                                value={item.metaDescription || ""}
+                                onChange={(e) => updateAreaSizeContentField(index, "metaDescription", e.target.value)}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-sm font-medium text-gray-700 mb-1.5 block">Rich Content</label>
+                            <RichEditor
+                              value={item.content || ""}
+                              onChange={(val: string) => updateAreaSizeContentField(index, "content", val)}
+                            />
+                          </div>
+                        </div>
+                      ))}
+
+                      {areaSizeContents.length === 0 && (
+                        <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+                          <p className="text-gray-500 italic text-sm">No size-specific content added for this area yet.</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Save Area button (independent of main City form submit) */}
+                    <div className="flex justify-end pt-2 border-t">
+                      <Button type="button" onClick={saveArea} disabled={savingArea} className="bg-orange-600 hover:bg-orange-700">
+                        {savingArea ? (
+                          <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving Area...</>
+                        ) : (
+                          selectedAreaId ? "Update Area" : "Save New Area"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* List of existing areas for quick reference */}
+                  {cityAreas.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {cityAreas.map((a) => (
+                        <button
+                          key={a._id}
+                          type="button"
+                          onClick={() => handleSelectArea(a._id || "new")}
+                          className={`text-xs px-3 py-1.5 rounded-full border ${selectedAreaId === a._id ? "bg-orange-600 text-white border-orange-600" : "bg-white text-gray-600 border-gray-300 hover:border-orange-300"}`}
+                        >
+                          {a.name}
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>

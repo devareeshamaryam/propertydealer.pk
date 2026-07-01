@@ -1,4 +1,4 @@
-/* eslint-disable prettier/prettier */
+ /* eslint-disable prettier/prettier */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, isValidObjectId } from 'mongoose';
@@ -47,6 +47,7 @@ export class AreaService {
     if (createAreaDto.saleMetaTitle) areaData.saleMetaTitle = createAreaDto.saleMetaTitle;
     if (createAreaDto.saleMetaDescription) areaData.saleMetaDescription = createAreaDto.saleMetaDescription;
     if (createAreaDto.saleContent) areaData.saleContent = createAreaDto.saleContent;
+    if (createAreaDto.sizeContents) areaData.sizeContents = createAreaDto.sizeContents; // 🆕
 
     const createdArea = new this.areaModel(areaData);
     const saved = await createdArea.save();
@@ -148,6 +149,42 @@ export class AreaService {
     return area as AreaDocument;
   }
 
+  // 🆕 Helper: find existing area by name within a city, else create it
+  async findOrCreateArea(
+    name: string,
+    cityId: string,
+    extra: Partial<CreateAreaDto> = {},
+  ): Promise<AreaDocument> {
+    if (!isValidObjectId(cityId)) {
+      throw new NotFoundException('Invalid city ID');
+    }
+
+    const existing = await this.areaModel
+      .findOne({
+        name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+        city: cityId,
+      })
+      .exec();
+
+    if (existing) {
+      return existing as AreaDocument;
+    }
+
+    const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+    const areaData: any = {
+      name: name.trim(),
+      areaSlug: slug,
+      city: cityId,
+      ...extra,
+    };
+
+    const createdArea = new this.areaModel(areaData);
+    const saved = await createdArea.save();
+    this.bustAreaCaches().catch(() => {});
+    return saved;
+  }
+
   async updateArea(
     id: string,
     updateAreaDto: UpdateAreaDto,
@@ -180,7 +217,8 @@ export class AreaService {
       rentMetaTitle: area.rentMetaTitle,
       saleMetaTitle: area.saleMetaTitle,
       rentMetaDescription: area.rentMetaDescription,
-      saleMetaDescription: area.saleMetaDescription
+      saleMetaDescription: area.saleMetaDescription,
+      sizeContents: area.sizeContents,
     });
 
     this.bustAreaCaches().catch(() => {});

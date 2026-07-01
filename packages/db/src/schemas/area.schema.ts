@@ -1,4 +1,4 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { City } from './city.schema';
 import { Types } from 'mongoose';
 import { Document } from 'mongoose';
@@ -47,6 +47,29 @@ export class Area {
 
   @Prop({ trim: true })
   saleContent?: string; // Rich Text for sale pages
+
+  // 🆕 Size-specific SEO content (2 Marla, 3 Marla, 5 Marla, 10 Marla, 1 Kanal)
+  @Prop({
+    type: [{
+      size: {
+        type: String,
+        enum: ['2marla', '3marla', '5marla', '10marla', '1kanal'],
+        required: true,
+      },
+      purpose: { type: String, enum: ['rent', 'sale', 'all'], required: true },
+      metaTitle: String,
+      metaDescription: String,
+      content: String,
+    }],
+    default: [],
+  })
+  sizeContents?: {
+    size: '2marla' | '3marla' | '5marla' | '10marla' | '1kanal';
+    purpose: 'rent' | 'sale' | 'all';
+    metaTitle?: string;
+    metaDescription?: string;
+    content?: string;
+  }[];
 
   // Properties are optional - an area can exist without properties initially
   // Properties will reference the area, not the other way around

@@ -21,16 +21,26 @@ function parseMarlaSlug(seg: string): number | null {
   return null;
 }
 
-// ── Helper: sizeSlug from marla number ───────────────────────────────────────
 function toSizeSlug(marla: number): string {
   return marla === 20 ? '1kanal' : `${marla}marla`;
 }
 
-// ── Helper: find sizeContents entry ─────────────────────────────────────────
 function findSizeEntry(cityData: any, marla: number, purposes: string[]) {
   const slug = toSizeSlug(marla);
   for (const p of purposes) {
     const entry = cityData?.sizeContents?.find(
+      (s: any) => s.size === slug && s.purpose === p
+    );
+    if (entry) return entry;
+  }
+  return null;
+}
+
+// 🆕 Area ke sizeContents mein se match dhoondhna
+function findAreaSizeEntry(areaData: any, marla: number, purposes: string[]) {
+  const slug = toSizeSlug(marla);
+  for (const p of purposes) {
+    const entry = areaData?.sizeContents?.find(
       (s: any) => s.size === slug && s.purpose === p
     );
     if (entry) return entry;
@@ -96,17 +106,29 @@ export async function generateMetadata(
   const purpose  = 'Rent & Sale';
   const cityName = cityData ? toTitleCase(cityData.name) : toTitleCase(citySlug);
 
-  if (areaData && propertyType) {
-    const areaName = toTitleCase(areaData.name);
-    const typeName = propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType);
-    return {
-      title: areaData.metaTitle || `${typeName} for ${purpose} in ${areaName}, ${cityName}`,
-      description: areaData.metaDescription || `Find ${typeName.toLowerCase()} for ${purpose.toLowerCase()} in ${areaName}, ${cityName}. Browse verified listings on Property Dealer.`,
-      alternates: { canonical: `/properties/all/${citySlug}/${segments.join('/')}` },
-    };
-  }
-
   if (areaData) {
+    // 🆕 area + marla size meta (highest priority)
+    if (marla) {
+      const areaSizeEntry = findAreaSizeEntry(areaData, marla, ['all', 'rent', 'sale']);
+      if (areaSizeEntry?.metaTitle?.trim()) {
+        return {
+          title: areaSizeEntry.metaTitle,
+          description: areaSizeEntry.metaDescription || undefined,
+          alternates: { canonical: `/properties/all/${citySlug}/${segments.join('/')}` },
+        };
+      }
+    }
+
+    if (propertyType) {
+      const areaName = toTitleCase(areaData.name);
+      const typeName = propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType);
+      return {
+        title: areaData.metaTitle || `${typeName} for ${purpose} in ${areaName}, ${cityName}`,
+        description: areaData.metaDescription || `Find ${typeName.toLowerCase()} for ${purpose.toLowerCase()} in ${areaName}, ${cityName}. Browse verified listings on Property Dealer.`,
+        alternates: { canonical: `/properties/all/${citySlug}/${segments.join('/')}` },
+      };
+    }
+
     const areaName = toTitleCase(areaData.name);
     return {
       title: areaData.metaTitle || `Properties in ${areaName}, ${cityName}`,
@@ -116,8 +138,7 @@ export async function generateMetadata(
   }
 
   if (cityData) {
-    // 🆕 sizeContents meta — marla + propertyType
-    if (marla && propertyType && !areaData) {
+    if (marla && propertyType) {
       const sizeEntry = findSizeEntry(cityData, marla, ['all', 'rent', 'sale']);
       if (sizeEntry?.metaTitle?.trim()) {
         return {
@@ -160,7 +181,6 @@ export default async function AllCitySegmentsPage(props: PageProps) {
   const listingType = propertyType || 'all';
   const areaId      = areaData?._id;
 
-  // typeContents fallback (existing)
   const specificContent = propertyType && !areaData
     ? cityData?.typeContents?.find(
         (tc: any) =>
@@ -169,20 +189,25 @@ export default async function AllCitySegmentsPage(props: PageProps) {
       ) || null
     : null;
 
-  // 🆕 sizeContents — marla specific content (highest priority)
   const sizeEntry = marla && propertyType && cityData && !areaData
     ? findSizeEntry(cityData, marla, ['all', 'rent', 'sale'])
     : null;
 
-  const richDescription = areaData && propertyType
-    ? undefined
-    : areaData
-      ? (areaData.description || undefined)
-      : sizeEntry?.content?.trim()                    // 🆕 size-specific first
-        ? sizeEntry.content
-        : (specificContent?.content?.trim() ? specificContent.content : undefined);
+  // 🆕 area + marla size content (highest priority)
+  const areaSizeEntry = marla && areaData
+    ? findAreaSizeEntry(areaData, marla, ['all', 'rent', 'sale'])
+    : null;
 
-  // Schema
+  const richDescription = areaSizeEntry?.content?.trim()
+    ? areaSizeEntry.content
+    : areaData && propertyType
+      ? undefined
+      : areaData
+        ? (areaData.description || undefined)
+        : sizeEntry?.content?.trim()
+          ? sizeEntry.content
+          : (specificContent?.content?.trim() ? specificContent.content : undefined);
+
   const cityName  = cityData ? toTitleCase(cityData.name) : toTitleCase(city);
   const areaName  = areaData ? toTitleCase(areaData.name) : null;
   const typeName  = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType)) : null;

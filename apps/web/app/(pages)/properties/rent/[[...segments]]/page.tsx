@@ -60,16 +60,26 @@ async function resolve(segments: string[]) {
   return { cityData, citySlug, areaData, areaSlug: rest[1]!, propertyType, marla };
 }
 
-// ── Helper: sizeSlug from marla number ───────────────────────────────────────
 function toSizeSlug(marla: number): string {
   return marla === 20 ? '1kanal' : `${marla}marla`;
 }
 
-// ── Helper: find sizeContents entry ─────────────────────────────────────────
 function findSizeEntry(cityData: any, marla: number, purposes: string[]) {
   const slug = toSizeSlug(marla);
   for (const p of purposes) {
     const entry = cityData?.sizeContents?.find(
+      (s: any) => s.size === slug && s.purpose === p
+    );
+    if (entry) return entry;
+  }
+  return null;
+}
+
+// 🆕 Area ke sizeContents mein se match dhoondhna
+function findAreaSizeEntry(areaData: any, marla: number, purposes: string[]) {
+  const slug = toSizeSlug(marla);
+  for (const p of purposes) {
+    const entry = areaData?.sizeContents?.find(
       (s: any) => s.size === slug && s.purpose === p
     );
     if (entry) return entry;
@@ -91,6 +101,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const marlaStr = marla ? ` - ${marla >= 20 ? `${marla / 20} Kanal` : `${marla} Marla`}` : '';
 
   if (areaData) {
+    // 🆕 area + marla size meta (highest priority)
+    if (marla) {
+      const areaSizeEntry = findAreaSizeEntry(areaData, marla, ['rent', 'all']);
+      if (areaSizeEntry?.metaTitle?.trim()) {
+        return {
+          title: areaSizeEntry.metaTitle,
+          description: areaSizeEntry.metaDescription || undefined,
+          alternates: { canonical: `/properties/rent/${segments.filter(s => !isSizeSegment(s)).join('/')}` },
+        };
+      }
+    }
     return {
       title: areaData.rentMetaTitle?.trim() || `${typeName} for ${purpose} in ${locationStr}${marlaStr}`,
       description: areaData.rentMetaDescription?.trim() || `Find ${typeName.toLowerCase()} for ${purpose.toLowerCase()} in ${locationStr}. Browse verified listings on Property Dealer.`,
@@ -99,8 +120,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   if (cityData) {
-    // 🆕 sizeContents meta — marla + propertyType
-    if (marla && propertyType && !areaData) {
+    if (marla && propertyType) {
       const sizeEntry = findSizeEntry(cityData, marla, ['rent', 'all']);
       if (sizeEntry?.metaTitle?.trim()) {
         return {
@@ -148,7 +168,6 @@ export default async function RentPage({ params }: PageProps) {
   const areaId      = areaData?._id;
   const cityName    = cityData ? toTitleCase(cityData.name) : '';
 
-  // typeContents fallback (existing)
   const specificContent = propertyType && cityData && !areaData
     ? cityData?.typeContents?.find(
         (tc: any) => tc.propertyType.toLowerCase() === propertyType.toLowerCase() &&
@@ -156,22 +175,27 @@ export default async function RentPage({ params }: PageProps) {
       ) || null
     : null;
 
-  // 🆕 sizeContents — marla specific content (highest priority for house/plot + marla)
   const sizeEntry = marla && propertyType && cityData && !areaData
     ? findSizeEntry(cityData, marla, ['rent', 'all'])
     : null;
 
-  const richDescription = areaData && propertyType
-    ? undefined
-    : areaData
-      ? (areaData.rentContent?.trim() || areaData.description || undefined)
-      : sizeEntry?.content?.trim()                    // 🆕 size-specific first
-        ? sizeEntry.content
-        : propertyType
-          ? (specificContent?.content?.trim() || undefined)
-          : (cityData?.rentContent || undefined);
+  // 🆕 area + marla size content (highest priority)
+  const areaSizeEntry = marla && areaData
+    ? findAreaSizeEntry(areaData, marla, ['rent', 'all'])
+    : null;
 
-  // Schema
+  const richDescription = areaSizeEntry?.content?.trim()
+    ? areaSizeEntry.content
+    : areaData && propertyType
+      ? undefined
+      : areaData
+        ? (areaData.rentContent?.trim() || areaData.description || undefined)
+        : sizeEntry?.content?.trim()
+          ? sizeEntry.content
+          : propertyType
+            ? (specificContent?.content?.trim() || undefined)
+            : (cityData?.rentContent || undefined);
+
   const typeName   = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType)) : null;
   const areaName   = areaData ? toTitleCase(areaData.name) : null;
   const pageUrl    = `${BASE_URL}/properties/rent${segments.length ? `/${segments.join('/')}` : ''}`;

@@ -303,35 +303,35 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
       </div>
 
       {/* ============================================================
-          MOBILE LAYOUT — compact, centered, updated
+          MOBILE LAYOUT — white top, wave bottom with thin black line
       ============================================================ */}
-      <div className="md:hidden bg-white">
+      <div className="md:hidden bg-white relative">
         <div className="bg-white px-4 pt-20 pb-4">
 
-          {/* Hero Text — one line, centered, slightly bold */}
+          {/* Hero Text */}
           <p className="text-center text-sm font-bold text-gray-800 mb-5 tracking-wide">
              Find your perfect home in Pakistan
           </p>
 
-          {/* Buy / Rent Buttons — narrower width, centered */}
-          <div className="flex gap-2 justify-center mb-5">
+          {/* Buy / Rent Buttons */}
+          <div className="flex gap-2 justify-center mb-4">
             <button
               onClick={() => { setPurpose('buy'); setShowFilterModal(true); }}
-              className="w-32 py-2.5 rounded-lg text-sm font-bold bg-black text-white active:bg-gray-900 transition-colors tracking-wide"
+              className="w-32 py-2.5 rounded-full text-sm font-bold bg-black text-white active:bg-gray-900 transition-colors tracking-wide"
             >
               BUY
             </button>
             <button
               onClick={() => { setPurpose('rent'); setShowFilterModal(true); }}
-              className="w-32 py-2.5 rounded-lg text-sm font-bold bg-black text-white active:bg-gray-900 transition-colors tracking-wide"
+              className="w-32 py-2.5 rounded-full text-sm font-bold bg-black text-white active:bg-gray-900 transition-colors tracking-wide"
             >
               RENT
             </button>
           </div>
 
-          {/* Compact Search Bar */}
-          <div ref={searchRef} className="relative">
-            <div className="flex items-center bg-gray-100 rounded-xl px-3 py-2.5 gap-2 border border-gray-200">
+          {/* Search Bar — pill shape, same total width as both buttons + gap */}
+          <div ref={searchRef} className="relative flex justify-center">
+            <div className="flex items-center bg-gray-100 rounded-full px-4 py-2.5 gap-2 border border-gray-200 w-[290px]">
               <Search className="w-4 h-4 text-black shrink-0" />
               <input
                 type="text"
@@ -364,6 +364,29 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
             )}
           </div>
 
+        </div>
+
+        {/* Wave bottom shape — white bg upar, neeche curve + thin black line */}
+        <div className="w-full overflow-hidden leading-[0]" style={{ height: '44px', marginTop: '-1px' }}>
+          <svg
+            viewBox="0 0 390 44"
+            xmlns="http://www.w3.org/2000/svg"
+            preserveAspectRatio="none"
+            className="w-full h-full"
+          >
+            {/* White fill covering top portion down to the wave */}
+            <path
+              d="M0,0 L0,22 Q97.5,46 195,22 Q292.5,-2 390,22 L390,0 Z"
+              fill="white"
+            />
+            {/* Thin black stroke line along the wave */}
+            <path
+              d="M0,22 Q97.5,46 195,22 Q292.5,-2 390,22"
+              fill="none"
+              stroke="black"
+              strokeWidth="1.5"
+            />
+          </svg>
         </div>
       </div>
 

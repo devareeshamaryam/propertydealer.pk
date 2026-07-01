@@ -80,6 +80,9 @@ export default function PropertiesListing({
   const [allAreas,         setAllAreas]         = useState<AreaOption[]>([]);
   const [loadingAllAreas,  setLoadingAllAreas]  = useState(false);
 
+  // 🆕 Full area document (with rentContent/saleContent/sizeContents) for SEO content
+  const [areaData, setAreaData] = useState<any>(null);
+
   const [sheetCity,     setSheetCity]     = useState('');
   const [sheetType,     setSheetType]     = useState('all');
   const [sheetAreaId,   setSheetAreaId]   = useState('');
@@ -233,6 +236,31 @@ export default function PropertiesListing({
     })();
   }, []);
 
+  // 🆕 Fetch full Area document (so we get rentContent/saleContent/description/sizeContents)
+  useEffect(() => {
+    if (!initialAreaId && !initialAreaSlug) { setAreaData(null); return; }
+    (async () => {
+      try {
+        let data: any = null;
+        if (initialAreaId) {
+          data = await areaApi.getById(initialAreaId);
+        } else if (initialAreaSlug) {
+          data = await areaApi.getByName(initialAreaSlug).catch(() => null);
+          if (!data) {
+            // fallback: match against full area list by slug
+            const all = await areaApi.getAll();
+            data = Array.isArray(all)
+              ? all.find((a: any) => a.areaSlug === initialAreaSlug)
+              : null;
+          }
+        }
+        setAreaData(data || null);
+      } catch {
+        setAreaData(null);
+      }
+    })();
+  }, [initialAreaId, initialAreaSlug]);
+
   useEffect(() => {
     if (!sheetCity) { setSheetAreas([]); return; }
     (async () => {
@@ -370,8 +398,29 @@ export default function PropertiesListing({
     })();
   }, [matchedCity, purpose, type, advancedFilters, searchParams, currentPage, initialAreaId]);
 
+  // 🆕 SEO content now checks Area first (sizeContents → rent/saleContent → description),
+  // then falls back to City-level content if no area match is found.
   const effectiveRichDescription = useMemo(() => {
     if (richDescription) return richDescription;
+
+    const purposeKey = purpose === 'buy' ? 'sale' : purpose;
+
+    // 1) Area-level content (when an area is selected)
+    if (areaData) {
+      if (initialMarla && areaData.sizeContents?.length) {
+        const marlaKey = initialMarla === 20 ? '1kanal' : `${initialMarla}marla`;
+        const match = areaData.sizeContents.find(
+          (s: any) => s.size === marlaKey && (s.purpose === purposeKey || s.purpose === 'all')
+        );
+        if (match?.content) return match.content;
+      }
+
+      if (purpose === 'rent' && areaData.rentContent) return areaData.rentContent;
+      if (purpose === 'buy'  && areaData.saleContent) return areaData.saleContent;
+      if (areaData.description) return areaData.description;
+    }
+
+    // 2) City-level content (fallback)
     if (!matchedCity || !allCities.length) return undefined;
 
     const cityData = allCities.find(c => c.name.toLowerCase() === matchedCity.toLowerCase());
@@ -379,7 +428,6 @@ export default function PropertiesListing({
 
     if (initialMarla && cityData.sizeContents?.length) {
       const marlaKey = initialMarla === 20 ? '1kanal' : `${initialMarla}marla`;
-      const purposeKey = purpose === 'buy' ? 'sale' : purpose;
       const match = cityData.sizeContents.find(
         (s: any) =>
           s.size === marlaKey &&
@@ -389,7 +437,6 @@ export default function PropertiesListing({
     }
 
     if (type && type !== 'all' && cityData.typeContents?.length) {
-      const purposeKey = purpose === 'buy' ? 'sale' : purpose;
       const match = cityData.typeContents.find(
         (t: any) =>
           t.propertyType?.toLowerCase() === type.toLowerCase() &&
@@ -398,13 +445,14 @@ export default function PropertiesListing({
       if (match?.content) return match.content;
     }
 
-    if (initialAreaId || initialAreaSlug) return undefined;
-
+    // Only skip City's general rent/sale/description when an area is selected
+    // but areaData itself produced nothing above — we still want a fallback,
+    // so we no longer hard-return undefined here.
     if (purpose === 'rent') return cityData.rentContent || undefined;
     if (purpose === 'buy')  return cityData.saleContent || undefined;
 
     return cityData.description || undefined;
-  }, [richDescription, matchedCity, allCities, purpose, type, initialAreaId, initialAreaSlug, initialMarla]);
+  }, [richDescription, matchedCity, allCities, purpose, type, initialAreaId, initialAreaSlug, initialMarla, areaData]);
 
   useEffect(() => {
     setProperties([]);
@@ -760,7 +808,6 @@ export default function PropertiesListing({
 
               <div className="lg:hidden relative">
                 <div className="relative">
-                  {/* ✅ FIX: gap-x-2 so all tabs fit in 2 lines (Plots & Shops move to line 2) */}
                   <div className="flex flex-wrap gap-x-2 gap-y-0 pr-28">
                     {typeTabs.map(tab => {
                       const isActive = tab.key === 'all'
@@ -824,7 +871,6 @@ export default function PropertiesListing({
                 </div>
               )}
 
-              {/* ✅ FIX: Popular Locations — mobile par hidden, desktop par visible */}
               {matchedCity && (
                 <div className="hidden lg:block space-y-3">
                   <div className="flex items-center gap-2">
@@ -924,7 +970,6 @@ export default function PropertiesListing({
         </div>
       </section>
 
-      {/* ✅ FIX: SEO Description — container ke BAHAR, apni full-width section mein */}
       {effectiveRichDescription && (
         <section className="py-12 bg-secondary/50">
           <div className="container mx-auto px-4">
