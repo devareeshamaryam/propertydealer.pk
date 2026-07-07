@@ -175,7 +175,7 @@ export default function RichEditor({ value, onChange }: RichEditorProps) {
         // Skip if editor is already showing this content (avoids unnecessary resets)
         if (value === editor.getHTML()) return;
 
-        editor.commands.setContent(value || '<p></p>', false);
+        editor.commands.setContent(value || '<p></p>', { emitUpdate: false });
     }, [value, editor]);
 
     const handleSetLink = () => {
