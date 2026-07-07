@@ -1,4 +1,4 @@
-'use client'
+ 'use client'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
@@ -60,8 +60,16 @@ export default function RichEditor({ value, onChange }: RichEditorProps) {
     const [linkUrl, setLinkUrl] = useState('')
     const [imageAlt, setImageAlt] = useState('')
 
-    // Use a ref to track if the update came from the editor itself
-    const isUpdatingRef = useRef(false)
+    // ----- FIX: track exactly what WE last emitted, not what TipTap re-serializes -----
+    // Root cause of "Enter / next line not working":
+    // Previously the code compared `value` (coming back from react-hook-form) against
+    // `editor.getHTML()` on every render. TipTap normalizes/re-serializes HTML
+    // (attributes ordering, empty <p> tags, etc.), so even a fresh Enter press could
+    // produce a string that didn't exactly match, causing `setContent()` to fire again
+    // and wipe out the just-typed new line / reset the cursor.
+    // Now we remember the last value WE emitted via onChange, and skip re-setting the
+    // editor content if the incoming value is the same one we just sent out.
+    const lastEmittedRef = useRef<string | null>(null)
 
     useEffect(() => {
         setMounted(true)
@@ -144,36 +152,31 @@ export default function RichEditor({ value, onChange }: RichEditorProps) {
                 class: 'prose prose-sm sm:prose-base lg:prose-lg xl:prose-xl max-w-none focus:outline-none min-h-[500px] p-6',
             }
         },
+        // ----- FIX: emit changes directly from the editor's own onUpdate -----
+        // This avoids attaching/detaching a listener in a separate effect (which was
+        // part of the old race condition) and guarantees every keystroke (including
+        // Enter / new paragraphs) is reported immediately.
+        onUpdate: ({ editor }) => {
+            const html = editor.getHTML()
+            lastEmittedRef.current = html
+            onChange(html)
+        },
     })
 
-    // Update editor content when value prop changes externally
+    // Sync EXTERNAL changes into the editor (e.g. form.reset() when loading a blog
+    // for editing, or clearing the form after submit). We deliberately do NOT do this
+    // while the user is typing, because `value` momentarily lags behind `onUpdate`.
     useEffect(() => {
         if (!editor || value === undefined) return;
 
-        const currentHTML = editor.getHTML();
-        if (value !== currentHTML && !isUpdatingRef.current) {
-            editor.commands.setContent(value || '<p></p>');
-        }
+        // Skip if this is the exact value we just emitted ourselves (i.e. user typing)
+        if (value === lastEmittedRef.current) return;
+
+        // Skip if editor is already showing this content (avoids unnecessary resets)
+        if (value === editor.getHTML()) return;
+
+        editor.commands.setContent(value || '<p></p>', false);
     }, [value, editor]);
-
-    // Update the ref when the editor content changes
-    useEffect(() => {
-        if (!editor) return;
-
-        const handleUpdate = () => {
-            isUpdatingRef.current = true;
-            onChange(editor.getHTML());
-            // Reset the flag after the current tick
-            setTimeout(() => {
-                isUpdatingRef.current = false;
-            }, 0);
-        };
-
-        editor.on('update', handleUpdate);
-        return () => {
-            editor.off('update', handleUpdate);
-        };
-    }, [editor, onChange]);
 
     const handleSetLink = () => {
         if (!editor) return
