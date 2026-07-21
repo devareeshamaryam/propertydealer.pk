@@ -16,10 +16,10 @@ import {
  * Payload for the public listing API used by automation tools (e.g. n8n).
  *
  * Notes:
- *  - Designed to be consumed as JSON (`application/json`), not multipart.
- *    Photos are referenced by URL — callers should first upload images via
- *    `POST /listing-api/uploads` (or provide already-hosted URLs) and then
- *    include those URLs here.
+ *  - Can be consumed as JSON (`application/json`) with hosted image URLs, or as
+ *    `multipart/form-data` with `mainPhoto` / `additionalPhotos` file fields
+ *    (same as the dashboard). You can also upload images first via
+ *    `POST /listing-api/uploads` and pass the returned URLs here.
  *  - Either `area` (an Area ObjectId) or both (`cityName` + `areaName`) must
  *    be provided. The service will auto-resolve / create the area when names
  *    are given so that n8n flows don't have to manage IDs.

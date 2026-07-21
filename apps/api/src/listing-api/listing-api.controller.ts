@@ -7,11 +7,10 @@ import {
   Post,
   Query,
   Req,
-  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { ApiKeyGuard } from './api-key.guard';
 import { ListingApiService } from './listing-api.service';
 import { CreateListingDto } from './dto/create-listing.dto';
@@ -67,26 +66,91 @@ export class ListingApiController {
   }
 
   /**
-   * Upload a single image and get back a public URL that can be used in the
-   * `mainPhotoUrl` / `additionalPhotosUrls` fields of the create endpoint.
+   * Upload one or more images and get back public URLs for use in `/listings`.
    *
-   * Field name: `file` (multipart/form-data).
+   * Single file: field name `file` (multipart/form-data).
+   * Multiple files: field name `files` (repeat the field for each image).
    */
   @Post('uploads')
-  @UseInterceptors(FileInterceptor('file'))
-  async upload(@UploadedFile() file: any) {
-    if (!file) throw new BadRequestException('No file uploaded');
-    const key = await this.storageService.upload(file, 'properties');
-    const url = this.storageService.getUrl(key);
-    return { key, url };
+  @UseInterceptors(AnyFilesInterceptor())
+  async upload(@Req() req: any) {
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    const normalized = files.filter(
+      (f) => f.fieldname === 'file' || f.fieldname === 'files',
+    );
+
+    if (normalized.length === 0) {
+      throw new BadRequestException(
+        'No file uploaded. Use multipart/form-data with field `file` (single) or `files` (multiple).',
+      );
+    }
+
+    const uploaded = await Promise.all(
+      normalized.map(async (file) => {
+        const key = await this.storageService.upload(file, 'properties');
+        return { key, url: this.storageService.getUrl(key) };
+      }),
+    );
+
+    if (uploaded.length === 1) {
+      return uploaded[0];
+    }
+
+    return { files: uploaded };
   }
 
   /**
    * Create a draft listing. Admin must review & publish before it goes live.
+   *
+   * Accepts either:
+   *  - `application/json` with `mainPhotoUrl` / `additionalPhotosUrls`, or
+   *  - `multipart/form-data` with `mainPhoto` / `additionalPhotos` file fields
+   *    (same as the dashboard property form).
    */
   @Post('listings')
-  async createListing(@Body() dto: CreateListingDto) {
-    return this.listingApiService.createDraftListing(dto);
+  @UseInterceptors(AnyFilesInterceptor())
+  async createListing(@Req() req: any, @Body() dto: CreateListingDto) {
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    const mainPhotoFile = files.find((f) => f.fieldname === 'mainPhoto');
+    const additionalPhotoFiles = files.filter(
+      (f) => f.fieldname === 'additionalPhotos',
+    );
+
+    let mainPhotoUrl = dto.mainPhotoUrl;
+    let additionalPhotosUrls = [...(dto.additionalPhotosUrls ?? [])];
+
+    if (mainPhotoFile) {
+      const key = await this.storageService.upload(mainPhotoFile, 'properties');
+      mainPhotoUrl = this.storageService.getUrl(key);
+    } else if (req.body?.mainPhotoUrl) {
+      mainPhotoUrl = req.body.mainPhotoUrl;
+    }
+
+    if (additionalPhotoFiles.length > 0) {
+      const uploadedUrls = await Promise.all(
+        additionalPhotoFiles.map(async (file) => {
+          const key = await this.storageService.upload(file, 'properties');
+          return this.storageService.getUrl(key);
+        }),
+      );
+      additionalPhotosUrls = [...additionalPhotosUrls, ...uploadedUrls];
+    }
+
+    const bodyAdditional = (req.body?.additionalPhotosUrls ??
+      req.body?.['additionalPhotosUrls[]']) as string | string[] | undefined;
+    if (bodyAdditional) {
+      const bodyUrls = Array.isArray(bodyAdditional)
+        ? bodyAdditional
+        : [bodyAdditional];
+      additionalPhotosUrls = [...additionalPhotosUrls, ...bodyUrls];
+    }
+
+    return this.listingApiService.createDraftListing({
+      ...dto,
+      mainPhotoUrl,
+      additionalPhotosUrls:
+        additionalPhotosUrls.length > 0 ? additionalPhotosUrls : undefined,
+    });
   }
 
   /**
