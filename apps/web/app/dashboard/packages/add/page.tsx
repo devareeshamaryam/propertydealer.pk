@@ -1,26 +1,27 @@
-'use client'
+"use client";
 
-import { useState } from 'react';
-import { packageApi } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { useRouter } from 'next/navigation';
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
+import { useState } from "react";
+import { packageApi } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 
 export default function AddPackagePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    duration: '',
-    propertyLimit: '',
-    featuredListings: '0',
-    photosPerProperty: '5',
-    features: '',
+    name: "",
+    description: "",
+    price: "",
+    duration: "",
+    propertyLimit: "",
+    featuredListings: "0",
+    photosPerProperty: "5",
+    features: "",
     isActive: true,
   });
 
@@ -29,21 +30,36 @@ export default function AddPackagePage() {
     setLoading(true);
 
     try {
+      // Blank numeric fields used to be sent through as NaN, which the API
+      // rejects with an unhelpful error. Treat them as zero / not set instead.
+      const toNumber = (value: string, fallback = 0) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      };
+
       const dto = {
         ...formData,
-        price: parseFloat(formData.price),
-        duration: parseInt(formData.duration),
-        propertyLimit: parseInt(formData.propertyLimit),
-        featuredListings: parseInt(formData.featuredListings),
-        photosPerProperty: parseInt(formData.photosPerProperty),
-        features: formData.features.split(',').map(f => f.trim()).filter(Boolean),
+        price: toNumber(formData.price),
+        duration: toNumber(formData.duration),
+        propertyLimit: toNumber(formData.propertyLimit),
+        featuredListings: toNumber(formData.featuredListings),
+        photosPerProperty: toNumber(formData.photosPerProperty),
+        features: formData.features
+          .split(",")
+          .map((f) => f.trim())
+          .filter(Boolean),
       };
 
       await packageApi.create(dto);
-      router.push('/dashboard/packages');
-    } catch (err) {
-      console.error('Error creating package:', err);
-      alert('Failed to create package');
+      toast.success("Package created");
+      router.push("/dashboard/packages");
+    } catch (err: any) {
+      console.error("Error creating package:", err);
+      toast.error("Could not create package", {
+        description:
+          err?.response?.data?.message ??
+          "Please check the fields and try again.",
+      });
     } finally {
       setLoading(false);
     }
@@ -52,11 +68,7 @@ export default function AddPackagePage() {
   return (
     <div className="w-full max-w-4xl">
       <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <Button
-          variant="ghost"
-          onClick={() => router.back()}
-          className="mb-4"
-        >
+        <Button variant="ghost" onClick={() => router.back()} className="mb-4">
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back
         </Button>
@@ -68,66 +80,93 @@ export default function AddPackagePage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white rounded-lg shadow-sm p-6 space-y-6"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium mb-2">Package Name *</label>
+            <label className="block text-sm font-medium mb-2">
+              Package Name *
+            </label>
             <Input
               required
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               placeholder="e.g., Basic, Premium, Enterprise"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Price (PKR) *</label>
+            <label className="block text-sm font-medium mb-2">
+              Price (PKR) *
+            </label>
             <Input
               required
               type="number"
               value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, price: e.target.value })
+              }
               placeholder="e.g., 5000"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Duration (Days) *</label>
+            <label className="block text-sm font-medium mb-2">
+              Duration (Days) *
+            </label>
             <Input
               required
               type="number"
               value={formData.duration}
-              onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, duration: e.target.value })
+              }
               placeholder="e.g., 30"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Property Limit *</label>
+            <label className="block text-sm font-medium mb-2">
+              Property Limit *
+            </label>
             <Input
               required
               type="number"
               value={formData.propertyLimit}
-              onChange={(e) => setFormData({ ...formData, propertyLimit: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, propertyLimit: e.target.value })
+              }
               placeholder="e.g., 5"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Featured Listings</label>
+            <label className="block text-sm font-medium mb-2">
+              Featured Listings
+            </label>
             <Input
               type="number"
               value={formData.featuredListings}
-              onChange={(e) => setFormData({ ...formData, featuredListings: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, featuredListings: e.target.value })
+              }
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Photos Per Property</label>
+            <label className="block text-sm font-medium mb-2">
+              Photos Per Property
+            </label>
             <Input
               type="number"
               value={formData.photosPerProperty}
-              onChange={(e) => setFormData({ ...formData, photosPerProperty: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, photosPerProperty: e.target.value })
+              }
             />
           </div>
         </div>
@@ -136,17 +175,23 @@ export default function AddPackagePage() {
           <label className="block text-sm font-medium mb-2">Description</label>
           <Textarea
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, description: e.target.value })
+            }
             placeholder="Package description"
             rows={3}
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">Features (comma-separated)</label>
+          <label className="block text-sm font-medium mb-2">
+            Features (comma-separated)
+          </label>
           <Textarea
             value={formData.features}
-            onChange={(e) => setFormData({ ...formData, features: e.target.value })}
+            onChange={(e) =>
+              setFormData({ ...formData, features: e.target.value })
+            }
             placeholder="e.g., Priority support, Featured badge, Premium placement"
             rows={3}
           />
@@ -156,7 +201,9 @@ export default function AddPackagePage() {
           <Checkbox
             id="isActive"
             checked={formData.isActive}
-            onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked as boolean })}
+            onCheckedChange={(checked) =>
+              setFormData({ ...formData, isActive: checked as boolean })
+            }
           />
           <label htmlFor="isActive" className="text-sm font-medium">
             Active (users can purchase this package)
@@ -174,7 +221,7 @@ export default function AddPackagePage() {
                 Creating...
               </>
             ) : (
-              'Create Package'
+              "Create Package"
             )}
           </Button>
         </div>

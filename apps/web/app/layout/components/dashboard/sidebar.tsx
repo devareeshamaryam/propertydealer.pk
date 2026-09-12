@@ -1,6 +1,25 @@
- import {
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Building,
+  ChevronRight,
+  CircleDot,
+  ExternalLink,
+  LogOut,
+  Search,
+  SearchX,
+  Settings,
+  UserCircle,
+  X,
+} from "lucide-react";
+
+import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -8,476 +27,369 @@
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  LayoutDashboard,
-  BookOpen,
-  PlusCircle,
-  Building,
-  MapPin,
-  User,
-  ChevronDown,
-  Image,
-  FileTextIcon,
-  Package2,
-  CreditCard,
-  Wallet,
-  Layers,
-  Hammer,
-} from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
+import {
+  isGroup,
+  LEAF_ICONS,
+  NAV_SECTIONS,
+  type NavGroup,
+  type NavLeaf,
+  type NavSection,
+} from "./nav-config";
+
+/** Exact for index routes, prefix-match otherwise. */
+function useIsActive() {
+  const pathname = usePathname();
+  return (item: NavLeaf) =>
+    item.exact
+      ? pathname === item.href
+      : pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+function matchesFilter(item: NavLeaf, term: string) {
+  if (!term) return true;
+  const haystack = [item.title, ...(item.keywords ?? [])]
+    .join(" ")
+    .toLowerCase();
+  return haystack.includes(term);
+}
+
+function groupMatchesFilter(group: NavGroup, term: string) {
+  if (!term) return true;
+  if (group.title.toLowerCase().includes(term)) return true;
+  return group.items.some((item) => matchesFilter(item, term));
+}
 
 export default function DashboardSidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const { user, logout } = useAuth();
+  const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
+  const isActive = useIsActive();
+  const isAdmin = user?.role === "ADMIN";
+  const collapsed = state === "collapsed" && !isMobile;
 
-  const isActive = (path: string) =>
-    pathname === path || pathname.startsWith(`${path}/`);
+  const [filter, setFilter] = useState("");
+  const term = filter.trim().toLowerCase();
 
-  const isSectionActive = (base: string) => pathname.startsWith(base);
+  /**
+   * Which groups are expanded. Previously each section used an uncontrolled
+   * `defaultOpen`, so navigating between sibling pages left the wrong group
+   * open and the destination group shut. This keeps the group containing the
+   * current route open, while still honouring manual toggles.
+   */
+  const activeGroupId = useMemo(() => {
+    for (const section of NAV_SECTIONS) {
+      for (const entry of section.entries) {
+        if (!isGroup(entry)) continue;
+        // matches[] is ordered longest-first where prefixes overlap.
+        if (
+          entry.matches.some(
+            (base) => pathname === base || pathname.startsWith(`${base}/`),
+          )
+        ) {
+          return entry.id;
+        }
+      }
+    }
+    return null;
+  }, [pathname]);
 
-  const navItems = [
-    {
-      title: "Dashboard",
-      icon: LayoutDashboard,
-      href: "/dashboard",
-      exact: true,
-    },
-    {
-      title: "My Subscription",
-      icon: Wallet,
-      href: "/dashboard/my-subscription",
-      exact: true,
-    },
-  ];
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    activeGroupId ? { [activeGroupId]: true } : {},
+  );
 
-  const blogSection = {
-    title: "Blog",
-    icon: BookOpen,
-    basePath: "/dashboard/blog",
-    items: [{ title: "All Posts", href: "/dashboard/blog" }],
+  useEffect(() => {
+    if (activeGroupId) {
+      setOpenGroups((previous) => ({ ...previous, [activeGroupId]: true }));
+    }
+  }, [activeGroupId]);
+
+  // Close the mobile drawer after a navigation so the page is visible.
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, isMobile]);
+
+  const visibleSections = useMemo(() => {
+    const sections: NavSection[] = [];
+    for (const section of NAV_SECTIONS) {
+      const entries = section.entries
+        .filter((entry) => isAdmin || !entry.adminOnly)
+        .map((entry) => {
+          if (!isGroup(entry)) return entry;
+          const items = entry.items
+            .filter((item) => isAdmin || !item.adminOnly)
+            .filter((item) =>
+              term
+                ? matchesFilter(item, term) ||
+                  entry.title.toLowerCase().includes(term)
+                : true,
+            );
+          return { ...entry, items };
+        })
+        .filter((entry) => {
+          if (isGroup(entry))
+            return entry.items.length > 0 && groupMatchesFilter(entry, term);
+          return matchesFilter(entry, term);
+        });
+
+      if (entries.length > 0) sections.push({ label: section.label, entries });
+    }
+    return sections;
+  }, [isAdmin, term]);
+
+  const initials =
+    (user?.name ?? user?.email ?? "?")
+      .split(/[\s@.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?";
+
+  const renderLeaf = (item: NavLeaf) => {
+    const Icon = LEAF_ICONS[item.href] ?? CircleDot;
+    return (
+      <SidebarMenuItem key={item.href}>
+        <SidebarMenuButton
+          asChild
+          isActive={isActive(item)}
+          tooltip={item.title}
+        >
+          <Link href={item.href}>
+            <Icon className="h-4 w-4" />
+            <span>{item.title}</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
   };
 
-  const propertiesSection = {
-    title: "Properties",
-    icon: PlusCircle,
-    basePath: "/dashboard/property",
-    items: [
-      { title: isAdmin ? "All Properties" : "My Listings", href: "/dashboard/property" },
-      { title: "Add New Property", href: "/dashboard/property/add-property" },
-      ...(isAdmin ? [{ title: "Import Properties", href: "/dashboard/import" }] : []),
-    ],
-  };
+  const renderGroup = (group: NavGroup) => {
+    const groupActive = group.id === activeGroupId;
+    // While filtering, show every surviving group expanded so matches are visible.
+    const isOpen = term ? true : (openGroups[group.id] ?? false);
 
-  const packagesSection = {
-    title: "Packages",
-    icon: Package2,
-    basePath: "/dashboard/packages",
-    items: [
-      { title: "All Packages", href: "/dashboard/packages" },
-      { title: "Add New Package", href: "/dashboard/packages/add" },
-    ],
-  };
-
-  const cementRateSection = {
-    title: "Cement Rate",
-    icon: Layers,
-    basePath: "/dashboard/cement-rate",
-    items: [
-      { title: "All Cement Rates", href: "/dashboard/cement-rate" },
-      { title: "Add Cement Rate", href: "/dashboard/cement-rate/add" },
-      { title: "Cement Orders", href: "/dashboard/cement-order" },
-    ],
-  };
-
-  const doorRateSection = {
-    title: "Door Rate",
-    icon: Hammer,
-    basePath: "/dashboard/door-rate",
-    items: [
-      { title: "All Door Rates", href: "/dashboard/door-rate" },
-      { title: "Add Door Rate", href: "/dashboard/door-rate/add" },
-    ],
-  };
-
-  const woodRateSection = {
-    title: "Wood Rate",
-    icon: Hammer,
-    basePath: "/dashboard/wood-rate",
-    items: [
-      { title: "All Wood Rates", href: "/dashboard/wood-rate" },
-      { title: "Add Wood Rate", href: "/dashboard/wood-rate/add" },
-    ],
-  };
-
-  const sandRateSection = {
-    title: "Sand Rate",
-    icon: Hammer,
-    basePath: "/dashboard/sand-rate",
-    items: [
-      { title: "All Sand Rates", href: "/dashboard/sand-rate" },
-      { title: "Add Sand Rate", href: "/dashboard/sand-rate/add" },
-    ],
-  };
-
-  const tileRateSection = {
-    title: "Tile Rate",
-    icon: Hammer,
-    basePath: "/dashboard/tile-rate",
-    items: [
-      { title: "All Tile Rates", href: "/dashboard/tile-rate" },
-      { title: "Add Tile Rate", href: "/dashboard/tile-rate/add" },
-    ],
-  };
-
-  // ✅ NEW
-  const tileCategorySection = {
-    title: "Tile Category",
-    icon: Hammer,
-    basePath: "/dashboard/tile-category",
-    items: [
-      { title: "All Tile Categories", href: "/dashboard/tile-category" },
-      { title: "Add Tile Category", href: "/dashboard/tile-category/add" },
-    ],
-  };
-
-  const bajriRateSection = {
-    title: "Bajri Rate",
-    icon: Hammer,
-    basePath: "/dashboard/bajri-rate",
-    items: [
-      { title: "All Bajri Rates", href: "/dashboard/bajri-rate" },
-      { title: "Add Bajri Rate", href: "/dashboard/bajri-rate/add" },
-    ],
-  };
-
-  const steelRateSection = {
-    title: "Steel Rate",
-    icon: Hammer,
-    basePath: "/dashboard/steel-rate",
-    items: [
-      { title: "All Steel Rates", href: "/dashboard/steel-rate" },
-      { title: "Add Steel Rate", href: "/dashboard/steel-rate/add" },
-    ],
-  };
-
-  const bricksRateSection = {
-    title: "Bricks Rate",
-    icon: Hammer,
-    basePath: "/dashboard/bricks-rate",
-    items: [
-      { title: "All Bricks Rates", href: "/dashboard/bricks-rate" },
-      { title: "Add Bricks Rate", href: "/dashboard/bricks-rate/add" },
-    ],
-  };
-
-  const subscriptionsSection = {
-    title: "Subscriptions",
-    icon: CreditCard,
-    basePath: "/dashboard/subscriptions",
-    items: [
-      { title: "All Subscriptions", href: "/dashboard/subscriptions" },
-    ],
-  };
-
-  const citiesSection = {
-    title: "Cities",
-    icon: Building,
-    basePath: "/dashboard/city",
-    items: [
-      { title: "All Cities", href: "/dashboard/city" },
-      { title: "Add New City", href: "/dashboard/city/add-city" },
-    ],
-  };
-
-  const areasSection = {
-    title: "Areas",
-    icon: MapPin,
-    basePath: "/dashboard/area",
-    items: [
-      { title: "All Areas", href: "/dashboard/area" },
-      { title: "Add New Area", href: "/dashboard/area/add-area" },
-    ],
-  };
-
-  const imagesGallerySection = {
-    title: "Images Gallery",
-    icon: Image,
-    basePath: "/dashboard/images-gallery",
-  };
-
-  const accountSection = {
-    title: "Account",
-    icon: User,
-    href: "/dashboard/user-account",
-  };
-
-  // Reusable collapsible section renderer
-  const renderSection = (section: { title: string; icon: any; basePath: string; items: { title: string; href: string }[] }) => (
-    <Collapsible defaultOpen={isSectionActive(section.basePath)}>
-      <SidebarGroup>
-        <CollapsibleTrigger asChild>
-          <SidebarGroupLabel className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors">
-            <div className="flex items-center gap-3">
-              <section.icon className="h-5 w-5" />
-              <span>{section.title}</span>
-            </div>
-            <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
-          </SidebarGroupLabel>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SidebarGroupContent>
-            <SidebarMenu className="pl-3">
-              {section.items.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={isActive(item.href)}>
+    return (
+      <Collapsible
+        key={group.id}
+        open={isOpen}
+        onOpenChange={(open) => {
+          // In icon mode the submenu is hidden by design; expand the rail first
+          // so the click does something instead of silently toggling nothing.
+          if (collapsed) {
+            setOpen(true);
+            setOpenGroups((previous) => ({ ...previous, [group.id]: true }));
+            return;
+          }
+          setOpenGroups((previous) => ({ ...previous, [group.id]: open }));
+        }}
+        className="group/collapsible"
+      >
+        <SidebarMenuItem>
+          <CollapsibleTrigger asChild>
+            <SidebarMenuButton
+              tooltip={group.title}
+              isActive={groupActive && !isOpen}
+              className="font-medium"
+            >
+              <group.icon className="h-4 w-4" />
+              <span>{group.title}</span>
+              <ChevronRight className="ml-auto h-4 w-4 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+            </SidebarMenuButton>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <SidebarMenuSub>
+              {group.items.map((item) => (
+                <SidebarMenuSubItem key={item.href}>
+                  <SidebarMenuSubButton asChild isActive={isActive(item)}>
                     <Link href={item.href}>
                       <span>{item.title}</span>
                     </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
               ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </CollapsibleContent>
-      </SidebarGroup>
-    </Collapsible>
-  );
+            </SidebarMenuSub>
+          </CollapsibleContent>
+        </SidebarMenuItem>
+      </Collapsible>
+    );
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r">
-      <SidebarHeader className="border-b px-4 py-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-            <Building className="h-5 w-5" />
+      <SidebarHeader className="border-b p-3">
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-3 rounded-md px-1 py-1.5 transition-colors hover:bg-sidebar-accent"
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+            <Building className="h-4.5 w-4.5" />
           </div>
-          <div className="flex flex-col">
-            <span className="text-lg font-semibold tracking-tight">Property Dealer</span>
-            <span className="text-xs text-muted-foreground font-medium">
-              {isAdmin ? 'Admin Panel' : 'Agent Panel'}
+          <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
+            <span className="truncate text-sm font-semibold tracking-tight">
+              Property Dealer
+            </span>
+            <span className="truncate text-xs text-muted-foreground">
+              {isAdmin ? "Admin Panel" : "Agent Panel"}
             </span>
           </div>
+        </Link>
+
+        {/* Nav filter - with six sections this beats scanning the whole list. */}
+        <div className="relative mt-1 group-data-[collapsible=icon]:hidden">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder="Jump to…"
+            aria-label="Filter navigation"
+            className="h-8 bg-background pl-8 pr-8 text-sm"
+          />
+          {filter && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="absolute right-0.5 top-1/2 h-7 w-7 -translate-y-1/2"
+              onClick={() => setFilter("")}
+              aria-label="Clear navigation filter"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        {/* Overview */}
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={isActive(item.href)}>
-                    <Link href={item.href}>
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Admin Only Sections */}
-        {isAdmin && (
-          <>
-            {/* Blog Category */}
-            <Collapsible defaultOpen={isSectionActive("/dashboard/blog/category")}>
-              <SidebarGroup>
-                <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors">
-                    <div className="flex items-center gap-3">
-                      <BookOpen className="h-5 w-5" />
-                      <span>Blog Category</span>
-                    </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
-                  </SidebarGroupLabel>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <SidebarMenu className="pl-3">
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={isActive("/dashboard/blog-category")}>
-                          <Link href="/dashboard/blog-category">
-                            <span>All Categories</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </SidebarGroup>
-            </Collapsible>
-
-            {/* Blog */}
-            {renderSection(blogSection)}
-          </>
+      <SidebarContent className="gap-0">
+        {visibleSections.length === 0 && (
+          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center group-data-[collapsible=icon]:hidden">
+            <SearchX className="h-5 w-5 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Nothing matches “{filter}”
+            </p>
+          </div>
         )}
 
-        {/* Properties */}
-        {renderSection(propertiesSection)}
-
-        {/* Locations */}
-        <Collapsible
-          defaultOpen={
-            isSectionActive(citiesSection.basePath) ||
-            isSectionActive(areasSection.basePath)
-          }
-        >
-          <SidebarGroup>
-            <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors">
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5" />
-                  <span>Locations</span>
-                </div>
-                <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
+        {visibleSections.map((section, index) => (
+          <SidebarGroup key={section.label ?? `root-${index}`} className="py-1">
+            {section.label && (
+              <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                {section.label}
               </SidebarGroupLabel>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground">Cities</div>
-                <SidebarMenu className="pl-3 mb-2">
-                  {citiesSection.items.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={isActive(item.href)}>
-                        <Link href={item.href}><span>{item.title}</span></Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-                <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground">Areas</div>
-                <SidebarMenu className="pl-3">
-                  {areasSection.items.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={isActive(item.href)}>
-                        <Link href={item.href}><span>{item.title}</span></Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </CollapsibleContent>
+            )}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.entries.map((entry) =>
+                  isGroup(entry) ? renderGroup(entry) : renderLeaf(entry),
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
           </SidebarGroup>
-        </Collapsible>
-
-        {/* Admin Only: Packages, Subscriptions, Rates */}
-        {isAdmin && (
-          <>
-            {renderSection(packagesSection)}
-            {renderSection(subscriptionsSection)}
-            {renderSection(cementRateSection)}
-            {renderSection(doorRateSection)}
-            {renderSection(woodRateSection)}
-            {renderSection(sandRateSection)}
-            {renderSection(tileRateSection)}
-            {renderSection(tileCategorySection)}  {/* ✅ Tile Category added here */}
-            {renderSection(bajriRateSection)}
-            {renderSection(steelRateSection)}
-            {renderSection(bricksRateSection)}
-
-            {/* Images Gallery */}
-            <Collapsible defaultOpen={isSectionActive(imagesGallerySection.basePath)}>
-              <SidebarGroup>
-                <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors">
-                    <div className="flex items-center gap-3">
-                      <imagesGallerySection.icon className="h-5 w-5" />
-                      <span>{imagesGallerySection.title}</span>
-                    </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
-                  </SidebarGroupLabel>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <SidebarMenu className="pl-3">
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={isActive("/dashboard/images-gallery")}>
-                          <Link href="/dashboard/images-gallery"><span>All Images</span></Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </SidebarGroup>
-            </Collapsible>
-
-            {/* Pages */}
-            <Collapsible defaultOpen={isSectionActive("/dashboard/pages")}>
-              <SidebarGroup>
-                <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors">
-                    <div className="flex items-center gap-3">
-                      <FileTextIcon className="h-5 w-5" />
-                      <span>Pages</span>
-                    </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
-                  </SidebarGroupLabel>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <SidebarMenu className="pl-3">
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={isActive("/dashboard/pages")}>
-                          <Link href="/dashboard/pages"><span>All Pages</span></Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </SidebarGroup>
-            </Collapsible>
-
-            {/* Users */}
-            <Collapsible defaultOpen={isSectionActive("/dashboard/users")}>
-              <SidebarGroup>
-                <CollapsibleTrigger asChild>
-                  <SidebarGroupLabel className="flex cursor-pointer items-center justify-between px-3 py-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground rounded-md transition-colors">
-                    <div className="flex items-center gap-3">
-                      <User className="h-5 w-5" />
-                      <span>Users</span>
-                    </div>
-                    <ChevronDown className="h-4 w-4 transition-transform duration-200 data-[state=open]:rotate-180" />
-                  </SidebarGroupLabel>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <SidebarMenu className="pl-3">
-                      <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={isActive("/dashboard/users")}>
-                          <Link href="/dashboard/users"><span>Manage Users</span></Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </SidebarGroup>
-            </Collapsible>
-          </>
-        )}
-
-        {/* Account */}
-        <SidebarGroup className="mt-auto">
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={isActive(accountSection.href)}>
-                  <Link href={accountSection.href}>
-                    <accountSection.icon className="h-5 w-5" />
-                    <span>{accountSection.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        ))}
       </SidebarContent>
+
+      {/* Account + sign out. The dashboard previously had no way to log out. */}
+      <SidebarFooter className="border-t p-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <SidebarMenuButton
+                  size="lg"
+                  tooltip={user?.name ?? user?.email ?? "Account"}
+                  className="data-[state=open]:bg-sidebar-accent"
+                >
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-semibold text-primary">
+                      {initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex min-w-0 flex-1 flex-col text-left leading-tight">
+                    <span className="truncate text-sm font-medium">
+                      {user?.name ?? "Account"}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {user?.email}
+                    </span>
+                  </div>
+                  <Settings className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+                </SidebarMenuButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side={collapsed ? "right" : "top"}
+                align="start"
+                className="w-56"
+              >
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col">
+                    <span className="truncate text-sm font-medium">
+                      {user?.name ?? "Account"}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {user?.email}
+                    </span>
+                    <span
+                      className={cn(
+                        "mt-1.5 w-fit rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                        isAdmin
+                          ? "bg-primary/10 text-primary"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {user?.role ?? "USER"}
+                    </span>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  {/* The old link pointed at /dashboard/user-account, which had no route. */}
+                  <Link href="/dashboard/account">
+                    <UserCircle className="mr-2 h-4 w-4" />
+                    My Account
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/" target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    View Website
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => void logout()}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
 
       <SidebarRail />
     </Sidebar>

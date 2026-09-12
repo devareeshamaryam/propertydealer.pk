@@ -1,11 +1,19 @@
- 'use client'
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { cityApi } from '@/lib/api/city/city.api';
-import { useAuth } from '@/context/auth-context';
-import { toast } from 'sonner';
+"use client";
 
-import { Loader2, Eye, Edit, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Building,
+  PlusCircle,
+  RefreshCcw,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
+
 import {
   Table,
   TableBody,
@@ -13,286 +21,326 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import cityApi from "@/lib/api/city/city.api";
+import { useAuth } from "@/context/auth-context";
+import { cn } from "@/lib/utils";
+import {
+  ConfirmDialog,
+  DataCard,
+  EmptyRow,
+  ErrorRow,
+  NoResultsRow,
+  PageHeader,
+  PaginationBar,
+  TableSkeleton,
+  TableToolbar,
+  useConfirm,
+  useTableControls,
+} from "@/components/dashboard";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
 
-export default function DashboardCityPage() {
-  const router = useRouter();
-  const [cities, setCities] = useState<any>([]);
+interface CityRecord {
+  _id: string;
+  name: string;
+  areaSlug?: string;
+  state?: string;
+  country?: string;
+  createdAt?: string;
+}
+
+function formatDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-PK", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export default function CitiesPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
+  const [cities, setCities] = useState<CityRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCity, setSelectedCity] = useState<any>(null);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCities = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await cityApi.getAll();
-        setCities(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error fetching cities:', err);
-        setError('Failed to load cities. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { confirm, dialogProps } = useConfirm();
+  const columnCount = isAdmin ? 5 : 4;
 
-    fetchCities();
-  }, []);
-
-  const handleView = async (cityId: string) => {
+  const load = useCallback(async () => {
     try {
-      const city = await cityApi.getById(cityId);
-      setSelectedCity(city);
-      setViewDialogOpen(true);
-    } catch (error: any) {
-      toast.error('Error', {
-        description: error?.response?.data?.message || 'Failed to load city details.',
-      });
-    }
-  };
-
-  const handleEdit = (cityId: string) => {
-    router.push(`/dashboard/city/edit/${cityId}`);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this city? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      setDeletingId(id);
-      await cityApi.delete(id);
-      toast.success('City deleted successfully!');
-      // Refresh the list
+      setLoading(true);
+      setError(null);
       const data = await cityApi.getAll();
       setCities(Array.isArray(data) ? data : []);
-    } catch (error: any) {
-      console.error('Error deleting city:', error);
-      toast.error('Error', {
-        description: error?.response?.data?.message || 'Failed to delete city. Please try again.',
-      });
+    } catch (err) {
+      console.error("Error fetching cities:", err);
+      setError(
+        apiErrorMessage(
+          err,
+          "Could not load cities. Check your connection and try again.",
+        ),
+      );
     } finally {
-      setDeletingId(null);
+      setLoading(false);
     }
-  };
+  }, []);
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-      approved: 'default',
-      pending: 'secondary',
-      rejected: 'destructive',
-    };
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-    const colors: Record<string, string> = {
-      approved: 'bg-green-100 text-green-800 hover:bg-green-100',
-      pending: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
-      rejected: 'bg-red-100 text-red-800 hover:bg-red-100',
-    };
+  const table = useTableControls<CityRecord>({
+    data: cities,
+    searchKeys: ["name", "state", "country", "areaSlug"],
+    initialPageSize: 25,
+    initialSortKey: "name",
+    initialSortDirection: "asc",
+  });
 
+  const requestDelete = (city: CityRecord) =>
+    confirm({
+      title: "Delete this city?",
+      description: `“${city.name}” will be removed. Areas and properties linked to it may stop resolving.`,
+      confirmLabel: "Delete city",
+      onConfirm: async () => {
+        try {
+          setBusyId(city._id);
+          await cityApi.delete(city._id);
+          setCities((previous) =>
+            previous.filter((item) => item._id !== city._id),
+          );
+          toast.success("City deleted");
+        } catch (err) {
+          console.error("Error deleting city:", err);
+          toast.error("Could not delete city", {
+            description: apiErrorMessage(err, "Please try again."),
+          });
+        } finally {
+          setBusyId(null);
+        }
+      },
+    });
+
+  const SortButton = ({
+    column,
+    children,
+  }: {
+    column: keyof CityRecord;
+    children: React.ReactNode;
+  }) => {
+    const active = table.sortKey === column;
+    const Icon = !active
+      ? ArrowUpDown
+      : table.sortDirection === "asc"
+        ? ArrowUp
+        : ArrowDown;
     return (
-      <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
+      <button
+        type="button"
+        onClick={() => table.toggleSort(column)}
+        className={cn(
+          "-ml-2 inline-flex items-center gap-1.5 rounded px-2 py-1 font-medium transition-colors hover:bg-accent",
+          active && "text-foreground",
+        )}
+      >
+        {children}
+        <Icon
+          className={cn("h-3.5 w-3.5", active ? "opacity-100" : "opacity-40")}
+        />
+      </button>
     );
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const addButton = isAdmin ? (
+    <Button asChild>
+      <Link href="/dashboard/city/add-city">
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add City
+      </Link>
+    </Button>
+  ) : null;
 
   return (
-    <div className="w-full">
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              Cities Dashboard
-            </h2>
-            <p className="text-gray-600">
-              Manage all cities for property listings
-            </p>
-          </div>
-          <Button onClick={() => router.push('/dashboard/city/add-city')}>
-            Add New City
-          </Button>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-5">
+      <PageHeader
+        title="Cities"
+        description="Cities available when listing a property or browsing the website."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              <RefreshCcw
+                className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
+              />
+              Refresh
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/area">View Areas</Link>
+            </Button>
+            {addButton}
+          </>
+        }
+      />
 
-      {/* Properties Table */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-3 text-gray-600">Loading properties...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-destructive mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </div>
-        ) : cities.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 mb-4">No cities found.</p>
-            <Button onClick={() => router.push('/dashboard/city/add-city')}>
-              Add Your First City
-            </Button>
-          </div>
-        ) : (
+      <DataCard flush>
+        <div className="border-b p-5">
+          <TableToolbar
+            search={table.search}
+            onSearchChange={table.setSearch}
+            placeholder="Search by city, state or country…"
+          />
+        </div>
+
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead>Country</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="min-w-[180px]">
+                  <SortButton column="name">City</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="state">State / Province</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="country">Country</SortButton>
+                </TableHead>
+                <TableHead className="whitespace-nowrap">
+                  <SortButton column="createdAt">Created</SortButton>
+                </TableHead>
+                {isAdmin && (
+                  <TableHead className="text-right">Actions</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cities.map((city: any) => (
-                <TableRow key={city._id}>
-                  <TableCell className="font-medium">
-                    <div className="max-w-[200px]">
-                      <p className="truncate">{city.name}</p>
-
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {city.state ? city.state.charAt(0).toUpperCase() + city.state.slice(1) : 'N/A'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-[150px]">
-                      <p className="truncate text-sm">{city.country || 'N/A'}</p>
-                    </div>
-                  </TableCell>
-                  {/* <TableCell>
-                    <div>
-                      <p className="font-semibold">
-                        {city.country}
-                      </p>
-                    </div>
-                  </TableCell> */}
-
-                  <TableCell className="text-sm text-gray-600">
-                    {formatDate(city.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleView(city._id)}
-                        title="View city details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
+              {loading ? (
+                <TableSkeleton rows={8} columns={columnCount} />
+              ) : error ? (
+                <ErrorRow
+                  colSpan={columnCount}
+                  message={error}
+                  onRetry={() => void load()}
+                />
+              ) : cities.length === 0 ? (
+                <EmptyRow
+                  colSpan={columnCount}
+                  icon={Building}
+                  title="No cities yet"
+                  description="Add a city before creating areas and listings."
+                  action={addButton ?? undefined}
+                />
+              ) : table.matchedCount === 0 ? (
+                <NoResultsRow
+                  colSpan={columnCount}
+                  search={table.search}
+                  onReset={table.resetFilters}
+                />
+              ) : (
+                table.rows.map((city) => {
+                  const busy = busyId === city._id;
+                  return (
+                    <TableRow
+                      key={city._id}
+                      className={cn(busy && "opacity-60")}
+                    >
+                      <TableCell className="font-medium">{city.name}</TableCell>
+                      <TableCell>
+                        {city.state ? (
+                          <Badge variant="outline" className="capitalize">
+                            {city.state}
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {city.country || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {formatDate(city.createdAt)}
+                      </TableCell>
                       {isAdmin && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(city._id)}
-                            title="Edit city"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(city._id)}
-                            disabled={deletingId === city._id}
-                            title="Delete city"
-                          >
-                            {deletingId === city._id ? (
-                              <Loader2 className="w-4 h-4 animate-spin text-destructive" />
-                            ) : (
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            )}
-                          </Button>
-                        </>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  asChild
+                                >
+                                  <Link
+                                    href={`/dashboard/city/edit/${city._id}`}
+                                  >
+                                    <SquarePen className="h-4 w-4" />
+                                    <span className="sr-only">Edit</span>
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  disabled={busy}
+                                  onClick={() => requestDelete(city)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
                       )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
-        )}
-      </div>
+        </div>
 
-      {/* View City Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>City Details</DialogTitle>
-            <DialogDescription>
-              View detailed information about the city
-            </DialogDescription>
-          </DialogHeader>
-          {selectedCity && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500">City Name</label>
-                <p className="text-lg font-semibold mt-1">{selectedCity.name}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">State / Province</label>
-                <p className="text-lg font-semibold mt-1">{selectedCity.state || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Country</label>
-                <p className="text-lg font-semibold mt-1">{selectedCity.country || 'N/A'}</p>
-              </div>
-              {selectedCity.thumbnail && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Thumbnail</label>
-                  <div className="mt-1 w-full h-40 rounded-lg overflow-hidden border">
-                    <img
-                      src={selectedCity.thumbnail}
-                      alt={selectedCity.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              )}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Created At</label>
-                <p className="text-sm text-gray-600 mt-1">{formatDate(selectedCity.createdAt)}</p>
-              </div>
-              {selectedCity.updatedAt && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                  <p className="text-sm text-gray-600 mt-1">{formatDate(selectedCity.updatedAt)}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        {!loading && !error && table.matchedCount > 0 && (
+          <div className="p-5 pt-0">
+            <PaginationBar
+              page={table.page}
+              totalPages={table.totalPages}
+              pageSize={table.pageSize}
+              fromIndex={table.fromIndex}
+              toIndex={table.toIndex}
+              matchedCount={table.matchedCount}
+              itemLabel="cities"
+              onPageChange={table.setPage}
+              onPageSizeChange={table.setPageSize}
+            />
+          </div>
+        )}
+      </DataCard>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }

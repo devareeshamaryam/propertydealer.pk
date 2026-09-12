@@ -1,10 +1,19 @@
-'use client'
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import blogCategoryApi from '@/lib/api/blog-category/blog-category.api';
-import { toast } from 'sonner';
+"use client";
 
-import { Loader2, Eye, Edit, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  FolderTree,
+  PlusCircle,
+  RefreshCcw,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
+
 import {
   Table,
   TableBody,
@@ -12,264 +21,345 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import blogCategoryApi from "@/lib/api/blog-category/blog-category.api";
+import { cn } from "@/lib/utils";
+import {
+  ConfirmDialog,
+  DataCard,
+  EmptyRow,
+  ErrorRow,
+  NoResultsRow,
+  PageHeader,
+  PaginationBar,
+  TableSkeleton,
+  TableToolbar,
+  useConfirm,
+  useTableControls,
+} from "@/components/dashboard";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
 
-export default function BlogCategoryPage() {
-  const router = useRouter();
-  const [categories, setCategories] = useState<any[]>([]);
+const COLUMN_COUNT = 6;
+
+interface CategoryRecord {
+  _id: string;
+  name: string;
+  slug?: string;
+  description?: string;
+  parent?: { name?: string } | string | null;
+  createdAt?: string;
+}
+
+function formatDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-PK", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function parentName(category: CategoryRecord): string {
+  if (!category.parent) return "";
+  return typeof category.parent === "object"
+    ? (category.parent.name ?? "")
+    : String(category.parent);
+}
+
+export default function BlogCategoriesPage() {
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await blogCategoryApi.getAllCategories();
-        setCategories(Array.isArray(data) ? data : []);
-      } catch (err: any) {
-        console.error('Error fetching categories:', err);
-        setError('Failed to load categories. Please try again later.');
-        toast.error('Error', {
-          description: err?.response?.data?.message || 'Failed to load categories.',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+  const { confirm, dialogProps } = useConfirm();
 
-    fetchCategories();
-  }, []);
-
-  const handleView = async (categoryId: string) => {
+  const load = useCallback(async () => {
     try {
-      const category = await blogCategoryApi.getCategoryById(categoryId);
-      setSelectedCategory(category);
-      setViewDialogOpen(true);
-    } catch (error: any) {
-      toast.error('Error', {
-        description: error?.response?.data?.message || 'Failed to load category details.',
-      });
-    }
-  };
-
-  const handleEdit = (categoryId: string) => {
-    router.push(`/dashboard/blog-category/edit/${categoryId}`);
-  };
-
-  const handleDelete = async (categoryId: string) => {
-    if (!confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
-      return;
-    }
-
-    try {
-      setDeletingId(categoryId);
-      await blogCategoryApi.deleteCategory(categoryId);
-      toast.success('Category deleted successfully!');
-      // Refresh the list
+      setLoading(true);
+      setError(null);
       const data = await blogCategoryApi.getAllCategories();
       setCategories(Array.isArray(data) ? data : []);
-    } catch (error: any) {
-      console.error('Error deleting category:', error);
-      toast.error('Error', {
-        description: error?.response?.data?.message || 'Failed to delete category. Please try again.',
-      });
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+      setError(
+        apiErrorMessage(
+          err,
+          "Could not load categories. Check your connection and try again.",
+        ),
+      );
     } finally {
-      setDeletingId(null);
+      setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const searchAccessor = useCallback(
+    (category: CategoryRecord) => [
+      category.name,
+      category.slug,
+      category.description,
+      parentName(category),
+    ],
+    [],
+  );
+
+  const table = useTableControls<CategoryRecord>({
+    data: categories,
+    searchAccessor,
+    initialPageSize: 25,
+    initialSortKey: "name",
+    initialSortDirection: "asc",
+  });
+
+  const requestDelete = (category: CategoryRecord) =>
+    confirm({
+      title: "Delete this category?",
+      description: `“${category.name}” will be removed. Posts assigned to it will lose this category.`,
+      confirmLabel: "Delete category",
+      onConfirm: async () => {
+        try {
+          setBusyId(category._id);
+          await blogCategoryApi.deleteCategory(category._id);
+          setCategories((previous) =>
+            previous.filter((item) => item._id !== category._id),
+          );
+          toast.success("Category deleted");
+        } catch (err) {
+          console.error("Error deleting category:", err);
+          toast.error("Could not delete category", {
+            description: apiErrorMessage(err, "Please try again."),
+          });
+        } finally {
+          setBusyId(null);
+        }
+      },
+    });
+
+  const SortButton = ({
+    column,
+    children,
+  }: {
+    column: keyof CategoryRecord;
+    children: React.ReactNode;
+  }) => {
+    const active = table.sortKey === column;
+    const Icon = !active
+      ? ArrowUpDown
+      : table.sortDirection === "asc"
+        ? ArrowUp
+        : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => table.toggleSort(column)}
+        className={cn(
+          "-ml-2 inline-flex items-center gap-1.5 rounded px-2 py-1 font-medium transition-colors hover:bg-accent",
+          active && "text-foreground",
+        )}
+      >
+        {children}
+        <Icon
+          className={cn("h-3.5 w-3.5", active ? "opacity-100" : "opacity-40")}
+        />
+      </button>
+    );
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
+  const addButton = (
+    <Button asChild>
+      <Link href="/dashboard/blog-category/add-category">
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Category
+      </Link>
+    </Button>
+  );
 
   return (
-    <div className="w-full">
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              Blog Categories Dashboard
-            </h2>
-            <p className="text-gray-600">
-              Manage all blog categories for your content
-            </p>
-          </div>
-          <Button onClick={() => router.push('/dashboard/blog-category/add-category')}>
-            Add New Category
-          </Button>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-5">
+      <PageHeader
+        title="Blog Categories"
+        description="Organise your posts into categories and sub-categories."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              <RefreshCcw
+                className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
+              />
+              Refresh
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/blog">Back to Posts</Link>
+            </Button>
+            {addButton}
+          </>
+        }
+      />
 
-      {/* Categories Table */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-3 text-gray-600">Loading categories...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-destructive mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </div>
-        ) : categories.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 mb-4">No categories found.</p>
-            <Button onClick={() => router.push('/dashboard/blog-category/add-category')}>
-              Add Your First Category
-            </Button>
-          </div>
-        ) : (
+      <DataCard flush>
+        <div className="border-b p-5">
+          <TableToolbar
+            search={table.search}
+            onSearchChange={table.setSearch}
+            placeholder="Search by name, slug or description…"
+          />
+        </div>
+
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Parent Category</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead className="min-w-[180px]">
+                  <SortButton column="name">Name</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="slug">Slug</SortButton>
+                </TableHead>
+                <TableHead className="min-w-[260px]">Description</TableHead>
+                <TableHead>Parent</TableHead>
+                <TableHead className="whitespace-nowrap">
+                  <SortButton column="createdAt">Created</SortButton>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {categories.map((category: any) => (
-                <TableRow key={category._id}>
-                  <TableCell className="font-medium">
-                    <div className="max-w-[200px]">
-                      <p className="truncate">{category.name}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {category.slug || 'N/A'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-[300px]">
-                      <p className="truncate text-sm text-gray-600">
-                        {category.description || 'No description'}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {category.parent ? (
-                      <Badge variant="secondary">
-                        {typeof category.parent === 'object' ? category.parent.name : 'Parent'}
-                      </Badge>
-                    ) : (
-                      <span className="text-sm text-gray-400">None</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    {formatDate(category.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleView(category._id)}
-                        title="View category details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(category._id)}
-                        title="Edit category"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(category._id)}
-                        disabled={deletingId === category._id}
-                        title="Delete category"
-                      >
-                        {deletingId === category._id ? (
-                          <Loader2 className="w-4 h-4 animate-spin text-destructive" />
+              {loading ? (
+                <TableSkeleton rows={8} columns={COLUMN_COUNT} />
+              ) : error ? (
+                <ErrorRow
+                  colSpan={COLUMN_COUNT}
+                  message={error}
+                  onRetry={() => void load()}
+                />
+              ) : categories.length === 0 ? (
+                <EmptyRow
+                  colSpan={COLUMN_COUNT}
+                  icon={FolderTree}
+                  title="No categories yet"
+                  description="Create a category so posts can be grouped on the website."
+                  action={addButton}
+                />
+              ) : table.matchedCount === 0 ? (
+                <NoResultsRow
+                  colSpan={COLUMN_COUNT}
+                  search={table.search}
+                  onReset={table.resetFilters}
+                />
+              ) : (
+                table.rows.map((category) => {
+                  const busy = busyId === category._id;
+                  const parent = parentName(category);
+                  return (
+                    <TableRow
+                      key={category._id}
+                      className={cn(busy && "opacity-60")}
+                    >
+                      <TableCell className="font-medium">
+                        {category.name}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {category.slug || "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <p className="max-w-[320px] truncate text-sm text-muted-foreground">
+                          {category.description || "—"}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        {parent ? (
+                          <Badge variant="secondary" className="font-normal">
+                            {parent}
+                          </Badge>
                         ) : (
-                          <Trash2 className="w-4 h-4 text-destructive" />
+                          <span className="text-sm text-muted-foreground">
+                            None
+                          </span>
                         )}
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {formatDate(category.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                asChild
+                              >
+                                <Link
+                                  href={`/dashboard/blog-category/edit/${category._id}`}
+                                >
+                                  <SquarePen className="h-4 w-4" />
+                                  <span className="sr-only">Edit</span>
+                                </Link>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={busy}
+                                onClick={() => requestDelete(category)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
-        )}
-      </div>
+        </div>
 
-      {/* View Category Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Category Details</DialogTitle>
-            <DialogDescription>
-              View detailed information about the category
-            </DialogDescription>
-          </DialogHeader>
-          {selectedCategory && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Category Name</label>
-                <p className="text-lg font-semibold mt-1">{selectedCategory.name}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Slug</label>
-                <p className="text-sm font-mono text-gray-700 mt-1">{selectedCategory.slug || 'N/A'}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Description</label>
-                <p className="text-sm text-gray-700 mt-1">{selectedCategory.description || 'No description'}</p>
-              </div>
-              {selectedCategory.parent && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Parent Category</label>
-                  <p className="text-sm font-semibold mt-1">
-                    {typeof selectedCategory.parent === 'object' 
-                      ? selectedCategory.parent.name 
-                      : 'Parent Category'}
-                  </p>
-                </div>
-              )}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Created At</label>
-                <p className="text-sm text-gray-600 mt-1">{formatDate(selectedCategory.createdAt)}</p>
-              </div>
-              {selectedCategory.updatedAt && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                  <p className="text-sm text-gray-600 mt-1">{formatDate(selectedCategory.updatedAt)}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        {!loading && !error && table.matchedCount > 0 && (
+          <div className="p-5 pt-0">
+            <PaginationBar
+              page={table.page}
+              totalPages={table.totalPages}
+              pageSize={table.pageSize}
+              fromIndex={table.fromIndex}
+              toIndex={table.toIndex}
+              matchedCount={table.matchedCount}
+              itemLabel="categories"
+              onPageChange={table.setPage}
+              onPageSizeChange={table.setPageSize}
+            />
+          </div>
+        )}
+      </DataCard>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }

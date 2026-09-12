@@ -1,8 +1,25 @@
-'use client'
-import { useEffect, useState } from 'react';
-import { propertyApi } from '@/lib/api';
-import { BackendProperty } from '@/lib/types/property-utils';
-import { Loader2, Eye, Edit, Trash2, RefreshCcw, Check, X, Send, FileText } from 'lucide-react';
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Building2,
+  Check,
+  Eye,
+  ImageOff,
+  PlusCircle,
+  RefreshCcw,
+  Send,
+  SquarePen,
+  Trash2,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+
 import {
   Table,
   TableBody,
@@ -10,501 +27,668 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import dynamic from 'next/dynamic';
-import { useAuth } from '@/context/auth-context';
-import { toast } from 'sonner';
-const PropertyMap = dynamic(() => import('@/components/PropertyMap'), {
-  ssr: false,
-  loading: () => <div className="h-[300px] w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">Loading Map...</div>
-})
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { propertyApi } from "@/lib/api";
+import type { BackendProperty } from "@/lib/types/property-utils";
+import { useAuth } from "@/context/auth-context";
+import { cn } from "@/lib/utils";
+import {
+  ConfirmDialog,
+  DataCard,
+  EmptyRow,
+  ErrorRow,
+  FilterChips,
+  NoResultsRow,
+  PageHeader,
+  PaginationBar,
+  TableSkeleton,
+  TableToolbar,
+  useConfirm,
+  useTableControls,
+} from "@/components/dashboard";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
+import { PropertyPreviewDialog } from "@/components/dashboard/property-preview-dialog";
 
-export default function DashboardHome() {
+type StatusFilter = "all" | "draft" | "pending" | "approved" | "rejected";
+
+const STATUS_FILTERS: StatusFilter[] = [
+  "all",
+  "draft",
+  "pending",
+  "approved",
+  "rejected",
+];
+
+const STATUS_STYLES: Record<string, string> = {
+  approved: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+  pending: "bg-amber-100 text-amber-800 hover:bg-amber-100",
+  rejected: "bg-red-100 text-red-800 hover:bg-red-100",
+  draft: "bg-slate-200 text-slate-700 hover:bg-slate-200",
+};
+
+const COLUMN_COUNT = 7;
+
+/** "pending" -> "Pending"; never renders "undefinedundefined" for a missing status. */
+function titleCase(value?: string) {
+  if (!value) return "Unknown";
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-PK", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/** Thumbnail that degrades to an icon rather than calling a dead placeholder host. */
+function Thumbnail({ src, alt }: { src?: string; alt: string }) {
+  // Track which src failed, so a row whose image changes retries on its own.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const failed = Boolean(src) && failedSrc === src;
+
+  if (!src || failed) {
+    return (
+      <div className="flex h-11 w-14 shrink-0 items-center justify-center rounded-md bg-muted">
+        <ImageOff className="h-4 w-4 text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      onError={() => setFailedSrc(src)}
+      className="h-11 w-14 shrink-0 rounded-md border object-cover"
+    />
+  );
+}
+
+export default function PropertiesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
   const [properties, setProperties] = useState<BackendProperty[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedProperty, setSelectedProperty] = useState<BackendProperty | null>(null);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  // Filter the table by status. 'all' shows everything.
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'pending' | 'approved' | 'rejected'>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const [preview, setPreview] = useState<BackendProperty | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
-  const router = useRouter();
+  const { confirm, dialogProps } = useConfirm();
+
+  // Honour ?status= so the overview KPI cards can deep-link into a filtered view.
   useEffect(() => {
-    const fetchProperties = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await propertyApi.getAllProperties();
-        setProperties(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error('Error fetching properties:', err);
-        setError('Failed to load properties. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+    const status = searchParams.get("status");
+    if (status && STATUS_FILTERS.includes(status as StatusFilter)) {
+      setStatusFilter(status as StatusFilter);
+    }
+  }, [searchParams]);
 
-    fetchProperties();
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await propertyApi.getAllProperties();
+      setProperties(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error fetching properties:", err);
+      setError(
+        "Could not load properties. Check your connection and try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleView = async (propertyId: string) => {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: properties.length };
+    for (const property of properties) {
+      const status = property.status ?? "draft";
+      counts[status] = (counts[status] ?? 0) + 1;
+    }
+    return counts;
+  }, [properties]);
+
+  const propertyTypes = useMemo(() => {
+    const types = new Set<string>();
+    for (const property of properties) {
+      if (property.propertyType) types.add(property.propertyType);
+    }
+    return [...types].sort();
+  }, [properties]);
+
+  const rowFilter = useCallback(
+    (property: BackendProperty) => {
+      if (statusFilter !== "all" && property.status !== statusFilter)
+        return false;
+      if (typeFilter !== "all" && property.propertyType !== typeFilter)
+        return false;
+      return true;
+    },
+    [statusFilter, typeFilter],
+  );
+
+  const searchAccessor = useCallback(
+    (property: BackendProperty) => [
+      property.title,
+      property.location,
+      property.city,
+      property.contactNumber,
+      property.propertyType,
+      typeof property.area === "object" ? property.area?.name : property.area,
+      typeof property.area === "object" ? property.area?.city?.name : undefined,
+    ],
+    [],
+  );
+
+  const table = useTableControls<BackendProperty>({
+    data: properties,
+    searchAccessor,
+    filter: rowFilter,
+    initialPageSize: 10,
+    initialSortKey: "createdAt",
+    initialSortDirection: "desc",
+  });
+
+  // A filter change can leave the viewer on a page that no longer exists.
+  useEffect(() => {
+    table.setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, typeFilter]);
+
+  const openPreview = async (propertyId: string) => {
+    setPreviewOpen(true);
+    setPreviewLoading(true);
+    // Show what the list already knows while the full record loads.
+    setPreview(
+      properties.find((property) => property._id === propertyId) ?? null,
+    );
     try {
-      const property = await propertyApi.getPropertyById({ id: propertyId });
-      setSelectedProperty(property);
-      setViewDialogOpen(true);
-    } catch (error: any) {
-      console.error('Error fetching property:', error);
-      toast.error('Error', {
-        description: error?.response?.data?.message || 'Failed to load property details.',
+      const detail = await propertyApi.getPropertyById({ id: propertyId });
+      setPreview(detail);
+    } catch (err) {
+      toast.error("Could not load property", {
+        description: apiErrorMessage(err, "Please try again."),
       });
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
-  // Toggle/explicit-set property status. When `targetStatus` is provided we set
-  // it directly (used by the Publish-from-draft action); otherwise we toggle
-  // between approved <-> pending (legacy behaviour).
-  const updateStatus = async (
-    propertyId: string,
-    currentStatus?: string,
-    targetStatus?: 'pending' | 'approved' | 'rejected' | 'draft',
+  const changeStatus = async (
+    property: BackendProperty,
+    target?: "pending" | "approved" | "rejected" | "draft",
   ) => {
+    const next =
+      target ?? (property.status === "approved" ? "pending" : "approved");
     try {
-      const next: 'pending' | 'approved' | 'rejected' | 'draft' =
-        targetStatus ?? (currentStatus === 'approved' ? 'pending' : 'approved');
-      const response = await propertyApi.updateStatus(propertyId, next);
-      if (response.success) {
-        toast.success(
-          next === 'approved'
-            ? 'Property approved'
-            : next === 'pending'
-              ? 'Sent for approval'
-              : `Status set to ${next}`,
-        );
-        // Refresh the list
-        const data = await propertyApi.getAllProperties();
-        setProperties(Array.isArray(data) ? data : []);
-      } else {
-        toast.error(response.message);
+      setBusyId(property._id);
+      const response = await propertyApi.updateStatus(property._id, next);
+      if (response?.success === false) {
+        toast.error(response.message ?? "Could not update status");
+        return;
       }
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast.error('Failed to update status');
+      // Update in place so the current page, scroll position and filters survive.
+      setProperties((previous) =>
+        previous.map((item) =>
+          item._id === property._id ? { ...item, status: next } : item,
+        ),
+      );
+      toast.success(
+        next === "approved"
+          ? "Property published"
+          : next === "pending"
+            ? "Sent for approval"
+            : `Status set to ${next}`,
+      );
+    } catch (err) {
+      console.error("Error updating status:", err);
+      toast.error("Could not update status", {
+        description: apiErrorMessage(err, "Please try again."),
+      });
+    } finally {
+      setBusyId(null);
     }
-  }
+  };
 
-  const getStatusBadge = (status: string) => {
-    const colors: Record<string, string> = {
-      approved: 'bg-green-100 text-green-800 hover:bg-green-100',
-      pending: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100',
-      rejected: 'bg-red-100 text-red-800 hover:bg-red-100',
-      draft: 'bg-slate-200 text-slate-700 hover:bg-slate-200',
-    };
+  const requestDelete = (property: BackendProperty) =>
+    confirm({
+      title: "Delete this property?",
+      description: `“${property.title}” will be permanently removed. This cannot be undone.`,
+      confirmLabel: "Delete property",
+      onConfirm: async () => {
+        try {
+          await propertyApi.delete(property._id);
+          setProperties((previous) =>
+            previous.filter((item) => item._id !== property._id),
+          );
+          toast.success("Property deleted");
+        } catch (err) {
+          console.error("Error deleting property:", err);
+          toast.error("Could not delete property", {
+            description: apiErrorMessage(err, "Please try again."),
+          });
+        }
+      },
+    });
 
+  const SortButton = ({
+    column,
+    children,
+    className,
+  }: {
+    column: keyof BackendProperty;
+    children: React.ReactNode;
+    className?: string;
+  }) => {
+    const active = table.sortKey === column;
+    const Icon = !active
+      ? ArrowUpDown
+      : table.sortDirection === "asc"
+        ? ArrowUp
+        : ArrowDown;
     return (
-      <Badge className={colors[status] || 'bg-gray-100 text-gray-800'}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
+      <button
+        type="button"
+        onClick={() => table.toggleSort(column)}
+        className={cn(
+          "-ml-2 inline-flex items-center gap-1.5 rounded px-2 py-1 text-left font-medium transition-colors hover:bg-accent",
+          active && "text-foreground",
+          className,
+        )}
+      >
+        {children}
+        <Icon
+          className={cn("h-3.5 w-3.5", active ? "opacity-100" : "opacity-40")}
+        />
+      </button>
     );
   };
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  const filtersActive =
+    statusFilter !== "all" || typeFilter !== "all" || table.search !== "";
+
+  const resetAll = () => {
+    setStatusFilter("all");
+    setTypeFilter("all");
+    table.resetFilters();
   };
 
   return (
-    <div className="w-full">
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              {isAdmin ? 'Properties Dashboard' : 'My Listings'}
-            </h2>
-            <p className="text-gray-600">
-              {isAdmin ? 'Manage all property listings' : 'Manage your property listings'}
-            </p>
-          </div>
-          <Button onClick={() => router.push('/dashboard/property/add-property')}>
-            Add New Property
-          </Button>
-        </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-5">
+      <PageHeader
+        title={isAdmin ? "Properties" : "My Listings"}
+        description={
+          isAdmin
+            ? "Review, approve and manage every listing on the platform."
+            : "Manage the properties you have listed."
+        }
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              <RefreshCcw
+                className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
+              />
+              Refresh
+            </Button>
+            <Button
+              onClick={() => router.push("/dashboard/property/add-property")}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Property
+            </Button>
+          </>
+        }
+      />
 
-        {/* Status filter tabs */}
-        <div className="mt-6 flex flex-wrap gap-2">
-          {(['all', 'draft', 'pending', 'approved', 'rejected'] as const).map((s) => {
-            const count =
-              s === 'all'
-                ? properties.length
-                : properties.filter((p) => p.status === s).length;
-            const active = statusFilter === s;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                  active
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                }`}
+      <DataCard flush>
+        {/* Toolbar: search, status chips and type filter */}
+        <div className="space-y-4 border-b p-5">
+          <TableToolbar
+            search={table.search}
+            onSearchChange={table.setSearch}
+            placeholder="Search by title, location, city or phone…"
+          >
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger
+                className="w-[170px]"
+                aria-label="Filter by property type"
               >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-                <span className={`ml-2 inline-flex items-center justify-center text-xs rounded-full px-2 ${active ? 'bg-white/20' : 'bg-gray-100'}`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {propertyTypes.map((type) => (
+                  <SelectItem key={type} value={type} className="capitalize">
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-      {/* Properties Table */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-3 text-gray-600">Loading properties...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-destructive mb-4">{error}</p>
-            <Button onClick={() => router.refresh()}>
-              Retry
-            </Button>
-          </div>
-        ) : properties.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 mb-4">No properties found.</p>
-            <Button onClick={() => router.push('/dashboard/property/add-property')}>
-              Add Your First Property
-            </Button>
-          </div>
-        ) : (
+            {filtersActive && (
+              <Button variant="ghost" size="sm" onClick={resetAll}>
+                <X className="mr-1.5 h-3.5 w-3.5" />
+                Clear
+              </Button>
+            )}
+          </TableToolbar>
+
+          <FilterChips<StatusFilter>
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={STATUS_FILTERS.map((status) => ({
+              value: status,
+              label: status.charAt(0).toUpperCase() + status.slice(1),
+              count: statusCounts[status] ?? 0,
+            }))}
+          />
+        </div>
+
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Title</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead className="min-w-[280px]">
+                  <SortButton column="title">Property</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="propertyType">Type</SortButton>
+                </TableHead>
+                <TableHead className="min-w-[150px]">
+                  <SortButton column="location">Location</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="price">Price</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="status">Status</SortButton>
+                </TableHead>
+                <TableHead className="whitespace-nowrap">
+                  <SortButton column="createdAt">Created</SortButton>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {properties
-                .filter((p) => statusFilter === 'all' || p.status === statusFilter)
-                .map((property) => (
-                <TableRow key={property._id}>
-                  <TableCell className="font-medium">
-                    <div className="max-w-[200px]">
-                      <p className="truncate">{property.title}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {property.bedrooms} Beds • {property.bathrooms} Baths • {property.areaSize || 0} sq ft
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {property.propertyType.charAt(0).toUpperCase() + property.propertyType.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-[150px]">
-                      <p className="truncate text-sm">{property.location}</p>
-                      <p className="text-xs text-gray-500">{property.city}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-semibold">
-                        Rs. {property.price.toLocaleString('en-PK')}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {property.listingType === 'rent' ? 'Monthly' : 'Total'}
-                      </p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(property.status)}
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    {formatDate(property.createdAt)}
-                  </TableCell>
-
-
-
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {/* Publish-from-draft: available to owners and admins.
-                          Server enforces role-based status changes. */}
-                      {property.status === 'draft' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="rounded-md hover:bg-emerald-50"
-                          onClick={() => updateStatus(property._id, property.status, isAdmin ? 'approved' : 'pending')}
-                          title={isAdmin ? 'Publish (approve)' : 'Submit for approval'}
+              {loading ? (
+                <TableSkeleton
+                  rows={table.pageSize > 10 ? 10 : table.pageSize}
+                  columns={COLUMN_COUNT}
+                />
+              ) : error ? (
+                <ErrorRow
+                  colSpan={COLUMN_COUNT}
+                  message={error}
+                  onRetry={() => void load()}
+                />
+              ) : properties.length === 0 ? (
+                <EmptyRow
+                  colSpan={COLUMN_COUNT}
+                  icon={Building2}
+                  title="No properties yet"
+                  description="Add your first listing and it will show up here."
+                  action={
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        router.push("/dashboard/property/add-property")
+                      }
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Add Property
+                    </Button>
+                  }
+                />
+              ) : table.matchedCount === 0 ? (
+                <NoResultsRow
+                  colSpan={COLUMN_COUNT}
+                  search={table.search}
+                  onReset={resetAll}
+                />
+              ) : (
+                table.rows.map((property) => {
+                  const busy = busyId === property._id;
+                  return (
+                    <TableRow
+                      key={property._id}
+                      className={cn(busy && "opacity-60")}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Thumbnail
+                            src={property.mainPhotoUrl}
+                            alt={property.title}
+                          />
+                          <div className="min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => void openPreview(property._id)}
+                              className="block max-w-[260px] truncate text-left font-medium hover:text-primary hover:underline"
+                            >
+                              {property.title}
+                            </button>
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {property.bedrooms ?? 0} beds ·{" "}
+                              {property.bathrooms ?? 0} baths ·{" "}
+                              {property.areaSize ?? 0} sq ft
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {property.propertyType ?? "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <p className="max-w-[170px] truncate text-sm">
+                          {property.location ?? "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {typeof property.area === "object"
+                            ? (property.area?.city?.name ?? property.city ?? "")
+                            : (property.city ?? "")}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-semibold tabular-nums">
+                          Rs {property.price?.toLocaleString("en-PK") ?? "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {property.listingType === "rent"
+                            ? "per month"
+                            : "total"}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          className={
+                            STATUS_STYLES[property.status] ??
+                            "bg-muted text-muted-foreground"
+                          }
                         >
-                          <Send className="w-4 h-4 text-emerald-600" />
-                        </Button>
-                      )}
-                      {isAdmin && property.status !== 'draft' && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="btn btn-sm rounded-md hover:bg-green-50"
-                          onClick={() => updateStatus(property._id, property.status)}
-                          title={property.status === 'approved' ? 'Unapprove' : 'Approve'}
-                        >
-                          {property.status === 'approved' ? <Check className="w-4 h-4 text-green-600" /> : <X className="w-4 h-4 text-red-600" />}
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleView(property._id)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      {isAdmin && (
-                        <>
-                          <Link
-                            href={`/dashboard/property/edit/${property._id}`}
-                            className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8 p-0"
-                            title="Edit Property"
-                          >
-                            <Edit className="w-4 h-4" />
-                            <span className="sr-only">Edit</span>
-                          </Link>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (confirm('Are you sure you want to delete this property? This action cannot be undone.')) {
-                                try {
-                                  await propertyApi.delete(property._id);
-                                  toast.success('Property deleted successfully!');
-                                  // Refresh the list
-                                  const data = await propertyApi.getAllProperties();
-                                  setProperties(Array.isArray(data) ? data : []);
-                                } catch (error: any) {
-                                  console.error('Error deleting property:', error);
-                                  toast.error('Error', {
-                                    description: error?.response?.data?.message || 'Failed to delete property. Please try again.',
-                                  });
-                                }
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                          {titleCase(property.status)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {formatDate(property.createdAt)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          {property.status === "draft" && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 hover:bg-emerald-50"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    void changeStatus(
+                                      property,
+                                      isAdmin ? "approved" : "pending",
+                                    )
+                                  }
+                                >
+                                  <Send className="h-4 w-4 text-emerald-600" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {isAdmin ? "Publish" : "Submit for approval"}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+
+                          {isAdmin && property.status !== "draft" && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  disabled={busy}
+                                  onClick={() => void changeStatus(property)}
+                                >
+                                  {property.status === "approved" ? (
+                                    <X className="h-4 w-4 text-amber-600" />
+                                  ) : (
+                                    <Check className="h-4 w-4 text-emerald-600" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {property.status === "approved"
+                                  ? "Unpublish"
+                                  : "Approve"}
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => void openPreview(property._id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Preview</TooltipContent>
+                          </Tooltip>
+
+                          {isAdmin && (
+                            <>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    asChild
+                                  >
+                                    <Link
+                                      href={`/dashboard/property/edit/${property._id}`}
+                                    >
+                                      <SquarePen className="h-4 w-4" />
+                                      <span className="sr-only">Edit</span>
+                                    </Link>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Edit</TooltipContent>
+                              </Tooltip>
+
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    disabled={busy}
+                                    onClick={() => requestDelete(property)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Delete</TooltipContent>
+                              </Tooltip>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
+        </div>
+
+        {!loading && !error && table.matchedCount > 0 && (
+          <div className="p-5 pt-0">
+            <PaginationBar
+              page={table.page}
+              totalPages={table.totalPages}
+              pageSize={table.pageSize}
+              fromIndex={table.fromIndex}
+              toIndex={table.toIndex}
+              matchedCount={table.matchedCount}
+              itemLabel="properties"
+              onPageChange={table.setPage}
+              onPageSizeChange={table.setPageSize}
+            />
+          </div>
         )}
-      </div>
+      </DataCard>
 
-      {/* View Property Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Property Details</DialogTitle>
-            <DialogDescription>
-              View detailed information about this property
-            </DialogDescription>
-          </DialogHeader>
-          {selectedProperty && (
-            <div className="space-y-6">
-              {/* Main Image */}
-              {selectedProperty.mainPhotoUrl && (
-                <div>
-                  <img
-                    src={selectedProperty.mainPhotoUrl}
-                    alt={selectedProperty.title}
-                    className="w-full h-64 object-cover rounded-lg"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = 'https://via.placeholder.com/800x400?text=No+Image';
-                    }}
-                  />
-                </div>
-              )}
+      <PropertyPreviewDialog
+        property={preview}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        loading={previewLoading && !preview}
+        canEdit={isAdmin}
+      />
 
-              {/* Basic Information */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Title</label>
-                  <p className="text-lg font-semibold mt-1">{selectedProperty.title}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Property Type</label>
-                  <p className="text-lg font-semibold mt-1">
-                    {selectedProperty.propertyType.charAt(0).toUpperCase() + selectedProperty.propertyType.slice(1)}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Listing Type</label>
-                  <p className="text-lg font-semibold mt-1">
-                    {selectedProperty.listingType === 'rent' ? 'For Rent' : 'For Sale'}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
-                  <div className="mt-1">
-                    {getStatusBadge(selectedProperty.status)}
-                  </div>
-                </div>
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Location</label>
-                <p className="text-lg font-semibold mt-1">{selectedProperty.location}</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  {(() => {
-                    const cityName = selectedProperty.area && typeof selectedProperty.area === 'object' && selectedProperty.area.city
-                      ? selectedProperty.area.city.name
-                      : selectedProperty.city || 'N/A';
-                    const areaName = selectedProperty.area && typeof selectedProperty.area === 'object'
-                      ? selectedProperty.area.name
-                      : '';
-                    return `${cityName}${areaName ? `, ${areaName}` : ''}`;
-                  })()}
-                </p>
-              </div>
-
-              {/* Map View */}
-              {(selectedProperty as any).latitude && (selectedProperty as any).longitude && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500 mb-2 block">Map Location</label>
-                  <PropertyMap
-                    latitude={(selectedProperty as any).latitude}
-                    longitude={(selectedProperty as any).longitude}
-                    title={selectedProperty.title}
-                  />
-                </div>
-              )}
-
-              {/* Property Details */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Bedrooms</label>
-                  <p className="text-lg font-semibold mt-1">{selectedProperty.bedrooms}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Bathrooms</label>
-                  <p className="text-lg font-semibold mt-1">{selectedProperty.bathrooms}</p>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Area Size</label>
-                  <p className="text-lg font-semibold mt-1">{selectedProperty.areaSize || 0} sq ft</p>
-                </div>
-              </div>
-
-              {/* Price */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">
-                  {selectedProperty.listingType === 'rent' ? 'Monthly Rent' : 'Total Price'}
-                </label>
-                <p className="text-2xl font-bold text-primary mt-1">
-                  Rs. {selectedProperty.price.toLocaleString('en-PK')}
-                </p>
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Description</label>
-                <p className="text-sm text-gray-700 mt-1 whitespace-pre-wrap">
-                  {selectedProperty.description || 'No description provided.'}
-                </p>
-              </div>
-
-              {/* Features */}
-              {selectedProperty.features && selectedProperty.features.length > 0 && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Features & Amenities</label>
-                  <div className="grid grid-cols-2 gap-2 mt-2">
-                    {selectedProperty.features.map((feature, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <span className="text-sm text-gray-700">• {feature}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Additional Photos */}
-              {selectedProperty.additionalPhotosUrls && selectedProperty.additionalPhotosUrls.length > 0 && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Additional Photos</label>
-                  <div className="grid grid-cols-3 gap-2 mt-2">
-                    {selectedProperty.additionalPhotosUrls.map((url, index) => (
-                      <img
-                        key={index}
-                        src={url}
-                        alt={`Additional ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = 'https://via.placeholder.com/300x200?text=No+Image';
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Contact Information */}
-              <div>
-                <label className="text-sm font-medium text-gray-500">Contact Number</label>
-                <p className="text-lg font-semibold mt-1">{selectedProperty.contactNumber}</p>
-              </div>
-
-              {/* Timestamps */}
-              <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Created At</label>
-                  <p className="text-sm text-gray-600 mt-1">{formatDate(selectedProperty.createdAt)}</p>
-                </div>
-                {selectedProperty.updatedAt && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Last Updated</label>
-                    <p className="text-sm text-gray-600 mt-1">{formatDate(selectedProperty.updatedAt)}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div >
+      <ConfirmDialog {...dialogProps} />
+    </div>
   );
 }

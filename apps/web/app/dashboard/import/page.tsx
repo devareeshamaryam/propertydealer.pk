@@ -1,19 +1,166 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { importApi } from '@/lib/api';
-import { toast } from 'sonner';
-import { FaCloudUploadAlt, FaFileArchive, FaFileCode } from 'react-icons/fa';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useForm } from "react-hook-form";
+import {
+  CheckCircle2,
+  FileArchive,
+  FileCode2,
+  Info,
+  Loader2,
+  UploadCloud,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { importApi } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { DataCard, DataCardTitle, PageHeader } from "@/components/dashboard";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
+
+interface ImportForm {
+  xml: FileList;
+  imagesXml: FileList;
+  zip: FileList;
+}
+
+interface ImportResult {
+  totalFound?: number;
+  imported?: number;
+  skipped?: number;
+  imageMapSize?: number;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+interface FileFieldProps {
+  id: string;
+  label: string;
+  hint: string;
+  accept: string;
+  icon: React.ComponentType<{ className?: string }>;
+  required?: boolean;
+  file?: File;
+  onClear: () => void;
+  register: ReturnType<typeof useForm<ImportForm>>["register"];
+  name: keyof ImportForm;
+}
+
+/**
+ * Drop zone that actually reports what was picked. The previous version gave
+ * no feedback at all after choosing a file, and positioned its file input
+ * `absolute` inside a label with no positioning context, so the invisible hit
+ * area escaped its own card.
+ */
+function FileField({
+  id,
+  label,
+  hint,
+  accept,
+  icon: Icon,
+  required,
+  file,
+  onClear,
+  register,
+  name,
+}: FileFieldProps) {
+  return (
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium">
+        {label}{" "}
+        {required ? (
+          <span className="text-destructive">*</span>
+        ) : (
+          <span className="text-xs font-normal text-muted-foreground">
+            (optional)
+          </span>
+        )}
+      </label>
+
+      {file ? (
+        <div className="flex items-center gap-3 rounded-lg border bg-muted/40 px-4 py-3">
+          <Icon className="h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{file.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {formatBytes(file.size)}
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            onClick={onClear}
+            aria-label={`Remove ${file.name}`}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <label
+          htmlFor={id}
+          className="relative flex h-28 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed bg-muted/30 transition-colors hover:border-primary/50 hover:bg-accent"
+        >
+          <Icon className="h-6 w-6 text-muted-foreground" />
+          <p className="text-sm font-medium">Click to upload</p>
+          <p className="text-xs text-muted-foreground">{hint}</p>
+          <input
+            id={id}
+            {...register(name)}
+            type="file"
+            accept={accept}
+            className="absolute inset-0 cursor-pointer opacity-0"
+          />
+        </label>
+      )}
+    </div>
+  );
+}
 
 export default function ImportPage() {
-  const { register, handleSubmit, reset } = useForm();
+  const { register, handleSubmit, reset, watch, setValue } =
+    useForm<ImportForm>();
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
 
-  const onSubmit = async (data: any) => {
-    if (!data.xml || data.xml.length === 0) {
-      toast.error('Please select an XML file');
+  const xmlList = watch("xml");
+  const imagesXmlList = watch("imagesXml");
+  const zipList = watch("zip");
+
+  const xmlFile = xmlList?.[0];
+  const imagesXmlFile = imagesXmlList?.[0];
+  const zipFile = zipList?.[0];
+
+  // Warn before leaving mid-import — a WXR import can take a while and there
+  // is no resume.
+  useEffect(() => {
+    if (!isLoading) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isLoading]);
+
+  const clearField = (name: keyof ImportForm) =>
+    setValue(name, undefined as unknown as FileList, { shouldDirty: true });
+
+  const onSubmit = async (data: ImportForm) => {
+    const xml = data.xml?.[0];
+    if (!xml) {
+      toast.error("Select a WordPress export file", {
+        description: "The XML file is required to start an import.",
+      });
       return;
     }
 
@@ -21,127 +168,167 @@ export default function ImportPage() {
     setResult(null);
 
     const formData = new FormData();
-    formData.append('xml', data.xml[0]);
-    if (data.imagesXml && data.imagesXml.length > 0) {
-      formData.append('imagesXml', data.imagesXml[0]);
-    }
-    if (data.zip && data.zip.length > 0) {
-      formData.append('zip', data.zip[0]);
-    }
+    formData.append("xml", xml);
+
+    const imagesXml = data.imagesXml?.[0];
+    if (imagesXml) formData.append("imagesXml", imagesXml);
+
+    const zip = data.zip?.[0];
+    if (zip) formData.append("zip", zip);
 
     try {
       const response = await importApi.importWordPress(formData);
       setResult(response);
-      toast.success('Import completed successfully!');
+      toast.success("Import finished", {
+        description: `${response?.imported ?? 0} of ${response?.totalFound ?? 0} listings imported.`,
+      });
       reset();
-    } catch (error: any) {
-      console.error('Import Error:', error);
-      toast.error('Failed to import properties. Check console for details.');
+    } catch (err) {
+      console.error("Import Error:", err);
+      toast.error("Import failed", {
+        description: apiErrorMessage(
+          err,
+          "Check the file format and try again.",
+        ),
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6 text-gray-800 dark:text-gray-100">Import Properties</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-5">
+      <PageHeader
+        title="Bulk Import"
+        description="Import properties from a WordPress WXR export."
+      />
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 max-w-2xl">
-        <p className="mb-4 text-gray-600 dark:text-gray-300">
-          Upload a WordPress WXR (XML) export file to import properties.
-          Optionally, upload a ZIP file containing the images folder (e.g., `wp-content/uploads`) to automatically sync images.
-        </p>
+      <div className="flex gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <Info className="mt-0.5 h-4.5 w-4.5 shrink-0 text-blue-600" />
+        <div className="space-y-1">
+          <p className="font-medium">How this works</p>
+          <p className="text-blue-800">
+            Upload the WordPress export (WXR) file. Optionally add an images XML
+            for image URLs, or a ZIP of the uploads folder to sync image files.
+            Existing listings with a matching slug are skipped, not overwritten.
+          </p>
+        </div>
+      </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <DataCard>
+        <DataCardTitle hint="XML is required; the other two are optional">
+          Source files
+        </DataCardTitle>
 
-          {/* XML File Input */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              WordPress Export File (XML) <span className="text-red-500">*</span>
-            </label>
-            <div className="flex items-center justify-center w-full">
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <FaFileCode className="w-8 h-8 mb-3 text-gray-400" />
-                  <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload XML</span></p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">.xml files only</p>
-                </div>
-                <input {...register('xml')} type="file" accept=".xml" className="opacity-0 w-full h-full absolute cursor-pointer" />
-              </label>
-            </div>
-          </div>
+        <Separator className="my-5" />
 
-          {/* Images XML File Input */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Images XML File <span className="text-xs text-gray-500">(Optional - for image URLs)</span>
-            </label>
-            <div className="flex items-center justify-center w-full">
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <FaFileCode className="w-8 h-8 mb-3 text-gray-400" />
-                  <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload Images XML</span></p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">.xml files only</p>
-                </div>
-                <input {...register('imagesXml')} type="file" accept=".xml" className="opacity-0 w-full h-full absolute cursor-pointer" />
-              </label>
-            </div>
-          </div>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <FileField
+            id="import-xml"
+            name="xml"
+            label="WordPress export file"
+            hint=".xml (WXR) files only"
+            accept=".xml"
+            icon={FileCode2}
+            required
+            file={xmlFile}
+            onClear={() => clearField("xml")}
+            register={register}
+          />
 
-          {/* ZIP File Input */}
-          <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Images Archive (ZIP) <span className="text-xs text-gray-500">(Optional)</span>
-            </label>
-            <div className="flex items-center justify-center w-full">
-              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
-                <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                  <FaFileArchive className="w-8 h-8 mb-3 text-gray-400" />
-                  <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload ZIP</span></p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">.zip files only</p>
-                </div>
-                <input {...register('zip')} type="file" accept=".zip" className="opacity-0 w-full h-full absolute cursor-pointer" />
-              </label>
-            </div>
-          </div>
+          <FileField
+            id="import-images-xml"
+            name="imagesXml"
+            label="Images XML"
+            hint="Maps attachment IDs to image URLs"
+            accept=".xml"
+            icon={FileCode2}
+            file={imagesXmlFile}
+            onClear={() => clearField("imagesXml")}
+            register={register}
+          />
 
-          <button
+          <FileField
+            id="import-zip"
+            name="zip"
+            label="Images archive"
+            hint=".zip of wp-content/uploads"
+            accept=".zip"
+            icon={FileArchive}
+            file={zipFile}
+            onClear={() => clearField("zip")}
+            register={register}
+          />
+
+          <Button
             type="submit"
-            disabled={isLoading}
-            className={`w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+            size="lg"
+            className="w-full"
+            disabled={isLoading || !xmlFile}
           >
             {isLoading ? (
               <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Importing...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Importing — do not close this tab…
               </>
             ) : (
               <>
-                <FaCloudUploadAlt className="mr-2 h-5 w-5" />
-                Start Import
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Start import
               </>
             )}
-          </button>
+          </Button>
         </form>
+      </DataCard>
 
-        {result && (
-          <div className="mt-8 p-4 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
-            <h3 className="text-lg font-medium text-green-800 dark:text-green-300 mb-2">Import Results</h3>
-            <ul className="list-disc pl-5 space-y-1 text-sm text-green-700 dark:text-green-400">
-              <li>Found: <strong>{result.totalFound}</strong> listings</li>
-              <li>Imported: <strong>{result.imported}</strong> listings</li>
-              <li>Skipped: <strong>{result.skipped}</strong> listings</li>
-              {result.imageMapSize !== undefined && (
-                <li>Images Mapped: <strong>{result.imageMapSize}</strong></li>
-              )}
-            </ul>
+      {result && (
+        <DataCard className={cn("border-emerald-200 bg-emerald-50/50")}>
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
+            <div className="flex-1">
+              <p className="font-semibold text-emerald-900">Import results</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge variant="outline" className="bg-white">
+                  Found:{" "}
+                  <span className="ml-1 font-semibold">
+                    {result.totalFound ?? 0}
+                  </span>
+                </Badge>
+                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                  Imported:{" "}
+                  <span className="ml-1 font-semibold">
+                    {result.imported ?? 0}
+                  </span>
+                </Badge>
+                <Badge variant="secondary">
+                  Skipped:{" "}
+                  <span className="ml-1 font-semibold">
+                    {result.skipped ?? 0}
+                  </span>
+                </Badge>
+                {result.imageMapSize !== undefined && (
+                  <Badge variant="outline" className="bg-white">
+                    Images mapped:{" "}
+                    <span className="ml-1 font-semibold">
+                      {result.imageMapSize}
+                    </span>
+                  </Badge>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4 bg-white"
+                asChild
+              >
+                <Link href="/dashboard/property">
+                  Review imported properties
+                </Link>
+              </Button>
+            </div>
           </div>
-        )}
-      </div>
+        </DataCard>
+      )}
     </div>
   );
 }

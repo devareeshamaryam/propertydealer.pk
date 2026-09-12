@@ -9,7 +9,11 @@ import { Loader2 } from "lucide-react";
 import dynamic from "next/dynamic";
 const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ssr: false,
-  loading: () => <div className="h-[200px] w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">Loading Editor...</div>
+  loading: () => (
+    <div className="h-[200px] w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">
+      Loading Editor...
+    </div>
+  ),
 });
 
 import {
@@ -42,7 +46,9 @@ import { useEffect } from "react";
 
 // Zod schema – only name is required, state and country are optional
 const formSchema = z.object({
-  name: z.string().min(2, { message: "City name must be at least 2 characters" }),
+  name: z
+    .string()
+    .min(2, { message: "City name must be at least 2 characters" }),
   state: z.string().optional(),
   country: z.string().optional(),
   metaTitle: z.string().optional(),
@@ -57,13 +63,17 @@ const formSchema = z.object({
   saleContent: z.string().optional(),
   buyContent: z.string().optional(),
   thumbnail: z.string().optional(),
-  typeContents: z.array(z.object({
-    propertyType: z.string().min(1, "Type is required"),
-    purpose: z.enum(['rent', 'sale', 'all']),
-    metaTitle: z.string().optional(),
-    metaDescription: z.string().optional(),
-    content: z.string().optional(),
-  })).optional(),
+  typeContents: z
+    .array(
+      z.object({
+        propertyType: z.string().min(1, "Type is required"),
+        purpose: z.enum(["rent", "sale", "all"]),
+        metaTitle: z.string().optional(),
+        metaDescription: z.string().optional(),
+        content: z.string().optional(),
+      }),
+    )
+    .optional(),
 });
 
 export default function AddCityPage() {
@@ -109,13 +119,22 @@ export default function AddCityPage() {
     const current = form.getValues("typeContents") || [];
     form.setValue("typeContents", [
       ...current,
-      { propertyType: "", purpose: "rent", metaTitle: "", metaDescription: "", content: "" }
+      {
+        propertyType: "",
+        purpose: "rent",
+        metaTitle: "",
+        metaDescription: "",
+        content: "",
+      },
     ]);
   };
 
   const removeTypeContent = (index: number) => {
     const current = form.getValues("typeContents") || [];
-    form.setValue("typeContents", current.filter((_, i) => i !== index));
+    form.setValue(
+      "typeContents",
+      current.filter((_, i) => i !== index),
+    );
   };
 
   const isLoading = form.formState.isSubmitting;
@@ -136,16 +155,26 @@ export default function AddCityPage() {
       }
 
       if (values.metaTitle?.trim()) payload.metaTitle = values.metaTitle.trim();
-      if (values.metaDescription?.trim()) payload.metaDescription = values.metaDescription.trim();
-      if (values.canonicalUrl?.trim()) payload.canonicalUrl = values.canonicalUrl.trim();
-      if (values.description?.trim()) payload.description = values.description.trim();
-      if (values.rentMetaTitle?.trim()) payload.rentMetaTitle = values.rentMetaTitle.trim();
-      if (values.rentMetaDescription?.trim()) payload.rentMetaDescription = values.rentMetaDescription.trim();
-      if (values.rentContent?.trim()) payload.rentContent = values.rentContent.trim();
-      if (values.saleMetaTitle?.trim()) payload.saleMetaTitle = values.saleMetaTitle.trim();
-      if (values.saleMetaDescription?.trim()) payload.saleMetaDescription = values.saleMetaDescription.trim();
-      if (values.saleContent?.trim()) payload.saleContent = values.saleContent.trim();
-      if (values.buyContent?.trim()) payload.buyContent = values.buyContent.trim();
+      if (values.metaDescription?.trim())
+        payload.metaDescription = values.metaDescription.trim();
+      if (values.canonicalUrl?.trim())
+        payload.canonicalUrl = values.canonicalUrl.trim();
+      if (values.description?.trim())
+        payload.description = values.description.trim();
+      if (values.rentMetaTitle?.trim())
+        payload.rentMetaTitle = values.rentMetaTitle.trim();
+      if (values.rentMetaDescription?.trim())
+        payload.rentMetaDescription = values.rentMetaDescription.trim();
+      if (values.rentContent?.trim())
+        payload.rentContent = values.rentContent.trim();
+      if (values.saleMetaTitle?.trim())
+        payload.saleMetaTitle = values.saleMetaTitle.trim();
+      if (values.saleMetaDescription?.trim())
+        payload.saleMetaDescription = values.saleMetaDescription.trim();
+      if (values.saleContent?.trim())
+        payload.saleContent = values.saleContent.trim();
+      if (values.buyContent?.trim())
+        payload.buyContent = values.buyContent.trim();
       if (values.thumbnail?.trim()) payload.thumbnail = values.thumbnail.trim();
       if (values.typeContents && values.typeContents.length > 0) {
         payload.typeContents = values.typeContents;
@@ -155,7 +184,7 @@ export default function AddCityPage() {
 
       toast.success("City created successfully!");
       form.reset();
-      router.refresh();           // Refresh server components / data
+      router.refresh(); // Refresh server components / data
       // Optional: router.push("/dashboard/city"); // go to list
     } catch (error: any) {
       console.error("Create city error:", error);
@@ -164,8 +193,10 @@ export default function AddCityPage() {
       // Get validation errors if they exist
       const validationErrors = error?.response?.data?.message;
       const errorMessage = Array.isArray(validationErrors)
-        ? validationErrors.join(', ')
-        : validationErrors || error?.message || "Failed to create city. Please try again.";
+        ? validationErrors.join(", ")
+        : validationErrors ||
+          error?.message ||
+          "Failed to create city. Please try again.";
 
       toast.error("Error", { description: errorMessage });
     }
@@ -175,14 +206,16 @@ export default function AddCityPage() {
     <div className="w-full">
       <div className="max-w-5xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Add New City</h1>
+          <h1 className="text-2xl font-semibold text-gray-800 mb-2">
+            Add New City
+          </h1>
           <p className="text-gray-600 mb-8">
-            Add a city to make it available for property listings. Only the city name is required and must be unique.
+            Add a city to make it available for property listings. Only the city
+            name is required and must be unique.
           </p>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-
               {/* City Name */}
               <FormField
                 control={form.control}
@@ -207,7 +240,11 @@ export default function AddCityPage() {
                     <FormItem>
                       <FormLabel>State / Province (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Sindh" {...field} value={field.value || ""} />
+                        <Input
+                          placeholder="e.g. Sindh"
+                          {...field}
+                          value={field.value || ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -222,7 +259,11 @@ export default function AddCityPage() {
                     <FormItem>
                       <FormLabel>Country (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Pakistan" {...field} value={field.value || ""} />
+                        <Input
+                          placeholder="e.g. Pakistan"
+                          {...field}
+                          value={field.value || ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -263,7 +304,8 @@ export default function AddCityPage() {
                             alt="City thumbnail preview"
                             className="w-full h-full object-cover"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://placehold.co/600x400?text=Invalid+Image+URL';
+                              (e.target as HTMLImageElement).src =
+                                "https://placehold.co/600x400?text=Invalid+Image+URL";
                             }}
                           />
                           <Button
@@ -292,7 +334,11 @@ export default function AddCityPage() {
                     <FormItem>
                       <FormLabel>Meta Title (SEO)</FormLabel>
                       <FormControl>
-                        <Input placeholder="SEO Title" {...field} value={field.value || ""} />
+                        <Input
+                          placeholder="SEO Title"
+                          {...field}
+                          value={field.value || ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -307,7 +353,11 @@ export default function AddCityPage() {
                     <FormItem>
                       <FormLabel>Canonical URL</FormLabel>
                       <FormControl>
-                        <Input placeholder="https://example.com/city" {...field} value={field.value || ""} />
+                        <Input
+                          placeholder="https://example.com/city"
+                          {...field}
+                          value={field.value || ""}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -323,7 +373,11 @@ export default function AddCityPage() {
                   <FormItem>
                     <FormLabel>Meta Description (SEO)</FormLabel>
                     <FormControl>
-                      <Input placeholder="SEO Description" {...field} value={field.value || ""} />
+                      <Input
+                        placeholder="SEO Description"
+                        {...field}
+                        value={field.value || ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -336,7 +390,9 @@ export default function AddCityPage() {
                 name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>City Description (Rich Text - General)</FormLabel>
+                    <FormLabel>
+                      City Description (Rich Text - General)
+                    </FormLabel>
                     <FormControl>
                       <RichEditor
                         value={field.value || ""}
@@ -349,8 +405,13 @@ export default function AddCityPage() {
               />
 
               <div className="grid grid-cols-1 gap-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-700">Specific Content Sections</h3>
-                <p className="text-sm text-gray-500 -mt-4">Define specific content for different property purposes. If left empty, the general description above will be used.</p>
+                <h3 className="text-lg font-semibold text-gray-700">
+                  Specific Content Sections
+                </h3>
+                <p className="text-sm text-gray-500 -mt-4">
+                  Define specific content for different property purposes. If
+                  left empty, the general description above will be used.
+                </p>
 
                 {/* Rent Section */}
                 <div className="space-y-4">
@@ -360,9 +421,15 @@ export default function AddCityPage() {
                       name="rentMetaTitle"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-blue-600 font-medium">Rent Meta Title (SEO)</FormLabel>
+                          <FormLabel className="text-blue-600 font-medium">
+                            Rent Meta Title (SEO)
+                          </FormLabel>
                           <FormControl>
-                            <Input placeholder="Meta title for rent page" {...field} value={field.value || ""} />
+                            <Input
+                              placeholder="Meta title for rent page"
+                              {...field}
+                              value={field.value || ""}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -373,9 +440,15 @@ export default function AddCityPage() {
                       name="rentMetaDescription"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-blue-600 font-medium">Rent Meta Description (SEO)</FormLabel>
+                          <FormLabel className="text-blue-600 font-medium">
+                            Rent Meta Description (SEO)
+                          </FormLabel>
                           <FormControl>
-                            <Input placeholder="Meta description for rent page" {...field} value={field.value || ""} />
+                            <Input
+                              placeholder="Meta description for rent page"
+                              {...field}
+                              value={field.value || ""}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -387,7 +460,9 @@ export default function AddCityPage() {
                     name="rentContent"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-blue-600 font-medium">Rent Content (Rich Text)</FormLabel>
+                        <FormLabel className="text-blue-600 font-medium">
+                          Rent Content (Rich Text)
+                        </FormLabel>
                         <FormControl>
                           <RichEditor
                             value={field.value || ""}
@@ -408,9 +483,15 @@ export default function AddCityPage() {
                       name="saleMetaTitle"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-green-600 font-medium">Sale Meta Title (SEO)</FormLabel>
+                          <FormLabel className="text-green-600 font-medium">
+                            Sale Meta Title (SEO)
+                          </FormLabel>
                           <FormControl>
-                            <Input placeholder="Meta title for sale page" {...field} value={field.value || ""} />
+                            <Input
+                              placeholder="Meta title for sale page"
+                              {...field}
+                              value={field.value || ""}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -421,9 +502,15 @@ export default function AddCityPage() {
                       name="saleMetaDescription"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-green-600 font-medium">Sale Meta Description (SEO)</FormLabel>
+                          <FormLabel className="text-green-600 font-medium">
+                            Sale Meta Description (SEO)
+                          </FormLabel>
                           <FormControl>
-                            <Input placeholder="Meta description for sale page" {...field} value={field.value || ""} />
+                            <Input
+                              placeholder="Meta description for sale page"
+                              {...field}
+                              value={field.value || ""}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -435,7 +522,9 @@ export default function AddCityPage() {
                     name="saleContent"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-green-600 font-medium">Sale Content (Rich Text)</FormLabel>
+                        <FormLabel className="text-green-600 font-medium">
+                          Sale Content (Rich Text)
+                        </FormLabel>
                         <FormControl>
                           <RichEditor
                             value={field.value || ""}
@@ -454,7 +543,9 @@ export default function AddCityPage() {
                   name="buyContent"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-purple-600 font-medium">Buy Content (Rich Text)</FormLabel>
+                      <FormLabel className="text-purple-600 font-medium">
+                        Buy Content (Rich Text)
+                      </FormLabel>
                       <FormControl>
                         <RichEditor
                           value={field.value || ""}
@@ -470,8 +561,13 @@ export default function AddCityPage() {
                 <div className="mt-8 space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xl font-bold text-gray-800">Property Type Specific Content</h3>
-                      <p className="text-sm text-gray-500">Add custom content for specific combinations like "House for Rent in {form.watch('name') || 'City'}"</p>
+                      <h3 className="text-xl font-bold text-gray-800">
+                        Property Type Specific Content
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        Add custom content for specific combinations like "House
+                        for Rent in {form.watch("name") || "City"}"
+                      </p>
                     </div>
                     <Button
                       type="button"
@@ -486,7 +582,10 @@ export default function AddCityPage() {
                   </div>
 
                   {form.watch("typeContents")?.map((_, index) => (
-                    <div key={index} className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm space-y-4 relative group">
+                    <div
+                      key={index}
+                      className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm space-y-4 relative group"
+                    >
                       <Button
                         type="button"
                         variant="ghost"
@@ -504,7 +603,10 @@ export default function AddCityPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Property Type</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                              >
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select type" />
@@ -512,7 +614,9 @@ export default function AddCityPage() {
                                 </FormControl>
                                 <SelectContent>
                                   {availableTypes.map((t) => (
-                                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                                    <SelectItem key={t} value={t}>
+                                      {t}
+                                    </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -527,7 +631,10 @@ export default function AddCityPage() {
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Purpose</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                              >
                                 <FormControl>
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select purpose" />
@@ -567,7 +674,10 @@ export default function AddCityPage() {
                             <FormItem>
                               <FormLabel>Meta Description</FormLabel>
                               <FormControl>
-                                <Input {...field} placeholder="SEO Description" />
+                                <Input
+                                  {...field}
+                                  placeholder="SEO Description"
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -594,9 +704,12 @@ export default function AddCityPage() {
                     </div>
                   ))}
 
-                  {(!form.watch("typeContents") || form.watch("typeContents")?.length === 0) && (
+                  {(!form.watch("typeContents") ||
+                    form.watch("typeContents")?.length === 0) && (
                     <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-300">
-                      <p className="text-gray-500 italic">No specific property type content added yet.</p>
+                      <p className="text-gray-500 italic">
+                        No specific property type content added yet.
+                      </p>
                     </div>
                   )}
                 </div>

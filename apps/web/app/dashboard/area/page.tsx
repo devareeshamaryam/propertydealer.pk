@@ -1,12 +1,20 @@
-'use client'
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { areaApi } from '@/lib/api/area/area.api';
-import { cityApi } from '@/lib/api/city/city.api';
-import { useAuth } from '@/context/auth-context';
-import { toast } from 'sonner';
+"use client";
 
-import { Loader2, Eye, Edit, Trash2, Plus } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  MapPin,
+  PlusCircle,
+  RefreshCcw,
+  SquarePen,
+  Trash2,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+
 import {
   Table,
   TableBody,
@@ -14,261 +22,426 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import areaApi from "@/lib/api/area/area.api";
+import cityApi from "@/lib/api/city/city.api";
+import { useAuth } from "@/context/auth-context";
+import { cn } from "@/lib/utils";
+import {
+  ConfirmDialog,
+  DataCard,
+  EmptyRow,
+  ErrorRow,
+  NoResultsRow,
+  PageHeader,
+  PaginationBar,
+  TableSkeleton,
+  TableToolbar,
+  useConfirm,
+  useTableControls,
+} from "@/components/dashboard";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
 
-interface Area {
+interface CityRef {
   _id: string;
   name: string;
-  city: string | {
-    _id: string;
-    name: string;
-    state?: string;
-    country?: string;
-  };
 }
 
-interface City {
+interface AreaRecord {
   _id: string;
   name: string;
-  state?: string;
-  country?: string;
+  areaSlug?: string;
+  city?: CityRef | string;
+  createdAt?: string;
 }
 
-export default function DashboardAreaPage() {
-  const router = useRouter();
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [cities, setCities] = useState<City[]>([]);
+function formatDate(value?: string) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("en-PK", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export default function AreasPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
+  const [areas, setAreas] = useState<AreaRecord[]>([]);
+  const [cities, setCities] = useState<CityRef[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedArea, setSelectedArea] = useState<Area | null>(null);
-  const [viewDialogOpen, setViewDialogOpen] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  const [cityFilter, setCityFilter] = useState("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        // Fetch all areas
-        const areasData = await areaApi.getAll();
-        setAreas(Array.isArray(areasData) ? areasData : []);
+  const { confirm, dialogProps } = useConfirm();
+  const columnCount = isAdmin ? 5 : 4;
 
-        // Fetch all cities for display
-        const citiesData = await cityApi.getAll();
-        setCities(Array.isArray(citiesData) ? citiesData : []);
-      } catch (err) {
-        console.error('Error fetching areas:', err);
-        setError('Failed to load areas. Please try again later.');
-      } finally {
-        setLoading(false);
+  const load = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // Cities are only needed to label areas whose `city` came back unpopulated;
+      // a failure there must not hide the areas themselves.
+      const [areasResult, citiesResult] = await Promise.allSettled([
+        areaApi.getAll(),
+        cityApi.getAll(),
+      ]);
+
+      if (areasResult.status === "rejected") throw areasResult.reason;
+      setAreas(Array.isArray(areasResult.value) ? areasResult.value : []);
+
+      if (
+        citiesResult.status === "fulfilled" &&
+        Array.isArray(citiesResult.value)
+      ) {
+        setCities(citiesResult.value);
       }
-    };
-
-    fetchData();
+    } catch (err) {
+      console.error("Error fetching areas:", err);
+      setError(
+        apiErrorMessage(
+          err,
+          "Could not load areas. Check your connection and try again.",
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const handleView = async (areaId: string) => {
-    try {
-      const area = await areaApi.getById(areaId);
-      setSelectedArea(area);
-      setViewDialogOpen(true);
-    } catch (error: any) {
-      toast.error('Error', {
-        description: error?.response?.data?.message || 'Failed to load area details.',
-      });
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const cityNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const city of cities) map.set(city._id, city.name);
+    return map;
+  }, [cities]);
+
+  const cityNameOf = useCallback(
+    (area: AreaRecord): string => {
+      if (!area.city) return "";
+      if (typeof area.city === "string")
+        return cityNameById.get(area.city) ?? "";
+      return area.city.name ?? "";
+    },
+    [cityNameById],
+  );
+
+  const cityOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const area of areas) {
+      const name = cityNameOf(area);
+      if (name) set.add(name);
     }
-  };
+    return [...set].sort();
+  }, [areas, cityNameOf]);
 
-  const handleEdit = (areaId: string) => {
-    router.push(`/dashboard/area/edit/${areaId}`);
-  };
+  const rowFilter = useCallback(
+    (area: AreaRecord) =>
+      cityFilter === "all" || cityNameOf(area) === cityFilter,
+    [cityFilter, cityNameOf],
+  );
 
-  const handleDelete = async (areaId: string) => {
-    if (!confirm('Are you sure you want to delete this area? This action cannot be undone.')) {
-      return;
-    }
+  const searchAccessor = useCallback(
+    (area: AreaRecord) => [area.name, area.areaSlug, cityNameOf(area)],
+    [cityNameOf],
+  );
 
-    try {
-      setDeletingId(areaId);
-      await areaApi.delete(areaId);
-      toast.success('Area deleted successfully!');
-      // Refresh the list
-      const data = await areaApi.getAll();
-      setAreas(Array.isArray(data) ? data : []);
-    } catch (error: any) {
-      console.error('Error deleting area:', error);
-      toast.error('Error', {
-        description: error?.response?.data?.message || 'Failed to delete area. Please try again.',
-      });
-    } finally {
-      setDeletingId(null);
-    }
-  };
+  const table = useTableControls<AreaRecord>({
+    data: areas,
+    searchAccessor,
+    filter: rowFilter,
+    initialPageSize: 25,
+    initialSortKey: "name",
+    initialSortDirection: "asc",
+  });
 
-  const getCityName = (area: Area): string => {
-    if (typeof area.city === 'string') {
-      const city = cities.find(c => c._id === area.city);
-      return city?.name || 'Unknown City';
-    }
-    return area.city?.name || 'Unknown City';
-  };
+  useEffect(() => {
+    table.setPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cityFilter]);
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+  const requestDelete = (area: AreaRecord) =>
+    confirm({
+      title: "Delete this area?",
+      description: `“${area.name}” will be removed. Properties linked to it may stop resolving their location.`,
+      confirmLabel: "Delete area",
+      onConfirm: async () => {
+        try {
+          setBusyId(area._id);
+          await areaApi.delete(area._id);
+          setAreas((previous) =>
+            previous.filter((item) => item._id !== area._id),
+          );
+          toast.success("Area deleted");
+        } catch (err) {
+          console.error("Error deleting area:", err);
+          toast.error("Could not delete area", {
+            description: apiErrorMessage(err, "Please try again."),
+          });
+        } finally {
+          setBusyId(null);
+        }
+      },
     });
+
+  const SortButton = ({
+    column,
+    children,
+  }: {
+    column: keyof AreaRecord;
+    children: React.ReactNode;
+  }) => {
+    const active = table.sortKey === column;
+    const Icon = !active
+      ? ArrowUpDown
+      : table.sortDirection === "asc"
+        ? ArrowUp
+        : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => table.toggleSort(column)}
+        className={cn(
+          "-ml-2 inline-flex items-center gap-1.5 rounded px-2 py-1 font-medium transition-colors hover:bg-accent",
+          active && "text-foreground",
+        )}
+      >
+        {children}
+        <Icon
+          className={cn("h-3.5 w-3.5", active ? "opacity-100" : "opacity-40")}
+        />
+      </button>
+    );
   };
+
+  const filtersActive = cityFilter !== "all" || table.search !== "";
+  const resetAll = () => {
+    setCityFilter("all");
+    table.resetFilters();
+  };
+
+  const addButton = isAdmin ? (
+    <Button asChild>
+      <Link href="/dashboard/area/add-area">
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Area
+      </Link>
+    </Button>
+  ) : null;
 
   return (
-    <div className="w-full">
-      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-              Areas Dashboard
-            </h2>
-            <p className="text-gray-600">
-              Manage all areas for property listings
-            </p>
-          </div>
-          <Button onClick={() => router.push('/dashboard/area/add-area')}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Area
-          </Button>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1600px] space-y-5">
+      <PageHeader
+        title="Areas"
+        description="Societies, sectors and phases that properties can be listed under."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => void load()}
+              disabled={loading}
+            >
+              <RefreshCcw
+                className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
+              />
+              Refresh
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/city">View Cities</Link>
+            </Button>
+            {addButton}
+          </>
+        }
+      />
 
-      {/* Areas Table */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-3 text-gray-600">Loading areas...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-12">
-            <p className="text-destructive mb-4">{error}</p>
-            <Button onClick={() => window.location.reload()}>
-              Retry
-            </Button>
-          </div>
-        ) : areas.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-600 mb-4">No areas found.</p>
-            <Button onClick={() => router.push('/dashboard/area/add-area')}>
-              Add Your First Area
-            </Button>
-          </div>
-        ) : (
+      <DataCard flush>
+        <div className="border-b p-5">
+          <TableToolbar
+            search={table.search}
+            onSearchChange={table.setSearch}
+            placeholder="Search by area or city…"
+          >
+            {cityOptions.length > 1 && (
+              <Select value={cityFilter} onValueChange={setCityFilter}>
+                <SelectTrigger
+                  className="w-[180px]"
+                  aria-label="Filter by city"
+                >
+                  <SelectValue placeholder="All cities" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All cities</SelectItem>
+                  {cityOptions.map((city) => (
+                    <SelectItem key={city} value={city}>
+                      {city}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {filtersActive && (
+              <Button variant="ghost" size="sm" onClick={resetAll}>
+                <X className="mr-1.5 h-3.5 w-3.5" />
+                Clear
+              </Button>
+            )}
+          </TableToolbar>
+        </div>
+
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Area Name</TableHead>
+                <TableHead className="min-w-[200px]">
+                  <SortButton column="name">Area</SortButton>
+                </TableHead>
                 <TableHead>City</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead>
+                  <SortButton column="areaSlug">Slug</SortButton>
+                </TableHead>
+                <TableHead className="whitespace-nowrap">
+                  <SortButton column="createdAt">Created</SortButton>
+                </TableHead>
+                {isAdmin && (
+                  <TableHead className="text-right">Actions</TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {areas.map((area) => (
-                <TableRow key={area._id}>
-                  <TableCell className="font-medium">
-                    <div className="max-w-[200px]">
-                      <p className="truncate">{area.name}</p>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">
-                      {getCityName(area)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-600">
-                    {formatDate((area as any).createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleView(area._id)}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
+              {loading ? (
+                <TableSkeleton rows={8} columns={columnCount} />
+              ) : error ? (
+                <ErrorRow
+                  colSpan={columnCount}
+                  message={error}
+                  onRetry={() => void load()}
+                />
+              ) : areas.length === 0 ? (
+                <EmptyRow
+                  colSpan={columnCount}
+                  icon={MapPin}
+                  title="No areas yet"
+                  description="Add an area so properties can be grouped by neighbourhood."
+                  action={addButton ?? undefined}
+                />
+              ) : table.matchedCount === 0 ? (
+                <NoResultsRow
+                  colSpan={columnCount}
+                  search={table.search}
+                  onReset={resetAll}
+                />
+              ) : (
+                table.rows.map((area) => {
+                  const busy = busyId === area._id;
+                  const city = cityNameOf(area);
+                  return (
+                    <TableRow
+                      key={area._id}
+                      className={cn(busy && "opacity-60")}
+                    >
+                      <TableCell className="font-medium">{area.name}</TableCell>
+                      <TableCell>
+                        {city ? (
+                          <Badge variant="outline">{city}</Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            Unassigned
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {area.areaSlug || "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+                        {formatDate(area.createdAt)}
+                      </TableCell>
                       {isAdmin && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(area._id)}
-                          >
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDelete(area._id)}
-                            disabled={deletingId === area._id}
-                          >
-                            {deletingId === area._id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            )}
-                          </Button>
-                        </>
+                        <TableCell>
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  asChild
+                                >
+                                  <Link
+                                    href={`/dashboard/area/edit/${area._id}`}
+                                  >
+                                    <SquarePen className="h-4 w-4" />
+                                    <span className="sr-only">Edit</span>
+                                  </Link>
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Edit</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  disabled={busy}
+                                  onClick={() => requestDelete(area)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
                       )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
-        )}
-      </div>
+        </div>
 
-      {/* View Dialog */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Area Details</DialogTitle>
-            <DialogDescription>
-              View detailed information about this area
-            </DialogDescription>
-          </DialogHeader>
-          {selectedArea && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-gray-500">Area Name</label>
-                <p className="text-lg font-semibold mt-1">{selectedArea.name}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">City</label>
-                <p className="text-lg font-semibold mt-1">{getCityName(selectedArea)}</p>
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-500">Created At</label>
-                <p className="text-lg font-semibold mt-1">
-                  {formatDate((selectedArea as any).createdAt)}
-                </p>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        {!loading && !error && table.matchedCount > 0 && (
+          <div className="p-5 pt-0">
+            <PaginationBar
+              page={table.page}
+              totalPages={table.totalPages}
+              pageSize={table.pageSize}
+              fromIndex={table.fromIndex}
+              toIndex={table.toIndex}
+              matchedCount={table.matchedCount}
+              itemLabel="areas"
+              onPageChange={table.setPage}
+              onPageSizeChange={table.setPageSize}
+            />
+          </div>
+        )}
+      </DataCard>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }

@@ -1,210 +1,347 @@
-"use client"
+"use client";
 
-import React, { useState } from 'react';
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import {
-  User, Mail, Phone, Save, Trash2, TrendingUp, Eye, Home,
-  MapPin, Briefcase, Camera, MessageSquare, Globe, Plus,
-  Github, Twitter, Linkedin
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
+  Building2,
+  CheckCircle2,
+  Info,
+  Loader2,
+  Mail,
+  Phone,
+  Save,
+  ShieldCheck,
+  User as UserIcon,
+} from "lucide-react";
+import { toast } from "sonner";
 
-export default function UserAccount() {
-  const [role] = useState('AGENT'); // Simulating role for testing UI sections
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { propertyApi, userApi } from "@/lib/api";
+import { useAuth } from "@/context/auth-context";
+import { DataCard, DataCardTitle, PageHeader } from "@/components/dashboard";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
+
+interface PropertyStats {
+  total: number;
+  published: number;
+  pending: number;
+}
+
+export default function AccountPage() {
+  const { user, isLoading } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [stats, setStats] = useState<PropertyStats | null>(null);
+
+  // Seed the form once the signed-in user is known.
+  useEffect(() => {
+    if (!user) return;
+    setName(user.name ?? "");
+    setPhone((user as { phone?: string }).phone ?? "");
+  }, [user]);
+
+  // Real listing counts. The dashboard endpoint is owner-scoped for non-admins,
+  // so this reflects the signed-in user's own properties.
+  const loadStats = useCallback(async () => {
+    try {
+      const data = await propertyApi.getAllProperties();
+      const list = Array.isArray(data) ? data : [];
+      setStats({
+        total: list.length,
+        published: list.filter(
+          (p: { status?: string }) => p.status === "approved",
+        ).length,
+        pending: list.filter((p: { status?: string }) => p.status === "pending")
+          .length,
+      });
+    } catch {
+      setStats(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) void loadStats();
+  }, [user, loadStats]);
+
+  const initials =
+    (user?.name ?? user?.email ?? "?")
+      .split(/[\s@.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "?";
+
+  const dirty = user
+    ? name !== (user.name ?? "") ||
+      phone !== ((user as { phone?: string }).phone ?? "")
+    : false;
+
+  const save = async () => {
+    if (!user) return;
+    if (!name.trim()) {
+      toast.error("Name cannot be empty");
+      return;
+    }
+    try {
+      setSaving(true);
+      await userApi.update(user._id, {
+        name: name.trim(),
+        phone: phone.trim(),
+      });
+      toast.success("Profile updated", {
+        description: "Sign in again to see the new name everywhere.",
+      });
+    } catch (err) {
+      console.error("Error updating profile:", err);
+      toast.error("Could not save profile", {
+        description: apiErrorMessage(err, "Please try again."),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (isLoading || !user) {
+    return (
+      <div className="mx-auto w-full max-w-4xl space-y-5">
+        <Skeleton className="h-9 w-56" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-4 md:p-8">
-      <div className="max-w-5xl mx-auto">
+    <div className="mx-auto w-full max-w-4xl space-y-5">
+      <PageHeader
+        title="My Account"
+        description="Your sign-in details and role on the platform."
+      />
 
-        {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-4xl font-extrabold text-gray-900 mb-2 tracking-tight">Profile Management</h1>
-          <p className="text-gray-500 text-lg">Manage your digital identity and professional presence</p>
+      {/* Identity */}
+      <DataCard>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+          <Avatar className="h-20 w-20">
+            <AvatarFallback className="bg-primary/10 text-2xl font-semibold text-primary">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-xl font-semibold">
+              {user.name || "No name set"}
+            </h2>
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Mail className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{user.email}</span>
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge variant={isAdmin ? "default" : "secondary"}>
+                <ShieldCheck className="mr-1 h-3 w-3" />
+                {user.role ?? "USER"}
+              </Badge>
+              {user.isActive === false ? (
+                <Badge variant="destructive">Inactive</Badge>
+              ) : (
+                <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                  Active
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Real counts, not the placeholder "12 listings / 4.9 rating" the
+              previous version showed to everybody. */}
+          {stats && (
+            <div className="grid shrink-0 grid-cols-3 gap-3 sm:gap-4">
+              <div className="rounded-xl bg-muted/60 px-4 py-3 text-center">
+                <p className="text-2xl font-semibold tabular-nums">
+                  {stats.total}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Listings
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/60 px-4 py-3 text-center">
+                <p className="text-2xl font-semibold tabular-nums text-emerald-700">
+                  {stats.published}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Live
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/60 px-4 py-3 text-center">
+                <p className="text-2xl font-semibold tabular-nums text-amber-700">
+                  {stats.pending}
+                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Pending
+                </p>
+              </div>
+            </div>
+          )}
         </div>
+      </DataCard>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      {/* Editable details */}
+      <DataCard>
+        <DataCardTitle hint="Shown to customers who contact you about a listing">
+          Contact details
+        </DataCardTitle>
 
-          {/* Left Side: Navigation/Avatar Preview */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 flex flex-col items-center text-center">
-              <div className="relative group mb-6">
-                <div className="w-32 h-32 rounded-full overflow-hidden ring-4 ring-gray-50 group-hover:ring-black/10 transition-all duration-300">
-                  <img
-                    src="https://api.dicebear.com/7.x/avataaars/svg?seed=Hamza"
-                    alt="Profile"
-                    className="w-full h-full object-cover"
+        <Separator className="my-5" />
+
+        {isAdmin ? (
+          <>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="account-name">Full name</Label>
+                <div className="relative">
+                  <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="account-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Your full name"
+                    className="pl-9"
                   />
                 </div>
-                <button className="absolute bottom-1 right-1 bg-black text-white p-2.5 rounded-xl shadow-lg hover:scale-110 active:scale-95 transition-all duration-300">
-                  <Camera className="w-5 h-5" />
-                </button>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">Hamza Aziz</h2>
-              <p className="text-primary font-semibold text-sm uppercase tracking-widest mb-4">Platinum Agent</p>
-              <div className="w-full h-px bg-gray-100 mb-6" />
-              <div className="grid grid-cols-2 gap-4 w-full">
-                <div className="bg-gray-50 rounded-2xl p-4 text-center">
-                  <p className="text-2xl font-bold text-gray-900">12</p>
-                  <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Listings</p>
-                </div>
-                <div className="bg-gray-50 rounded-2xl p-4 text-center">
-                  <p className="text-2xl font-bold text-gray-900">4.9</p>
-                  <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Rating</p>
-                </div>
-              </div>
-            </div>
 
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-              <h3 className="text-sm font-bold text-gray-900 mb-4 px-2 tracking-wider uppercase">Social Connectivity</h3>
               <div className="space-y-2">
-                {[
-                  { icon: <Linkedin className="w-5 h-5" />, label: "LinkedIn", connected: true },
-                  { icon: <Twitter className="w-5 h-5" />, label: "Twitter", connected: false },
-                  { icon: <Github className="w-5 h-5" />, label: "Github", connected: false },
-                ].map((social, i) => (
-                  <button key={i} className="w-full flex items-center justify-between p-3 rounded-2xl hover:bg-gray-50 transition-colors group">
-                    <div className="flex items-center gap-3">
-                      <div className="text-gray-400 group-hover:text-black transition-colors">{social.icon}</div>
-                      <span className="font-semibold text-gray-600 group-hover:text-gray-900">{social.label}</span>
-                    </div>
-                    {social.connected ? (
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full uppercase">Connected</span>
-                    ) : (
-                      <Plus className="w-4 h-4 text-gray-400" />
-                    )}
-                  </button>
-                ))}
+                <Label htmlFor="account-phone">Phone number</Label>
+                <div className="relative">
+                  <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="account-phone"
+                    type="tel"
+                    value={phone}
+                    onChange={(event) => setPhone(event.target.value)}
+                    placeholder="+92 300 1234567"
+                    className="pl-9"
+                  />
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Right Side: Form Sections */}
-          <div className="lg:col-span-8 space-y-6">
-
-            {/* Personal Details */}
-            <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="p-8">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 bg-black rounded-2xl flex items-center justify-center">
-                    <User className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Personal Information</h2>
-                    <p className="text-gray-500 text-sm">Update your basic identification details</p>
-                  </div>
+              <div className="space-y-2">
+                <Label htmlFor="account-email">Email address</Label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="account-email"
+                    value={user.email}
+                    disabled
+                    className="pl-9"
+                  />
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Email is used to sign in and cannot be changed here.
+                </p>
+              </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700 ml-1">Full Name</label>
-                    <input
-                      type="text"
-                      placeholder="Hamza Aziz"
-                      className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-black transition-all duration-300 outline-none font-medium"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700 ml-1">Email Address</label>
-                    <input
-                      type="email"
-                      placeholder="hamza@rentghar.com"
-                      className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-black transition-all duration-300 outline-none font-medium"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700 ml-1">Phone Number</label>
-                    <input
-                      type="tel"
-                      placeholder="+92 300 1234567"
-                      className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-black transition-all duration-300 outline-none font-medium"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700 ml-1">WhatsApp Number</label>
-                    <input
-                      type="tel"
-                      placeholder="+92 300 1234567"
-                      className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-black transition-all duration-300 outline-none font-medium"
-                    />
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="account-role">Role</Label>
+                <Input id="account-role" value={user.role ?? "USER"} disabled />
+                <p className="text-xs text-muted-foreground">
+                  Roles are managed from{" "}
+                  <Link href="/dashboard/users" className="underline">
+                    Users
+                  </Link>
+                  .
+                </p>
               </div>
             </div>
 
-            {/* Professional Details (Conditional for Agents) */}
-            {role === 'AGENT' && (
-              <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-8">
-                  <div className="flex items-center gap-4 mb-8">
-                    <div className="w-12 h-12 bg-emerald-600 rounded-2xl flex items-center justify-center">
-                      <Briefcase className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-900">Professional Branding</h2>
-                      <p className="text-gray-500 text-sm">Managed your agency and business presence</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-6">
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 ml-1">Agency Name</label>
-                        <input
-                          type="text"
-                          placeholder="Platinum Real Estate"
-                          className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-black transition-all duration-300 outline-none font-medium"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-bold text-gray-700 ml-1">Experience (Years)</label>
-                        <input
-                          type="number"
-                          placeholder="10"
-                          className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-black transition-all duration-300 outline-none font-medium"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 ml-1">Professional Bio</label>
-                      <textarea
-                        rows={4}
-                        placeholder="Tell clients about your expertise and history..."
-                        className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-black transition-all duration-300 outline-none font-medium resize-none"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-gray-700 ml-1">Office Address</label>
-                      <div className="relative">
-                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="DHA Phase 6, Lahore"
-                          className="w-full pl-12 pr-5 py-4 bg-gray-50 border-2 border-transparent rounded-2xl focus:bg-white focus:border-black transition-all duration-300 outline-none font-medium"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Bottom Actions */}
-            <div className="flex flex-col sm:flex-row gap-4 items-center">
-              <Button size="lg" className="w-full sm:w-auto h-16 px-10 rounded-2xl bg-black hover:bg-black/90 text-lg font-bold shadow-xl shadow-black/10 transition-all duration-300 active:scale-95 group">
-                <Save className="mr-2 w-5 h-5 transition-transform group-hover:rotate-12" />
-                Save Changes
+            <div className="mt-6 flex items-center gap-3">
+              <Button onClick={() => void save()} disabled={saving || !dirty}>
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Save changes
               </Button>
-
-              <Button variant="ghost" className="w-full sm:w-auto h-16 px-8 rounded-2xl text-red-600 hover:text-red-700 hover:bg-red-50 font-bold transition-all duration-300 group">
-                <Trash2 className="mr-2 w-5 h-5 transition-transform group-hover:scale-110" />
-                Delete Account
-              </Button>
+              {dirty && !saving && (
+                <span className="text-sm text-muted-foreground">
+                  Unsaved changes
+                </span>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/*
+              PATCH /users/:id sits behind AdminGuard and there is no
+              self-service profile endpoint, so a non-admin cannot save their
+              own details yet. Showing the real values read-only is honest;
+              the previous page showed editable inputs that silently did
+              nothing on submit.
+            */}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Full name
+                </p>
+                <p className="mt-1 font-medium">{user.name || "—"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Email
+                </p>
+                <p className="mt-1 font-medium">{user.email}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Phone
+                </p>
+                <p className="mt-1 font-medium">
+                  {(user as { phone?: string }).phone || "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Role
+                </p>
+                <p className="mt-1 font-medium">{user.role ?? "USER"}</p>
+              </div>
             </div>
 
-          </div>
+            <div className="mt-6 flex gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+              <Info className="mt-0.5 h-4.5 w-4.5 shrink-0 text-blue-600" />
+              <p>
+                To change your name or phone number, ask an administrator.
+                Self-service profile editing is not available yet.
+              </p>
+            </div>
+          </>
+        )}
+      </DataCard>
+
+      {/* Where to go next */}
+      <DataCard>
+        <DataCardTitle>Related</DataCardTitle>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/property">
+              <Building2 className="mr-2 h-4 w-4" />
+              My Listings
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/my-subscription">My Subscription</Link>
+          </Button>
         </div>
-      </div>
+      </DataCard>
     </div>
   );
 }

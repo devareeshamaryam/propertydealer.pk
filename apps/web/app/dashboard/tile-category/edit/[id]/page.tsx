@@ -1,12 +1,12 @@
- 'use client';
-import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { toast } from 'sonner';
-import { Plus, Trash2, Loader2, ArrowLeft, Save } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import api from '@/lib/api';
+"use client";
+import { useState, useEffect } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { toast } from "sonner";
+import { Plus, Trash2, Loader2, ArrowLeft, Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import api from "@/lib/api";
 
 interface Subcategory {
   name: string;
@@ -14,7 +14,11 @@ interface Subcategory {
 }
 
 function generateSlug(text: string): string {
-  return text.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export default function EditTileCategoryPage() {
@@ -23,17 +27,17 @@ export default function EditTileCategoryPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [imagePreview, setImagePreview] = useState<string>("");
 
   const [form, setForm] = useState({
-    name: '',
-    slug: '',
+    name: "",
+    slug: "",
     order: 0,
     isActive: true,
   });
 
   const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
-  const [newSub, setNewSub] = useState({ name: '', slug: '' });
+  const [newSub, setNewSub] = useState({ name: "", slug: "" });
 
   useEffect(() => {
     fetchCategory();
@@ -52,8 +56,8 @@ export default function EditTileCategoryPage() {
       setSubcategories(cat.subcategories ?? []);
       if (cat.image) setImagePreview(cat.image);
     } catch (error) {
-      toast.error('Failed to fetch category');
-      router.push('/dashboard/tile-category');
+      toast.error("Failed to fetch category");
+      router.push("/dashboard/tile-category");
     } finally {
       setLoading(false);
     }
@@ -70,9 +74,12 @@ export default function EditTileCategoryPage() {
     if (!newSub.name.trim()) return;
     setSubcategories((prev) => [
       ...prev,
-      { name: newSub.name.trim(), slug: newSub.slug || generateSlug(newSub.name) },
+      {
+        name: newSub.name.trim(),
+        slug: newSub.slug || generateSlug(newSub.name),
+      },
     ]);
-    setNewSub({ name: '', slug: '' });
+    setNewSub({ name: "", slug: "" });
   };
 
   const removeSubcategory = (index: number) => {
@@ -101,7 +108,7 @@ export default function EditTileCategoryPage() {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) {
-      toast.error('Category name is required');
+      toast.error("Category name is required");
       return;
     }
 
@@ -110,14 +117,14 @@ export default function EditTileCategoryPage() {
 
       if (imageFile) {
         const formData = new FormData();
-        formData.append('name', form.name.trim());
-        formData.append('slug', form.slug.trim());
-        formData.append('order', String(form.order));
-        formData.append('isActive', String(form.isActive));
-        formData.append('subcategories', JSON.stringify(subcategories));
-        formData.append('image', imageFile);
+        formData.append("name", form.name.trim());
+        formData.append("slug", form.slug.trim());
+        formData.append("order", String(form.order));
+        formData.append("isActive", String(form.isActive));
+        formData.append("subcategories", JSON.stringify(subcategories));
+        formData.append("image", imageFile);
         await api.put(`/tile-category/${id}`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+          headers: { "Content-Type": "multipart/form-data" },
         });
       } else {
         await api.put(`/tile-category/${id}`, {
@@ -129,10 +136,12 @@ export default function EditTileCategoryPage() {
         });
       }
 
-      toast.success('Category updated successfully!');
-      router.push('/dashboard/tile-category');
+      toast.success("Category updated successfully!");
+      router.push("/dashboard/tile-category");
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to update category');
+      toast.error(
+        error?.response?.data?.message || "Failed to update category",
+      );
     } finally {
       setSaving(false);
     }
@@ -153,13 +162,16 @@ export default function EditTileCategoryPage() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Back
         </Button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Edit Tile Category</h1>
-          <p className="text-gray-500 mt-1">Update category details and subcategories</p>
+          <h1 className="text-2xl font-semibold text-gray-900">
+            Edit Tile Category
+          </h1>
+          <p className="text-gray-500 mt-1">
+            Update category details and subcategories
+          </p>
         </div>
       </div>
 
       <div className="bg-white rounded-lg border p-6 space-y-5">
-
         {/* Name */}
         <div className="space-y-1.5">
           <Label>Category Name *</Label>
@@ -185,7 +197,11 @@ export default function EditTileCategoryPage() {
         <div className="space-y-1.5">
           <Label>Category Image</Label>
           {imagePreview && (
-            <img src={imagePreview} alt="Current" className="w-32 h-24 object-cover rounded-lg border mb-2" />
+            <img
+              src={imagePreview}
+              alt="Current"
+              className="w-32 h-24 object-cover rounded-lg border mb-2"
+            />
           )}
           <input
             type="file"
@@ -193,7 +209,9 @@ export default function EditTileCategoryPage() {
             onChange={handleImageChange}
             className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
           />
-          <p className="text-xs text-gray-400">Upload new image to replace current one</p>
+          <p className="text-xs text-gray-400">
+            Upload new image to replace current one
+          </p>
         </div>
 
         {/* Order */}
@@ -202,7 +220,9 @@ export default function EditTileCategoryPage() {
           <Input
             type="number"
             value={form.order}
-            onChange={(e) => setForm((f) => ({ ...f, order: Number(e.target.value) }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, order: Number(e.target.value) }))
+            }
             className="w-32"
           />
           <p className="text-xs text-gray-400">Lower number = shown first</p>
@@ -214,10 +234,14 @@ export default function EditTileCategoryPage() {
             type="checkbox"
             id="isActive"
             checked={form.isActive}
-            onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, isActive: e.target.checked }))
+            }
             className="accent-black w-4 h-4"
           />
-          <Label htmlFor="isActive" className="cursor-pointer">Active (visible on website)</Label>
+          <Label htmlFor="isActive" className="cursor-pointer">
+            Active (visible on website)
+          </Label>
         </div>
 
         {/* Subcategories */}
@@ -227,7 +251,10 @@ export default function EditTileCategoryPage() {
           {subcategories.length > 0 && (
             <div className="space-y-2">
               {subcategories.map((sub, i) => (
-                <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                <div
+                  key={i}
+                  className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2"
+                >
                   <div className="flex-1 flex gap-3">
                     <Input
                       value={sub.name}
@@ -242,7 +269,11 @@ export default function EditTileCategoryPage() {
                       placeholder="slug"
                     />
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => removeSubcategory(i)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeSubcategory(i)}
+                  >
                     <Trash2 className="w-4 h-4 text-red-500" />
                   </Button>
                 </div>
@@ -256,12 +287,14 @@ export default function EditTileCategoryPage() {
               <Input
                 placeholder="e.g. Ceramic Floor Tiles"
                 value={newSub.name}
-                onChange={(e) => setNewSub((s) => ({
-                  ...s,
-                  name: e.target.value,
-                  slug: generateSlug(e.target.value),
-                }))}
-                onKeyDown={(e) => e.key === 'Enter' && addSubcategory()}
+                onChange={(e) =>
+                  setNewSub((s) => ({
+                    ...s,
+                    name: e.target.value,
+                    slug: generateSlug(e.target.value),
+                  }))
+                }
+                onKeyDown={(e) => e.key === "Enter" && addSubcategory()}
               />
             </div>
             <div className="flex-1 space-y-1">
@@ -269,24 +302,42 @@ export default function EditTileCategoryPage() {
               <Input
                 placeholder="ceramic-floor-tiles"
                 value={newSub.slug}
-                onChange={(e) => setNewSub((s) => ({ ...s, slug: e.target.value }))}
-                onKeyDown={(e) => e.key === 'Enter' && addSubcategory()}
+                onChange={(e) =>
+                  setNewSub((s) => ({ ...s, slug: e.target.value }))
+                }
+                onKeyDown={(e) => e.key === "Enter" && addSubcategory()}
               />
             </div>
-            <Button variant="outline" onClick={addSubcategory} className="mb-0.5">
+            <Button
+              variant="outline"
+              onClick={addSubcategory}
+              className="mb-0.5"
+            >
               <Plus className="w-4 h-4" />
             </Button>
           </div>
-          <p className="text-xs text-gray-400">Press Enter or click + to add subcategory</p>
+          <p className="text-xs text-gray-400">
+            Press Enter or click + to add subcategory
+          </p>
         </div>
       </div>
 
       <div className="flex gap-3">
-        <Button onClick={handleSubmit} disabled={saving} className="flex items-center gap-2">
-          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? 'Saving...' : 'Save Changes'}
+        <Button
+          onClick={handleSubmit}
+          disabled={saving}
+          className="flex items-center gap-2"
+        >
+          {saving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          {saving ? "Saving..." : "Save Changes"}
         </Button>
-        <Button variant="outline" onClick={() => router.back()}>Cancel</Button>
+        <Button variant="outline" onClick={() => router.back()}>
+          Cancel
+        </Button>
       </div>
     </div>
   );

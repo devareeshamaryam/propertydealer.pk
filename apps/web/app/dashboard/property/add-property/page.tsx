@@ -1,277 +1,307 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
-import { Loader2, X, Plus, Image as ImageIcon } from 'lucide-react'
-import { propertyApi } from '@/lib/api'
-import cityApi from '@/lib/api/city/city.api'
-import areaApi from '@/lib/api/area/area.api'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Loader2, X, Plus, Image as ImageIcon } from "lucide-react";
+import { propertyApi } from "@/lib/api";
+import cityApi from "@/lib/api/city/city.api";
+import areaApi from "@/lib/api/area/area.api";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { ImagePickerDialog, type GalleryImageItem } from '@/components/ImagePickerDialog'
-import { toTitleCase } from '@/lib/utils'
-import dynamic from 'next/dynamic'
-const RichEditor = dynamic(() => import('@/components/RichEditor'), {
+} from "@/components/ui/dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  ImagePickerDialog,
+  type GalleryImageItem,
+} from "@/components/ImagePickerDialog";
+import { toTitleCase } from "@/lib/utils";
+import dynamic from "next/dynamic";
+const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ssr: false,
-  loading: () => <div className="h-[200px] w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">Loading Editor...</div>
-})
+  loading: () => (
+    <div className="h-[200px] w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">
+      Loading Editor...
+    </div>
+  ),
+});
 
 // Dynamically import MapPicker as it uses window object
-const MapPicker = dynamic(() => import('@/components/MapPicker'), {
+const MapPicker = dynamic(() => import("@/components/MapPicker"), {
   ssr: false,
-  loading: () => <div className="h-[300px] w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">Loading Map...</div>
-})
+  loading: () => (
+    <div className="h-[300px] w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center text-gray-400">
+      Loading Map...
+    </div>
+  ),
+});
 
 interface City {
-  _id: string
-  name: string
-  state: string
-  country: string
+  _id: string;
+  name: string;
+  state: string;
+  country: string;
 }
 
 interface Area {
-  _id: string
-  areaslug: string
-  name: string
-  city: string | City
+  _id: string;
+  areaslug: string;
+  name: string;
+  city: string | City;
 }
 
 export default function AddProperty() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   // Form state
-  const [listingType, setListingType] = useState<'rent' | 'sale'>('rent')
-  const [propertyType, setPropertyType] = useState('')
-  const [cityId, setCityId] = useState('')
-  const [areaId, setAreaId] = useState('')
-  const [title, setTitle] = useState('')
-  const [slug, setSlug] = useState('')
-  const [isSlugEdited, setIsSlugEdited] = useState(false)
-  const [location, setLocation] = useState('')
-  const [bedrooms, setBedrooms] = useState('')
-  const [bathrooms, setBathrooms] = useState('')
-  const [areaSize, setAreaSize] = useState('') // Property size in sq ft
-  const [price, setPrice] = useState('')
-  const [marla, setMarla] = useState('')
-  const [kanal, setKanal] = useState('')
-  const [description, setDescription] = useState('')
-  const [contactNumber, setContactNumber] = useState('')
-  const [whatsappNumber, setWhatsappNumber] = useState('')
-  const [latitude, setLatitude] = useState<number | undefined>()
-  const [longitude, setLongitude] = useState<number | undefined>()
-  const [videoUrl, setVideoUrl] = useState('')
+  const [listingType, setListingType] = useState<"rent" | "sale">("rent");
+  const [propertyType, setPropertyType] = useState("");
+  const [cityId, setCityId] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [title, setTitle] = useState("");
+  const [slug, setSlug] = useState("");
+  const [isSlugEdited, setIsSlugEdited] = useState(false);
+  const [location, setLocation] = useState("");
+  const [bedrooms, setBedrooms] = useState("");
+  const [bathrooms, setBathrooms] = useState("");
+  const [areaSize, setAreaSize] = useState(""); // Property size in sq ft
+  const [price, setPrice] = useState("");
+  const [marla, setMarla] = useState("");
+  const [kanal, setKanal] = useState("");
+  const [description, setDescription] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [latitude, setLatitude] = useState<number | undefined>();
+  const [longitude, setLongitude] = useState<number | undefined>();
+  const [videoUrl, setVideoUrl] = useState("");
 
   // Cities and Areas state
-  const [cities, setCities] = useState<City[]>([])
-  const [areas, setAreas] = useState<Area[]>([])
-  const [loadingCities, setLoadingCities] = useState(true)
-  const [loadingAreas, setLoadingAreas] = useState(false)
+  const [cities, setCities] = useState<City[]>([]);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [loadingCities, setLoadingCities] = useState(true);
+  const [loadingAreas, setLoadingAreas] = useState(false);
 
   // Image state - store both File objects and preview URLs
-  const [mainImageFile, setMainImageFile] = useState<File | null>(null)
-  const [mainImagePreview, setMainImagePreview] = useState<string | null>(null)
-  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([])
-  const [additionalImagePreviews, setAdditionalImagePreviews] = useState<string[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [features, setFeatures] = useState<string[]>([''])
+  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
+  const [mainImagePreview, setMainImagePreview] = useState<string | null>(null);
+  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]);
+  const [additionalImagePreviews, setAdditionalImagePreviews] = useState<
+    string[]
+  >([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [features, setFeatures] = useState<string[]>([""]);
 
   // Gallery image selection state
-  const [mainImageSource, setMainImageSource] = useState<'upload' | 'gallery'>('upload')
-  const [mainImageUrl, setMainImageUrl] = useState<string | null>(null)
-  const [galleryDialogOpen, setGalleryDialogOpen] = useState(false)
-  const [showAddCityModal, setShowAddCityModal] = useState(false)
-  const [showAddAreaModal, setShowAddAreaModal] = useState(false)
-  const [newCityName, setNewCityName] = useState('')
-  const [newAreaName, setNewAreaName] = useState('')
-  const [isAddingLocation, setIsAddingLocation] = useState(false)
+  const [mainImageSource, setMainImageSource] = useState<"upload" | "gallery">(
+    "upload",
+  );
+  const [mainImageUrl, setMainImageUrl] = useState<string | null>(null);
+  const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
+  const [showAddCityModal, setShowAddCityModal] = useState(false);
+  const [showAddAreaModal, setShowAddAreaModal] = useState(false);
+  const [newCityName, setNewCityName] = useState("");
+  const [newAreaName, setNewAreaName] = useState("");
+  const [isAddingLocation, setIsAddingLocation] = useState(false);
 
   // Fetch cities on component mount
   useEffect(() => {
     const fetchCitiesData = async () => {
       try {
-        setLoadingCities(true)
-        const data = await cityApi.getAll()
-        setCities(data)
+        setLoadingCities(true);
+        const data = await cityApi.getAll();
+        setCities(data);
       } catch (error: any) {
-        console.error('Error fetching cities:', error)
-        toast.error('Error', {
-          description: 'Failed to load cities. Please try again.',
-        })
+        console.error("Error fetching cities:", error);
+        toast.error("Error", {
+          description: "Failed to load cities. Please try again.",
+        });
       } finally {
-        setLoadingCities(false)
+        setLoadingCities(false);
       }
-    }
-    fetchCitiesData()
-  }, [])
+    };
+    fetchCitiesData();
+  }, []);
 
   // Fetch areas when city changes
   useEffect(() => {
     const fetchAreasData = async () => {
       if (!cityId) {
-        setAreas([])
-        setAreaId('') // Reset area when city is cleared
-        return
+        setAreas([]);
+        setAreaId(""); // Reset area when city is cleared
+        return;
       }
 
       try {
-        setLoadingAreas(true)
-        const data = await areaApi.getAll(cityId)
-        setAreas(data)
-        setAreaId('') // Reset area selection when city changes
+        setLoadingAreas(true);
+        const data = await areaApi.getAll(cityId);
+        setAreas(data);
+        setAreaId(""); // Reset area selection when city changes
       } catch (error: any) {
-        console.error('Error fetching areas:', error)
-        toast.error('Error', {
-          description: 'Failed to load areas. Please try again.',
-        })
-        setAreas([])
+        console.error("Error fetching areas:", error);
+        toast.error("Error", {
+          description: "Failed to load areas. Please try again.",
+        });
+        setAreas([]);
       } finally {
-        setLoadingAreas(false)
+        setLoadingAreas(false);
       }
-    }
+    };
 
-    fetchAreasData()
-  }, [cityId])
+    fetchAreasData();
+  }, [cityId]);
 
   const handleCreateCity = async () => {
-    if (!newCityName.trim()) return
+    if (!newCityName.trim()) return;
     try {
-      setIsAddingLocation(true)
-      const data = await cityApi.create({ name: toTitleCase(newCityName.trim()) })
-      toast.success('City added successfully')
-      const allCities = await cityApi.getAll()
-      setCities(allCities)
-      setCityId(String(data._id))
-      setShowAddCityModal(false)
-      setNewCityName('')
+      setIsAddingLocation(true);
+      const data = await cityApi.create({
+        name: toTitleCase(newCityName.trim()),
+      });
+      toast.success("City added successfully");
+      const allCities = await cityApi.getAll();
+      setCities(allCities);
+      setCityId(String(data._id));
+      setShowAddCityModal(false);
+      setNewCityName("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add city')
+      toast.error(error.response?.data?.message || "Failed to add city");
     } finally {
-      setIsAddingLocation(false)
+      setIsAddingLocation(false);
     }
-  }
+  };
 
   const handleCreateArea = async () => {
-    if (!newAreaName.trim() || !cityId) return
+    if (!newAreaName.trim() || !cityId) return;
     try {
-      setIsAddingLocation(true)
-      const slug = generateSlug(newAreaName)
-      const data = await areaApi.create({ name: toTitleCase(newAreaName.trim()), city: cityId, areaSlug: slug })
-      toast.success('Area added successfully')
-      const allAreas = await areaApi.getAll(cityId)
-      setAreas(allAreas)
-      setAreaId(String(data._id))
-      setShowAddAreaModal(false)
-      setNewAreaName('')
+      setIsAddingLocation(true);
+      const slug = generateSlug(newAreaName);
+      const data = await areaApi.create({
+        name: toTitleCase(newAreaName.trim()),
+        city: cityId,
+        areaSlug: slug,
+      });
+      toast.success("Area added successfully");
+      const allAreas = await areaApi.getAll(cityId);
+      setAreas(allAreas);
+      setAreaId(String(data._id));
+      setShowAddAreaModal(false);
+      setNewAreaName("");
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to add area')
+      toast.error(error.response?.data?.message || "Failed to add area");
     } finally {
-      setIsAddingLocation(false)
+      setIsAddingLocation(false);
     }
-  }
+  };
 
   const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      setMainImageSource('upload')
-      setMainImageUrl(null)
-      setMainImageFile(file)
-      const reader = new FileReader()
+      setMainImageSource("upload");
+      setMainImageUrl(null);
+      setMainImageFile(file);
+      const reader = new FileReader();
       reader.onloadend = () => {
-        setMainImagePreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+        setMainImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
-  }
+  };
 
   const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
+    const files = e.target.files;
     if (files && files.length > 0) {
-      const newFiles = Array.from(files)
-      setAdditionalImageFiles(prev => [...prev, ...newFiles])
+      const newFiles = Array.from(files);
+      setAdditionalImageFiles((prev) => [...prev, ...newFiles]);
 
-      newFiles.forEach(file => {
-        const reader = new FileReader()
+      newFiles.forEach((file) => {
+        const reader = new FileReader();
         reader.onloadend = () => {
-          setAdditionalImagePreviews(prev => [...prev, reader.result as string])
-        }
-        reader.readAsDataURL(file)
-      })
+          setAdditionalImagePreviews((prev) => [
+            ...prev,
+            reader.result as string,
+          ]);
+        };
+        reader.readAsDataURL(file);
+      });
     }
-  }
+  };
 
   const removeMainImage = () => {
-    setMainImageFile(null)
-    setMainImagePreview(null)
-    setMainImageUrl(null)
-  }
+    setMainImageFile(null);
+    setMainImagePreview(null);
+    setMainImageUrl(null);
+  };
 
   const removeAdditionalImage = (index: number) => {
-    setAdditionalImageFiles(prev => prev.filter((_, i) => i !== index))
-    setAdditionalImagePreviews(prev => prev.filter((_, i) => i !== index))
-  }
+    setAdditionalImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setAdditionalImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const addFeature = () => {
-    setFeatures([...features, ''])
-  }
+    setFeatures([...features, ""]);
+  };
 
   const updateFeature = (index: number, value: string) => {
-    const newFeatures = [...features]
-    newFeatures[index] = value
-    setFeatures(newFeatures)
-  }
+    const newFeatures = [...features];
+    newFeatures[index] = value;
+    setFeatures(newFeatures);
+  };
 
   const removeFeature = (index: number) => {
-    setFeatures(features.filter((_, i) => i !== index))
-  }
+    setFeatures(features.filter((_, i) => i !== index));
+  };
 
   // Map frontend propertyType to backend format (lowercase)
   const mapPropertyTypeToBackend = (type: string): string => {
     const mapping: Record<string, string> = {
-      'House': 'house',
-      'Apartment': 'apartment',
-      'Flat': 'flat',
-      'Commercial': 'commercial',
-      'Plot': 'plot',
-      'Land': 'land',
-      'Shop': 'shop',
-      'Office': 'office',
-      'Factory': 'factory',
-      'Hotel': 'hotel',
-      'Restaurant': 'restaurant',
-      'Other': 'other'
-    }
-    return mapping[type] || type.toLowerCase()
-  }
+      House: "house",
+      Apartment: "apartment",
+      Flat: "flat",
+      Commercial: "commercial",
+      Plot: "plot",
+      Land: "land",
+      Shop: "shop",
+      Office: "office",
+      Factory: "factory",
+      Hotel: "hotel",
+      Restaurant: "restaurant",
+      Other: "other",
+    };
+    return mapping[type] || type.toLowerCase();
+  };
 
   const generateSlug = (value: string) =>
     value
       .toLowerCase()
       .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
 
   const handleSubmit = async (e: React.FormEvent, asDraft: boolean = false) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    const computedSlug = slug?.trim() ? slug : generateSlug(title)
+    const computedSlug = slug?.trim() ? slug : generateSlug(title);
     if (!slug?.trim() && computedSlug) {
-      setSlug(computedSlug)
-      setIsSlugEdited(false)
+      setSlug(computedSlug);
+      setIsSlugEdited(false);
     }
 
     // Validation. Drafts are intentionally lenient — only the title is required
@@ -279,111 +309,131 @@ export default function AddProperty() {
     // draft behaviour). Publish/submit still requires the full set of fields.
     if (asDraft) {
       if (!title) {
-        toast.error('Please enter at least a title to save as draft')
-        return
+        toast.error("Please enter at least a title to save as draft");
+        return;
       }
     } else {
-      if (!propertyType || !cityId || !areaId || !title || !computedSlug || !location || !bedrooms || !bathrooms || !areaSize || !price || !description || !contactNumber) {
-        toast.error('Please fill in all required fields')
-        return
+      if (
+        !propertyType ||
+        !cityId ||
+        !areaId ||
+        !title ||
+        !computedSlug ||
+        !location ||
+        !bedrooms ||
+        !bathrooms ||
+        !areaSize ||
+        !price ||
+        !description ||
+        !contactNumber
+      ) {
+        toast.error("Please fill in all required fields");
+        return;
       }
 
       if (!mainImageFile && !mainImageUrl) {
-        toast.error('Please upload a main photo or select one from the gallery')
-        return
+        toast.error(
+          "Please upload a main photo or select one from the gallery",
+        );
+        return;
       }
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
       // Create FormData
-      const formData = new FormData()
+      const formData = new FormData();
 
       // Add main photo (either uploaded file or existing URL from gallery)
       if (mainImageFile) {
-        formData.append('mainPhoto', mainImageFile)
+        formData.append("mainPhoto", mainImageFile);
       } else if (mainImageUrl) {
-        formData.append('mainPhotoUrl', mainImageUrl)
+        formData.append("mainPhotoUrl", mainImageUrl);
       }
 
       // Add additional photos (only non-null files)
       additionalImageFiles.forEach((file) => {
         if (file) {
-          formData.append('additionalPhotos', file)
+          formData.append("additionalPhotos", file);
         }
-      })
+      });
 
       // Add JSON data as separate fields (backend expects these in the body)
-      formData.append('listingType', listingType)
-      formData.append('propertyType', mapPropertyTypeToBackend(propertyType))
-      formData.append('area', areaId) // Area ID (ObjectId)
-      formData.append('title', title)
-      formData.append('slug', computedSlug)
-      formData.append('location', location)
-      formData.append('bedrooms', bedrooms)
-      formData.append('bathrooms', bathrooms)
-      formData.append('areaSize', areaSize) // Property size in sq ft
-      formData.append('price', price)
-      if (marla) formData.append('marla', marla)
-      if (kanal) formData.append('kanal', kanal)
-      formData.append('description', description)
-      formData.append('contactNumber', contactNumber)
-      formData.append('whatsappNumber', whatsappNumber || contactNumber)
+      formData.append("listingType", listingType);
+      formData.append("propertyType", mapPropertyTypeToBackend(propertyType));
+      formData.append("area", areaId); // Area ID (ObjectId)
+      formData.append("title", title);
+      formData.append("slug", computedSlug);
+      formData.append("location", location);
+      formData.append("bedrooms", bedrooms);
+      formData.append("bathrooms", bathrooms);
+      formData.append("areaSize", areaSize); // Property size in sq ft
+      formData.append("price", price);
+      if (marla) formData.append("marla", marla);
+      if (kanal) formData.append("kanal", kanal);
+      formData.append("description", description);
+      formData.append("contactNumber", contactNumber);
+      formData.append("whatsappNumber", whatsappNumber || contactNumber);
 
-      if (latitude !== undefined) formData.append('latitude', latitude.toString())
-      if (longitude !== undefined) formData.append('longitude', longitude.toString())
-      if (videoUrl) formData.append('videoUrl', videoUrl)
+      if (latitude !== undefined)
+        formData.append("latitude", latitude.toString());
+      if (longitude !== undefined)
+        formData.append("longitude", longitude.toString());
+      if (videoUrl) formData.append("videoUrl", videoUrl);
 
       // Add features (filter out empty strings)
-      const validFeatures = features.filter(f => f.trim() !== '')
+      const validFeatures = features.filter((f) => f.trim() !== "");
       if (validFeatures.length > 0) {
         validFeatures.forEach((feature, index) => {
-          formData.append(`features[${index}]`, feature)
-        })
+          formData.append(`features[${index}]`, feature);
+        });
       }
 
       // Indicate intent to backend so it can apply role-based status logic
-      if (asDraft) formData.append('status', 'draft')
+      if (asDraft) formData.append("status", "draft");
 
       // Submit to API
-      const response = await propertyApi.create(formData)
+      const response = await propertyApi.create(formData);
 
       const successMsg = asDraft
-        ? 'Saved as draft'
-        : 'Property submitted successfully!'
+        ? "Saved as draft"
+        : "Property submitted successfully!";
       const successDesc = asDraft
-        ? 'You can find it under Drafts and publish it later from the dashboard.'
-        : 'Your property is pending approval and will be visible once approved.'
-      toast.success(successMsg, { description: successDesc })
+        ? "You can find it under Drafts and publish it later from the dashboard."
+        : "Your property is pending approval and will be visible once approved.";
+      toast.success(successMsg, { description: successDesc });
 
       // Redirect to dashboard after a short delay
       setTimeout(() => {
-        router.push('/dashboard/property')
-        router.refresh()
-      }, 1500)
-
+        router.push("/dashboard/property");
+        router.refresh();
+      }, 1500);
     } catch (error: any) {
-      console.error('Error submitting property:', error)
+      console.error("Error submitting property:", error);
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        'Failed to submit property. Please try again.'
+        "Failed to submit property. Please try again.";
 
-      toast.error('Submission Failed', {
+      toast.error("Submission Failed", {
         description: errorMessage,
-      })
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="w-full">
       <div className="max-w-5xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Add New Property</h1>
-          <p className="text-gray-600 mb-8">Fill in the details to list your property</p>
+          <h1 className="text-2xl font-semibold text-gray-800 mb-2">
+            Add New Property
+          </h1>
+          <p className="text-gray-600 mb-8">
+            Fill in the details to list your property
+          </p>
 
           <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
             {/* Listing Type */}
@@ -394,21 +444,23 @@ export default function AddProperty() {
               <div className="flex gap-4">
                 <button
                   type="button"
-                  onClick={() => setListingType('rent')}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${listingType === 'rent'
-                    ? 'bg-gray-800 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                  onClick={() => setListingType("rent")}
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                    listingType === "rent"
+                      ? "bg-gray-800 text-white shadow-md"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
                 >
                   For Rent
                 </button>
                 <button
                   type="button"
-                  onClick={() => setListingType('sale')}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${listingType === 'sale'
-                    ? 'bg-gray-800 text-white shadow-md'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                  onClick={() => setListingType("sale")}
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+                    listingType === "sale"
+                      ? "bg-gray-800 text-white shadow-md"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
                 >
                   For Sale
                 </button>
@@ -420,7 +472,11 @@ export default function AddProperty() {
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Property Type *
               </label>
-              <Select value={propertyType} onValueChange={setPropertyType} disabled={isLoading}>
+              <Select
+                value={propertyType}
+                onValueChange={setPropertyType}
+                disabled={isLoading}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select property type" />
                 </SelectTrigger>
@@ -447,14 +503,25 @@ export default function AddProperty() {
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   City *
                 </label>
-                <Select value={cityId} onValueChange={setCityId} disabled={isLoading || loadingCities}>
+                <Select
+                  value={cityId}
+                  onValueChange={setCityId}
+                  disabled={isLoading || loadingCities}
+                >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder={loadingCities ? "Loading cities..." : "Select city"} />
+                    <SelectValue
+                      placeholder={
+                        loadingCities ? "Loading cities..." : "Select city"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {cities.map((city) => (
-                      <SelectItem key={String(city._id)} value={String(city._id)}>
-                        {city.name || 'Unnamed City'}
+                      <SelectItem
+                        key={String(city._id)}
+                        value={String(city._id)}
+                      >
+                        {city.name || "Unnamed City"}
                       </SelectItem>
                     ))}
                     <div
@@ -474,7 +541,11 @@ export default function AddProperty() {
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Area *
                 </label>
-                <Select value={areaId} onValueChange={setAreaId} disabled={isLoading || loadingAreas || !cityId}>
+                <Select
+                  value={areaId}
+                  onValueChange={setAreaId}
+                  disabled={isLoading || loadingAreas || !cityId}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue
                       placeholder={
@@ -488,8 +559,11 @@ export default function AddProperty() {
                   </SelectTrigger>
                   <SelectContent>
                     {areas.map((area) => (
-                      <SelectItem key={String(area._id)} value={String(area._id)}>
-                        {area.name || 'Unnamed Area'}
+                      <SelectItem
+                        key={String(area._id)}
+                        value={String(area._id)}
+                      >
+                        {area.name || "Unnamed Area"}
                       </SelectItem>
                     ))}
                     {cityId && (
@@ -506,7 +580,9 @@ export default function AddProperty() {
                   </SelectContent>
                 </Select>
                 {!cityId && (
-                  <p className="text-xs text-gray-500 mt-1">Please select a city first</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Please select a city first
+                  </p>
                 )}
               </div>
             </div>
@@ -520,14 +596,14 @@ export default function AddProperty() {
                 type="text"
                 value={title}
                 onChange={(e) => {
-                  const nextTitle = e.target.value
-                  setTitle(nextTitle)
+                  const nextTitle = e.target.value;
+                  setTitle(nextTitle);
                   if (!isSlugEdited) {
-                    setSlug(generateSlug(nextTitle))
+                    setSlug(generateSlug(nextTitle));
                   }
                   if (!nextTitle.trim()) {
-                    setSlug('')
-                    setIsSlugEdited(false)
+                    setSlug("");
+                    setIsSlugEdited(false);
                   }
                 }}
                 placeholder="E.g., Luxury 3 Bedroom Apartment in DHA"
@@ -545,15 +621,17 @@ export default function AddProperty() {
                 type="text"
                 value={slug}
                 onChange={(e) => {
-                  setSlug(generateSlug(e.target.value))
-                  setIsSlugEdited(true)
+                  setSlug(generateSlug(e.target.value));
+                  setIsSlugEdited(true);
                 }}
                 placeholder="E.g., luxury-3-bedroom-apartment-in-dha"
-                disabled={isLoading || title === ''}
+                disabled={isLoading || title === ""}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />
               {!title && (
-                <p className="text-xs text-gray-500 mt-1">Please enter a title first</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Please enter a title first
+                </p>
               )}
             </div>
 
@@ -580,8 +658,8 @@ export default function AddProperty() {
               <div className="mb-2">
                 <MapPicker
                   onLocationSelect={(lat, lng) => {
-                    setLatitude(lat)
-                    setLongitude(lng)
+                    setLatitude(lat);
+                    setLongitude(lng);
                   }}
                   initialLat={latitude}
                   initialLng={longitude}
@@ -591,7 +669,8 @@ export default function AddProperty() {
                 Click on the map to pin the exact location of your property.
                 {latitude && longitude && (
                   <span className="text-green-600 font-medium ml-1">
-                    Location pinned: {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                    Location pinned: {latitude.toFixed(4)},{" "}
+                    {longitude.toFixed(4)}
                   </span>
                 )}
               </p>
@@ -678,7 +757,9 @@ export default function AddProperty() {
             {/* Price */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
-                {listingType === 'rent' ? 'Monthly Rent (PKR) *' : 'Sale Price (PKR) *'}
+                {listingType === "rent"
+                  ? "Monthly Rent (PKR) *"
+                  : "Sale Price (PKR) *"}
               </label>
               <input
                 type="number"
@@ -700,24 +781,26 @@ export default function AddProperty() {
               <div className="flex gap-2 mb-3">
                 <button
                   type="button"
-                  onClick={() => setMainImageSource('upload')}
-                  className={`text-xs px-3 py-1.5 rounded-full border ${mainImageSource === 'upload'
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-700 border-gray-200'
-                    }`}
+                  onClick={() => setMainImageSource("upload")}
+                  className={`text-xs px-3 py-1.5 rounded-full border ${
+                    mainImageSource === "upload"
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-700 border-gray-200"
+                  }`}
                 >
                   Upload new
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setMainImageSource('gallery')
-                    setGalleryDialogOpen(true)
+                    setMainImageSource("gallery");
+                    setGalleryDialogOpen(true);
                   }}
-                  className={`text-xs px-3 py-1.5 rounded-full border flex items-center gap-1 ${mainImageSource === 'gallery'
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-700 border-gray-200'
-                    }`}
+                  className={`text-xs px-3 py-1.5 rounded-full border flex items-center gap-1 ${
+                    mainImageSource === "gallery"
+                      ? "bg-gray-900 text-white border-gray-900"
+                      : "bg-white text-gray-700 border-gray-200"
+                  }`}
                 >
                   <ImageIcon className="w-3 h-3" />
                   Choose from gallery
@@ -725,10 +808,15 @@ export default function AddProperty() {
               </div>
 
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-500 transition-colors">
-                {(mainImagePreview && mainImageSource === 'upload') || (mainImageUrl && mainImageSource === 'gallery') ? (
+                {(mainImagePreview && mainImageSource === "upload") ||
+                (mainImageUrl && mainImageSource === "gallery") ? (
                   <div className="relative">
                     <img
-                      src={mainImageSource === 'upload' ? mainImagePreview! : mainImageUrl!}
+                      src={
+                        mainImageSource === "upload"
+                          ? mainImagePreview!
+                          : mainImageUrl!
+                      }
                       alt="Main property"
                       className="w-full h-64 object-cover rounded-lg"
                     />
@@ -747,13 +835,15 @@ export default function AddProperty() {
                     <div className="flex flex-col items-center">
                       <ImageIcon className="w-12 h-12 text-gray-400 mb-3" />
                       <span className="text-sm font-medium text-gray-700 mb-1">
-                        {mainImageSource === 'upload'
-                          ? 'Click below to upload main photo'
-                          : 'Choose a main photo from the gallery'}
+                        {mainImageSource === "upload"
+                          ? "Click below to upload main photo"
+                          : "Choose a main photo from the gallery"}
                       </span>
-                      <span className="text-xs text-gray-500 mb-3">PNG, JPG up to 10MB</span>
+                      <span className="text-xs text-gray-500 mb-3">
+                        PNG, JPG up to 10MB
+                      </span>
 
-                      {mainImageSource === 'upload' ? (
+                      {mainImageSource === "upload" ? (
                         <>
                           <input
                             type="file"
@@ -855,7 +945,9 @@ export default function AddProperty() {
                 disabled={isLoading}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              <p className="text-xs text-gray-500 mt-1">Provide a YouTube link to showcase a video of your property.</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Provide a YouTube link to showcase a video of your property.
+              </p>
             </div>
 
             {/* Features */}
@@ -926,7 +1018,9 @@ export default function AddProperty() {
                   disabled={isLoading}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <p className="text-xs text-gray-500 mt-1">If empty, contact number will be used for WhatsApp.</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  If empty, contact number will be used for WhatsApp.
+                </p>
               </div>
             </div>
 
@@ -943,7 +1037,7 @@ export default function AddProperty() {
                     Submitting...
                   </>
                 ) : (
-                  'Publish Property'
+                  "Publish Property"
                 )}
               </Button>
               <Button
@@ -959,13 +1053,13 @@ export default function AddProperty() {
                     Saving...
                   </>
                 ) : (
-                  'Save as Draft'
+                  "Save as Draft"
                 )}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push('/dashboard')}
+                onClick={() => router.push("/dashboard")}
                 disabled={isLoading}
               >
                 Cancel
@@ -977,10 +1071,10 @@ export default function AddProperty() {
             open={galleryDialogOpen}
             onOpenChange={setGalleryDialogOpen}
             onSelect={(image: GalleryImageItem) => {
-              setMainImageSource('gallery')
-              setMainImageUrl(image.url)
-              setMainImageFile(null)
-              setMainImagePreview(null)
+              setMainImageSource("gallery");
+              setMainImageUrl(image.url);
+              setMainImageFile(null);
+              setMainImagePreview(null);
             }}
             title="Select Main Property Image"
             description="Choose an existing image from the gallery to use as the main photo for this property."
@@ -991,7 +1085,9 @@ export default function AddProperty() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New City</DialogTitle>
-                <DialogDescription>Enter the name of the new city to add it to the system.</DialogDescription>
+                <DialogDescription>
+                  Enter the name of the new city to add it to the system.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -1009,7 +1105,9 @@ export default function AddProperty() {
                   disabled={isAddingLocation || !newCityName.trim()}
                   className="w-full"
                 >
-                  {isAddingLocation ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {isAddingLocation ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
                   Add City
                 </Button>
               </div>
@@ -1021,7 +1119,9 @@ export default function AddProperty() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Area</DialogTitle>
-                <DialogDescription>Enter the name of the new area for the selected city.</DialogDescription>
+                <DialogDescription>
+                  Enter the name of the new area for the selected city.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -1039,7 +1139,9 @@ export default function AddProperty() {
                   disabled={isAddingLocation || !newAreaName.trim()}
                   className="w-full"
                 >
-                  {isAddingLocation ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  {isAddingLocation ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : null}
                   Add Area
                 </Button>
               </div>
@@ -1048,5 +1150,5 @@ export default function AddProperty() {
         </div>
       </div>
     </div>
-  )
+  );
 }

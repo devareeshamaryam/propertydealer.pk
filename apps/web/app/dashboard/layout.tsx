@@ -1,40 +1,66 @@
 "use client";
 
-import { ChevronDown, Home, LayoutDashboard, MapPin, PlusCircle, Building, User, Building2Icon, House, Book, Loader2 } from "lucide-react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { useAuth } from "@/context/auth-context";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
-  SidebarRail,
   SidebarTrigger,
-  useSidebar,
 } from "@/components/ui/sidebar";
-
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAuth } from "@/context/auth-context";
 import DashboardSidebar from "../layout/components/dashboard/sidebar";
+import {
+  collectAdminRoutes,
+  SEGMENT_LABELS,
+} from "../layout/components/dashboard/nav-config";
+
+/**
+ * Derived from the nav tree rather than hand-listed. The old hard-coded array
+ * covered cement-rate but not the other eight rate sections, so agents could
+ * open /dashboard/steel-rate and friends directly.
+ */
+const ADMIN_ONLY_ROUTES = collectAdminRoutes();
+
+/** MongoDB ObjectId - shown as a shortened id in breadcrumbs. */
+const OBJECT_ID = /^[a-f\d]{24}$/i;
+
+interface Crumb {
+  label: string;
+  href: string;
+}
+
+function buildCrumbs(pathname: string): Crumb[] {
+  const segments = pathname.split("/").filter(Boolean);
+  const crumbs: Crumb[] = [];
+  let href = "";
+
+  for (const segment of segments) {
+    href += `/${segment}`;
+    const label = OBJECT_ID.test(segment)
+      ? `#${segment.slice(-6)}`
+      : (SEGMENT_LABELS[segment] ??
+        segment
+          .replace(/-/g, " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase()));
+    crumbs.push({ label, href });
+  }
+
+  return crumbs;
+}
 
 export default function DashboardLayout({
   children,
@@ -42,86 +68,108 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { isAuthenticated, isLoading, user } = useAuth();
   const router = useRouter();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
-  const ADMIN_ONLY_ROUTES = [
-    '/dashboard/subscriptions',
-    '/dashboard/packages',
-    '/dashboard/users',
-    '/dashboard/import',
-    '/dashboard/pages',
-    '/dashboard/blog-category',
-    '/dashboard/images-gallery',
-    '/dashboard/cement-rate',
-    '/dashboard/tile-category',
-    // '/dashboard/city',
-    // '/dashboard/area',
-  ];
+  const isAdminRoute = useMemo(
+    () =>
+      ADMIN_ONLY_ROUTES.some(
+        (route) => pathname === route || pathname.startsWith(`${route}/`),
+      ),
+    [pathname],
+  );
+
+  const accessDenied = Boolean(user && isAdminRoute && user.role !== "ADMIN");
 
   useEffect(() => {
-    if (!isLoading) {
-      if (!isAuthenticated) {
-        router.push('/login');
-        return;
-      }
+    if (isLoading) return;
 
-      if (user) {
-        // 1. Check Activation
-        if (user.isActive === false) {
-          router.push('/pending-activation');
-          return;
-        }
-
-        // 2. Check RBAC
-        const isAdminRoute = ADMIN_ONLY_ROUTES.some(route => pathname.startsWith(route));
-        if (isAdminRoute && user.role !== 'ADMIN') {
-          toast.error("Access Denied", {
-            description: "You do not have permission to access this page."
-          });
-          router.push('/dashboard');
-        }
-      }
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
     }
-  }, [isLoading, isAuthenticated, user, pathname, router]);
+
+    if (!user) return;
+
+    if (user.isActive === false) {
+      router.push("/pending-activation");
+      return;
+    }
+
+    if (isAdminRoute && user.role !== "ADMIN") {
+      toast.error("Access denied", {
+        description: "You do not have permission to open this page.",
+      });
+      router.push("/dashboard");
+    }
+  }, [isLoading, isAuthenticated, user, isAdminRoute, router]);
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-dvh w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="sr-only">Loading dashboard</span>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
+  if (!isAuthenticated) return null;
 
-  const isActive = (path: string) =>
-    pathname === path || pathname.startsWith(`${path}/`);
-
-  // Helper: check if any child route is active → keep parent expanded/highlighted
-  const isSectionActive = (basePath: string) => pathname.startsWith(basePath);
+  const crumbs = buildCrumbs(pathname);
 
   return (
-    <TooltipProvider>
-      <SidebarProvider defaultOpen={true}>
-        <div className="group flex h-dvh w-full">
-          <DashboardSidebar />
+    <TooltipProvider delayDuration={200}>
+      <SidebarProvider defaultOpen>
+        <DashboardSidebar />
 
-          {/* Main Content */}
-          <SidebarInset className="flex flex-1 flex-col overflow-hidden">
-            <header className="flex h-14 shrink-0 items-center gap-4 border-b bg-background px-6">
-              <SidebarTrigger />
-              {/* Add breadcrumb, search, user menu here later */}
-            </header>
+        <SidebarInset className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-1 h-4" />
+            <Breadcrumb>
+              <BreadcrumbList>
+                {crumbs.map((crumb, index) => {
+                  const isLast = index === crumbs.length - 1;
+                  return (
+                    <BreadcrumbItem key={crumb.href}>
+                      {isLast ? (
+                        <BreadcrumbPage className="font-medium">
+                          {crumb.label}
+                        </BreadcrumbPage>
+                      ) : (
+                        <>
+                          <BreadcrumbLink
+                            asChild
+                            className="hidden sm:inline-flex"
+                          >
+                            <Link href={crumb.href}>{crumb.label}</Link>
+                          </BreadcrumbLink>
+                          <BreadcrumbSeparator className="hidden sm:block" />
+                        </>
+                      )}
+                    </BreadcrumbItem>
+                  );
+                })}
+              </BreadcrumbList>
+            </Breadcrumb>
+          </header>
 
-            <main className="flex-1 overflow-y-auto overflow-x-hidden p-6">{children}</main>
-
-          </SidebarInset>
-        </div>
+          <main className="min-w-0 flex-1 bg-muted/30 p-4 sm:p-6">
+            {/*
+              Render nothing on a route this role cannot open. The guard above
+              redirects in an effect, so without this the restricted page would
+              still mount and fire its admin API calls first.
+            */}
+            {accessDenied ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              children
+            )}
+          </main>
+        </SidebarInset>
       </SidebarProvider>
-
     </TooltipProvider>
   );
 }

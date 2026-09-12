@@ -234,6 +234,110 @@ a[class*="footerAction"] {
   @apply font-bold text-foreground;
 }
 
+/*
+ * Rich text base styles.
+ *
+ * The `prose` class is used across the public site and the dashboard previews,
+ * but @tailwindcss/typography is not installed — only the table rules below
+ * existed, so editor HTML rendered with unstyled headings, lists and links.
+ * These rules cover the tags the rich-text editor actually emits.
+ */
+.prose {
+  @apply text-foreground;
+}
+
+.prose > * + * {
+  @apply mt-4;
+}
+
+.prose h1 {
+  @apply mt-8 mb-3 text-2xl font-semibold tracking-tight;
+}
+
+.prose h2 {
+  @apply mt-8 mb-3 text-xl font-semibold tracking-tight;
+}
+
+.prose h3 {
+  @apply mt-6 mb-2 text-lg font-semibold;
+}
+
+.prose h4,
+.prose h5,
+.prose h6 {
+  @apply mt-5 mb-2 font-semibold;
+}
+
+.prose p {
+  @apply leading-relaxed;
+}
+
+.prose a {
+  @apply text-primary underline underline-offset-2 hover:no-underline;
+}
+
+.prose strong {
+  @apply font-semibold text-foreground;
+}
+
+.prose ul {
+  @apply my-4 list-disc space-y-1.5 pl-6;
+}
+
+.prose ol {
+  @apply my-4 list-decimal space-y-1.5 pl-6;
+}
+
+.prose li > ul,
+.prose li > ol {
+  @apply my-1.5;
+}
+
+.prose blockquote {
+  @apply my-5 border-l-2 border-border pl-4 italic text-muted-foreground;
+}
+
+.prose code {
+  @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.9em];
+}
+
+.prose pre {
+  @apply my-5 overflow-x-auto rounded-lg bg-muted p-4;
+}
+
+.prose pre code {
+  @apply bg-transparent p-0;
+}
+
+.prose img {
+  @apply my-5 rounded-lg;
+}
+
+.prose hr {
+  @apply my-8 border-border;
+}
+
+.prose figcaption {
+  @apply mt-2 text-sm text-muted-foreground;
+}
+
+/* Smaller variant used in the dashboard preview dialogs. */
+.prose-sm {
+  @apply text-sm;
+}
+
+.prose-sm h1 {
+  @apply text-xl;
+}
+
+.prose-sm h2 {
+  @apply text-lg;
+}
+
+.prose-sm h3 {
+  @apply text-base;
+}
+
 /* Rich Text Tables */
 .prose table {
   @apply w-full text-left border-collapse my-6 border-2 border-border;

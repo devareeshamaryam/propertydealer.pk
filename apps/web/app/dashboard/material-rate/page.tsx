@@ -1,164 +1,454 @@
-'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
-import { Loader2, Edit, Trash2, PlusCircle, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import materialRateApi, { MaterialRateData } from '@/lib/api/material-rate/material-rate.api';
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Info,
+  Minus,
+  Package,
+  PlusCircle,
+  RefreshCcw,
+  SquarePen,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
 
-const MATERIAL_TYPES = ['All', 'Door', 'Wood', 'Sand', 'Tile', 'Bajri', 'Steel', 'Bricks'] as const;
-type MaterialTypeFilter = (typeof MATERIAL_TYPES)[number];
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import materialRateApi, {
+  type MaterialRateData,
+} from "@/lib/api/material-rate/material-rate.api";
+import { cn } from "@/lib/utils";
+import {
+  ConfirmDialog,
+  DataCard,
+  EmptyRow,
+  ErrorRow,
+  FilterChips,
+  NoResultsRow,
+  PageHeader,
+  PaginationBar,
+  TableSkeleton,
+  TableToolbar,
+  useConfirm,
+  useTableControls,
+} from "@/components/dashboard";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
 
-export default function AllMaterialRatesPage() {
-  const router = useRouter();
+const MATERIAL_TYPES = [
+  "All",
+  "Door",
+  "Wood",
+  "Sand",
+  "Tile",
+  "Bajri",
+  "Steel",
+  "Bricks",
+] as const;
+
+type MaterialType = (typeof MATERIAL_TYPES)[number];
+
+const COLUMN_COUNT = 9;
+
+function ChangeIndicator({ change }: { change?: number }) {
+  if (!change) {
+    return (
+      <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+        <Minus className="h-3 w-3" />0
+      </span>
+    );
+  }
+  if (change > 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-600">
+        <TrendingUp className="h-3 w-3" />+{change.toLocaleString("en-PK")}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-sm font-medium text-red-600">
+      <TrendingDown className="h-3 w-3" />
+      {change.toLocaleString("en-PK")}
+    </span>
+  );
+}
+
+export default function MaterialRatesPage() {
   const [rates, setRates] = useState<MaterialRateData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<MaterialTypeFilter>('All');
+  const [error, setError] = useState<string | null>(null);
+  const [materialType, setMaterialType] = useState<MaterialType>("All");
+  const [busyId, setBusyId] = useState<string | null>(null);
 
-  useEffect(() => { fetchRates(); }, [activeTab]);
+  const { confirm, dialogProps } = useConfirm();
 
-  const fetchRates = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
-      const materialType = activeTab === 'All' ? undefined : activeTab.toLowerCase();
-      const data = await materialRateApi.getAllRates(materialType);
+      setError(null);
+      const type =
+        materialType === "All" ? undefined : materialType.toLowerCase();
+      const data = await materialRateApi.getAllRates(type);
       setRates(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      toast.error('Error', { description: err?.response?.data?.message || 'Failed to load material rates.' });
+    } catch (err) {
+      console.error("Error fetching material rates:", err);
+      setError(
+        apiErrorMessage(
+          err,
+          "Could not load material rates. Check your connection and try again.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [materialType]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this material rate?')) return;
-    try {
-      setDeletingId(id);
-      await materialRateApi.deleteRate(id);
-      toast.success('Material rate deleted successfully!');
-      fetchRates();
-    } catch (err: any) {
-      toast.error('Error', { description: err?.response?.data?.message || 'Failed to delete.' });
-    } finally {
-      setDeletingId(null);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // The type filter is applied server-side, so counts are per fetched page.
+  const typeCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const rate of rates) {
+      const key = (rate.materialType ?? "").toLowerCase();
+      counts[key] = (counts[key] ?? 0) + 1;
     }
+    return counts;
+  }, [rates]);
+
+  const table = useTableControls<MaterialRateData>({
+    data: rates,
+    searchKeys: ["brand", "city", "category", "unit", "materialType"],
+    initialPageSize: 10,
+    initialSortKey: "createdAt",
+    initialSortDirection: "desc",
+  });
+
+  const requestDelete = (rate: MaterialRateData) =>
+    confirm({
+      title: "Delete this material rate?",
+      description: `“${rate.brand}” will be permanently removed.`,
+      confirmLabel: "Delete",
+      onConfirm: async () => {
+        try {
+          setBusyId(rate._id ?? null);
+          await materialRateApi.deleteRate(rate._id!);
+          setRates((previous) =>
+            previous.filter((item) => item._id !== rate._id),
+          );
+          toast.success("Material rate deleted");
+        } catch (err) {
+          toast.error("Could not delete", {
+            description: apiErrorMessage(err, "Please try again."),
+          });
+        } finally {
+          setBusyId(null);
+        }
+      },
+    });
+
+  const SortButton = ({
+    column,
+    children,
+  }: {
+    column: keyof MaterialRateData;
+    children: React.ReactNode;
+  }) => {
+    const active = table.sortKey === column;
+    const Icon = !active
+      ? ArrowUpDown
+      : table.sortDirection === "asc"
+        ? ArrowUp
+        : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => table.toggleSort(column)}
+        className={cn(
+          "-ml-2 inline-flex items-center gap-1.5 rounded px-2 py-1 font-medium transition-colors hover:bg-accent",
+          active && "text-foreground",
+        )}
+      >
+        {children}
+        <Icon
+          className={cn("h-3.5 w-3.5", active ? "opacity-100" : "opacity-40")}
+        />
+      </button>
+    );
   };
 
-  const ChangeIndicator = ({ change }: { change?: number }) => {
-    if (!change || change === 0) return <span className="flex items-center gap-1 text-gray-500 text-sm"><Minus className="w-3 h-3" /> 0</span>;
-    if (change > 0) return <span className="flex items-center gap-1 text-green-600 text-sm font-medium"><TrendingUp className="w-3 h-3" />+{change}</span>;
-    return <span className="flex items-center gap-1 text-red-500 text-sm font-medium"><TrendingDown className="w-3 h-3" />{change}</span>;
-  };
+  const addButton = (
+    <Button asChild>
+      <Link href="/dashboard/material-rate/add">
+        <PlusCircle className="mr-2 h-4 w-4" />
+        Add Material Rate
+      </Link>
+    </Button>
+  );
 
   return (
-    <div className="w-full space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Material Rates</h1>
-            <p className="text-gray-500 text-sm mt-1">Manage all material brand prices shown on the public pages</p>
-          </div>
-          <Button onClick={() => router.push('/dashboard/material-rate/add')} className="flex items-center gap-2">
-            <PlusCircle className="w-4 h-4" /> Add Material Rate
-          </Button>
-        </div>
-      </div>
-
-      {/* Material Type Tabs */}
-      <div className="bg-white rounded-xl shadow-sm border p-4">
-        <div className="flex flex-wrap gap-2">
-          {MATERIAL_TYPES.map((type) => (
-            <button
-              key={type}
-              onClick={() => setActiveTab(type)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === type
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+    <div className="mx-auto w-full max-w-[1600px] space-y-5">
+      <PageHeader
+        title="Material Rates (Unified)"
+        description="A single collection covering all seven material types."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              onClick={() => void load()}
+              disabled={loading}
             >
-              {type}
-            </button>
-          ))}
+              <RefreshCcw
+                className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
+              />
+              Refresh
+            </Button>
+            {addButton}
+          </>
+        }
+      />
+
+      {/*
+        This screen writes to the `materialrates` collection, but every public
+        rate page still reads its own per-material endpoint (/door-rate,
+        /steel-rate, …). Rates entered here therefore do not appear on the
+        website. Kept reachable so existing records stay visible and editable —
+        see the audit notes for the consolidation plan.
+      */}
+      <div className="flex gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <Info className="mt-0.5 h-4.5 w-4.5 shrink-0 text-blue-600" />
+        <div className="space-y-1">
+          <p className="font-medium">
+            This is the unified rates table — the public website does not read
+            from it yet.
+          </p>
+          <p className="text-blue-800">
+            Public rate pages are served from the individual material endpoints.
+            To publish a rate visitors will see, use the matching page under{" "}
+            <span className="font-medium">Material Rates</span> in the sidebar
+            (Cement, Bricks, Sand, Bajri, Steel, Wood, Doors, Tiles).
+          </p>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border p-6 overflow-x-auto">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-3 text-gray-500">Loading rates…</span>
-          </div>
-        ) : rates.length === 0 ? (
-          <div className="text-center py-16">
-            <p className="text-gray-500 mb-4">No material rates found{activeTab !== 'All' ? ` for ${activeTab}` : ''}.</p>
-            <Button onClick={() => router.push('/dashboard/material-rate/add')}>Add First Rate</Button>
-          </div>
-        ) : (
+      <DataCard flush>
+        <div className="space-y-4 border-b p-5">
+          <TableToolbar
+            search={table.search}
+            onSearchChange={table.setSearch}
+            placeholder="Search by brand, city, category or type…"
+          >
+            {table.search && (
+              <Button variant="ghost" size="sm" onClick={table.resetFilters}>
+                <X className="mr-1.5 h-3.5 w-3.5" />
+                Clear
+              </Button>
+            )}
+          </TableToolbar>
+
+          <FilterChips<MaterialType>
+            aria-label="Filter by material type"
+            value={materialType}
+            onChange={setMaterialType}
+            options={MATERIAL_TYPES.map((type) => ({
+              value: type,
+              label: type,
+              count:
+                type === "All"
+                  ? materialType === "All"
+                    ? rates.length
+                    : undefined
+                  : materialType === "All"
+                    ? (typeCounts[type.toLowerCase()] ?? 0)
+                    : undefined,
+            }))}
+          />
+        </div>
+
+        <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Brand</TableHead>
-                <TableHead>Price (Rs)</TableHead>
-                <TableHead>Change</TableHead>
-                <TableHead>City</TableHead>
-                <TableHead>Category</TableHead>
+                <TableHead className="min-w-[160px]">
+                  <SortButton column="brand">Brand</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="price">Price</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="change">Change</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="city">City</SortButton>
+                </TableHead>
+                <TableHead>
+                  <SortButton column="category">Category</SortButton>
+                </TableHead>
                 <TableHead>Unit</TableHead>
-                <TableHead>Material Type</TableHead>
+                <TableHead>
+                  <SortButton column="materialType">Type</SortButton>
+                </TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rates.map((rate) => (
-                <TableRow key={rate._id}>
-                  <TableCell className="font-semibold text-gray-800">{rate.brand}</TableCell>
-                  <TableCell className="font-bold text-gray-900">Rs {rate.price.toLocaleString()}</TableCell>
-                  <TableCell><ChangeIndicator change={rate.change} /></TableCell>
-                  <TableCell className="text-gray-600">{rate.city || 'N/A'}</TableCell>
-                  <TableCell>
-                    {rate.category ? (
-                      <Badge variant="secondary" className="text-xs">{rate.category}</Badge>
-                    ) : (
-                      <span className="text-gray-400 text-xs">—</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-gray-600 text-sm">{rate.unit || 'Per Unit'}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs capitalize">{rate.materialType || 'N/A'}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    {rate.isActive !== false
-                      ? <Badge className="bg-green-100 text-green-800 hover:bg-green-100 text-xs">Active</Badge>
-                      : <Badge className="bg-gray-100 text-gray-500 hover:bg-gray-100 text-xs">Inactive</Badge>
-                    }
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Button variant="ghost" size="sm" onClick={() => router.push(`/dashboard/material-rate/edit/${rate._id}`)} title="Edit">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDelete(rate._id!)} disabled={deletingId === rate._id} title="Delete">
-                        {deletingId === rate._id
-                          ? <Loader2 className="w-4 h-4 animate-spin text-destructive" />
-                          : <Trash2 className="w-4 h-4 text-destructive" />
-                        }
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {loading ? (
+                <TableSkeleton rows={8} columns={COLUMN_COUNT} />
+              ) : error ? (
+                <ErrorRow
+                  colSpan={COLUMN_COUNT}
+                  message={error}
+                  onRetry={() => void load()}
+                />
+              ) : rates.length === 0 ? (
+                <EmptyRow
+                  colSpan={COLUMN_COUNT}
+                  icon={Package}
+                  title={
+                    materialType === "All"
+                      ? "No material rates yet"
+                      : `No ${materialType.toLowerCase()} rates yet`
+                  }
+                  description="Nothing has been added to the unified rates table."
+                  action={addButton}
+                />
+              ) : table.matchedCount === 0 ? (
+                <NoResultsRow
+                  colSpan={COLUMN_COUNT}
+                  search={table.search}
+                  onReset={table.resetFilters}
+                />
+              ) : (
+                table.rows.map((rate) => {
+                  const busy = busyId === rate._id;
+                  return (
+                    <TableRow
+                      key={rate._id}
+                      className={cn(busy && "opacity-60")}
+                    >
+                      <TableCell className="font-medium">
+                        {rate.brand}
+                      </TableCell>
+                      <TableCell className="font-semibold tabular-nums">
+                        Rs {rate.price?.toLocaleString("en-PK") ?? "—"}
+                      </TableCell>
+                      <TableCell>
+                        <ChangeIndicator change={rate.change} />
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {rate.city || "—"}
+                      </TableCell>
+                      <TableCell>
+                        {rate.category ? (
+                          <Badge variant="secondary" className="font-normal">
+                            {rate.category}
+                          </Badge>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            —
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {rate.unit || "Per Unit"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="capitalize">
+                          {rate.materialType || "—"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {rate.isActive !== false ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Inactive</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                asChild
+                              >
+                                <Link
+                                  href={`/dashboard/material-rate/edit/${rate._id}`}
+                                >
+                                  <SquarePen className="h-4 w-4" />
+                                  <span className="sr-only">Edit</span>
+                                </Link>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Edit</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={busy}
+                                onClick={() => requestDelete(rate)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
+        </div>
+
+        {!loading && !error && table.matchedCount > 0 && (
+          <div className="p-5 pt-0">
+            <PaginationBar
+              page={table.page}
+              totalPages={table.totalPages}
+              pageSize={table.pageSize}
+              fromIndex={table.fromIndex}
+              toIndex={table.toIndex}
+              matchedCount={table.matchedCount}
+              itemLabel="material rates"
+              onPageChange={table.setPage}
+              onPageSizeChange={table.setPageSize}
+            />
+          </div>
         )}
-      </div>
+      </DataCard>
+
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }
