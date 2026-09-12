@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/tooltip";
 import { propertyApi } from "@/lib/api";
 import type { BackendProperty } from "@/lib/types/property-utils";
+import { PROPERTY_TYPE_ORDER } from "@/lib/types/property-utils";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 import {
@@ -58,7 +59,7 @@ import {
   TableSkeleton,
   TableToolbar,
   useConfirm,
-  useTableControls,
+  useServerTable,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { PropertyPreviewDialog } from "@/components/dashboard/property-preview-dialog";
@@ -131,12 +132,13 @@ export default function PropertiesPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
 
-  const [properties, setProperties] = useState<BackendProperty[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  // Status counts come from a single aggregation rather than from counting a
+  // full download of every property in the browser.
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
 
   const [preview, setPreview] = useState<BackendProperty | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -152,88 +154,69 @@ export default function PropertiesPage() {
     }
   }, [searchParams]);
 
-  const load = useCallback(async () => {
+  const loadStats = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const data = await propertyApi.getAllProperties();
-      setProperties(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Error fetching properties:", err);
-      setError(
-        "Could not load properties. Check your connection and try again.",
-      );
-    } finally {
-      setLoading(false);
+      const stats = await propertyApi.getDashboardStats();
+      setStatusCounts({ all: stats.total, ...stats.byStatus });
+    } catch {
+      // Counts are decoration on the filter chips; the table still works.
+      setStatusCounts({});
     }
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadStats();
+  }, [loadStats]);
 
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: properties.length };
-    for (const property of properties) {
-      const status = property.status ?? "draft";
-      counts[status] = (counts[status] ?? 0) + 1;
-    }
-    return counts;
-  }, [properties]);
+  const filters = useMemo(
+    () => ({ status: statusFilter, propertyType: typeFilter }),
+    [statusFilter, typeFilter],
+  );
 
-  const propertyTypes = useMemo(() => {
-    const types = new Set<string>();
-    for (const property of properties) {
-      if (property.propertyType) types.add(property.propertyType);
-    }
-    return [...types].sort();
-  }, [properties]);
-
-  const rowFilter = useCallback(
-    (property: BackendProperty) => {
-      if (statusFilter !== "all" && property.status !== statusFilter)
-        return false;
-      if (typeFilter !== "all" && property.propertyType !== typeFilter)
-        return false;
-      return true;
+  const fetchPage = useCallback(
+    async (
+      query: {
+        page: number;
+        limit: number;
+        search: string;
+        sortBy: string | null;
+        sortDir: "asc" | "desc";
+      },
+      signal: AbortSignal,
+    ) => {
+      const result = await propertyApi.getAllProperties(
+        {
+          page: query.page,
+          limit: query.limit,
+          search: query.search,
+          status: statusFilter,
+          propertyType: typeFilter,
+          sortBy: query.sortBy ?? undefined,
+          sortDir: query.sortDir,
+        },
+        signal,
+      );
+      return { rows: result.properties, total: result.total };
     },
     [statusFilter, typeFilter],
   );
 
-  const searchAccessor = useCallback(
-    (property: BackendProperty) => [
-      property.title,
-      property.location,
-      property.city,
-      property.contactNumber,
-      property.propertyType,
-      typeof property.area === "object" ? property.area?.name : property.area,
-      typeof property.area === "object" ? property.area?.city?.name : undefined,
-    ],
-    [],
-  );
-
-  const table = useTableControls<BackendProperty>({
-    data: properties,
-    searchAccessor,
-    filter: rowFilter,
-    initialPageSize: 10,
+  const table = useServerTable<BackendProperty>({
+    fetchPage,
+    filters,
+    initialPageSize: 25,
     initialSortKey: "createdAt",
     initialSortDirection: "desc",
   });
 
-  // A filter change can leave the viewer on a page that no longer exists.
-  useEffect(() => {
-    table.setPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, typeFilter]);
-
   const openPreview = async (propertyId: string) => {
     setPreviewOpen(true);
     setPreviewLoading(true);
-    // Show what the list already knows while the full record loads.
+    // Show what the list already knows while the full record loads. The list
+    // no longer carries `description` or the photo gallery, so the detail
+    // request is what fills those in.
     setPreview(
-      properties.find((property) => property._id === propertyId) ?? null,
+      table.rows.find((property) => property._id === propertyId) ?? null,
     );
     try {
       const detail = await propertyApi.getPropertyById({ id: propertyId });
@@ -260,12 +243,9 @@ export default function PropertiesPage() {
         toast.error(response.message ?? "Could not update status");
         return;
       }
-      // Update in place so the current page, scroll position and filters survive.
-      setProperties((previous) =>
-        previous.map((item) =>
-          item._id === property._id ? { ...item, status: next } : item,
-        ),
-      );
+      // Patch in place so the current page, scroll position and filters survive.
+      table.patchRow((item) => item._id === property._id, { status: next });
+      void loadStats();
       toast.success(
         next === "approved"
           ? "Property published"
@@ -291,9 +271,8 @@ export default function PropertiesPage() {
       onConfirm: async () => {
         try {
           await propertyApi.delete(property._id);
-          setProperties((previous) =>
-            previous.filter((item) => item._id !== property._id),
-          );
+          table.removeRow((item) => item._id === property._id);
+          void loadStats();
           toast.success("Property deleted");
         } catch (err) {
           console.error("Error deleting property:", err);
@@ -309,7 +288,7 @@ export default function PropertiesPage() {
     children,
     className,
   }: {
-    column: keyof BackendProperty;
+    column: string;
     children: React.ReactNode;
     className?: string;
   }) => {
@@ -346,6 +325,13 @@ export default function PropertiesPage() {
     table.resetFilters();
   };
 
+  // Nothing at all vs. nothing matching this filter — only the second offers
+  // "clear filters". The page payload can no longer tell us the unfiltered
+  // total, so the stats aggregation answers that.
+  const totalEverything = statusCounts.all ?? 0;
+  const showEmptyState =
+    table.matchedCount === 0 && !filtersActive && totalEverything === 0;
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
       <PageHeader
@@ -359,11 +345,17 @@ export default function PropertiesPage() {
           <>
             <Button
               variant="outline"
-              onClick={() => void load()}
-              disabled={loading}
+              onClick={() => {
+                table.reload();
+                void loadStats();
+              }}
+              disabled={table.refreshing}
             >
               <RefreshCcw
-                className={cn("mr-2 h-4 w-4", loading && "animate-spin")}
+                className={cn(
+                  "mr-2 h-4 w-4",
+                  table.refreshing && "animate-spin",
+                )}
               />
               Refresh
             </Button>
@@ -394,9 +386,9 @@ export default function PropertiesPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All types</SelectItem>
-                {propertyTypes.map((type) => (
+                {PROPERTY_TYPE_ORDER.map((type) => (
                   <SelectItem key={type} value={type} className="capitalize">
-                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                    {titleCase(type)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -416,13 +408,18 @@ export default function PropertiesPage() {
             onChange={setStatusFilter}
             options={STATUS_FILTERS.map((status) => ({
               value: status,
-              label: status.charAt(0).toUpperCase() + status.slice(1),
-              count: statusCounts[status] ?? 0,
+              label: titleCase(status),
+              count: statusCounts[status],
             }))}
           />
         </div>
 
-        <div className="overflow-x-auto">
+        <div
+          className={cn(
+            "overflow-x-auto transition-opacity",
+            table.refreshing && "opacity-60",
+          )}
+        >
           <Table>
             <TableHeader>
               <TableRow>
@@ -448,18 +445,15 @@ export default function PropertiesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
-                <TableSkeleton
-                  rows={table.pageSize > 10 ? 10 : table.pageSize}
-                  columns={COLUMN_COUNT}
-                />
-              ) : error ? (
+              {table.loading ? (
+                <TableSkeleton rows={10} columns={COLUMN_COUNT} />
+              ) : table.error ? (
                 <ErrorRow
                   colSpan={COLUMN_COUNT}
-                  message={error}
-                  onRetry={() => void load()}
+                  message={table.error}
+                  onRetry={table.reload}
                 />
-              ) : properties.length === 0 ? (
+              ) : showEmptyState ? (
                 <EmptyRow
                   colSpan={COLUMN_COUNT}
                   icon={Building2}
@@ -663,7 +657,7 @@ export default function PropertiesPage() {
           </Table>
         </div>
 
-        {!loading && !error && table.matchedCount > 0 && (
+        {!table.loading && !table.error && table.matchedCount > 0 && (
           <div className="p-5 pt-0">
             <PaginationBar
               page={table.page}

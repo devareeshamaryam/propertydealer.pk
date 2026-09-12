@@ -1,4 +1,4 @@
- // lib/api.ts
+// lib/api.ts
 import axios from "axios";
 import { BackendProperty } from "./types/property-utils";
 
@@ -8,7 +8,9 @@ const getBaseURL = () => {
   if (typeof window === "undefined") {
     const internalUrl = process.env.INTERNAL_API_URL;
     if (internalUrl) {
-      return internalUrl.endsWith("/") ? `${internalUrl}api` : `${internalUrl}/api`;
+      return internalUrl.endsWith("/")
+        ? `${internalUrl}api`
+        : `${internalUrl}/api`;
     }
   }
 
@@ -75,7 +77,7 @@ api.interceptors.response.use(
     const isOnAuthPage =
       typeof window !== "undefined" &&
       (window.location.pathname.includes("/login") ||
-       window.location.pathname.includes("/register"));
+        window.location.pathname.includes("/register"));
 
     // For 401 errors, attempt refresh only for non-special requests
     if (
@@ -130,6 +132,34 @@ export interface PropertyResponse {
   currentPage: number;
 }
 
+/** Filters accepted by the paginated dashboard list endpoint. */
+export interface DashboardPropertyFilters {
+  page?: number;
+  /** 0 asks for everything in one page; the API caps it at 500. */
+  limit?: number;
+  status?: string;
+  propertyType?: string;
+  listingType?: string;
+  search?: string;
+  cityId?: string;
+  areaId?: string;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+}
+
+export interface DashboardPropertyPage {
+  properties: BackendProperty[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+  limit: number;
+}
+
+export interface DashboardStats {
+  total: number;
+  byStatus: Record<string, number>;
+}
+
 // Property API functions
 export const propertyApi = {
   // Get all approved properties
@@ -161,16 +191,22 @@ export const propertyApi = {
     if (filters?.search) params.append("search", filters.search);
     if (filters?.page) params.append("page", filters.page.toString());
     if (filters?.limit) params.append("limit", filters.limit.toString());
-    if (filters?.priceMin) params.append("priceMin", filters.priceMin.toString());
-    if (filters?.priceMax) params.append("priceMax", filters.priceMax.toString());
+    if (filters?.priceMin)
+      params.append("priceMin", filters.priceMin.toString());
+    if (filters?.priceMax)
+      params.append("priceMax", filters.priceMax.toString());
     if (filters?.areaMin) params.append("areaMin", filters.areaMin.toString());
     if (filters?.areaMax) params.append("areaMax", filters.areaMax.toString());
-    if (filters?.marlaMin) params.append("marlaMin", filters.marlaMin.toString());
-    if (filters?.marlaMax) params.append("marlaMax", filters.marlaMax.toString());
+    if (filters?.marlaMin)
+      params.append("marlaMin", filters.marlaMin.toString());
+    if (filters?.marlaMax)
+      params.append("marlaMax", filters.marlaMax.toString());
     if (filters?.beds) params.append("beds", filters.beds.toString());
     if (filters?.baths) params.append("baths", filters.baths.toString());
-    if (filters?.type && filters.type !== 'all') params.append("type", filters.type);
-    if (filters?.purpose && filters.purpose !== 'all') params.append("purpose", filters.purpose);
+    if (filters?.type && filters.type !== "all")
+      params.append("type", filters.type);
+    if (filters?.purpose && filters.purpose !== "all")
+      params.append("purpose", filters.purpose);
 
     const queryString = params.toString();
     const url = queryString ? `/properties?${queryString}` : "/properties";
@@ -189,10 +225,59 @@ export const propertyApi = {
     const response = await api.get(`/properties/${params.id}`);
     return response.data;
   },
-  // Get all properties (for dashboard - includes pending, approved, rejected)
-  getAllProperties: async () => {
-    const response = await api.get("/properties/all");
-    return response.data;
+  /**
+   * Dashboard list (includes draft / pending / approved / rejected).
+   *
+   * Paginated and filtered server-side. This used to take no arguments and
+   * return every property the caller could see, which is what made the
+   * dashboard slow to open.
+   */
+  getAllProperties: async (
+    filters?: DashboardPropertyFilters,
+    signal?: AbortSignal,
+  ): Promise<DashboardPropertyPage> => {
+    const params = new URLSearchParams();
+    if (filters?.page) params.append("page", String(filters.page));
+    if (filters?.limit !== undefined)
+      params.append("limit", String(filters.limit));
+    if (filters?.status && filters.status !== "all")
+      params.append("status", filters.status);
+    if (filters?.propertyType && filters.propertyType !== "all") {
+      params.append("propertyType", filters.propertyType);
+    }
+    if (filters?.listingType && filters.listingType !== "all") {
+      params.append("listingType", filters.listingType);
+    }
+    if (filters?.search?.trim()) params.append("search", filters.search.trim());
+    if (filters?.cityId) params.append("cityId", filters.cityId);
+    if (filters?.areaId) params.append("areaId", filters.areaId);
+    if (filters?.sortBy) params.append("sortBy", filters.sortBy);
+    if (filters?.sortDir) params.append("sortDir", filters.sortDir);
+
+    const query = params.toString();
+    const response = await api.get(
+      query ? `/properties/all?${query}` : "/properties/all",
+      { signal },
+    );
+
+    // Tolerate the old unpaginated array shape, in case a stale API is still
+    // deployed while the front-end rolls out.
+    if (Array.isArray(response.data)) {
+      return {
+        properties: response.data,
+        total: response.data.length,
+        totalPages: 1,
+        currentPage: 1,
+        limit: response.data.length,
+      };
+    }
+    return response.data as DashboardPropertyPage;
+  },
+
+  /** Status counts for the dashboard tabs — one aggregation, not a full download. */
+  getDashboardStats: async (): Promise<DashboardStats> => {
+    const response = await api.get("/properties/all/stats");
+    return response.data as DashboardStats;
   },
 
   // Get property by slug
@@ -201,8 +286,14 @@ export const propertyApi = {
     return response.data;
   },
 
-  updateStatus: async (propertyId: string, status?: 'pending' | 'approved' | 'rejected' | 'draft') => {
-    const response = await api.patch(`/properties/${propertyId}/update-status`, status ? { status } : {});
+  updateStatus: async (
+    propertyId: string,
+    status?: "pending" | "approved" | "rejected" | "draft",
+  ) => {
+    const response = await api.patch(
+      `/properties/${propertyId}/update-status`,
+      status ? { status } : {},
+    );
     return response.data;
   },
   // Create a new property
@@ -412,7 +503,9 @@ export const areaApi = {
     return response.data;
   },
   getBySlug: async (slug: string, cityId?: string) => {
-    const url = cityId ? `/areas/slug/${slug}?cityId=${cityId}` : `/areas/slug/${slug}`;
+    const url = cityId
+      ? `/areas/slug/${slug}?cityId=${cityId}`
+      : `/areas/slug/${slug}`;
     const response = await api.get(url);
     return response.data;
   },
@@ -422,6 +515,28 @@ export const areaApi = {
 export const userApi = {
   getAll: async () => {
     const response = await api.get("/users");
+    return response.data;
+  },
+  /** Role counts for the overview — avoids downloading every user to call .length. */
+  getStats: async (): Promise<{
+    total: number;
+    byRole: Record<string, number>;
+    inactive: number;
+  }> => {
+    const response = await api.get("/users/stats");
+    return response.data;
+  },
+  /** The signed-in user's own record. Authenticated, not admin-only. */
+  getMe: async () => {
+    const response = await api.get("/users/me");
+    return response.data;
+  },
+  /**
+   * Update your own name / phone. Any other field is rejected server-side, so
+   * this cannot be used to change a role or reactivate an account.
+   */
+  updateMe: async (data: { name?: string; phone?: string }) => {
+    const response = await api.patch("/users/me", data);
     return response.data;
   },
   getById: async (id: string) => {

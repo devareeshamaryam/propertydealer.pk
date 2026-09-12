@@ -49,19 +49,15 @@ export default function AccountPage() {
     setPhone((user as { phone?: string }).phone ?? "");
   }, [user]);
 
-  // Real listing counts. The dashboard endpoint is owner-scoped for non-admins,
-  // so this reflects the signed-in user's own properties.
+  // Real listing counts, from the stats aggregation. This used to download
+  // every property the user could see and count them in the browser.
   const loadStats = useCallback(async () => {
     try {
-      const data = await propertyApi.getAllProperties();
-      const list = Array.isArray(data) ? data : [];
+      const data = await propertyApi.getDashboardStats();
       setStats({
-        total: list.length,
-        published: list.filter(
-          (p: { status?: string }) => p.status === "approved",
-        ).length,
-        pending: list.filter((p: { status?: string }) => p.status === "pending")
-          .length,
+        total: data.total,
+        published: data.byStatus.approved ?? 0,
+        pending: data.byStatus.pending ?? 0,
       });
     } catch {
       setStats(null);
@@ -93,10 +89,9 @@ export default function AccountPage() {
     }
     try {
       setSaving(true);
-      await userApi.update(user._id, {
-        name: name.trim(),
-        phone: phone.trim(),
-      });
+      // PATCH /users/me — authenticated, not admin-only, and it accepts only
+      // name and phone, so every role can maintain their own contact details.
+      await userApi.updateMe({ name: name.trim(), phone: phone.trim() });
       toast.success("Profile updated", {
         description: "Sign in again to see the new name everywhere.",
       });
@@ -201,130 +196,85 @@ export default function AccountPage() {
 
         <Separator className="my-5" />
 
-        {isAdmin ? (
-          <>
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="account-name">Full name</Label>
-                <div className="relative">
-                  <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="account-name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Your full name"
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="account-phone">Phone number</Label>
-                <div className="relative">
-                  <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="account-phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    placeholder="+92 300 1234567"
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="account-email">Email address</Label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="account-email"
-                    value={user.email}
-                    disabled
-                    className="pl-9"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Email is used to sign in and cannot be changed here.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="account-role">Role</Label>
-                <Input id="account-role" value={user.role ?? "USER"} disabled />
-                <p className="text-xs text-muted-foreground">
-                  Roles are managed from{" "}
-                  <Link href="/dashboard/users" className="underline">
-                    Users
-                  </Link>
-                  .
-                </p>
-              </div>
+        {/*
+          PATCH /users/me accepts name and phone for any authenticated role,
+          so every user can maintain their own contact details. Role and
+          status are not editable here by design — the endpoint rejects them.
+        */}
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="account-name">Full name</Label>
+            <div className="relative">
+              <UserIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="account-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Your full name"
+                className="pl-9"
+              />
             </div>
+          </div>
 
-            <div className="mt-6 flex items-center gap-3">
-              <Button onClick={() => void save()} disabled={saving || !dirty}>
-                {saving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save changes
-              </Button>
-              {dirty && !saving && (
-                <span className="text-sm text-muted-foreground">
-                  Unsaved changes
-                </span>
-              )}
+          <div className="space-y-2">
+            <Label htmlFor="account-phone">Phone number</Label>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="account-phone"
+                type="tel"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                placeholder="+92 300 1234567"
+                className="pl-9"
+              />
             </div>
-          </>
-        ) : (
-          <>
-            {/*
-              PATCH /users/:id sits behind AdminGuard and there is no
-              self-service profile endpoint, so a non-admin cannot save their
-              own details yet. Showing the real values read-only is honest;
-              the previous page showed editable inputs that silently did
-              nothing on submit.
-            */}
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Full name
-                </p>
-                <p className="mt-1 font-medium">{user.name || "—"}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Email
-                </p>
-                <p className="mt-1 font-medium">{user.email}</p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Phone
-                </p>
-                <p className="mt-1 font-medium">
-                  {(user as { phone?: string }).phone || "—"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Role
-                </p>
-                <p className="mt-1 font-medium">{user.role ?? "USER"}</p>
-              </div>
-            </div>
+          </div>
 
-            <div className="mt-6 flex gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
-              <Info className="mt-0.5 h-4.5 w-4.5 shrink-0 text-blue-600" />
-              <p>
-                To change your name or phone number, ask an administrator.
-                Self-service profile editing is not available yet.
-              </p>
+          <div className="space-y-2">
+            <Label htmlFor="account-email">Email address</Label>
+            <div className="relative">
+              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="account-email"
+                value={user.email}
+                disabled
+                className="pl-9"
+              />
             </div>
-          </>
-        )}
+            <p className="text-xs text-muted-foreground">
+              Email is used to sign in and cannot be changed here.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="account-role">Role</Label>
+            <Input id="account-role" value={user.role ?? "USER"} disabled />
+            <p className="text-xs text-muted-foreground">
+              Roles are managed from{" "}
+              <Link href="/dashboard/users" className="underline">
+                Users
+              </Link>
+              .
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center gap-3">
+          <Button onClick={() => void save()} disabled={saving || !dirty}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save changes
+          </Button>
+          {dirty && !saving && (
+            <span className="text-sm text-muted-foreground">
+              Unsaved changes
+            </span>
+          )}
+        </div>
       </DataCard>
 
       {/* Where to go next */}

@@ -32,7 +32,9 @@ export class MaterialRateService {
     await this.revalidate.revalidate({ tags, paths });
   }
 
-  async findAll(city?: string, materialType?: string, category?: string): Promise<MaterialRateDocument[]> {
+  // 🚀 PERF: .lean() — these rows are returned straight to the caller for
+  // display, so there is nothing to gain from hydrating Mongoose documents.
+  async findAll(city?: string, materialType?: string, category?: string) {
     return this.cache.wrap(
       this.cache.buildKey('material-rates:public', [city, materialType, category]),
       () => {
@@ -40,16 +42,16 @@ export class MaterialRateService {
         if (city) query.city = city;
         if (materialType) query.materialType = materialType;
         if (category) query.category = category;
-        return this.materialRateModel.find(query).sort({ createdAt: -1 }).exec();
+        return this.materialRateModel.find(query).sort({ createdAt: -1 }).lean().exec();
       },
       { ttl: 60, tags: [TAG_RATES] },
     );
   }
 
-  async findAllAdmin(materialType?: string): Promise<MaterialRateDocument[]> {
+  async findAllAdmin(materialType?: string) {
     const query: any = {};
     if (materialType) query.materialType = materialType;
-    return this.materialRateModel.find(query).sort({ createdAt: -1 }).exec();
+    return this.materialRateModel.find(query).sort({ createdAt: -1 }).lean().exec();
   }
 
   async findById(id: string): Promise<MaterialRateDocument> {

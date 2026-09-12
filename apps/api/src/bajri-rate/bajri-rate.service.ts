@@ -22,15 +22,17 @@ export class BajriRateService {
     await this.revalidate.revalidate({ tags, paths });
   }
 
-  async findAll(city?: string, category?: string): Promise<BajriRateDocument[]> {
+  // 🚀 PERF: .lean() — these rows are returned straight to the caller for
+  // display, so there is nothing to gain from hydrating Mongoose documents.
+  async findAll(city?: string, category?: string) {
     const query: any = { isActive: true };
     if (city) query.city = city;
     if (category) query.category = category;
-    return this.bajriRateModel.find(query).sort({ createdAt: -1 }).exec();
+    return this.bajriRateModel.find(query).sort({ createdAt: -1 }).lean().exec();
   }
 
-  async findAllAdmin(): Promise<BajriRateDocument[]> {
-    return this.bajriRateModel.find().sort({ createdAt: -1 }).exec();
+  async findAllAdmin() {
+    return this.bajriRateModel.find().sort({ createdAt: -1 }).lean().exec();
   }
 
   async findById(id: string): Promise<BajriRateDocument> {

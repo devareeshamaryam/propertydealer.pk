@@ -10,24 +10,52 @@ import { CreateWoodRateDto, UpdateWoodRateDto } from './dto';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { StorageService } from '@rent-ghar/storage/storage.service';
+import { ConfigService } from '@nestjs/config';
+import { MaterialRateService } from '../material-rate/material-rate.service';
 
 @Controller('wood-rate')
 export class WoodRateController {
   constructor(
     private readonly woodRateService: WoodRateService,
     private readonly storageService: StorageService,
+    private readonly materialRates: MaterialRateService,
+    private readonly config: ConfigService,
   ) {}
+
+
+  /**
+   * Consolidation switch.
+   *
+   * The unified `materialrates` collection duplicates this module's schema
+   * exactly, plus a `materialType` field. Once the data has been copied over
+   * (`npm run migrate:material-rates --workspace=apps/api -- --apply`),
+   * setting MATERIAL_RATES_UNIFIED=true makes the public reads below serve
+   * from that one collection, so the seven per-material modules can be retired
+   * without changing a single public URL. Unset, behaviour is unchanged.
+   */
+  private get useUnified(): boolean {
+    return (
+      (this.config.get<string>('MATERIAL_RATES_UNIFIED') ?? '').toLowerCase() === 'true'
+    );
+  }
 
   @Get()
   async findAll(
     @Query('city') city?: string,
     @Query('category') category?: string,
   ) {
+    if (this.useUnified) {
+      return this.materialRates.findAll(city, 'Wood', category);
+    }
     return this.woodRateService.findAll(city, category);
   }
 
   @Get('slug/:slug')
   async findBySlug(@Param('slug') slug: string) {
+    if (this.useUnified) {
+      // migrate-material-rates.ts prefixes slugs with the material name.
+      return this.materialRates.findBySlug(`wood-${slug}`);
+    }
     return this.woodRateService.findBySlug(slug);
   }
 

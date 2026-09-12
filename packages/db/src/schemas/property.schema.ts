@@ -96,3 +96,25 @@ PropertySchema.index({ title: 'text', location: 'text' });
 
 // Compound index for common listing queries
 PropertySchema.index({ status: 1, listingType: 1, propertyType: 1 });
+
+/*
+ * 🚀 PERF: indexes for the dashboard list query.
+ *
+ * The admin list is `find({ status? }).sort({ createdAt: -1 })` and an agent's
+ * list is `find({ owner }).sort({ createdAt: -1 })`. `owner` had no index at
+ * all and `createdAt` was never indexed, so both did a full collection scan
+ * followed by an in-memory sort — which MongoDB aborts outright once the sort
+ * exceeds 32MB. These three cover every shape the dashboard issues.
+ */
+
+// An agent's own listings, newest first.
+PropertySchema.index({ owner: 1, createdAt: -1 });
+
+// Admin list filtered by status tab, newest first.
+PropertySchema.index({ status: 1, createdAt: -1 });
+
+// Unfiltered admin list (and any plain newest-first sort).
+PropertySchema.index({ createdAt: -1 });
+
+// Area-scoped dashboard and public queries, newest first.
+PropertySchema.index({ area: 1, createdAt: -1 });

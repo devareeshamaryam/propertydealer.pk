@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -124,19 +124,37 @@ export default function DashboardOverview() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
 
-  const [properties, setProperties] = useState<BackendProperty[]>([]);
+  const [recent, setRecent] = useState<BackendProperty[]>([]);
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [userCount, setUserCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Two small requests instead of one enormous one.
+   *
+   * This page used to call `getAllProperties()` with no arguments — every
+   * property the user could see — purely to show eight rows and count four
+   * statuses. Now the counts come from an aggregation and the table asks for
+   * exactly the eight rows it renders.
+   */
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await propertyApi.getAllProperties();
-      setProperties(Array.isArray(data) ? data : []);
+      const [stats, page] = await Promise.all([
+        propertyApi.getDashboardStats(),
+        propertyApi.getAllProperties({
+          page: 1,
+          limit: 8,
+          sortBy: "createdAt",
+          sortDir: "desc",
+        }),
+      ]);
+      setCounts({ all: stats.total, ...stats.byStatus });
+      setRecent(page.properties);
     } catch (err) {
-      console.error("Error fetching properties:", err);
+      console.error("Error loading dashboard:", err);
       setError(
         "Could not reach the server. Check your connection and try again.",
       );
@@ -150,13 +168,15 @@ export default function DashboardOverview() {
   }, [load]);
 
   // Admin-only side metric. Failure here must not blank out the whole page.
+  // Uses the counts endpoint rather than downloading every user to read
+  // `.length` off the array.
   useEffect(() => {
     if (!isAdmin) return;
     let cancelled = false;
     (async () => {
       try {
-        const data = await userApi.getAll();
-        if (!cancelled) setUserCount(Array.isArray(data) ? data.length : 0);
+        const data = await userApi.getStats();
+        if (!cancelled) setUserCount(data.total);
       } catch {
         if (!cancelled) setUserCount(null);
       }
@@ -165,32 +185,6 @@ export default function DashboardOverview() {
       cancelled = true;
     };
   }, [isAdmin]);
-
-  const counts = useMemo(() => {
-    const byStatus: Record<string, number> = {
-      draft: 0,
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-    };
-    for (const property of properties) {
-      const status = property.status ?? "draft";
-      byStatus[status] = (byStatus[status] ?? 0) + 1;
-    }
-    return byStatus;
-  }, [properties]);
-
-  const recent = useMemo(
-    () =>
-      [...properties]
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt ?? 0).getTime() -
-            new Date(a.createdAt ?? 0).getTime(),
-        )
-        .slice(0, 8),
-    [properties],
-  );
 
   const stats: {
     label: string;
@@ -202,7 +196,7 @@ export default function DashboardOverview() {
   }[] = [
     {
       label: isAdmin ? "Total Properties" : "My Properties",
-      value: properties.length,
+      value: counts.all ?? 0,
       icon: Building2,
       tone: "info",
       href: "/dashboard/property",

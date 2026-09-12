@@ -23,14 +23,16 @@ export class CementRateService {
     await this.revalidate.revalidate({ tags, paths });
   }
 
-  async findAll(category?: string): Promise<CementRateDocument[]> {
+  // 🚀 PERF: .lean() — these rows are returned straight to the caller for
+  // display, so there is nothing to gain from hydrating Mongoose documents.
+  async findAll(category?: string) {
     const query: any = { isActive: true };
     if (category) query.category = category;
-    return this.cementRateModel.find(query).sort({ createdAt: -1 }).exec();
+    return this.cementRateModel.find(query).sort({ createdAt: -1 }).lean().exec();
   }
 
-  async findAllAdmin(): Promise<CementRateDocument[]> {
-    return this.cementRateModel.find().sort({ createdAt: -1 }).exec();
+  async findAllAdmin() {
+    return this.cementRateModel.find().sort({ createdAt: -1 }).lean().exec();
   }
 
   async findById(id: string): Promise<CementRateDocument> {

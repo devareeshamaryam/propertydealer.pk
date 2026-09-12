@@ -1,8 +1,8 @@
- import { Body, Controller, Get, Post, Query, UseGuards, UseInterceptors, Request, Param, Patch, Delete, Put, UploadedFile, UnauthorizedException, BadRequestException, Header, Res } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards, UseInterceptors, Request, Param, Patch, Delete, Put, UploadedFile, UnauthorizedException, BadRequestException, Header, Res, Logger } from "@nestjs/common";
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { StorageService } from '@rent-ghar/storage/storage.service';
-import { PropertyService } from './property.service';
+import { PropertyService, type DashboardPropertyFilters } from './property.service';
 import { CreatePropertyDto } from './dto/create-property.dto'; // Local DTO with validation
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -10,6 +10,8 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 
 @Controller('properties')
 export class PropertyController {
+  private readonly logger = new Logger(PropertyController.name);
+
   constructor(
     private readonly propertyService: PropertyService,
     // Temporarily commented out to debug DI issue
@@ -87,12 +89,12 @@ export class PropertyController {
 
     const userRole = user.role || 'USER';
 
-    const fs = require('fs');
-    fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Controller: processing create request for user ${userId}\n`);
-    
+    // NOTE: this handler wrote a trace to ./debug.log with fs.appendFileSync
+    // on every request. Synchronous disk writes block Node's single event
+    // loop, so they slowed down every other in-flight request too — not just
+    // this one. Diagnostics go through the Nest logger now.
     try {
       const created = await this.propertyService.create(userId, dto as any, mainPhotoUrl, additionalPhotosUrls, userRole)
-      fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Controller: property created successfully\n`);
       const message = (created as any)?.status === 'draft'
         ? 'Property saved as draft'
         : (created as any)?.status === 'approved'
@@ -100,8 +102,7 @@ export class PropertyController {
           : 'Property submitted for approval';
       return { message, property: created }
     } catch (error: any) {
-      console.error('Error creating property in service:', error);
-      fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Controller Error: ${(error as any)?.message}\nStack: ${(error as any)?.stack}\n`);
+      this.logger.error(`Failed to create property for user ${userId}: ${error?.message}`, error?.stack);
       throw error;
     }
   }
@@ -175,17 +176,60 @@ export class PropertyController {
     return this.propertyService.getPropertyTypes();
   }
 
+  /**
+   * Dashboard list. Paginated and filtered server-side.
+   *
+   * Previously this took only cityId/areaId and returned the entire
+   * collection, so every dashboard page load transferred every property the
+   * caller could see. It now mirrors the public `findAll` contract:
+   * `{ properties, total, totalPages, currentPage, limit }`.
+   *
+   * Passing `limit=0` returns every row in one page — kept for the few callers
+   * that genuinely need totals across the whole set (e.g. the overview's
+   * status counts), and capped by the service.
+   */
   @Get('all')
   @UseGuards(JwtAuthGuard)
-  async findAllProperties(@Request() req, @Query('cityId') cityId?: string, @Query('areaId') areaId?: string) {
-    const filters: { cityId?: string; areaId?: string } = {};
+  async findAllProperties(
+    @Request() req,
+    @Query('cityId') cityId?: string,
+    @Query('areaId') areaId?: string,
+    @Query('status') status?: string,
+    @Query('propertyType') propertyType?: string,
+    @Query('listingType') listingType?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortDir') sortDir?: string,
+  ) {
+    const filters: DashboardPropertyFilters = {};
     if (cityId) filters.cityId = cityId;
     if (areaId) filters.areaId = areaId;
-    
-    const userId = req.user?.userId;
-    const userRole = req.user?.role;
-    
-    return this.propertyService.findAll(filters, userId, userRole)
+    if (status && status !== 'all') filters.status = status;
+    if (propertyType && propertyType !== 'all') filters.propertyType = propertyType;
+    if (listingType && listingType !== 'all') filters.listingType = listingType;
+    if (search?.trim()) filters.search = search.trim();
+    if (sortBy) filters.sortBy = sortBy;
+    if (sortDir === 'asc' || sortDir === 'desc') filters.sortDir = sortDir;
+
+    const parsedPage = Number(page);
+    if (Number.isFinite(parsedPage) && parsedPage > 0) filters.page = Math.floor(parsedPage);
+
+    const parsedLimit = Number(limit);
+    if (Number.isFinite(parsedLimit) && parsedLimit >= 0) filters.limit = Math.floor(parsedLimit);
+
+    return this.propertyService.findAll(filters, req.user?.userId, req.user?.role);
+  }
+
+  /**
+   * Status counts for the dashboard's filter tabs and overview cards.
+   * One aggregation instead of downloading every document to count them.
+   */
+  @Get('all/stats')
+  @UseGuards(JwtAuthGuard)
+  async getDashboardStats(@Request() req) {
+    return this.propertyService.getDashboardStats(req.user?.userId, req.user?.role);
   }
 
   // get property by slug (must be before :id route)

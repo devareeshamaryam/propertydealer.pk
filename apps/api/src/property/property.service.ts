@@ -17,6 +17,76 @@ import { RevalidateService } from '../revalidate/revalidate.service';
 const TAG_PROPERTIES = 'properties';
 const TAG_PROPERTY_TYPES = 'property-types';
 
+/** Filters accepted by the dashboard list endpoint. */
+export interface DashboardPropertyFilters {
+    cityId?: string;
+    areaId?: string;
+    status?: string;
+    propertyType?: string;
+    listingType?: string;
+    search?: string;
+    page?: number;
+    /** 0 means "every row in one page", capped at DASHBOARD_MAX_LIMIT. */
+    limit?: number;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+}
+
+export interface DashboardPropertyPage {
+    properties: any[];
+    total: number;
+    totalPages: number;
+    currentPage: number;
+    limit: number;
+}
+
+const DASHBOARD_DEFAULT_LIMIT = 25;
+/** Ceiling on a single dashboard page, including `limit=0`. */
+const DASHBOARD_MAX_LIMIT = 500;
+
+/**
+ * Fields the dashboard list is allowed to sort by. Anything else falls back to
+ * createdAt, so a hand-edited query string cannot make Mongo sort on an
+ * unindexed field.
+ */
+const DASHBOARD_SORTABLE = new Set([
+    'createdAt',
+    'updatedAt',
+    'title',
+    'price',
+    'status',
+    'propertyType',
+    'location',
+]);
+
+/**
+ * Only the fields the dashboard table and its preview actually read. The old
+ * query returned whole documents including `description`, which is the single
+ * largest field on a property and is never shown in the list.
+ */
+const DASHBOARD_LIST_FIELDS = [
+    'title',
+    'slug',
+    'listingType',
+    'propertyType',
+    'location',
+    'city',
+    'area',
+    'bedrooms',
+    'bathrooms',
+    'areaSize',
+    'marla',
+    'kanal',
+    'price',
+    'status',
+    'source',
+    'mainPhotoUrl',
+    'contactNumber',
+    'owner',
+    'createdAt',
+    'updatedAt',
+].join(' ');
+
 @Injectable()
 export class PropertyService {
     constructor(
@@ -89,6 +159,24 @@ export class PropertyService {
         return false;
       }
 
+    /**
+     * One-off backfill for legacy rows created before slugs were written on
+     * save. Exposed for `src/scripts/backfill-slugs.ts`; deliberately NOT
+     * called from any read path — it issues a find+update per row.
+     */
+    async backfillMissingSlugs(): Promise<{ scanned: number; updated: number }> {
+        const missing = await this.propertyModel
+            .find({ $or: [{ slug: { $exists: false } }, { slug: '' }, { slug: null }] })
+            .select('_id title slug')
+            .exec();
+
+        await this.ensureSlugForProperties(missing);
+        return {
+            scanned: missing.length,
+            updated: missing.filter((p) => !!p.slug).length,
+        };
+    }
+
     private async ensureSlugForProperties(properties: Property[]) {
         const toUpdate = properties.filter(p => !p.slug && p.title);
         if (toUpdate.length === 0) {
@@ -105,18 +193,10 @@ export class PropertyService {
         );
     }
 
-    private async ensureSlugForMissingApproved() {
-        const missing = await this.propertyModel.find({
-            status: 'approved',
-            $or: [{ slug: { $exists: false } }, { slug: '' }]
-        }).select('_id title slug').exec();
-        await this.ensureSlugForProperties(missing);
-    }
     async create(userId: string, dto: CreatePropertyDto, mainPhotoUrl?: string, additionalPhotosUrls?: string[], userRole?: string, options?: { source?: string; status?: 'pending' | 'approved' | 'rejected' | 'draft' }) {
         // Validation: Verify user exists if not admin (though controller handles auth)
         // Check subscription unless user is admin
         let subscriptionId: string | undefined;
-        const fs = require('fs');
 
         // Resolve final status with role-based safety:
         // - ADMIN can set anything (default 'pending' for backward compatibility)
@@ -132,13 +212,11 @@ export class PropertyService {
 
         const source = options?.source || 'manual';
 
-        fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Start create. User: ${userId}, Role: ${userRole}, Status: ${finalStatus}, Source: ${source}\n`);
 
         // Drafts do not consume subscription slots — they aren't published yet.
         const consumesSubscription = userRole !== 'ADMIN' && finalStatus !== 'draft';
 
         if (consumesSubscription) {
-          fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Checking subscription for user ${userId}\n`);
           // SYNC: Before checking subscription, ensure the count is accurate
           const actualCount = await this.propertyModel.countDocuments({ 
             owner: userId,
@@ -149,7 +227,6 @@ export class PropertyService {
 
           const subscriptionCheck = await this.subscriptionService.canCreateProperty(userId);
           
-          fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Subscription check result: ${JSON.stringify(subscriptionCheck)}\n`);
 
           if (!subscriptionCheck.canCreate) {
             throw new ForbiddenException(subscriptionCheck.message || 'No active subscription');
@@ -166,11 +243,9 @@ export class PropertyService {
 
         const baseSlug = dto.slug ? this.toSlug(dto.slug) : (dto.title ? this.toSlug(dto.title) : undefined);
         const slug = baseSlug ? await this.generateUniqueSlug(baseSlug) : undefined;
-        fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Generated slug: ${slug}\n`);        
         
         try {
             // Convert string values from FormData to proper types
-            fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Creating property model instance\n`);
             const property = new this.propertyModel({
               listingType: dto.listingType,
               propertyType: dto.propertyType,
@@ -196,7 +271,6 @@ export class PropertyService {
               longitude: dto.longitude ? Number(dto.longitude) : undefined,
             })
             const saved = await property.save()
-            fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service: Property saved successfully. ID: ${saved._id}\n`);
 
             // Bust caches only when the new property is publicly visible.
             // Drafts/pending listings don't appear on the public site, so
@@ -206,7 +280,6 @@ export class PropertyService {
             }
             return saved;
         } catch (error) {
-            fs.appendFileSync('debug.log', `[${new Date().toISOString()}] Service Error: ${error}\n`);
             // ROLLBACK: If property creation fails, decrement the subscription count
             if (subscriptionId) {
                 console.error('Property creation failed, rolling back subscription count');
@@ -404,12 +477,11 @@ export class PropertyService {
             this.propertyModel.countDocuments(query)
           ]);
       
-      try {
-        await this.ensureSlugForProperties(properties);
-      } catch (slugError: any) {
-        console.warn('⚠️ Non-critical: Failed to ensure slugs:', slugError.message);
-      }
-      
+      // NOTE: this read path used to call ensureSlugForProperties(), issuing
+      // find+update round trips from inside a GET. Slugs are written on create
+      // and update; run `npm run backfill:slugs --workspace=apps/api` once for
+      // any legacy rows that predate that.
+
       // Populate area and city - handle cases where area might be null
       if (properties.length > 0) {
         // Only populate if area exists
@@ -443,70 +515,159 @@ export class PropertyService {
     }
   }
     
-      async findAll(filters?: { cityId?: string; areaId?: string }, userId?: string, userRole?: string) {
+      /**
+       * Build the Mongo query shared by the dashboard list and its stats.
+       * Returns null when a filter can never match, so the caller can answer
+       * with an empty page without touching the database.
+       */
+      private async buildDashboardQuery(
+        filters: DashboardPropertyFilters,
+        userId?: string,
+        userRole?: string,
+      ): Promise<Record<string, any> | null> {
+        const query: Record<string, any> = {};
+
+        // AGENT and USER only ever see their own listings in the dashboard.
+        if (userRole !== 'ADMIN' && userId) {
+          query.owner = userId;
+        }
+
+        if (filters.areaId) {
+          if (!this.isValidObjectId(filters.areaId)) return null;
+          query.area = filters.areaId;
+        } else if (filters.cityId) {
+          if (!this.isValidObjectId(filters.cityId)) return null;
+          const areas = await this.areaModel
+            .find({ city: filters.cityId })
+            .select('_id')
+            .lean();
+          if (areas.length === 0) return null;
+          query.area = { $in: areas.map((a) => a._id) };
+        }
+
+        if (filters.status) query.status = filters.status;
+        if (filters.propertyType) query.propertyType = filters.propertyType;
+        if (filters.listingType) query.listingType = filters.listingType;
+
+        if (filters.search) {
+          // Escaped so a user typing "(" or "*" cannot break the regex — or
+          // hand Mongo a pathological pattern to evaluate.
+          const escaped = filters.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const rx = new RegExp(escaped, 'i');
+          query.$or = [{ title: rx }, { location: rx }, { city: rx }, { contactNumber: rx }];
+        }
+
+        return query;
+      }
+
+      /**
+       * Dashboard list — paginated, projected and lean.
+       *
+       * The previous implementation ran `find(query).sort().exec()` with no
+       * limit, no projection and no `.lean()`, so a dashboard load hydrated
+       * every visible property into a full Mongoose document (including the
+       * long `description` field) and shipped the lot to the browser. On top of
+       * that it called `ensureSlugForProperties` on the read path, which could
+       * fire an unbounded series of find+update round trips inside a GET.
+       */
+      async findAll(
+        filters: DashboardPropertyFilters = {},
+        userId?: string,
+        userRole?: string,
+      ): Promise<DashboardPropertyPage> {
         try {
-          const query: any = {};
-          
-          // Role-based filtering: AGENT and USER can only see their own properties in the dashboard
-          if (userRole !== 'ADMIN' && userId) {
-            query.owner = userId;
-          }
-          
-          if (filters?.areaId) {
-            if (!this.isValidObjectId(filters.areaId)) {
-              return [];
-            }
-            query.area = filters.areaId;
-          } else if (filters?.cityId) {
-            if (!this.isValidObjectId(filters.cityId)) {
-              return [];
-            }
-            // If filtering by city, find all areas in that city first
-            const areas = await this.areaModel.find({ city: filters.cityId }).select('_id').lean();
-            const areaIds = areas.map(a => a._id);
-            if (areaIds.length > 0) {
-              query.area = { $in: areaIds };
-            } else {
-              // No areas in this city, return empty result
-              return [];
-            }
-          }
-          
-          const properties = await this.propertyModel.find(query).sort({ createdAt: -1 }).exec();
-          
-          try {
-            await this.ensureSlugForProperties(properties);
-          } catch (slugError: any) {
-            console.warn('⚠️ Non-critical: Failed to ensure slugs in findAll:', slugError.message);
-          }
-          
-          // Populate area and city - handle cases where area might be null
-          if (properties.length === 0) {
-            return [];
-          }
-          
-          // Only populate if area exists
-          const propertiesWithArea = properties.filter(p => this.isValidAreaRef(p.area));
-          if (propertiesWithArea.length > 0) {
-            try {
-              await this.propertyModel.populate(propertiesWithArea, {
+          const requestedLimit = filters.limit ?? DASHBOARD_DEFAULT_LIMIT;
+          const limit =
+            requestedLimit === 0
+              ? DASHBOARD_MAX_LIMIT
+              : Math.min(requestedLimit, DASHBOARD_MAX_LIMIT);
+          const page = Math.max(1, filters.page ?? 1);
+
+          const empty: DashboardPropertyPage = {
+            properties: [],
+            total: 0,
+            totalPages: 0,
+            currentPage: page,
+            limit,
+          };
+
+          const query = await this.buildDashboardQuery(filters, userId, userRole);
+          if (!query) return empty;
+
+          const sortField =
+            filters.sortBy && DASHBOARD_SORTABLE.has(filters.sortBy)
+              ? filters.sortBy
+              : 'createdAt';
+          const sortDir = filters.sortDir === 'asc' ? 1 : -1;
+
+          // countDocuments and the page itself are independent — run them
+          // together rather than one after the other.
+          const [total, properties] = await Promise.all([
+            this.propertyModel.countDocuments(query).exec(),
+            this.propertyModel
+              .find(query)
+              .select(DASHBOARD_LIST_FIELDS)
+              .sort({ [sortField]: sortDir })
+              .skip((page - 1) * limit)
+              .limit(limit)
+              .populate({
                 path: 'area',
                 select: 'name areaSlug',
-                populate: { 
-                  path: 'city', 
-                  select: 'name areaSlug state country'
-                }
-              });
-            } catch (populateError: any) {
-              console.warn('⚠️ Non-critical: Error populating properties in findAll:', populateError.message);
-            }
-          }
-          
-          return properties;
+                populate: { path: 'city', select: 'name areaSlug state country' },
+              })
+              .lean()
+              .exec(),
+          ]);
+
+          return {
+            properties,
+            total,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+            limit,
+          };
         } catch (error) {
           console.error('❌ Critical: Error in findAll:', error);
           throw error;
         }
+      }
+
+      /**
+       * Counts per status for the dashboard tabs and overview cards, scoped to
+       * what the caller may see. One grouped aggregation — the dashboard used
+       * to derive these in the browser from a full download of every property.
+       */
+      async getDashboardStats(userId?: string, userRole?: string) {
+        const match: Record<string, any> = {};
+        if (userRole !== 'ADMIN' && userId) {
+          // An aggregation does not cast for us the way find() does, and an
+          // unparseable id would throw rather than simply match nothing.
+          if (!this.isValidObjectId(userId)) {
+            return { total: 0, byStatus: { draft: 0, pending: 0, approved: 0, rejected: 0 } };
+          }
+          match.owner = new Types.ObjectId(userId);
+        }
+
+        const rows = await this.propertyModel
+          .aggregate<{ _id: string; count: number }>([
+            { $match: match },
+            { $group: { _id: '$status', count: { $sum: 1 } } },
+          ])
+          .exec();
+
+        const byStatus: Record<string, number> = {
+          draft: 0,
+          pending: 0,
+          approved: 0,
+          rejected: 0,
+        };
+        let total = 0;
+        for (const row of rows) {
+          if (row._id) byStatus[row._id] = row.count;
+          total += row.count;
+        }
+
+        return { total, byStatus };
       }
 
       async findPropertyByid(id: string) {
@@ -545,11 +706,13 @@ export class PropertyService {
 
       private async findPropertyBySlugImpl(slug: string) {
         const normalizedSlug = this.toSlug(slug);
-        let property = await this.propertyModel.findOne({ slug: normalizedSlug, status: 'approved' }).exec();
-        if (!property) {
-          await this.ensureSlugForMissingApproved();
-          property = await this.propertyModel.findOne({ slug: normalizedSlug, status: 'approved' }).exec();
-        }
+        // A miss used to trigger ensureSlugForMissingApproved(), which scanned
+        // every approved property and wrote slugs for any that lacked one.
+        // That made an unknown slug — including one typed by a crawler — cost a
+        // full collection scan plus writes, on an uncacheable 404 path.
+        const property = await this.propertyModel
+          .findOne({ slug: normalizedSlug, status: 'approved' })
+          .exec();
         if (!property) {
           throw new NotFoundException(`Property with slug ${slug} not found`)
         }

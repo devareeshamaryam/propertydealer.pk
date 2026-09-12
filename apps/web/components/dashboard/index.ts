@@ -22,3 +22,9 @@ export {
   type SortDirection,
 } from "./use-table-controls";
 export { apiErrorMessage } from "./api-error";
+export {
+  useServerTable,
+  type ServerTable,
+  type ServerTableQuery,
+  type ServerPage,
+} from "./use-server-table";

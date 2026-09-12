@@ -53,21 +53,29 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     // ThrottlerModule was never imported even though @Throttle() decorators
     // existed on auth/login/register. Without this module those decorators
     // do nothing.
+    // These limits are per client IP, which only works because main.ts now
+    // sets `trust proxy` — before that every request resolved to Nginx's
+    // 127.0.0.1 and the whole site shared a single bucket.
+    //
+    // Sizing: one dashboard page load fires several requests (profile, the
+    // list, its filter options), and an admin clicking through sections does
+    // that repeatedly. The old 10/sec + 120/min was below normal single-user
+    // usage, let alone a team.
     ThrottlerModule.forRoot([
       {
         name: 'short',
-        ttl: 1000,        // 1 second
-        limit: 10,         // 10 req/sec/IP — burst protection
+        ttl: 1000,          // 1 second
+        limit: 50,          // burst headroom for one page's parallel requests
       },
       {
         name: 'medium',
-        ttl: 60_000,      // 1 minute
-        limit: 120,        // 120 req/min/IP — typical browsing
+        ttl: 60_000,        // 1 minute
+        limit: 600,         // sustained browsing by one person
       },
       {
         name: 'long',
-        ttl: 60 * 60_000, // 1 hour
-        limit: 5_000,      // hard ceiling per IP per hour
+        ttl: 60 * 60_000,   // 1 hour
+        limit: 10_000,      // hard ceiling per IP per hour
       },
     ]),
     // ⚡ Redis cache (60s default TTL) and revalidation webhook caller —
