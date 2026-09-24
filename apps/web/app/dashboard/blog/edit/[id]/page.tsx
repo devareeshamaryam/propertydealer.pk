@@ -281,11 +281,13 @@ export default function EditBlogPage() {
                   name="content"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Content *</FormLabel>
+                      <FormLabel>Blog Post Content (Rich Text) *</FormLabel>
                       <FormControl>
                         <RichEditor
                           value={field.value}
                           onChange={field.onChange}
+                          placeholder="Update your blog post content..."
+                          minHeight="min-h-[450px]"
                         />
                       </FormControl>
                       <FormMessage />

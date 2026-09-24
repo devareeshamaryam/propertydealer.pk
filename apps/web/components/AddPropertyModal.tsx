@@ -11,6 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { cityApi, propertyApi } from '@/lib/api';
 import { sortPropertyTypes } from '@/lib/types/property-utils';
+import dynamic from 'next/dynamic';
+
+const RichEditor = dynamic(() => import('@/components/RichEditor'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[160px] w-full bg-gray-100 dark:bg-gray-800 animate-pulse rounded-lg flex items-center justify-center text-gray-400 text-sm">
+      Loading Editor...
+    </div>
+  ),
+});
 
 interface AddPropertyModalProps {
   open: boolean;
@@ -205,13 +215,13 @@ const AddPropertyModal = ({ open, onClose }: AddPropertyModalProps) => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="prop-desc">Description</Label>
-            <Textarea
-              id="prop-desc"
-              placeholder="Describe your property..."
-              rows={4}
+            <Label htmlFor="prop-desc">Property Description (Rich Text)</Label>
+            <RichEditor
               value={formData.description}
-              onChange={(e) => updateField('description', e.target.value)}
+              onChange={(value) => updateField('description', value)}
+              placeholder="Describe your property (features, amenities, highlights)..."
+              minHeight="min-h-[160px]"
+              stickyTopOffset="top-0"
             />
           </div>
 

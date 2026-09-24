@@ -962,7 +962,12 @@ export default function EditProperty() {
                 Property Description *
               </label>
               {/* rich editor */}
-              <RichEditor value={description} onChange={setDescription} />
+              <RichEditor
+                value={description}
+                onChange={setDescription}
+                placeholder="Update property description..."
+                minHeight="min-h-[300px]"
+              />
             </div>
 
             {/* Video URL */}

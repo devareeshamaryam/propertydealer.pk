@@ -929,7 +929,12 @@ export default function AddProperty() {
                 Property Description *
               </label>
               {/* rich editor */}
-              <RichEditor value={description} onChange={setDescription} />
+              <RichEditor
+                value={description}
+                onChange={setDescription}
+                placeholder="Describe your property (features, amenities, nearby attractions, demand details)..."
+                minHeight="min-h-[300px]"
+              />
             </div>
 
             {/* Video URL */}

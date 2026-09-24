@@ -258,31 +258,18 @@ export default function AddBlogPage() {
                   )}
                 />
 
-                {/* <FormField control={form.control} name="content" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Content *</FormLabel>
-                                        <FormControl>
-                                            <Textarea
-                                                placeholder="Write your blog post content here..."
-                                                rows={15}
-                                                {...field}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} /> */}
-
-                {/* rich editor */}
                 <FormField
                   control={form.control}
                   name="content"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Content *</FormLabel>
+                      <FormLabel>Blog Post Content (Rich Text) *</FormLabel>
                       <FormControl>
                         <RichEditor
                           value={field.value}
                           onChange={field.onChange}
+                          placeholder="Write your blog post story, articles, tips, or guides..."
+                          minHeight="min-h-[450px]"
                         />
                       </FormControl>
                       <FormMessage />
