@@ -66,6 +66,19 @@ export class Property extends Document {
   @Prop({ type: [String], default: [] })
   additionalPhotosUrls: string[]
 
+  /**
+   * One short walkthrough clip, shown as the last slide of the gallery.
+   *
+   * A URL, not an upload: the video goes into the media library first (which
+   * enforces the size and length limits), and the listing stores the link.
+   */
+  @Prop({ type: String })
+  videoUrl?: string
+
+  /** Poster frame for the video, so the gallery has a tile before it plays. */
+  @Prop({ type: String })
+  videoPosterUrl?: string
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   owner: Types.ObjectId
 

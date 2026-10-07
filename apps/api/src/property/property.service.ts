@@ -279,6 +279,10 @@ export class PropertyService {
               source,
               latitude: dto.latitude ? Number(dto.latitude) : undefined,
               longitude: dto.longitude ? Number(dto.longitude) : undefined,
+              // Walkthrough clip: already uploaded to the media library, so this
+              // is just the link plus its poster frame.
+              videoUrl: dto.videoUrl?.trim() || undefined,
+              videoPosterUrl: dto.videoPosterUrl?.trim() || undefined,
             })
             const saved = await property.save()
 
@@ -985,6 +989,13 @@ export class PropertyService {
             latitude: dto.latitude ? Number(dto.latitude) : undefined,
             longitude: dto.longitude ? Number(dto.longitude) : undefined,
           };
+
+          // Sent as "" when the video was removed, which has to clear the field
+          // rather than read as "unchanged".
+          if (dto.videoUrl !== undefined) {
+            updateData.videoUrl = dto.videoUrl.trim() || null;
+            updateData.videoPosterUrl = dto.videoPosterUrl?.trim() || null;
+          }
 
           // Status changes via update() — role-based:
           // - ADMIN: any status allowed

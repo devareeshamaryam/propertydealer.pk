@@ -1,5 +1,6 @@
  "use client";
 
+import { MAP_TILES } from "@/lib/map-tiles";
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
@@ -169,14 +170,13 @@ export default function EMap({ cities, focusedSlug }: EMapProps) {
         zoomControl: true,
       });
 
-      // Light/minimal tile style
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        {
-          attribution: '&copy; <a href="https://carto.com">CARTO</a>',
-          maxZoom: 19,
-        }
-      ).addTo(map);
+      // Google street tiles — societies, phases and blocks are named here,
+      // which CARTO/OSM mostly leaves blank in Pakistan. See lib/map-tiles.ts.
+      L.tileLayer(MAP_TILES.street.url, {
+        attribution: MAP_TILES.street.attribution,
+        maxZoom: MAP_TILES.street.maxZoom,
+        subdomains: MAP_TILES.street.subdomains,
+      }).addTo(map);
 
       leafletMapRef.current = map;
 

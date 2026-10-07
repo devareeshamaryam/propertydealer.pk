@@ -137,7 +137,6 @@ const AnimatedLogo = () => {
 
 const Navbar = () => {
   const pathname = usePathname() || '';
-  const [showAddProperty, setShowAddProperty] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
@@ -292,13 +291,27 @@ const Navbar = () => {
                   <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
 
                   <div className="space-y-3">
+                    {/*
+                      This used to toggle a state nothing rendered, so the
+                      button did nothing at all. It now opens the real
+                      three-step flow — or agent sign-up when signed out.
+                    */}
                     <Button
+                      asChild
                       className="w-full gap-2 relative overflow-hidden bg-gradient-to-r from-primary to-primary/90 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30 group"
-                      onClick={() => { setMobileOpen(false); setShowAddProperty(true); }}
+                      onClick={() => setMobileOpen(false)}
                     >
+                      <Link
+                        href={
+                          isAuthenticated
+                            ? "/dashboard/property/add-property"
+                            : "/register?as=agent&next=/dashboard/property/add-property"
+                        }
+                      >
                       <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
                       <Plus className="w-4 h-4 relative z-10 transition-transform duration-500 group-hover:rotate-180" />
                       <span className="relative z-10">Add Property</span>
+                      </Link>
                     </Button>
 
                     {mounted && (

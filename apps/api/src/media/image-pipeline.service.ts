@@ -174,4 +174,14 @@ export class ImagePipelineService {
   static datePrefix(date = new Date()): string {
     return `${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}`;
   }
+
+  /**
+   * A readable, unique file stem for a video — same rules as an image, so the
+   * URL reads `5-marla-house-dha-phase-6-a1b2c3d4.mp4` rather than a UUID.
+   */
+  static videoStem(originalName: string, context?: string | null): string {
+    const name = pickImageName(originalName, context ?? undefined);
+    const unique = nanoid(8).toLowerCase().replace(/[^a-z0-9]/g, 'x');
+    return `${slugifyFileName(name, 'video')}-${unique}`;
+  }
 }

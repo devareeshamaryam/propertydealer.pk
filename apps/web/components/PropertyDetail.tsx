@@ -1,8 +1,8 @@
  /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, usePathname } from 'next/navigation';
 import { MapPin, Bed, Bath, Maximize, Share2, Phone, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, House, Tag, LayoutDashboard, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,8 +16,10 @@ import { toast } from 'sonner';
 import { toTitleCase } from '@/lib/utils';
 import { agentDisplayName, agentProfilePath } from '@/lib/agent';
 import { trackContact, trackView } from '@/lib/analytics';
+import { loginUrl, maskPhone, useResumeIntent } from '@/lib/auth-intent';
+import { useAuth } from '@/context/auth-context';
 import dynamic from 'next/dynamic';
-import useEmblaCarousel from 'embla-carousel-react';
+import PropertyGallery from '@/components/property/PropertyGallery';
 
 const PropertyMap = dynamic(() => import('@/components/PropertyMap'), {
   ssr: false,
@@ -30,6 +32,8 @@ const PropertyMap = dynamic(() => import('@/components/PropertyMap'), {
 
 const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialProperty?: BackendProperty | null }) => {
   const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const params = useParams();
   const resolvedSlug = (slug || (params?.slug as string) || (params?.id as string))?.trim();
 
@@ -39,10 +43,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const [backendProperty, setBackendProperty] = useState<BackendProperty | null>(initialProperty || null);
   const [loading, setLoading] = useState(!initialProperty);
   const [error, setError] = useState<string | null>(null);
-  const [selectedImage, setSelectedImage] = useState(0);
   const [showContactForm, setShowContactForm] = useState(false);
   const [formData, setFormData] = useState({ name: '', email: '', phone: '', message: '', features: [] });
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('overview-section');
   const [relatedByArea, setRelatedByArea] = useState<Property[]>([]);
   const [relatedByCity, setRelatedByCity] = useState<Property[]>([]);
@@ -52,7 +54,6 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const [showStickyContact, setShowStickyContact] = useState(false);
   const contactButtonsRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
-  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, duration: 25 });
 
   const getTimeAgo = (dateString?: string) => {
     if (!dateString) return 'Recently';
@@ -116,17 +117,6 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       contactObserver.disconnect();
     };
   }, [property]);
-
-  useEffect(() => {
-    if (!emblaApi) return;
-    const onSelect = () => setSelectedImage(emblaApi.selectedScrollSnap());
-    emblaApi.on('select', onSelect);
-    return () => { emblaApi.off('select', onSelect); };
-  }, [emblaApi]);
-
-  useEffect(() => {
-    if (isLightboxOpen && emblaApi) emblaApi.scrollTo(selectedImage);
-  }, [isLightboxOpen, emblaApi, selectedImage]);
 
   useEffect(() => {
     const fetchRelatedProperties = async () => {
@@ -292,13 +282,48 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     }
   };
 
-  const waLink = () => {
+  const waLink = useCallback(() => {
     const message = encodeURIComponent(`I want to know more about this property: ${property.name}\nLink: ${window.location.href}`);
     const raw = property.whatsappNumber || property.contactNumber || '923123456789';
     const clean = raw.replace(/\D/g, '');
     const num = clean.startsWith('92') ? clean : '92' + clean.replace(/^0/, '');
     return `https://wa.me/${num}?text=${message}`;
+  }, [property.name, property.whatsappNumber, property.contactNumber]);
+
+  /*
+   * Contact is for signed-in visitors.
+   *
+   * Agents were being called by anyone who happened to open the page, and the
+   * numbers were sitting in the HTML for every scraper to collect. Signing in
+   * costs a buyer ten seconds and makes the enquiry traceable; the intent is
+   * remembered, so the call still happens on the way back.
+   */
+  const dial = useCallback(() => {
+    trackContact(backendProperty?._id, 'phone');
+    window.location.href = `tel:${property.contactNumber}`;
+  }, [backendProperty?._id, property.contactNumber]);
+
+  const openWhatsApp = useCallback(() => {
+    trackContact(backendProperty?._id, 'whatsapp');
+    window.open(waLink(), '_blank');
+  }, [backendProperty?._id, waLink]);
+
+  const requireAuthThen = (intent: 'call' | 'whatsapp', run: () => void) => {
+    if (isAuthenticated) {
+      run();
+      return;
+    }
+    toast.info(
+      intent === 'call'
+        ? 'Sign in to see the number'
+        : 'Sign in to message on WhatsApp',
+      { description: 'It takes a few seconds — we will bring you right back.' },
+    );
+    router.push(loginUrl(pathname || `/properties/${property.slug}`, intent));
   };
+
+  // Back from signing in: do the thing they were trying to do.
+  useResumeIntent({ call: dial, whatsapp: openWhatsApp }, !authLoading && isAuthenticated);
 
   const getSchemaType = (type: string) => {
     switch ((type || '').toLowerCase()) {
@@ -469,73 +494,20 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 </div>
               </div>
 
-              {/* Image slider */}
+              {/*
+                One gallery for photos and the walkthrough video.
+                See components/property/PropertyGallery.tsx — scroll-snap
+                track, blurred letterbox, thumbnails, fullscreen, and the video
+                as the last slide which plays when you reach it.
+              */}
               <section>
-                <div className="relative w-full group">
-                  <div className="relative w-full h-[250px] md:h-[600px] overflow-hidden bg-secondary cursor-zoom-in">
-                    {images.length > 0 && images[selectedImage] ? (
-                      <div className="relative w-full h-full">
-                        <img
-                          src={images[selectedImage]}
-                          alt={`${property.name} - Image ${selectedImage + 1}`}
-                          className="w-full h-full object-cover transition-opacity duration-300"
-                          onClick={() => setIsLightboxOpen(true)}
-                          onError={(e) => {
-                            const t = e.target as HTMLImageElement;
-                            const ph = getPlaceholderImages(property.type)[selectedImage] || getPlaceholderImages(property.type)[0];
-                            if (ph && t.src !== ph) t.src = ph;
-                          }}
-                        />
-                        <div className="md:hidden absolute bottom-4 left-4 z-20">
-                          <div className="bg-primary/80 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg shadow-xl font-bold text-lg border border-white/20">
-                            Rs.{' '}
-                            {property.price >= 10000000
-                              ? `${(property.price / 10000000).toLocaleString('en-PK', { maximumFractionDigits: 2 })} Crore`
-                              : property.price >= 100000
-                              ? `${(property.price / 100000).toLocaleString('en-PK', { maximumFractionDigits: 2 })} Lac`
-                              : formatPrice(property.price)}
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <p className="text-muted-foreground">No image available</p>
-                      </div>
-                    )}
-
-                    {images.length > 1 && (
-                      <>
-                        <Button variant="outline" size="icon" className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg opacity-50 lg:opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => setSelectedImage(p => (p - 1 + images.length) % images.length)}>
-                          <ChevronLeft className="md:w-6 md:h-6 w-2 h-2" />
-                        </Button>
-                        <Button variant="outline" size="icon" className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white shadow-lg opacity-50 lg:opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={() => setSelectedImage(p => (p + 1) % images.length)}>
-                          <ChevronRight className="md:w-6 md:h-6 w-2 h-2" />
-                        </Button>
-                        <div className="absolute bottom-4 right-4 bg-black/70 text-white px-3 py-1 rounded-full text-sm z-10">
-                          {selectedImage + 1} / {images.length}
-                        </div>
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
-                          {images.map((_, idx) => (
-                            <button key={idx} onClick={() => setSelectedImage(idx)} aria-label={`Image ${idx + 1}`}
-                              className={`w-2 h-2 rounded-full transition-all ${selectedImage === idx ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/75'}`} />
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {images.length > 1 && (
-                    <div className="hidden md:flex gap-2 mt-4 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-primary/10 scrollbar-track-transparent">
-                      {images.map((img, idx) => (
-                        <div key={idx} onClick={() => setSelectedImage(idx)}
-                          className={`shrink-0 cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${selectedImage === idx ? 'border-primary ring-2 ring-primary ring-offset-2' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                          <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-20 h-20 object-cover"
-                            onError={(e) => { const t = e.target as HTMLImageElement; const ph = getPlaceholderImages(property.type)[idx] || getPlaceholderImages(property.type)[0]; if (ph && t.src !== ph) t.src = ph; }} />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <PropertyGallery
+                  images={images}
+                  title={property.name}
+                  videoUrl={backendProperty?.videoUrl ?? null}
+                  videoPoster={backendProperty?.videoPosterUrl ?? null}
+                  badge={property.purpose === "rent" ? "For Rent" : "For Sale"}
+                />
               </section>
 
               {/* Mobile: location row + stats bar + CTA buttons */}
@@ -574,11 +546,11 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
                 <div className="flex px-4 py-1" ref={contactButtonsRef}>
                   <div className="flex space-x-3 w-full">
-                    <Button className="flex-1 bg-[#25D366] rounded-sm hover:bg-[#128C7E] text-white border-none shadow-sm" size="lg" onClick={() => { trackContact(backendProperty?._id, 'whatsapp'); window.open(waLink(), '_blank'); }}>
+                    <Button className="flex-1 bg-[#25D366] rounded-sm hover:bg-[#128C7E] text-white border-none shadow-sm" size="lg" onClick={() => requireAuthThen('whatsapp', openWhatsApp)}>
                       <WaIcon /> WhatsApp
                     </Button>
                     <Button variant="outline" className="flex-1 rounded-sm border-primary text-primary hover:bg-primary/5 shadow-sm" size="lg" asChild>
-                      <a href={`tel:${property.contactNumber}`} onClick={() => trackContact(backendProperty?._id, 'phone')}><Phone className="w-4 h-4 mr-2" />Call</a>
+                      <button type="button" onClick={() => requireAuthThen('call', dial)}><Phone className="w-4 h-4 mr-2" />{isAuthenticated ? 'Call' : 'Show number'}</button>
                     </Button>
                   </div>
                 </div>
@@ -753,11 +725,16 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                     )}
 
                     <div className="space-y-3 mb-6">
-                      <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-none" size="lg" onClick={() => { trackContact(backendProperty?._id, 'whatsapp'); window.open(waLink(), '_blank'); }}>
+                      <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-none" size="lg" onClick={() => requireAuthThen('whatsapp', openWhatsApp)}>
                         <WaIcon /> WhatsApp Inquiry
                       </Button>
                       <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/10" size="lg" asChild>
-                        <a href={`tel:${property.contactNumber}`} onClick={() => trackContact(backendProperty?._id, 'phone')}><Phone className="w-4 h-4 mr-2" />Call: {property.contactNumber}</a>
+                        <button type="button" onClick={() => requireAuthThen('call', dial)}>
+                          <Phone className="w-4 h-4 mr-2" />
+                          {isAuthenticated
+                            ? `Call: ${property.contactNumber}`
+                            : `Show number: ${maskPhone(property.contactNumber)}`}
+                        </button>
                       </Button>
                     </div>
                     <div className="pt-6 border-t border-border">
@@ -847,60 +824,14 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${showStickyContact ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="grid grid-cols-2 gap-3 p-4">
           <Button variant="outline" className="w-full flex items-center justify-center gap-2 border-primary text-primary hover:bg-primary/5 h-12" asChild>
-            <a href={`tel:${property.contactNumber}`} onClick={() => trackContact(backendProperty?._id, 'phone')}><Phone className="w-4 h-4" />Call</a>
+            <button type="button" onClick={() => requireAuthThen('call', dial)}><Phone className="w-4 h-4" />{isAuthenticated ? 'Call' : 'Show number'}</button>
           </Button>
-          <Button className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-none h-12 font-semibold" onClick={() => { trackContact(backendProperty?._id, 'whatsapp'); window.open(waLink(), '_blank'); }}>
+          <Button className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-none h-12 font-semibold" onClick={() => requireAuthThen('whatsapp', openWhatsApp)}>
             <WaIcon /> WhatsApp
           </Button>
         </div>
       </div>
 
-      {/* Lightbox */}
-      <Dialog open={isLightboxOpen} onOpenChange={setIsLightboxOpen}>
-        <DialogContent showCloseButton={false} className="max-w-[100vw] max-h-[100vh] w-screen h-screen p-0 bg-black/98 border-none flex flex-col items-center justify-center rounded-none overflow-hidden sm:max-w-[100vw] z-[9999]">
-          <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-4 bg-gradient-to-b from-black/80 to-transparent z-50">
-            <span className="text-white font-medium">{selectedImage + 1} / {images.length}</span>
-            <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full h-10 w-10" onClick={() => setIsLightboxOpen(false)}>
-              <X className="w-6 h-6" />
-            </Button>
-          </div>
-
-          <div className="flex-1 w-full relative overflow-hidden flex items-center justify-center" ref={emblaRef}>
-            <div className="flex h-full w-full">
-              {images.map((img, idx) => (
-                <div key={idx} className="flex-[0_0_100%] min-w-0 relative h-full flex items-center justify-center p-2 md:p-12">
-                  <img src={img} alt={`${property.name} - Full Image ${idx + 1}`} className="w-full max-h-full object-contain select-none" onClick={e => e.stopPropagation()}
-                    onError={(e) => { const t = e.target as HTMLImageElement; const ph = getPlaceholderImages(property.type)[idx] || getPlaceholderImages(property.type)[0]; if (ph && t.src !== ph) t.src = ph; }} />
-                </div>
-              ))}
-            </div>
-            {images.length > 1 && (
-              <>
-                <Button variant="ghost" size="icon" className="hidden md:flex absolute left-6 top-1/2 -translate-y-1/2 text-white hover:bg-white/10 z-50 rounded-full border border-white/20 h-14 w-14" onClick={e => { e.stopPropagation(); emblaApi?.scrollPrev(); }}>
-                  <ChevronLeft className="w-8 h-8" />
-                </Button>
-                <Button variant="ghost" size="icon" className="hidden md:flex absolute right-6 top-1/2 -translate-y-1/2 text-white hover:bg-white/10 z-50 rounded-full border border-white/20 h-14 w-14" onClick={e => { e.stopPropagation(); emblaApi?.scrollNext(); }}>
-                  <ChevronRight className="w-8 h-8" />
-                </Button>
-              </>
-            )}
-          </div>
-
-          {images.length > 1 && (
-            <div className="w-full bg-black/90 p-4 pb-8 z-20">
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide px-2">
-                {images.map((img, idx) => (
-                  <div key={idx} onClick={e => { e.stopPropagation(); emblaApi?.scrollTo(idx); }}
-                    className={`shrink-0 cursor-pointer rounded-sm overflow-hidden border-2 transition-all w-20 h-14 ${selectedImage === idx ? 'border-primary ring-1 ring-primary' : 'border-white/10 opacity-40 hover:opacity-100'}`}>
-                    <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover"
-                      onError={(e) => { const t = e.target as HTMLImageElement; const ph = getPlaceholderImages(property.type)[idx] || getPlaceholderImages(property.type)[0]; if (ph && t.src !== ph) t.src = ph; }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

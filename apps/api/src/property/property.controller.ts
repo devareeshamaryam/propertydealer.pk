@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { StorageService } from '@rent-ghar/storage/storage.service';
 import { PropertyService, type DashboardPropertyFilters } from './property.service';
 import { PropertyCountersService } from './property-counters.service';
+import { UserService } from '../user/user.service';
 import { CreatePropertyDto } from './dto/create-property.dto'; // Local DTO with validation
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -18,6 +19,7 @@ export class PropertyController {
     // Temporarily commented out to debug DI issue
     private readonly storageService: StorageService,
     private readonly propertyCounters: PropertyCountersService,
+    private readonly users: UserService,
   ) {}
 
   @Post()
@@ -97,6 +99,24 @@ export class PropertyController {
     // this one. Diagnostics go through the Nest logger now.
     try {
       const created = await this.propertyService.create(userId, dto as any, mainPhotoUrl, additionalPhotosUrls, userRole)
+
+      /*
+       * Posting a property is what makes somebody an agent.
+       *
+       * Accounts start as USER — including the ones created just to see a
+       * phone number — so the first listing is the moment the role changes.
+       * Nobody has to pick 'agent' at sign-up and nobody is mislabelled for
+       * signing up to contact someone. Non-fatal: a failed promotion must not
+       * lose the listing that was just created.
+       */
+      if (userRole !== 'ADMIN' && userRole !== 'AGENT') {
+        this.users.promoteToAgent(userId).catch((error) =>
+          this.logger.warn(
+            `Could not promote ${userId} to AGENT: ${(error as Error)?.message}`,
+          ),
+        );
+      }
+
       const message = (created as any)?.status === 'draft'
         ? 'Property saved as draft'
         : (created as any)?.status === 'approved'

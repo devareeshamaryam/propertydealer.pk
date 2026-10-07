@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { GalleryField } from "@/components/media";
-import { AreaSizeField, PriceField } from "@/components/dashboard";
+import { GalleryField, VideoField } from "@/components/media";
+import {
+  AreaSizeField,
+  FeaturesPicker,
+  PriceField,
+} from "@/components/dashboard";
 import { Loader2, Plus } from "lucide-react";
 import { toTitleCase } from "@/lib/utils";
 import { marlaKanalFor } from "@/lib/pk";
@@ -100,6 +104,9 @@ export default function EditProperty() {
   // Photos in display order; the first is the cover. Already-uploaded URLs,
   // so there are no File objects to carry around.
   const [photos, setPhotos] = useState<string[]>([]);
+  // One short walkthrough clip, shown as the last slide of the gallery.
+  const [videoUrl, setVideoUrl] = useState("");
+  const [videoPosterUrl, setVideoPosterUrl] = useState("");
 
   const [features, setFeatures] = useState<string[]>([""]);
 
@@ -271,6 +278,9 @@ export default function EditProperty() {
         setLongitude(property.longitude);
 
         // Correct field names for images
+        setVideoUrl(property.videoUrl ?? "");
+        setVideoPosterUrl(property.videoPosterUrl ?? "");
+
         setPhotos(
           [property.mainPhotoUrl, ...(property.additionalPhotosUrls ?? [])].filter(
             (url): url is string => Boolean(url),
@@ -335,6 +345,11 @@ export default function EditProperty() {
       fetchAreas();
     }
   }, [cityId, areaId, loadingProperty]);
+  /** The chosen city and area by name, for the map search box. */
+  const selectedCityName =
+    cities.find((c) => String(c._id) === cityId)?.name ?? "";
+  const selectedAreaName =
+    areas.find((a) => String(a._id) === areaId)?.name ?? "";
 
   const handleCreateCity = async () => {
     if (!newCityName.trim()) return;
@@ -385,20 +400,6 @@ export default function EditProperty() {
     } finally {
       setIsAddingLocation(false);
     }
-  };
-
-  const addFeature = () => {
-    setFeatures([...features, ""]);
-  };
-
-  const updateFeature = (index: number, value: string) => {
-    const newFeatures = [...features];
-    newFeatures[index] = value;
-    setFeatures(newFeatures);
-  };
-
-  const removeFeature = (index: number) => {
-    setFeatures(features.filter((_, i) => i !== index));
   };
 
   // Map frontend propertyType to backend format (lowercase)
@@ -502,6 +503,9 @@ export default function EditProperty() {
       // Tells the API this list is the gallery as it now stands, so removing
       // the last extra photo is saved as "no extra photos" rather than ignored.
       formData.append("photosProvided", "true");
+      // Always sent, so clearing the video actually removes it.
+      formData.append("videoUrl", videoUrl);
+      formData.append("videoPosterUrl", videoPosterUrl);
 
       if (latitude !== undefined)
         formData.append("latitude", latitude.toString());
@@ -777,6 +781,12 @@ export default function EditProperty() {
                 Pin Location on Map
               </label>
               <div className="mb-2">
+                {/*
+                  The map is tied to the address: "Find from address" searches
+                  the street, area and city entered above, so the pin and the
+                  written address describe the same place instead of drifting
+                  apart. The city also decides the opening view.
+                */}
                 <MapPicker
                   onLocationSelect={(lat, lng) => {
                     setLatitude(lat);
@@ -784,6 +794,10 @@ export default function EditProperty() {
                   }}
                   initialLat={latitude}
                   initialLng={longitude}
+                  addressQuery={[location, selectedAreaName, selectedCityName]
+                    .filter(Boolean)
+                    .join(", ")}
+                  city={selectedCityName}
                 />
               </div>
               <p className="text-xs text-gray-500">
@@ -870,6 +884,17 @@ export default function EditProperty() {
               hint="The first photo is the cover shown in search results. Drag to reorder."
             />
 
+            <VideoField
+              value={videoUrl}
+              posterValue={videoPosterUrl}
+              onChange={({ url, posterUrl }) => {
+                setVideoUrl(url);
+                setVideoPosterUrl(posterUrl);
+              }}
+              context={title || "Property walkthrough"}
+              disabled={isLoading}
+            />
+
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Property Description *
@@ -883,46 +908,17 @@ export default function EditProperty() {
               />
             </div>
 
-            {/* Features */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Property Features
-              </label>
-              <div className="space-y-3">
-                {features.map((feature, index) => (
-                  <div key={index} className="flex gap-3">
-                    <input
-                      type="text"
-                      value={feature}
-                      onChange={(e) => updateFeature(index, e.target.value)}
-                      placeholder={`Feature ${index + 1} (e.g., Swimming Pool, Parking, Security)`}
-                      disabled={isLoading}
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                    />
-                    {features.length > 1 && (
-                      <Button
-                        type="button"
-                        onClick={() => removeFeature(index)}
-                        variant="destructive"
-                        size="sm"
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  onClick={addFeature}
-                  disabled={isLoading}
-                  variant="outline"
-                  className="w-full border-dashed"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add More Features
-                </Button>
-              </div>
-            </div>
+            {/*
+              Ticked, not typed: see lib/property-features.ts. The list shown
+              follows the property type, and anything an older listing already
+              says is kept as a custom chip.
+            */}
+            <FeaturesPicker
+              value={features.filter((feature) => feature.trim() !== "")}
+              onChange={setFeatures}
+              propertyType={propertyType}
+              disabled={isLoading}
+            />
 
             {/* Contact Number & WhatsApp Number */}
             <div className="grid md:grid-cols-2 gap-6">

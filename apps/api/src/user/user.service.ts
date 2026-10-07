@@ -79,6 +79,23 @@ export class UserService {
     return user;
   }
 
+  /**
+   * First listing makes you an agent.
+   *
+   * Accounts are created as USER — including the ones made purely to see a
+   * phone number — and this is the moment that changes. Guarded on the current
+   * role so it can never demote an ADMIN, and a no-op for anyone who is
+   * already an AGENT.
+   */
+  async promoteToAgent(id: string): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { _id: id, role: { $nin: ['ADMIN', 'AGENT'] } },
+        { $set: { role: 'AGENT' } },
+      )
+      .exec();
+  }
+
   async update(id: string, updateData: Partial<User>) {
     const user = await this.userModel
       .findByIdAndUpdate(id, { $set: updateData }, { new: true })

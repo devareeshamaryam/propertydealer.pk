@@ -15,7 +15,8 @@ import {
 } from '@nestjs/common';
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
-import { MediaService } from './media.service';
+import { AdminGuard } from '../auth/guards/admin.guard';
+import { MAX_VIDEO_BYTES, MediaService } from './media.service';
 import type { MediaDocument } from '@rent-ghar/db/schemas/media.schema';
 
 /** The wire shape the media library renders. */
@@ -47,6 +48,9 @@ function view(doc: any) {
     placeholder: doc.placeholder ?? '',
     color: doc.color ?? '',
     folder: doc.folder ?? 'general',
+    // Rows written before videos existed have no kind; they are all images.
+    kind: doc.kind === 'video' ? 'video' : 'image',
+    durationSec: doc.durationSec ?? 0,
     uploadedBy: uploader,
     createdAt:
       doc.createdAt instanceof Date
@@ -107,6 +111,41 @@ export class MediaController {
     };
   }
 
+  /**
+   * POST /api/media/upload-video — one short clip, plus its poster frame.
+   *
+   * Separate from the image route because nothing about it is the same: no
+   * sharp, no WebP, no AI, a different size ceiling, and a `video` field plus
+   * an optional `poster` field rather than a bag of files.
+   */
+  @Post('upload-video')
+  @UseInterceptors(
+    AnyFilesInterceptor({ limits: { fileSize: MAX_VIDEO_BYTES, files: 2 } }),
+  )
+  async uploadVideo(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: { folder?: string; context?: string; durationSec?: string },
+    @Request() req,
+  ) {
+    const video = files?.find((file) => file.fieldname === 'video') ?? files?.[0];
+    const poster = files?.find((file) => file.fieldname === 'poster');
+
+    if (!video) throw new BadRequestException('No video uploaded');
+
+    const doc = await this.media.uploadVideo(
+      video,
+      poster,
+      {
+        folder: body?.folder ?? 'properties',
+        context: body?.context ?? null,
+        durationSec: Number(body?.durationSec) || 0,
+      },
+      req.user.userId,
+    );
+
+    return { success: true, data: view(doc) };
+  }
+
   /** GET /api/media?page=&limit=&search=&folder=&uploadedBy= */
   @Get()
   async list(
@@ -115,6 +154,7 @@ export class MediaController {
     @Query('search') search?: string,
     @Query('folder') folder?: string,
     @Query('uploadedBy') uploadedBy?: string,
+    @Query('kind') kind?: string,
     @Request() req?,
   ) {
     const result = await this.media.list(
@@ -124,6 +164,7 @@ export class MediaController {
         search,
         folder,
         uploadedBy,
+        kind: kind === 'image' || kind === 'video' ? kind : undefined,
       },
       req.user.userId,
       req.user.role,
@@ -136,6 +177,19 @@ export class MediaController {
       page: result.page,
       pages: result.pages,
     };
+  }
+
+  /**
+   * POST /api/media/import-existing — admin only.
+   *
+   * One press instead of an SSH session: lists what is already in storage and
+   * writes a library row for anything missing. Files are never touched.
+   */
+  @Post('import-existing')
+  @UseGuards(AdminGuard)
+  async importExisting(@Request() req) {
+    const result = await this.media.importExisting(req.user.userId);
+    return { success: true, data: result };
   }
 
   /** GET /api/media/stats — file count and bytes, scoped like the listing. */

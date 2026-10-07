@@ -362,3 +362,17 @@ a[class*="footerAction"] {
     display: none;
   }
 }
+/*
+ * A scroll container that scrolls without showing a bar — the gallery track
+ * and the thumbnail strips. The bar is redundant there: the slide counter and
+ * the thumbnails already say where you are, and on a desktop a visible bar
+ * under the photo looks like a defect.
+ */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

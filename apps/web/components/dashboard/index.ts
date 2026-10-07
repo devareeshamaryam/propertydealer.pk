@@ -31,3 +31,4 @@ export {
 export { PriceField } from "./price-field";
 export { AreaSizeField } from "./area-size-field";
 export { FormSteps, type FormStep } from "./form-steps";
+export { FeaturesPicker } from "./features-picker";

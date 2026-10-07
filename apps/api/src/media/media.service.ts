@@ -23,6 +23,8 @@ export interface MediaListQuery {
   folder?: string;
   /** Admin only — browse another user's uploads, or everyone's. */
   uploadedBy?: string;
+  /** "image" when picking for a photo field, so videos stay out of the grid. */
+  kind?: "image" | "video";
 }
 
 export interface UploadOptions {
@@ -38,6 +40,57 @@ export interface UploadOptions {
 }
 
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+
+/*
+ * Video limits. Deliberately small: this is a walkthrough clip on a listing,
+ * not a YouTube upload, and most buyers are on mobile data. The browser checks
+ * the same numbers before uploading so nobody waits for a refusal.
+ */
+export const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
+export const MAX_VIDEO_SECONDS = 90;
+
+const SUPPORTED_VIDEO_MIME = new Set([
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+]);
+
+const VIDEO_EXTENSION: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'video/quicktime': 'mov',
+};
+
+/* ── Importing what is already on disk (see importExisting) ── */
+
+/** Files the library should not list. */
+const IMPORT_SKIP = /(-thumb\.webp|-poster\.webp|\.meta\.json|\.DS_Store|thumbs\.db)$/i;
+const IMPORTABLE_IMAGE = /\.(jpe?g|png|webp|gif|avif|bmp|tiff?)$/i;
+
+/** "properties/5-marla-house-dha.jpg" → "5 marla house dha" */
+function altFromKey(key: string): string {
+  const base = key.split('/').pop() ?? key;
+  return base
+    .replace(/\.[a-z0-9]+$/i, '')
+    // Drop a trailing UUID or hash so the alt text reads as words.
+    .replace(/[-_][0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Guess the library folder from the directory the file already sits in. */
+function folderFromKey(key: string): string {
+  const head = key.split('/')[0]?.toLowerCase() ?? '';
+  if (head.startsWith('propert')) return 'properties';
+  if (head.includes('blog')) return 'blog';
+  if (head.includes('rate')) return 'rates';
+  if (head.includes('cit')) return 'cities';
+  if (head.includes('area')) return 'areas';
+  if (head.includes('tile')) return 'tile-categories';
+  if (head.includes('page')) return 'pages';
+  return 'general';
+}
 
 @Injectable()
 export class MediaService {
@@ -166,6 +219,96 @@ export class MediaService {
     return doc;
   }
 
+  /**
+   * A short walkthrough video for a listing.
+   *
+   * Stored as uploaded — no transcoding. ffmpeg is not on this server and
+   * adding it to answer an upload would turn a 3-second request into a minute
+   * of CPU; phones already record H.264 mp4, which every browser plays. The
+   * limits below are what keeps that honest, and they are enforced in the
+   * browser too so a 200 MB file is refused before it is sent.
+   *
+   * The poster frame is captured client-side from the first readable frame and
+   * uploaded alongside, so a video sits in the library grid looking like any
+   * other tile and the gallery has something to show before it plays.
+   */
+  async uploadVideo(
+    file: Express.Multer.File,
+    poster: Express.Multer.File | undefined,
+    options: UploadOptions & { durationSec?: number },
+    userId: string,
+  ): Promise<MediaDocument> {
+    if (!file?.buffer?.length) throw new BadRequestException('Empty file');
+
+    if (file.size > MAX_VIDEO_BYTES) {
+      throw new BadRequestException(
+        `“${file.originalname}” is ${(file.size / 1048576).toFixed(0)} MB — the limit is ${MAX_VIDEO_BYTES / 1048576} MB`,
+      );
+    }
+
+    if (!SUPPORTED_VIDEO_MIME.has(file.mimetype)) {
+      throw new BadRequestException(
+        'Only MP4, WebM and MOV videos can be uploaded',
+      );
+    }
+
+    const duration = Number(options.durationSec) || 0;
+    if (duration > MAX_VIDEO_SECONDS + 2) {
+      throw new BadRequestException(
+        `The video is ${Math.round(duration)} seconds — keep it under ${MAX_VIDEO_SECONDS}`,
+      );
+    }
+
+    const folder = this.safeFolder(options.folder);
+    const context = options.context?.trim() || null;
+    const stem = ImagePipelineService.videoStem(file.originalname, context);
+    const extension = VIDEO_EXTENSION[file.mimetype] ?? 'mp4';
+
+    const dir = `${folder}/${ImagePipelineService.datePrefix()}`;
+    const key = `${dir}/${stem}.${extension}`;
+
+    await this.storage.putBuffer(key, file.buffer, file.mimetype);
+
+    // The poster is an ordinary image, so it goes through the usual pipeline
+    // and comes out WebP like everything else.
+    let thumbUrl = '';
+    if (poster?.buffer?.length && ImagePipelineService.isSupportedImage(poster.mimetype)) {
+      try {
+        const processed = await this.pipeline.process(poster.buffer, stem);
+        const posterKey = `${dir}/${processed.stem}-poster.webp`;
+        await this.storage.putBuffer(posterKey, processed.thumb, 'image/webp');
+        thumbUrl = this.storage.getUrl(posterKey);
+      } catch (error) {
+        this.logger.warn(
+          `Could not store the video poster: ${(error as Error).message}`,
+        );
+      }
+    }
+
+    const label = context ? `${context} — video tour` : 'Property video tour';
+
+    return this.mediaModel.create({
+      url: this.storage.getUrl(key),
+      // Falls back to the video's own URL so the grid never has an empty src.
+      thumbUrl: thumbUrl || this.storage.getUrl(key),
+      key,
+      mime: file.mimetype,
+      sizeBytes: file.size,
+      durationSec: Math.round(duration),
+      kind: 'video',
+      originalName: file.originalname,
+      title: label,
+      alt: label,
+      caption: '',
+      altSource: 'auto',
+      // No vision model is run on video: one frame tells it very little and it
+      // would cost a request per upload.
+      aiStatus: 'skipped',
+      folder,
+      uploadedBy: new Types.ObjectId(userId),
+    });
+  }
+
   /** Bulk upload. One bad file reports itself without sinking the batch. */
   async uploadMany(
     files: Express.Multer.File[],
@@ -192,11 +335,85 @@ export class MediaService {
     return { items, failed };
   }
 
+  /**
+   * Brings images already sitting on disk into the library.
+   *
+   * The library lists database rows, and everything uploaded before it existed
+   * was written straight to disk with no row — so an admin opening the gallery
+   * on a site full of pictures saw an empty grid. There is a CLI script for
+   * this (scripts/import-existing-media.ts), but a button in the page is what
+   * actually gets used.
+   *
+   * ⚠️ Writes rows only. Every file keeps its exact path and extension — the
+   * site is live and ranked, so nothing is renamed, moved, converted or
+   * deleted. Idempotent: running it twice adds nothing.
+   */
+  async importExisting(adminId: string): Promise<{
+    imported: number;
+    alreadyPresent: number;
+    scanned: number;
+  }> {
+    const files = await this.storage.listFiles('');
+    const images = files.filter(
+      (file) => IMPORTABLE_IMAGE.test(file.key) && !IMPORT_SKIP.test(file.key),
+    );
+
+    let imported = 0;
+    let alreadyPresent = 0;
+
+    for (const file of images) {
+      if (await this.mediaModel.exists({ key: file.key })) {
+        alreadyPresent += 1;
+        continue;
+      }
+
+      const url = this.storage.getUrl(file.key);
+      const name = altFromKey(file.key);
+
+      await this.mediaModel.create({
+        url,
+        // These have no separate thumbnail; the grid uses the full image.
+        // Only uploads from here on get a real 480px thumb.
+        thumbUrl: url,
+        key: file.key,
+        mime: 'image/*',
+        sizeBytes: file.size ?? 0,
+        originalName: file.key.split('/').pop() ?? file.key,
+        title: name,
+        alt: name,
+        caption: '',
+        altSource: 'auto',
+        aiStatus: 'skipped',
+        kind: 'image',
+        folder: folderFromKey(file.key),
+        uploadedBy: new Types.ObjectId(adminId),
+        imported: true,
+        createdAt: file.modified ?? new Date(),
+      });
+
+      imported += 1;
+    }
+
+    this.logger.log(
+      `Imported ${imported} existing images (${alreadyPresent} already present, ${images.length} scanned)`,
+    );
+
+    return { imported, alreadyPresent, scanned: images.length };
+  }
+
   async list(query: MediaListQuery, userId: string, role?: string) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 40));
 
     const filter: Record<string, unknown> = { ...this.scopeFor(userId, role) };
+
+    if (query.kind === 'image') {
+      // Rows written before videos existed have no kind at all, so "not a
+      // video" is the only correct test here.
+      filter.kind = { $ne: 'video' };
+    } else if (query.kind === 'video') {
+      filter.kind = 'video';
+    }
 
     if (query.folder) filter.folder = this.safeFolder(query.folder);
 

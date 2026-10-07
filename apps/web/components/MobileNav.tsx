@@ -61,7 +61,9 @@ export default function MobileNav() {
       // Signed out, the dashboard would bounce to login and lose the intent.
       href: isAuthenticated
         ? "/dashboard/property/add-property"
-        : "/register?next=/dashboard/property/add-property",
+        // as=agent: someone tapping "Add" wants to list, so the sign-up form
+        // opens on the agent side rather than the buyer side.
+        : "/register?as=agent&next=/dashboard/property/add-property",
       icon: Plus,
     },
     { key: "rates", label: "Rates", href: RATES_HREF, icon: Layers },

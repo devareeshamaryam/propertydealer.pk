@@ -115,6 +115,15 @@ export class CreatePropertyDto {
   @IsString({ each: true })
   existingPhotos?: string[];
 
+  /** Media-library URL of the walkthrough video, and its poster frame. */
+  @IsOptional()
+  @IsString()
+  videoUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  videoPosterUrl?: string;
+
   // Allow caller to request draft on create/update.
   // Note: backend still enforces role-based permissions (e.g. only ADMIN/owner
   // can publish directly; non-admin save-as-draft is allowed).

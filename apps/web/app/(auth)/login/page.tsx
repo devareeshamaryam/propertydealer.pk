@@ -7,7 +7,9 @@ import { useForm } from 'react-hook-form'
 import { useAuth } from '@/context/auth-context'
 import * as z from 'zod'
 import { AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import Link from 'next/link'
 import { GoogleButton } from '@/components/auth/google-button'
+import { intentReason, registerUrl, safeNextUrl } from '@/lib/auth-intent'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -43,6 +45,10 @@ function LoginForm() {
   // Set when the Google round trip came back without a usable account.
   const googleFailed = searchParams.get('error') === 'google'
 
+  // "Sign in to see the agent's number" — the reason beats a generic greeting.
+  const reason = intentReason(searchParams.get('next'))
+  const nextPath = searchParams.get('next')
+
   useEffect(() => {
     if (searchParams.get('sessionExpired') === 'true') {
       setSessionExpired(true)
@@ -69,7 +75,7 @@ function LoginForm() {
         description: "Welcome back! Redirecting...",
       })
 
-      router.push('/dashboard')
+      router.push(safeNextUrl(searchParams.get('next')))
 
     } catch (err: any) {
       console.error(err)
@@ -102,10 +108,12 @@ function LoginForm() {
         )}
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            Welcome Back
+            {reason ?? 'Welcome back'}
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your credentials to access your account
+            {reason
+              ? 'Sign in, or create a free account — it takes a few seconds.'
+              : 'Enter your email and password to continue'}
           </CardDescription>
         </CardHeader>
 
@@ -201,11 +209,22 @@ function LoginForm() {
         </CardContent>
 
         <CardFooter className="flex flex-col space-y-4 text-center text-sm text-muted-foreground">
-          <div>
-            Don&apos;t have an account?{' '}
-            <a href="/register" className="text-primary hover:underline">
-              Sign up
-            </a>
+          {/*
+            This used to be one line of grey text, so people who had never
+            registered typed their email into the sign-in form, failed, and
+            left. It is a button now, and it carries the same ?next= so they
+            still end up where they were going.
+          */}
+          <div className="w-full rounded-lg border bg-muted/40 p-4">
+            <p className="font-medium text-foreground">New here?</p>
+            <p className="mt-0.5 text-xs">
+              You need an account to see agents&apos; contact details.
+            </p>
+            <Button variant="outline" className="mt-3 h-11 w-full" asChild>
+              <Link href={registerUrl(safeNextUrl(nextPath, '/dashboard'))}>
+                Create a free account
+              </Link>
+            </Button>
           </div>
           <div className="text-xs">
             By continuing, you agree to our{' '}

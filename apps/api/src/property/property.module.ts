@@ -8,6 +8,7 @@ import { City, CitySchema } from '@rent-ghar/db/schemas/city.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { StorageModule } from '@rent-ghar/storage';
 import { SubscriptionModule } from '../subscription/subscription.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   imports: [
@@ -18,6 +19,8 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     ]),
     StorageModule,
     SubscriptionModule,
+    // For promoting a USER to AGENT on their first listing.
+    UserModule,
   ],
   controllers: [PropertyController],
   providers: [PropertyService, PropertyCountersService],

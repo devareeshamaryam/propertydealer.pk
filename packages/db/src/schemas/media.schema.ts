@@ -100,6 +100,21 @@ export class Media {
    */
   @Prop({ default: false })
   imported: boolean;
+
+  /**
+   * Images or a short video. Rows written before videos existed have no value
+   * and default to "image", so nothing has to be migrated.
+   *
+   * A video keeps `thumbUrl` pointing at its poster frame (captured in the
+   * browser from the first readable frame), which is why the library grid can
+   * show videos without any special case.
+   */
+  @Prop({ default: "image", enum: ["image", "video"], index: true })
+  kind: "image" | "video";
+
+  /** Video only — length in seconds, as the browser measured it. */
+  @Prop({ default: 0 })
+  durationSec: number;
 }
 
 export const MediaSchema = SchemaFactory.createForClass(Media);

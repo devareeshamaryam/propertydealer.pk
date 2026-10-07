@@ -1,18 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  Check,
-  Copy,
-  ImageOff,
-  Info,
-  Loader2,
-  Search,
-  Sparkles,
-  Trash2,
-  Upload,
-  X,
-} from "lucide-react";
+import { Check, Copy, FolderInput, ImageOff, Info, Loader2, Play, Search, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -82,6 +71,7 @@ export function MediaLibrary({
   const [folderFilter, setFolderFilter] = useState<string>("");
   const [selected, setSelected] = useState<MediaItem[]>([]);
   const [detail, setDetail] = useState<MediaItem | null>(null);
+  const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -97,6 +87,9 @@ export function MediaLibrary({
           limit: 40,
           search,
           folder: folderFilter || undefined,
+          // A photo field must not offer a video to pick; the Media Library
+          // page itself shows everything.
+          kind: mode === "select" ? "image" : undefined,
         });
         setItems((previous) =>
           append ? [...previous, ...result.items] : result.items,
@@ -112,7 +105,7 @@ export function MediaLibrary({
         setLoading(false);
       }
     },
-    [search, folderFilter],
+    [search, folderFilter, mode],
   );
 
   // Debounced on search so typing does not fire a request per keystroke.
@@ -155,6 +148,32 @@ export function MediaLibrary({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.map((i) => `${i.id}:${i.aiStatus}`).join(",")]);
+
+  /** Admin-only: index what is already in storage. */
+  const runImport = async () => {
+    try {
+      setImporting(true);
+      const result = await mediaApi.importExisting();
+
+      if (result.imported === 0) {
+        toast.info("Nothing new to import", {
+          description: `${result.scanned} files checked — all of them are already listed.`,
+        });
+      } else {
+        toast.success(`Imported ${result.imported} images`, {
+          description: "Their files were not changed — only listed here.",
+        });
+      }
+
+      await load(1, false);
+    } catch (error) {
+      toast.error("Could not import", {
+        description: apiErrorMessage(error, "Please try again."),
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const doUpload = async (files: File[]) => {
     const images = files.filter(
@@ -363,21 +382,46 @@ export function MediaLibrary({
         )}
 
         {!loading && items.length === 0 ? (
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="grid min-h-[220px] w-full place-items-center rounded-xl border-2 border-dashed p-8 text-center transition-colors hover:border-primary"
-          >
-            <span className="flex flex-col items-center gap-2">
+          <div className="grid min-h-[220px] w-full place-items-center rounded-xl border-2 border-dashed p-8 text-center">
+            <div className="flex flex-col items-center gap-2">
               <Upload className="h-8 w-8 text-muted-foreground" />
               <span className="font-medium">
-                {search ? "No images match your search" : "No images yet"}
+                {search ? "No images match your search" : "No images here yet"}
               </span>
               <span className="text-sm text-muted-foreground">
-                Click to upload, or drag images in from your computer
+                Click Upload above, or drag images in from your computer
               </span>
-            </span>
-          </button>
+
+              {/*
+                The library lists its own records, and everything uploaded
+                before it existed has none — so on a site that is already full
+                of pictures this grid starts empty. This pulls them in: it adds
+                a record per file and touches nothing on disk, so no URL
+                changes and nothing that is indexed moves.
+              */}
+              {isAdmin && !search && (
+                <div className="mt-4 border-t pt-4">
+                  <p className="mb-2 max-w-sm text-sm text-muted-foreground">
+                    Images uploaded before the library existed are not listed
+                    yet. Bring them in — files are not renamed or moved.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void runImport()}
+                    disabled={importing}
+                  >
+                    {importing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <FolderInput className="mr-2 h-4 w-4" />
+                    )}
+                    {importing ? "Importing…" : "Import existing images"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
             {items.map((item) => {
@@ -395,6 +439,21 @@ export function MediaLibrary({
                       : "border-transparent hover:border-border",
                   )}
                 >
+                  {item.kind === "video" && (
+                    <>
+                      <span className="absolute inset-0 z-10 grid place-items-center">
+                        <span className="grid h-8 w-8 place-items-center rounded-full bg-black/60 text-white backdrop-blur-sm">
+                          <Play className="h-3.5 w-3.5 fill-white" />
+                        </span>
+                      </span>
+                      {item.durationSec ? (
+                        <span className="absolute bottom-1 right-1 z-10 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white">
+                          {Math.floor(item.durationSec / 60)}:
+                          {String(Math.round(item.durationSec % 60)).padStart(2, "0")}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                   <ImageOff className="absolute inset-0 m-auto h-5 w-5 text-muted-foreground" />
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img

@@ -1,5 +1,6 @@
  "use client";
 
+import { MAP_TILES } from "@/lib/map-tiles";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 
@@ -112,19 +113,20 @@ export default function AreaMapClient({ city, area }: Props) {
 
       mapInst.current = map;
 
-      const baseTile = L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        {
-          attribution: '&copy; <a href="https://carto.com">CARTO</a> &copy; <a href="https://openstreetmap.org">OSM</a>',
-          maxZoom: 21,
-          subdomains: "abcd",
-        }
-      );
+      // Google tiles for both layers — see lib/map-tiles.ts for why.
+      const baseTile = L.tileLayer(MAP_TILES.street.url, {
+        attribution: MAP_TILES.street.attribution,
+        maxZoom: MAP_TILES.street.maxZoom,
+        subdomains: MAP_TILES.street.subdomains,
+      });
 
-      const satelliteTile = L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        { attribution: '&copy; <a href="https://www.esri.com">Esri</a>', maxZoom: 21 }
-      );
+      // Hybrid rather than bare satellite: an aerial view of a new society is
+      // unreadable without the road names on top.
+      const satelliteTile = L.tileLayer(MAP_TILES.hybrid.url, {
+        attribution: MAP_TILES.hybrid.attribution,
+        maxZoom: MAP_TILES.hybrid.maxZoom,
+        subdomains: MAP_TILES.hybrid.subdomains,
+      });
 
       // Default: Satellite
       satelliteTile.addTo(map);

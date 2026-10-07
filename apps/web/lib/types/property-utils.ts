@@ -62,6 +62,8 @@ export interface BackendProperty {
   latitude?: number;
   longitude?: number;
   videoUrl?: string | null;
+  /** Poster frame for videoUrl, captured when the clip was uploaded. */
+  videoPosterUrl?: string | null;
 }
 
 export const PROPERTY_TYPE_ORDER = [

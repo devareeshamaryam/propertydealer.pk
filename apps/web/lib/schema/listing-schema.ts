@@ -185,7 +185,14 @@ export function buildListingPageSchema(data: {
         'seller': {
           '@type': 'RealEstateAgent',
           'name': property.owner?.name || 'Property Dealer',
-          'telephone': property.contactNumber || '+923030119992'
+          /*
+           * The site's own number, never the agent's.
+           *
+           * Agent numbers are behind a sign-in on the page, so printing them
+           * into the structured data would hand them to every scraper that
+           * reads JSON-LD and make the sign-in pointless.
+           */
+          'telephone': '+923030119992'
         }
       },
       {

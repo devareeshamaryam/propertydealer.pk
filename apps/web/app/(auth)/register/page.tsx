@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/context/auth-context'
+import { safeNextUrl } from '@/lib/auth-intent'
 import { GoogleButton } from '@/components/auth/google-button'
 
 export const dynamic = 'force-dynamic'
@@ -50,6 +51,20 @@ function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  /*
+   * Two kinds of account, one form.
+   *
+   * Everybody used to be registered as an AGENT — including someone who only
+   * wanted to see a phone number — which made the user list meaningless and
+   * put a listings dashboard in front of buyers. The kind comes from where
+   * they started: "List your property" asks for an agent account, the header
+   * and the contact buttons ask for a buyer account. Either way the choice is
+   * visible below, and a buyer who later posts a property is upgraded then.
+   */
+  const [wantsAgent, setWantsAgent] = useState(
+    searchParams.get('as') === 'agent',
+  )
+
   const form = useForm<FormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: { name: '', email: '', password: '' },
@@ -70,15 +85,16 @@ function RegisterForm() {
         name: values.name.trim(),
         email: values.email.trim().toLowerCase(),
         password: values.password,
-        role: 'AGENT',
+        role: wantsAgent ? 'AGENT' : 'USER',
       })
 
       toast.success('Welcome to PropertyDealer', {
-        description: 'Your account is ready — you can list a property right away.',
+        description: wantsAgent
+          ? 'Your account is ready — you can list a property right away.'
+          : 'Your account is ready — agents\' contact details are now visible.',
       })
 
-      const next = searchParams.get('next')
-      router.replace(next?.startsWith('/') ? next : '/dashboard')
+      router.replace(safeNextUrl(searchParams.get('next')))
       router.refresh()
     } catch (error) {
       const response = (error as { response?: { status?: number; data?: { message?: string | string[] } } }).response
@@ -119,6 +135,31 @@ function RegisterForm() {
           <GoogleButton label="Sign up with Google" next={searchParams.get('next')} disabled={isLoading} />
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-2">
+              <Label>I am here to</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { agent: false, title: 'Find a property', hint: 'Contact agents' },
+                  { agent: true, title: 'List a property', hint: 'Post listings' },
+                ].map((option) => (
+                  <button
+                    key={option.title}
+                    type="button"
+                    onClick={() => setWantsAgent(option.agent)}
+                    aria-pressed={wantsAgent === option.agent}
+                    className={`rounded-lg border p-3 text-left transition-colors ${
+                      wantsAgent === option.agent
+                        ? 'border-primary bg-primary/5'
+                        : 'hover:bg-muted'
+                    }`}
+                  >
+                    <span className="block text-sm font-semibold">{option.title}</span>
+                    <span className="block text-xs text-muted-foreground">{option.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Full name</Label>
               <Input
