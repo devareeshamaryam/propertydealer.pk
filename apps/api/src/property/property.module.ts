@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { PropertyController } from './property.controller';
 import { PropertyService } from './property.service';
+import { PropertyCountersService } from './property-counters.service';
 import { Property, PropertySchema } from '@rent-ghar/db/schemas/property.schema';
 import { Area, AreaSchema } from '@rent-ghar/db/schemas/area.schema';
 import { City, CitySchema } from '@rent-ghar/db/schemas/city.schema';
@@ -19,7 +20,7 @@ import { SubscriptionModule } from '../subscription/subscription.module';
     SubscriptionModule,
   ],
   controllers: [PropertyController],
-  providers: [PropertyService],
+  providers: [PropertyService, PropertyCountersService],
   exports: [PropertyService]
 })
 export class PropertyModule {}

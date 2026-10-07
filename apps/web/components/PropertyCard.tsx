@@ -4,6 +4,9 @@ import { MapPin, Bed, Bath, Maximize, Play, Phone } from 'lucide-react';
 import Image from 'next/image';
 import { Property } from '@/lib/data';
 import { toTitleCase } from '@/lib/utils';
+import { amountShort, propertySizeLabel } from '@/lib/pk';
+import { useImpression } from '@/components/analytics/impression';
+import { trackContact } from '@/lib/analytics';
 
 interface PropertyCardProps {
   property: Property;
@@ -12,12 +15,16 @@ interface PropertyCardProps {
 
 const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
   const router = useRouter();
+  /*
+   * Counted when the card is actually on screen. The mobile and desktop
+   * layouts are two separate elements, only one of which is ever displayed,
+   * so each gets a ref and the first to be seen reports the impression.
+   */
+  const mobileRef = useImpression<HTMLDivElement>(property.id);
+  const desktopRef = useImpression<HTMLDivElement>(property.id);
 
-  const formatPrice = (price: number) => {
-    if (price >= 10000000) return `${(price / 10000000).toFixed(2)} Crore`;
-    if (price >= 100000) return `${(price / 100000).toFixed(2)} Lakh`;
-    return price.toLocaleString('en-PK');
-  };
+  // Lakh / crore, from the one place that knows how to say an amount.
+  const formatPrice = (price: number) => amountShort(price) || String(price);
 
   const getPlaceholderImage = (type: string) => {
     const images: { [key: string]: string } = {
@@ -43,6 +50,7 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
 
   const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
+    trackContact(property.id, 'whatsapp');
     if (whatsappNumber) {
       window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}`, '_blank');
     } else {
@@ -52,6 +60,7 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
+    trackContact(property.id, 'phone');
     if (phoneNumber) {
       window.location.href = `tel:${phoneNumber}`;
     } else {
@@ -65,6 +74,7 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
           MOBILE
       ════════════════════════════════════════ */}
       <div
+        ref={mobileRef}
         className="md:hidden cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 flex flex-col"
         onClick={handleCardClick}
       >
@@ -103,7 +113,7 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
                   <span className="flex items-center gap-0.5"><Bath className="w-3 h-3" />{property.bathrooms}</span>
                   <span className="flex items-center gap-0.5">
                     <Maximize className="w-3 h-3" />
-                    {property.marla && property.marla > 0 ? `${property.marla}M` : `${property.area}sqft`}
+                    {propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) }, "short")}
                   </span>
                 </div>
               )}
@@ -155,7 +165,7 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
                     <span className="flex items-center gap-0.5"><Bath className="w-3 h-3" />{property.bathrooms}</span>
                     <span className="flex items-center gap-0.5">
                       <Maximize className="w-3 h-3" />
-                      {property.marla && property.marla > 0 ? `${property.marla}M` : `${property.area}sqft`}
+                      {propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) }, "short")}
                     </span>
                   </div>
                 )}
@@ -188,6 +198,7 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
           DESKTOP
       ════════════════════════════════════════ */}
       <div
+        ref={desktopRef}
         className="hidden md:flex flex-col cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300"
         onClick={handleCardClick}
       >
@@ -240,7 +251,7 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
                   <span className="flex items-center gap-1.5"><Bath className="w-4 h-4 text-primary" />{property.bathrooms} Baths</span>
                   <span className="flex items-center gap-1.5">
                     <Maximize className="w-4 h-4 text-primary" />
-                    {property.marla && property.marla > 0 ? `${property.marla} Marla` : `${property.area} sq ft`}
+                    {propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) })}
                   </span>
                 </div>
               )}

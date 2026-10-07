@@ -104,6 +104,61 @@ export class StorageService {
     return key;
   }
 
+  /**
+   * Write a buffer at a key the caller chose.
+   *
+   * `upload()` names files itself with a random UUID, which is right for a
+   * raw passthrough but wrong for the media library — that needs readable,
+   * SEO-friendly names like `5-marla-house-dha-phase-6-a1b2c3d4.webp`, and it
+   * writes two objects (image + thumbnail) per upload. Additive: nothing that
+   * calls `upload()` changes.
+   */
+  async putBuffer(
+    key: string,
+    body: Buffer,
+    contentType = 'image/webp',
+  ): Promise<string> {
+    if (this.disk === 'local') {
+      const fullPath = path.join(this.localRoot, key);
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.writeFile(fullPath, body);
+      return key;
+    }
+
+    await this.s3Client!.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: 'public, max-age=31536000, immutable',
+      }),
+    );
+
+    return key;
+  }
+
+  /** Read a stored object back. Null when it is missing. */
+  async readBuffer(key: string): Promise<Buffer | null> {
+    try {
+      if (this.disk === 'local') {
+        return await fs.readFile(path.join(this.localRoot, key));
+      }
+
+      const response = await this.s3Client!.send(
+        new GetObjectCommand({ Bucket: this.bucket!, Key: key }),
+      );
+      const chunks: Uint8Array[] = [];
+      for await (const chunk of response.Body as AsyncIterable<Uint8Array>) {
+        chunks.push(chunk);
+      }
+      return Buffer.concat(chunks);
+    } catch (error) {
+      this.logger.warn(`Could not read "${key}": ${(error as Error).message}`);
+      return null;
+    }
+  }
+
   getUrl(key: string): string {
     if (this.disk === 'local') {
       return `/uploads/${key}`; // Nest will serve it

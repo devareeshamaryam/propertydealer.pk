@@ -1,6 +1,7 @@
  /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { MapPin, Bed, Bath, Maximize, Share2, Phone, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, House, Tag, LayoutDashboard, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,8 @@ import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/prope
 import { Property } from '@/lib/data';
 import { toast } from 'sonner';
 import { toTitleCase } from '@/lib/utils';
+import { agentDisplayName, agentProfilePath } from '@/lib/agent';
+import { trackContact, trackView } from '@/lib/analytics';
 import dynamic from 'next/dynamic';
 import useEmblaCarousel from 'embla-carousel-react';
 
@@ -157,6 +160,19 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     };
     fetchRelatedProperties();
   }, [property, resolvedSlug]);
+
+  /*
+   * One view per visitor per session, counted as soon as the listing is
+   * known. This is the number the agent checks first, so it has to come from
+   * the page actually opening — not from a card being rendered in a feed.
+   */
+  useEffect(() => {
+    trackView(backendProperty?._id);
+  }, [backendProperty?._id]);
+
+  // Who posted this listing. The API sends a name-and-logo projection only.
+  const agentPath = agentProfilePath(backendProperty?.owner);
+  const agentName = agentDisplayName(backendProperty?.owner);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -558,11 +574,11 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
                 <div className="flex px-4 py-1" ref={contactButtonsRef}>
                   <div className="flex space-x-3 w-full">
-                    <Button className="flex-1 bg-[#25D366] rounded-sm hover:bg-[#128C7E] text-white border-none shadow-sm" size="lg" onClick={() => window.open(waLink(), '_blank')}>
+                    <Button className="flex-1 bg-[#25D366] rounded-sm hover:bg-[#128C7E] text-white border-none shadow-sm" size="lg" onClick={() => { trackContact(backendProperty?._id, 'whatsapp'); window.open(waLink(), '_blank'); }}>
                       <WaIcon /> WhatsApp
                     </Button>
                     <Button variant="outline" className="flex-1 rounded-sm border-primary text-primary hover:bg-primary/5 shadow-sm" size="lg" asChild>
-                      <a href={`tel:${property.contactNumber}`}><Phone className="w-4 h-4 mr-2" />Call</a>
+                      <a href={`tel:${property.contactNumber}`} onClick={() => trackContact(backendProperty?._id, 'phone')}><Phone className="w-4 h-4 mr-2" />Call</a>
                     </Button>
                   </div>
                 </div>
@@ -711,12 +727,37 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 <Card>
                   <CardContent className="p-6 hidden md:block">
                     <h3 className="text-lg font-bold mb-4">Contact Agent</h3>
+
+                    {/*
+                      Who is behind the listing, and a way through to the rest
+                      of their stock. Buyers here shop by dealer as much as by
+                      house, and a bare phone number gave them nowhere to look.
+                    */}
+                    {agentPath && (
+                      <Link
+                        href={agentPath}
+                        className="mb-4 flex items-center gap-3 rounded-lg border border-border/60 p-3 transition-colors hover:border-primary/40 hover:bg-secondary/40"
+                      >
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+                          {agentName.slice(0, 1).toUpperCase()}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-foreground">
+                            {agentName}
+                          </span>
+                          <span className="text-xs text-primary">
+                            View profile &amp; all listings
+                          </span>
+                        </span>
+                      </Link>
+                    )}
+
                     <div className="space-y-3 mb-6">
-                      <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-none" size="lg" onClick={() => window.open(waLink(), '_blank')}>
+                      <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-none" size="lg" onClick={() => { trackContact(backendProperty?._id, 'whatsapp'); window.open(waLink(), '_blank'); }}>
                         <WaIcon /> WhatsApp Inquiry
                       </Button>
                       <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/10" size="lg" asChild>
-                        <a href={`tel:${property.contactNumber}`}><Phone className="w-4 h-4 mr-2" />Call: {property.contactNumber}</a>
+                        <a href={`tel:${property.contactNumber}`} onClick={() => trackContact(backendProperty?._id, 'phone')}><Phone className="w-4 h-4 mr-2" />Call: {property.contactNumber}</a>
                       </Button>
                     </div>
                     <div className="pt-6 border-t border-border">
@@ -758,8 +799,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
             },
             {
               list: relatedByOwner, show: relatedByOwner.length > 0,
-              title: `More properties by ${backendProperty?.owner?.name || 'this Agency'}`,
-              onViewAll: null,
+              title: `More properties by ${agentName}`,
+              onViewAll: agentPath ? () => router.push(agentPath) : null,
             },
             {
               list: relatedByCity, show: relatedByCity.length > 0,
@@ -806,9 +847,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${showStickyContact ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="grid grid-cols-2 gap-3 p-4">
           <Button variant="outline" className="w-full flex items-center justify-center gap-2 border-primary text-primary hover:bg-primary/5 h-12" asChild>
-            <a href={`tel:${property.contactNumber}`}><Phone className="w-4 h-4" />Call</a>
+            <a href={`tel:${property.contactNumber}`} onClick={() => trackContact(backendProperty?._id, 'phone')}><Phone className="w-4 h-4" />Call</a>
           </Button>
-          <Button className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-none h-12 font-semibold" onClick={() => window.open(waLink(), '_blank')}>
+          <Button className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-none h-12 font-semibold" onClick={() => { trackContact(backendProperty?._id, 'whatsapp'); window.open(waLink(), '_blank'); }}>
             <WaIcon /> WhatsApp
           </Button>
         </div>

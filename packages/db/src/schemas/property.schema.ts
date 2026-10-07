@@ -87,6 +87,31 @@ export class Property extends Document {
 
   @Prop({ type: Number })
   longitude?: number
+
+  /*
+   * Listing performance counters.
+   *
+   * Written by PropertyCountersService, which buffers events in memory and
+   * flushes them as one bulk $inc every few seconds — a busy listing would
+   * otherwise be a write hot-spot. Existing documents simply have no field
+   * yet; everything that reads them treats a missing value as 0.
+   */
+
+  /** Detail-page opens. Once per visitor per session. */
+  @Prop({ type: Number, default: 0 })
+  views?: number
+
+  /** Times the listing's card was actually scrolled into view in a feed. */
+  @Prop({ type: Number, default: 0 })
+  impressions?: number
+
+  /** Taps on "Call". The number that tells an agent a listing is working. */
+  @Prop({ type: Number, default: 0 })
+  phoneClicks?: number
+
+  /** Taps on "WhatsApp". */
+  @Prop({ type: Number, default: 0 })
+  whatsappClicks?: number
 }
 
 export const PropertySchema = SchemaFactory.createForClass(Property)

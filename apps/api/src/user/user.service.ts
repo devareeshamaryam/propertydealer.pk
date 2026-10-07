@@ -50,6 +50,35 @@ export class UserService {
     return user;
   }
 
+  /**
+   * The agent profile a visitor may see.
+   *
+   * An allow-list rather than a deny-list:  strips the password and
+   * refresh token but would still hand out the email address, the role, the
+   * active flag and the lockout counters. Here only the fields an agent would
+   * print on a business card go out, and only for an account that is active.
+   */
+  /**
+   * The agent profile a visitor may see.
+   *
+   * An allow-list, not a deny-list: `findOne` strips the password and refresh
+   * token but would still hand out the email address, the role, the active flag
+   * and the lockout counters. Only what an agent would print on a business card
+   * goes out, and only for an account that is still active.
+   */
+  async findPublicProfile(id: string) {
+    const user = await this.userModel
+      .findOne({ _id: id, isActive: { $ne: false } })
+      .select('name companyName bio avatarUrl experienceYears phone whatsappNumber address createdAt')
+      .lean();
+
+    if (!user) {
+      throw new NotFoundException('Agent not found');
+    }
+
+    return user;
+  }
+
   async update(id: string, updateData: Partial<User>) {
     const user = await this.userModel
       .findByIdAndUpdate(id, { $set: updateData }, { new: true })

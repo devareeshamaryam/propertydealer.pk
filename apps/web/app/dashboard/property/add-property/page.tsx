@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, X, Plus, Image as ImageIcon } from "lucide-react";
-import { propertyApi } from "@/lib/api";
+import { ArrowLeft, ArrowRight, Loader2, Plus } from "lucide-react";
+import { propertyApi, subscriptionApi } from "@/lib/api";
 import cityApi from "@/lib/api/city/city.api";
 import areaApi from "@/lib/api/area/area.api";
-import { Input } from "@/components/ui/input";
+
 import {
   Select,
   SelectContent,
@@ -15,11 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+
 import {
   Dialog,
   DialogContent,
@@ -27,12 +25,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import {
-  ImagePickerDialog,
-  type GalleryImageItem,
-} from "@/components/ImagePickerDialog";
+
+import { GalleryField } from "@/components/media";
+import { AreaSizeField, FormSteps, PriceField } from "@/components/dashboard";
 import { toTitleCase } from "@/lib/utils";
+import { marlaKanalFor } from "@/lib/pk";
+import { useAuth } from "@/context/auth-context";
 import dynamic from "next/dynamic";
 const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ssr: false,
@@ -67,9 +65,48 @@ interface Area {
   city: string | City;
 }
 
+/**
+ * Three steps rather than one twenty-field scroll.
+ *
+ * This is how every portal in this market takes a listing (OLX, Zameen,
+ * Graana): what and where, then the numbers, then the photos. Each step
+ * validates only its own fields, so an agent is told what is missing while it
+ * is still on screen instead of after pressing Publish at the bottom.
+ */
+const PROPERTY_STEPS = [
+  {
+    id: 1,
+    title: "Property & location",
+    hint: "What you are listing, and where it is.",
+  },
+  {
+    id: 2,
+    title: "Size & price",
+    hint: "Rooms, plot size in marla or kanal, and the asking price.",
+  },
+  {
+    id: 3,
+    title: "Photos & contact",
+    hint: "Photos sell the listing — add as many as you have.",
+  },
+];
+
 export default function AddProperty() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [isLoading, setIsLoading] = useState(false);
+  const [step, setStep] = useState(1);
+  /**
+   * What this account is allowed to publish. Fetched up front so a full form
+   * is never the way someone finds out their free listing is used up.
+   */
+  const [planState, setPlanState] = useState<{
+    name: string;
+    used: number;
+    propertyLimit: number;
+    canCreate: boolean;
+  } | null>(null);
 
   // Form state
   const [listingType, setListingType] = useState<"rent" | "sale">("rent");
@@ -84,14 +121,11 @@ export default function AddProperty() {
   const [bathrooms, setBathrooms] = useState("");
   const [areaSize, setAreaSize] = useState(""); // Property size in sq ft
   const [price, setPrice] = useState("");
-  const [marla, setMarla] = useState("");
-  const [kanal, setKanal] = useState("");
   const [description, setDescription] = useState("");
   const [contactNumber, setContactNumber] = useState("");
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
-  const [videoUrl, setVideoUrl] = useState("");
 
   // Cities and Areas state
   const [cities, setCities] = useState<City[]>([]);
@@ -99,27 +133,37 @@ export default function AddProperty() {
   const [loadingCities, setLoadingCities] = useState(true);
   const [loadingAreas, setLoadingAreas] = useState(false);
 
-  // Image state - store both File objects and preview URLs
-  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
-  const [mainImagePreview, setMainImagePreview] = useState<string | null>(null);
-  const [additionalImageFiles, setAdditionalImageFiles] = useState<File[]>([]);
-  const [additionalImagePreviews, setAdditionalImagePreviews] = useState<
-    string[]
-  >([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Photos, in display order. The first is the cover. They are already
+  // uploaded to the media library by the time they land here, so this is a
+  // list of URLs rather than File objects waiting to be posted.
+  const [photos, setPhotos] = useState<string[]>([]);
   const [features, setFeatures] = useState<string[]>([""]);
 
   // Gallery image selection state
-  const [mainImageSource, setMainImageSource] = useState<"upload" | "gallery">(
-    "upload",
-  );
-  const [mainImageUrl, setMainImageUrl] = useState<string | null>(null);
-  const [galleryDialogOpen, setGalleryDialogOpen] = useState(false);
   const [showAddCityModal, setShowAddCityModal] = useState(false);
   const [showAddAreaModal, setShowAddAreaModal] = useState(false);
   const [newCityName, setNewCityName] = useState("");
   const [newAreaName, setNewAreaName] = useState("");
   const [isAddingLocation, setIsAddingLocation] = useState(false);
+
+  useEffect(() => {
+    if (isAdmin) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const plan = await subscriptionApi.getMyPlan();
+        if (!cancelled) setPlanState(plan);
+      } catch {
+        // Older API build, or a network hiccup. The server still enforces the
+        // limit on save; this banner is a courtesy.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
 
   // Fetch cities on component mount
   useEffect(() => {
@@ -211,50 +255,6 @@ export default function AddProperty() {
     }
   };
 
-  const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setMainImageSource("upload");
-      setMainImageUrl(null);
-      setMainImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMainImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const newFiles = Array.from(files);
-      setAdditionalImageFiles((prev) => [...prev, ...newFiles]);
-
-      newFiles.forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setAdditionalImagePreviews((prev) => [
-            ...prev,
-            reader.result as string,
-          ]);
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-  };
-
-  const removeMainImage = () => {
-    setMainImageFile(null);
-    setMainImagePreview(null);
-    setMainImageUrl(null);
-  };
-
-  const removeAdditionalImage = (index: number) => {
-    setAdditionalImageFiles((prev) => prev.filter((_, i) => i !== index));
-    setAdditionalImagePreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
   const addFeature = () => {
     setFeatures([...features, ""]);
   };
@@ -331,10 +331,8 @@ export default function AddProperty() {
         return;
       }
 
-      if (!mainImageFile && !mainImageUrl) {
-        toast.error(
-          "Please upload a main photo or select one from the gallery",
-        );
+      if (photos.length === 0) {
+        toast.error("Add at least one photo of the property");
         return;
       }
     }
@@ -345,19 +343,15 @@ export default function AddProperty() {
       // Create FormData
       const formData = new FormData();
 
-      // Add main photo (either uploaded file or existing URL from gallery)
-      if (mainImageFile) {
-        formData.append("mainPhoto", mainImageFile);
-      } else if (mainImageUrl) {
-        formData.append("mainPhotoUrl", mainImageUrl);
-      }
-
-      // Add additional photos (only non-null files)
-      additionalImageFiles.forEach((file) => {
-        if (file) {
-          formData.append("additionalPhotos", file);
-        }
-      });
+      // The photos are already in the media library, so the form posts their
+      // URLs. The API accepts mainPhotoUrl / additionalPhotosUrls alongside the
+      // older file fields, so nothing on the server had to change.
+      const [cover, ...rest] = photos;
+      if (cover) formData.append("mainPhotoUrl", cover);
+      for (const url of rest) formData.append("additionalPhotosUrls", url);
+      // Tells the API this list is the gallery as it now stands, so removing
+      // the last extra photo is saved as "no extra photos" rather than ignored.
+      formData.append("photosProvided", "true");
 
       // Add JSON data as separate fields (backend expects these in the body)
       formData.append("listingType", listingType);
@@ -370,8 +364,11 @@ export default function AddProperty() {
       formData.append("bathrooms", bathrooms);
       formData.append("areaSize", areaSize); // Property size in sq ft
       formData.append("price", price);
-      if (marla) formData.append("marla", marla);
-      if (kanal) formData.append("kanal", kanal);
+      // Kept in step with the size: these two columns drive the marla/kanal
+      // size filters and the area landing pages.
+      const { marla, kanal } = marlaKanalFor(Number(areaSize));
+      if (marla > 0) formData.append("marla", String(marla));
+      if (kanal > 0) formData.append("kanal", String(kanal));
       formData.append("description", description);
       formData.append("contactNumber", contactNumber);
       formData.append("whatsappNumber", whatsappNumber || contactNumber);
@@ -380,7 +377,6 @@ export default function AddProperty() {
         formData.append("latitude", latitude.toString());
       if (longitude !== undefined)
         formData.append("longitude", longitude.toString());
-      if (videoUrl) formData.append("videoUrl", videoUrl);
 
       // Add features (filter out empty strings)
       const validFeatures = features.filter((f) => f.trim() !== "");
@@ -416,12 +412,52 @@ export default function AddProperty() {
         error.message ||
         "Failed to submit property. Please try again.";
 
+      // A plan limit is not a failure the agent can fix by trying again.
+      if (/plan|package|limit|subscription/i.test(String(errorMessage))) {
+        toast.error("Listing limit reached", {
+          description: errorMessage,
+          action: {
+            label: "See packages",
+            onClick: () => router.push("/dashboard/purchase-package"),
+          },
+          duration: 10000,
+        });
+        return;
+      }
+
       toast.error("Submission Failed", {
         description: errorMessage,
       });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const goToStep = (next: number) => {
+    setStep(next);
+    // The form is taller than the viewport; land on the step heading.
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  /** Only the fields on screen are checked, with a message naming the step. */
+  const handleContinue = () => {
+    if (step === 1) {
+      if (!propertyType) return toast.error("Choose the property type");
+      if (!cityId) return toast.error("Choose the city");
+      if (!areaId) return toast.error("Choose the area or society");
+      if (!title.trim()) return toast.error("Add a title for the listing");
+      if (!location.trim())
+        return toast.error("Add the address or landmark");
+    }
+
+    if (step === 2) {
+      if (!bedrooms) return toast.error("Enter the number of bedrooms");
+      if (!bathrooms) return toast.error("Enter the number of bathrooms");
+      if (!areaSize) return toast.error("Enter the property size");
+      if (!price) return toast.error("Enter the price");
+    }
+
+    goToStep(Math.min(step + 1, PROPERTY_STEPS.length));
   };
 
   return (
@@ -431,11 +467,40 @@ export default function AddProperty() {
           <h1 className="text-2xl font-semibold text-gray-800 mb-2">
             Add New Property
           </h1>
-          <p className="text-gray-600 mb-8">
-            Fill in the details to list your property
+          <p className="text-gray-600 mb-6">
+            Three short steps — you can save a draft at any point.
           </p>
 
+          <FormSteps
+            steps={PROPERTY_STEPS}
+            current={step}
+            onGoTo={goToStep}
+            className="mb-6"
+          />
+
+          {planState && !planState.canCreate && (
+            <div className="mb-6 flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center">
+              <p className="flex-1">
+                <span className="font-semibold">
+                  Your {planState.name} plan is full
+                </span>{" "}
+                — {planState.used} of {planState.propertyLimit} listings used.
+                You can still save this as a draft and publish it once you have
+                a package.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                className="shrink-0"
+                onClick={() => router.push("/dashboard/purchase-package")}
+              >
+                See packages
+              </Button>
+            </div>
+          )}
+
           <form onSubmit={(e) => handleSubmit(e, false)} className="space-y-6">
+            {step === 1 && <>
             {/* Listing Type */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -524,15 +589,18 @@ export default function AddProperty() {
                         {city.name || "Unnamed City"}
                       </SelectItem>
                     ))}
-                    <div
-                      className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowAddCityModal(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" /> Add New City
-                    </div>
+                    {/* Admin only: POST /cities is behind AdminGuard. */}
+                    {isAdmin && (
+                      <div
+                        className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowAddCityModal(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" /> Add New City
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -566,7 +634,7 @@ export default function AddProperty() {
                         {area.name || "Unnamed Area"}
                       </SelectItem>
                     ))}
-                    {cityId && (
+                    {cityId && isAdmin && (
                       <div
                         className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
                         onClick={(e) => {
@@ -579,10 +647,19 @@ export default function AddProperty() {
                     )}
                   </SelectContent>
                 </Select>
-                {!cityId && (
+                {!cityId ? (
                   <p className="text-xs text-gray-500 mt-1">
                     Please select a city first
                   </p>
+                ) : (
+                  !isAdmin && (
+                    // Agents cannot create areas (AdminGuard), so say what to
+                    // do instead of leaving them hunting for a + button.
+                    <p className="text-xs text-gray-500 mt-1">
+                      Area missing? Ask an admin to add it, or pick the nearest
+                      one and write the exact address below.
+                    </p>
+                  )
                 )}
               </div>
             </div>
@@ -676,7 +753,10 @@ export default function AddProperty() {
               </p>
             </div>
 
-            {/* Beds, Baths, and Area */}
+            </>}
+
+            {step === 2 && <>
+            {/* Beds, baths and size */}
             <div className="grid md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -706,222 +786,59 @@ export default function AddProperty() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Property Size (sq ft) *
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={areaSize}
-                  onChange={(e) => setAreaSize(e.target.value)}
-                  placeholder="0"
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-            </div>
+              {/*
+                Marla / Kanal / sq ft in one control.
 
-            {/* Marla and Kanal */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Marla
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={marla}
-                  onChange={(e) => setMarla(e.target.value)}
-                  placeholder="0"
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Kanal
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={kanal}
-                  onChange={(e) => setKanal(e.target.value)}
-                  placeholder="0"
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            {/* Price */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                {listingType === "rent"
-                  ? "Monthly Rent (PKR) *"
-                  : "Sale Price (PKR) *"}
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="Enter amount"
+                There used to be a required "Property Size (sq ft)" box plus
+                separate optional Marla and Kanal boxes — three numbers that
+                could contradict each other, and a plot sold as "5 marla" had to
+                be converted by hand. Square feet is still what gets stored and
+                sent, so existing listings and size filters are untouched.
+              */}
+              <AreaSizeField
+                value={areaSize}
+                onChange={setAreaSize}
+                label="Property size"
+                required
                 disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
-            {/* Main Photo - Upload or Gallery */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Main Photo *
-              </label>
+            {/* Price, with the amount read back in lakh / crore */}
+            <PriceField
+              value={price}
+              onChange={setPrice}
+              mode={listingType === "rent" ? "rent" : "sale"}
+              required
+              disabled={isLoading}
+            />
 
-              <div className="flex gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={() => setMainImageSource("upload")}
-                  className={`text-xs px-3 py-1.5 rounded-full border ${
-                    mainImageSource === "upload"
-                      ? "bg-gray-900 text-white border-gray-900"
-                      : "bg-white text-gray-700 border-gray-200"
-                  }`}
-                >
-                  Upload new
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMainImageSource("gallery");
-                    setGalleryDialogOpen(true);
-                  }}
-                  className={`text-xs px-3 py-1.5 rounded-full border flex items-center gap-1 ${
-                    mainImageSource === "gallery"
-                      ? "bg-gray-900 text-white border-gray-900"
-                      : "bg-white text-gray-700 border-gray-200"
-                  }`}
-                >
-                  <ImageIcon className="w-3 h-3" />
-                  Choose from gallery
-                </button>
-              </div>
+            </>}
 
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-500 transition-colors">
-                {(mainImagePreview && mainImageSource === "upload") ||
-                (mainImageUrl && mainImageSource === "gallery") ? (
-                  <div className="relative">
-                    <img
-                      src={
-                        mainImageSource === "upload"
-                          ? mainImagePreview!
-                          : mainImageUrl!
-                      }
-                      alt="Main property"
-                      className="w-full h-64 object-cover rounded-lg"
-                    />
-                    <Button
-                      type="button"
-                      onClick={removeMainImage}
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-3 right-3"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex flex-col items-center">
-                      <ImageIcon className="w-12 h-12 text-gray-400 mb-3" />
-                      <span className="text-sm font-medium text-gray-700 mb-1">
-                        {mainImageSource === "upload"
-                          ? "Click below to upload main photo"
-                          : "Choose a main photo from the gallery"}
-                      </span>
-                      <span className="text-xs text-gray-500 mb-3">
-                        PNG, JPG up to 10MB
-                      </span>
+            {step === 3 && <>
+            {/*
+              One photo control instead of three.
 
-                      {mainImageSource === "upload" ? (
-                        <>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleMainImageUpload}
-                            disabled={isLoading}
-                            className="hidden"
-                            id="main-photo"
-                          />
-                          <label
-                            htmlFor="main-photo"
-                            className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-gray-800 transition-colors"
-                          >
-                            Select Image
-                          </label>
-                        </>
-                      ) : (
-                        <Button
-                          type="button"
-                          onClick={() => setGalleryDialogOpen(true)}
-                          className="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
-                        >
-                          <ImageIcon className="w-4 h-4 mr-2" />
-                          Open Gallery
-                        </Button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+              This used to be a "Main Photo" box with Upload / Choose-from-gallery
+              tabs, plus a separate "Additional Photos" grid, plus a gallery
+              dialog — and the main photo was mandatory before you could save.
+              Now it is one gallery: select or drop as many photos as you like in
+              one go, drag to reorder, and the first one is the cover.
 
-            {/* Additional Photos */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Additional Photos
-              </label>
-              <div className="grid grid-cols-3 gap-4">
-                {additionalImagePreviews.map((preview, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={preview}
-                      alt={`Additional ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                    <Button
-                      type="button"
-                      onClick={() => removeAdditionalImage(index)}
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 right-2 h-8 w-8"
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  </div>
-                ))}
-
-                {/* Add More Button */}
-                <div
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-500 transition-colors h-32 flex items-center justify-center cursor-pointer"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="flex flex-col items-center">
-                    <Plus className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="text-xs text-gray-600">Add Photos</span>
-                  </div>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleAddImages}
-                  disabled={isLoading}
-                  className="hidden"
-                  ref={fileInputRef}
-                />
-              </div>
-            </div>
+              Photos upload through the media library as they are chosen, so by
+              the time the form is submitted they are already WebP with readable
+              file names and AI-written alt text, and the form posts URLs rather
+              than re-uploading megabytes of files.
+            */}
+            <GalleryField
+              label="Property photos"
+              value={photos}
+              onChange={setPhotos}
+              folder="properties"
+              context={title || "Property listing"}
+              max={20}
+              hint="The first photo is the cover shown in search results. Drag to reorder."
+            />
 
             {/* Description */}
             <div>
@@ -935,24 +852,6 @@ export default function AddProperty() {
                 placeholder="Describe your property (features, amenities, nearby attractions, demand details)..."
                 minHeight="min-h-[300px]"
               />
-            </div>
-
-            {/* Video URL */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                YouTube Video URL (Optional)
-              </label>
-              <input
-                type="url"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
-                disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Provide a YouTube link to showcase a video of your property.
-              </p>
             </div>
 
             {/* Features */}
@@ -1029,28 +928,67 @@ export default function AddProperty() {
               </div>
             </div>
 
-            {/* Submit Buttons */}
-            <div className="flex flex-wrap gap-4 pt-6">
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="flex-1 min-w-[180px] bg-gray-800 hover:bg-gray-900"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Publish Property"
-                )}
-              </Button>
+            </>}
+
+            {/*
+              An agent's listing is created as "pending" and an admin publishes
+              it (property.service applies that by role). Saying so here beats
+              finding out from a status badge afterwards.
+            */}
+            {step === PROPERTY_STEPS.length && !isAdmin && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Your listing is sent for approval and goes live once an admin
+                reviews it — usually the same day.
+              </p>
+            )}
+
+            {/* Navigation */}
+            <div className="flex flex-wrap items-center gap-3 border-t pt-6">
+              {step > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => goToStep(step - 1)}
+                  disabled={isLoading}
+                >
+                  <ArrowLeft className="mr-1.5 h-4 w-4" />
+                  Back
+                </Button>
+              )}
+
+              {step < PROPERTY_STEPS.length ? (
+                <Button
+                  type="button"
+                  onClick={handleContinue}
+                  disabled={isLoading}
+                  className="min-w-[180px] flex-1 bg-gray-800 hover:bg-gray-900 sm:flex-none"
+                >
+                  Continue
+                  <ArrowRight className="ml-1.5 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  className="min-w-[180px] flex-1 bg-gray-800 hover:bg-gray-900 sm:flex-none"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    isAdmin ? "Publish Property" : "Submit for approval"
+                  )}
+                </Button>
+              )}
+
+              {/* Available from any step: a draft only needs a title. */}
               <Button
                 type="button"
                 variant="secondary"
                 onClick={(e: any) => handleSubmit(e, true)}
                 disabled={isLoading}
-                className="min-w-[160px]"
               >
                 {isLoading ? (
                   <>
@@ -1061,30 +999,18 @@ export default function AddProperty() {
                   "Save as Draft"
                 )}
               </Button>
+
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => router.push("/dashboard")}
+                variant="ghost"
+                onClick={() => router.push("/dashboard/property")}
                 disabled={isLoading}
               >
                 Cancel
               </Button>
             </div>
-          </form>
-          {/* Gallery picker dialog for main image */}
-          <ImagePickerDialog
-            open={galleryDialogOpen}
-            onOpenChange={setGalleryDialogOpen}
-            onSelect={(image: GalleryImageItem) => {
-              setMainImageSource("gallery");
-              setMainImageUrl(image.url);
-              setMainImageFile(null);
-              setMainImagePreview(null);
-            }}
-            title="Select Main Property Image"
-            description="Choose an existing image from the gallery to use as the main photo for this property."
-          />
 
+          </form>
           {/* Add City Modal */}
           <Dialog open={showAddCityModal} onOpenChange={setShowAddCityModal}>
             <DialogContent>

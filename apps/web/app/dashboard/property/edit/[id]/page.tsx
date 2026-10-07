@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, X, Plus } from "lucide-react";
+import { GalleryField } from "@/components/media";
+import { AreaSizeField, PriceField } from "@/components/dashboard";
+import { Loader2, Plus } from "lucide-react";
 import { toTitleCase } from "@/lib/utils";
+import { marlaKanalFor } from "@/lib/pk";
+import { useAuth } from "@/context/auth-context";
 import { propertyApi } from "@/lib/api";
 import cityApi from "@/lib/api/city/city.api";
 import areaApi from "@/lib/api/area/area.api";
-import { Input } from "@/components/ui/input";
+
 import {
   Select,
   SelectContent,
@@ -16,11 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+
 import {
   Dialog,
   DialogContent,
@@ -28,7 +30,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+
 import dynamic from "next/dynamic";
 const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ssr: false,
@@ -62,6 +64,8 @@ interface Area {
 }
 
 export default function EditProperty() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
@@ -81,7 +85,6 @@ export default function EditProperty() {
   const [whatsappNumber, setWhatsappNumber] = useState("");
   const [latitude, setLatitude] = useState<number | undefined>();
   const [longitude, setLongitude] = useState<number | undefined>();
-  const [videoUrl, setVideoUrl] = useState("");
 
   // Cities and Areas state
   const [cities, setCities] = useState<City[]>([]);
@@ -94,19 +97,9 @@ export default function EditProperty() {
   const [newAreaName, setNewAreaName] = useState("");
   const [isAddingLocation, setIsAddingLocation] = useState(false);
 
-  // Image state
-  const [mainImageFile, setMainImageFile] = useState<File | null>(null);
-  const [mainImagePreview, setMainImagePreview] = useState<string | null>(null);
-
-  // Separate state for existing and new additional images
-  const [existingImages, setExistingImages] = useState<string[]>([]);
-  const [newImages, setNewImages] = useState<{ file: File; preview: string }[]>(
-    [],
-  );
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [marla, setMarla] = useState("");
-  const [kanal, setKanal] = useState("");
+  // Photos in display order; the first is the cover. Already-uploaded URLs,
+  // so there are no File objects to carry around.
+  const [photos, setPhotos] = useState<string[]>([]);
 
   const [features, setFeatures] = useState<string[]>([""]);
 
@@ -115,6 +108,21 @@ export default function EditProperty() {
   const [currentStatus, setCurrentStatus] = useState<
     "pending" | "approved" | "rejected" | "draft" | undefined
   >(undefined);
+
+  /*
+   * What the listing arrived with, so an edit that does not touch the size
+   * leaves its marla/kanal exactly as they were. Some older rows carry a
+   * hand-entered marla that does not match their square footage, and quietly
+   * recomputing it would move the listing between size filters.
+   */
+  const [originalSize, setOriginalSize] = useState<{
+    areaSize: string;
+    marla?: number;
+    kanal?: number;
+  } | null>(null);
+
+  /** Set when the listing's saved city/area could not be resolved. */
+  const [locationUnresolved, setLocationUnresolved] = useState(false);
 
   const params = useParams();
   const propertyId = params.id as string;
@@ -144,6 +152,67 @@ export default function EditProperty() {
     fetchCities();
   }, []);
 
+  /**
+   * Put the listing's own city and area back into the two dropdowns, whatever
+   * shape the API returned them in, and seed the lists with them so they are
+   * selectable even if they are missing from the fetched options (an
+   * deactivated city, a long list, a failed request).
+   */
+  const restoreLocation = async (areaValue: unknown) => {
+    if (!areaValue) {
+      setLocationUnresolved(true);
+      return;
+    }
+
+    try {
+      let areaObj: any =
+        typeof areaValue === "object" ? (areaValue as any) : null;
+
+      // Shape 3: only an id — ask for the area itself.
+      if (!areaObj) {
+        areaObj = await areaApi.getById(String(areaValue));
+      }
+
+      if (!areaObj?._id) {
+        setLocationUnresolved(true);
+        return;
+      }
+
+      const areaIdStr = String(areaObj._id);
+      setAreaId(areaIdStr);
+      setAreas((prev) =>
+        prev.some((a) => String(a._id) === areaIdStr) ? prev : [...prev, areaObj],
+      );
+
+      let cityObj: any =
+        areaObj.city && typeof areaObj.city === "object" ? areaObj.city : null;
+
+      // Shape 2: the city came back as an id.
+      if (!cityObj && areaObj.city) {
+        try {
+          cityObj = await cityApi.getById(String(areaObj.city));
+        } catch {
+          // Fall through to using the bare id: the city list almost certainly
+          // contains it, and the selection still saves correctly.
+          setCityId(String(areaObj.city));
+        }
+      }
+
+      if (cityObj?._id) {
+        const cityIdStr = String(cityObj._id);
+        setCityId(cityIdStr);
+        setCities((prev) =>
+          prev.some((c) => String(c._id) === cityIdStr) ? prev : [...prev, cityObj],
+        );
+      } else if (!areaObj.city) {
+        setLocationUnresolved(true);
+      }
+    } catch (error) {
+      console.error("Could not restore the listing's location:", error);
+      setLocationUnresolved(true);
+    }
+  };
+
   // Fetch property data
   useEffect(() => {
     const fetchProperty = async (propertyId: string) => {
@@ -169,52 +238,44 @@ export default function EditProperty() {
         };
         setPropertyType(typeMapping[property.propertyType] || "House");
 
-        // Handle populated Area and City
-        if (property.area && typeof property.area === "object") {
-          const areaObj = property.area;
-          const areaIdStr = String(areaObj._id);
-
-          // Seed cities list with the current city if it's populated
-          if (areaObj.city && typeof areaObj.city === "object") {
-            const cityObj = areaObj.city;
-            const cityIdStr = String(cityObj._id);
-            setCityId(cityIdStr);
-            setCities((prev) => {
-              const exists = prev.find((c) => String(c._id) === cityIdStr);
-              return exists ? prev : [...prev, cityObj];
-            });
-          } else if (areaObj.city) {
-            setCityId(String(areaObj.city));
-          }
-
-          // Seed areas list with the current area
-          setAreaId(areaIdStr);
-          setAreas((prev) => {
-            const exists = prev.find((a) => String(a._id) === areaIdStr);
-            return exists ? prev : [...prev, areaObj];
-          });
-        } else if (property.area) {
-          setAreaId(String(property.area));
-        }
+        /*
+         * Restore the city and area this listing already has.
+         *
+         * Three shapes turn up here and all three have to end with both
+         * dropdowns filled in, because a save writes whatever they hold:
+         *   1. area populated with its city populated  — the normal case
+         *   2. area populated, city still an id        — resolve the city
+         *   3. area is just an id                      — fetch the area first
+         *
+         * Anything left unresolved raises the banner below instead of quietly
+         * showing two empty dropdowns, which is how a published listing could
+         * lose its location on an unrelated edit.
+         */
+        await restoreLocation(property.area);
 
         setTitle(property.title);
         setLocation(property.location);
         setBedrooms(property.bedrooms?.toString() || "0");
         setBathrooms(property.bathrooms?.toString() || "0");
         setAreaSize(property.areaSize?.toString() || "0");
+        setOriginalSize({
+          areaSize: property.areaSize?.toString() || "0",
+          marla: property.marla,
+          kanal: property.kanal,
+        });
         setPrice(property.price?.toString() || "0");
-        setMarla(property.marla?.toString() || "");
-        setKanal(property.kanal?.toString() || "");
         setDescription(property.description || "");
         setContactNumber(property.contactNumber || "");
         setWhatsappNumber(property.whatsappNumber || "");
         setLatitude(property.latitude);
         setLongitude(property.longitude);
-        setVideoUrl(property.videoUrl || "");
 
         // Correct field names for images
-        setMainImagePreview(property.mainPhotoUrl || null);
-        setExistingImages(property.additionalPhotosUrls || []);
+        setPhotos(
+          [property.mainPhotoUrl, ...(property.additionalPhotosUrls ?? [])].filter(
+            (url): url is string => Boolean(url),
+          ),
+        );
 
         setFeatures(
           property.features && property.features.length > 0
@@ -239,7 +300,9 @@ export default function EditProperty() {
   useEffect(() => {
     const fetchAreas = async () => {
       if (!cityId) {
-        setAreas([]);
+        // Keep the listing's own area in the list: clearing it here is what made
+        // an edit open with an empty Area dropdown before the city resolved.
+        if (!areaId) setAreas([]);
         return;
       }
 
@@ -262,7 +325,7 @@ export default function EditProperty() {
         toast.error("Error", {
           description: "Failed to load areas. Please try again.",
         });
-        setAreas([]);
+        // Leave whatever is already there — including this listing's own area.
       } finally {
         setLoadingAreas(false);
       }
@@ -271,7 +334,7 @@ export default function EditProperty() {
     if (!loadingProperty) {
       fetchAreas();
     }
-  }, [cityId, loadingProperty]);
+  }, [cityId, areaId, loadingProperty]);
 
   const handleCreateCity = async () => {
     if (!newCityName.trim()) return;
@@ -321,48 +384,6 @@ export default function EditProperty() {
       toast.error(error.response?.data?.message || "Failed to add area");
     } finally {
       setIsAddingLocation(false);
-    }
-  };
-
-  const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setMainImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMainImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeMainImage = () => {
-    setMainImageFile(null);
-    setMainImagePreview(null);
-  };
-
-  const handleAddImages = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setNewImages((prev) => [
-            ...prev,
-            { file, preview: reader.result as string },
-          ]);
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-  };
-
-  const removeImage = (index: number) => {
-    if (index < existingImages.length) {
-      setExistingImages((prev) => prev.filter((_, i) => i !== index));
-    } else {
-      const newImageIndex = index - existingImages.length;
-      setNewImages((prev) => prev.filter((_, i) => i !== newImageIndex));
     }
   };
 
@@ -435,9 +456,8 @@ export default function EditProperty() {
         return;
       }
 
-      // Main image is optional when editing (only required if no existing preview)
-      if (!mainImageFile && !mainImagePreview) {
-        toast.error("Please upload a main photo or keep the existing one");
+      if (photos.length === 0) {
+        toast.error("Keep at least one photo of the property");
         return;
       }
     }
@@ -447,11 +467,6 @@ export default function EditProperty() {
     try {
       // Create FormData
       const formData = new FormData();
-
-      // Add main photo only if a new file is selected
-      if (mainImageFile) {
-        formData.append("mainPhoto", mainImageFile);
-      }
 
       // Add JSON data as separate fields (backend expects these in the body)
       formData.append("listingType", listingType);
@@ -463,27 +478,35 @@ export default function EditProperty() {
       formData.append("bathrooms", bathrooms);
       formData.append("areaSize", areaSize); // Property size in sq ft
       formData.append("price", price);
-      if (marla) formData.append("marla", marla);
-      if (kanal) formData.append("kanal", kanal);
+      /*
+       * These two columns drive the marla/kanal size filters and the area
+       * landing pages. Recomputed from the size only when the size was
+       * actually changed — otherwise the values already on the listing are
+       * sent back untouched.
+       */
+      const sizeUnchanged = originalSize?.areaSize === areaSize;
+      const { marla, kanal } = sizeUnchanged
+        ? { marla: originalSize?.marla ?? 0, kanal: originalSize?.kanal ?? 0 }
+        : marlaKanalFor(Number(areaSize));
+      if (marla > 0) formData.append("marla", String(marla));
+      if (kanal > 0) formData.append("kanal", String(kanal));
       formData.append("description", description);
       formData.append("contactNumber", contactNumber);
       formData.append("whatsappNumber", whatsappNumber || contactNumber);
 
-      // Append existing photos
-      existingImages.forEach((url) => {
-        formData.append("existingPhotos", url);
-      });
-
-      // Append new photos
-      newImages.forEach((img) => {
-        formData.append("additionalPhotos", img.file);
-      });
+      // Every photo is already in the media library, so post URLs. The first
+      // is the cover; the rest are the gallery, in the order shown.
+      const [cover, ...rest] = photos;
+      if (cover) formData.append("mainPhotoUrl", cover);
+      for (const url of rest) formData.append("additionalPhotosUrls", url);
+      // Tells the API this list is the gallery as it now stands, so removing
+      // the last extra photo is saved as "no extra photos" rather than ignored.
+      formData.append("photosProvided", "true");
 
       if (latitude !== undefined)
         formData.append("latitude", latitude.toString());
       if (longitude !== undefined)
         formData.append("longitude", longitude.toString());
-      if (videoUrl) formData.append("videoUrl", videoUrl);
 
       // Add features (filter out empty strings)
       const validFeatures = features.filter((f) => f.trim() !== "");
@@ -604,6 +627,16 @@ export default function EditProperty() {
             </div>
 
             {/* City and Area Selection */}
+            {locationUnresolved && !loadingProperty && (
+              <div className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <span aria-hidden className="mt-0.5 font-bold">!</span>
+                <span>
+                  This listing&apos;s saved city and area could not be loaded, so
+                  they are not selected below. Pick them again before saving —
+                  otherwise the location on the live page will change.
+                </span>
+              </div>
+            )}
             <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -633,15 +666,18 @@ export default function EditProperty() {
                         {city.name}
                       </SelectItem>
                     ))}
-                    <div
-                      className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setShowAddCityModal(true);
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" /> Add New City
-                    </div>
+                    {/* Admin only: POST /cities is behind AdminGuard. */}
+                    {isAdmin && (
+                      <div
+                        className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowAddCityModal(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4 mr-2" /> Add New City
+                      </div>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -675,7 +711,7 @@ export default function EditProperty() {
                         {area.name}
                       </SelectItem>
                     ))}
-                    {cityId && (
+                    {cityId && isAdmin && (
                       <div
                         className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
                         onClick={(e) => {
@@ -688,10 +724,19 @@ export default function EditProperty() {
                     )}
                   </SelectContent>
                 </Select>
-                {!cityId && (
+                {!cityId ? (
                   <p className="text-xs text-gray-500 mt-1">
                     Please select a city first
                   </p>
+                ) : (
+                  !isAdmin && (
+                    // Agents cannot create areas (AdminGuard), so say what to
+                    // do instead of leaving them hunting for a + button.
+                    <p className="text-xs text-gray-500 mt-1">
+                      Area missing? Ask an admin to add it, or pick the nearest
+                      one and write the exact address below.
+                    </p>
+                  )
                 )}
               </div>
             </div>
@@ -752,7 +797,7 @@ export default function EditProperty() {
               </p>
             </div>
 
-            {/* Beds, Baths, and Area */}
+            {/* Beds, baths and size */}
             <div className="grid md:grid-cols-3 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
@@ -782,181 +827,49 @@ export default function EditProperty() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Property Size (sq ft) *
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={areaSize}
-                  onChange={(e) => setAreaSize(e.target.value)}
-                  placeholder="0"
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-            </div>
+              {/*
+                Marla / Kanal / sq ft in one control.
 
-            {/* Price */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                {listingType === "rent"
-                  ? "Monthly Rent (PKR) *"
-                  : "Sale Price (PKR) *"}
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="Enter amount"
+                There used to be a required "Property Size (sq ft)" box plus
+                separate optional Marla and Kanal boxes — three numbers that
+                could contradict each other, and a plot sold as "5 marla" had to
+                be converted by hand. Square feet is still what gets stored and
+                sent, so existing listings and size filters are untouched.
+              */}
+              <AreaSizeField
+                value={areaSize}
+                onChange={setAreaSize}
+                label="Property size"
+                required
                 disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
-            {/* Marla and Kanal */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Marla
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={marla}
-                  onChange={(e) => setMarla(e.target.value)}
-                  placeholder="0"
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  Kanal
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={kanal}
-                  onChange={(e) => setKanal(e.target.value)}
-                  placeholder="0"
-                  disabled={isLoading}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-                />
-              </div>
-            </div>
+            {/* Price, with the amount read back in lakh / crore */}
+            <PriceField
+              value={price}
+              onChange={setPrice}
+              mode={listingType === "rent" ? "rent" : "sale"}
+              required
+              disabled={isLoading}
+            />
 
-            {/* Main Photo Upload */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Main Photo *
-              </label>
-              {mainImagePreview ? (
-                <div className="relative">
-                  <img
-                    src={mainImagePreview}
-                    alt="Main property"
-                    className="w-full h-64 object-cover rounded-lg"
-                  />
-                  <Button
-                    type="button"
-                    onClick={removeMainImage}
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-3 right-3"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-500 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleMainImageUpload}
-                    disabled={isLoading}
-                    className="hidden"
-                    id="main-photo"
-                  />
-                  <label htmlFor="main-photo" className="cursor-pointer">
-                    <div className="flex flex-col items-center">
-                      <svg
-                        className="w-12 h-12 text-gray-400 mb-3"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                      <span className="text-sm font-medium text-gray-700">
-                        Click to upload main photo
-                      </span>
-                      <span className="text-xs text-gray-500 mt-1">
-                        PNG, JPG up to 10MB
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              )}
-            </div>
+            {/*
+              One gallery instead of a required "Main Photo" plus a separate
+              "Additional Photos" grid. Existing photos load in order, new ones
+              upload through the media library as they are picked, and the
+              first photo is the cover — drag to change it.
+            */}
+            <GalleryField
+              label="Property photos"
+              value={photos}
+              onChange={setPhotos}
+              folder="properties"
+              context={title || "Property listing"}
+              max={20}
+              hint="The first photo is the cover shown in search results. Drag to reorder."
+            />
 
-            {/* Additional Photos */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Additional Photos
-              </label>
-              <div className="grid grid-cols-3 gap-4">
-                {[...existingImages, ...newImages.map((n) => n.preview)].map(
-                  (preview, index) => (
-                    <div key={index} className="relative">
-                      <img
-                        src={preview}
-                        alt={`Additional ${index + 1}`}
-                        className="w-full h-32 object-cover rounded-lg"
-                      />
-                      <Button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        variant="destructive"
-                        size="icon"
-                        className="absolute top-2 right-2 h-8 w-8"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  ),
-                )}
-
-                {/* Add More Button */}
-                <div
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-500 transition-colors h-32 flex items-center justify-center cursor-pointer"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <div className="flex flex-col items-center">
-                    <Plus className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="text-xs text-gray-600">Add Photos</span>
-                  </div>
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleAddImages}
-                  disabled={isLoading}
-                  className="hidden"
-                  ref={fileInputRef}
-                />
-              </div>
-            </div>
-
-            {/* Description */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-3">
                 Property Description *
@@ -968,24 +881,6 @@ export default function EditProperty() {
                 placeholder="Update property description..."
                 minHeight="min-h-[300px]"
               />
-            </div>
-
-            {/* Video URL */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                YouTube Video URL (Optional)
-              </label>
-              <input
-                type="url"
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
-                disabled={isLoading}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Provide a YouTube link to showcase a video of your property.
-              </p>
             </div>
 
             {/* Features */}

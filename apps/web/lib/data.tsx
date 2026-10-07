@@ -12,7 +12,7 @@ export interface Property {
   area: number;
   areaSlug?: string;
   marla?: number;
-  kenal?: number;
+  kanal?: number;
   purpose: 'rent' | 'buy';
   image: string;
   featured?: boolean;

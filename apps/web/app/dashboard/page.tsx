@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
+  BarChart3,
   Building2,
   CheckCircle2,
   Clock,
@@ -12,9 +13,13 @@ import {
   FileText,
   Layers,
   MapPin,
+  Eye,
+  Images,
+  PhoneCall,
   PlusCircle,
   RefreshCcw,
   Upload,
+  UserRound,
   Users,
   XCircle,
 } from "lucide-react";
@@ -92,6 +97,7 @@ const QUICK_ACTIONS: QuickAction[] = [
     href: "/dashboard/property/add-property",
     icon: PlusCircle,
   },
+  { label: "Insights", href: "/dashboard/insights", icon: BarChart3 },
   {
     label: "Bulk Import",
     href: "/dashboard/import",
@@ -110,7 +116,14 @@ const QUICK_ACTIONS: QuickAction[] = [
     icon: Layers,
     adminOnly: true,
   },
-  { label: "Add Area", href: "/dashboard/area/add-area", icon: MapPin },
+  {
+    // Area creation is AdminGuard-only on the API — an agent clicking this
+    // filled in the form and got a 403 on save.
+    label: "Add Area",
+    href: "/dashboard/area/add-area",
+    icon: MapPin,
+    adminOnly: true,
+  },
   {
     label: "Manage Users",
     href: "/dashboard/users",
@@ -118,6 +131,57 @@ const QUICK_ACTIONS: QuickAction[] = [
     adminOnly: true,
   },
 ];
+
+/** Shown to a new agent until they have their first listing. */
+function GettingStarted() {
+  const steps = [
+    {
+      href: "/dashboard/property/add-property",
+      icon: PlusCircle,
+      title: "Add your first property",
+      body: "Three short steps. Save a draft at any point and finish later.",
+    },
+    {
+      href: "/dashboard/account",
+      icon: UserRound,
+      title: "Complete your public profile",
+      body: "Your name, photo and WhatsApp number appear on every listing you post.",
+    },
+    {
+      href: "/dashboard/images-gallery",
+      icon: Images,
+      title: "Upload your photos",
+      body: "Drop them in once and pick them on any listing afterwards.",
+    },
+  ];
+
+  return (
+    <DataCard>
+      <DataCardTitle hint="Three things, then you are set up">
+        Getting started
+      </DataCardTitle>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        {steps.map((step, index) => (
+          <Link
+            key={step.href}
+            href={step.href}
+            className="group flex flex-col gap-1.5 rounded-xl border bg-background p-4 transition-colors hover:border-primary/40 hover:bg-accent"
+          >
+            <span className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                {index + 1}
+              </span>
+              <step.icon className="h-4 w-4 text-primary" />
+            </span>
+            <span className="text-sm font-semibold">{step.title}</span>
+            <span className="text-xs text-muted-foreground">{step.body}</span>
+          </Link>
+        ))}
+      </div>
+    </DataCard>
+  );
+}
 
 export default function DashboardOverview() {
   const router = useRouter();
@@ -127,6 +191,10 @@ export default function DashboardOverview() {
   const [recent, setRecent] = useState<BackendProperty[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [userCount, setUserCount] = useState<number | null>(null);
+  /** Views / enquiries across this account's listings. */
+  const [reach, setReach] = useState<{ views: number; contacts: number } | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -142,7 +210,7 @@ export default function DashboardOverview() {
     try {
       setLoading(true);
       setError(null);
-      const [stats, page] = await Promise.all([
+      const [stats, page, performance] = await Promise.all([
         propertyApi.getDashboardStats(),
         propertyApi.getAllProperties({
           page: 1,
@@ -150,9 +218,19 @@ export default function DashboardOverview() {
           sortBy: "createdAt",
           sortDir: "desc",
         }),
+        // Aggregated server-side; a failure here must not blank the page.
+        propertyApi.getPerformance().catch(() => null),
       ]);
       setCounts({ all: stats.total, ...stats.byStatus });
       setRecent(page.properties);
+      setReach(
+        performance
+          ? {
+              views: performance.totals.views,
+              contacts: performance.totals.contacts,
+            }
+          : null,
+      );
     } catch (err) {
       console.error("Error loading dashboard:", err);
       setError(
@@ -226,6 +304,26 @@ export default function DashboardOverview() {
       href: "/dashboard/property?status=draft",
     },
   ];
+
+  // The two numbers that say whether the listings are doing anything.
+  stats.push(
+    {
+      label: "Listing views",
+      value: (reach?.views ?? 0).toLocaleString("en-PK"),
+      icon: Eye,
+      tone: "info",
+      hint: "People who opened a listing",
+      href: "/dashboard/insights",
+    },
+    {
+      label: "Enquiries",
+      value: (reach?.contacts ?? 0).toLocaleString("en-PK"),
+      icon: PhoneCall,
+      tone: "success",
+      hint: "Call and WhatsApp taps",
+      href: "/dashboard/insights",
+    },
+  );
 
   if (isAdmin) {
     stats.push(
@@ -302,6 +400,13 @@ export default function DashboardOverview() {
           </span>
         </Link>
       )}
+
+      {/*
+        First run. Six zeros and an empty table is a poor welcome, and the two
+        things that make an agent's listings perform — photos and a filled-in
+        public profile — are not obvious from the sidebar.
+      */}
+      {!isAdmin && !loading && (counts.all ?? 0) === 0 && <GettingStarted />}
 
       {/* KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

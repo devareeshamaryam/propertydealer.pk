@@ -135,6 +135,91 @@ export class AuthService {
       message: 'Login successful',
     };
   }
+  /**
+   * "Continue with Google".
+   *
+   * Looks the account up by googleId and falls back to the email address, so
+   * someone who originally signed up with a password can still use the button —
+   * the two are linked onto one account rather than duplicated. A first-time
+   * visitor is created here, which is the point: no form, no password to
+   * invent, and no OTP.
+   */
+  async loginWithGoogle(profile: {
+    email: string;
+    name: string;
+    googleId: string;
+    picture?: string;
+  }): Promise<LoginResponse> {
+    let user = await this.userModel.findOne({
+      $or: [{ googleId: profile.googleId }, { email: profile.email }],
+    });
+
+    if (!user) {
+      user = new this.userModel({
+        email: profile.email,
+        name: profile.name,
+        googleId: profile.googleId,
+        provider: 'google',
+        avatarUrl: profile.picture,
+      });
+      await user.save();
+    } else if (!user.googleId) {
+      // Existing password account using the button for the first time.
+      user.googleId = profile.googleId;
+      if (!user.name && profile.name) user.name = profile.name;
+      if (!user.avatarUrl && profile.picture) user.avatarUrl = profile.picture;
+      await user.save();
+    }
+
+    if (user.isActive === false) {
+      throw new ForbiddenException('Account is pending activation');
+    }
+
+    return this.issueSession(user, 'Login successful');
+  }
+
+  /**
+   * Access token + refresh token, stored on the user record.
+   *
+   * Mirrors the tail of login() deliberately: a Google sign-in must produce
+   * exactly the same session as an email/password one, so that every guard,
+   * cookie and refresh call downstream behaves identically.
+   */
+  private async issueSession(
+    user: UserDocument,
+    message: string,
+  ): Promise<LoginResponse> {
+    const accessToken = this.generateToken(user);
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+    if (!refreshSecret) {
+      throw new Error('⚠️ SECURITY: JWT_REFRESH_SECRET must be set');
+    }
+    const refreshToken = this.jwtService.sign(
+      { sub: user._id.toString() },
+      {
+        secret: refreshSecret,
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+      } as any,
+    );
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    return {
+      token: accessToken,
+      refreshToken,
+      user: {
+        _id: user._id.toString(),
+        name: user.name || '',
+        email: user.email,
+        role: user.role || 'user',
+        isActive: user.isActive,
+      },
+      status: 200,
+      message,
+    };
+  }
+
   private generateToken(user: UserDocument): string {
     const payload = {
       email: user.email,

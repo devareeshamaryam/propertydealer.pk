@@ -1,11 +1,13 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, Image as ImageIcon, X, Plus } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageField, GalleryField } from "@/components/media";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
 import {
   Select,
   SelectContent,
@@ -44,15 +46,8 @@ const UNITS = [
   "Per Bag",
 ];
 
-interface ExtraImage {
-  file: File;
-  preview: string;
-}
-
 export default function AddMaterialRatePage() {
   const router = useRouter();
-  const mainFileRef = useRef<HTMLInputElement>(null);
-  const extraFileRef = useRef<HTMLInputElement>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
@@ -67,54 +62,13 @@ export default function AddMaterialRatePage() {
     isActive: "true",
   });
 
-  // Main image
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-
-  // Extra images
-  const [extraImages, setExtraImages] = useState<ExtraImage[]>([]);
+  // Images are uploaded to the media library as they are chosen, so these
+  // hold URLs rather than File objects waiting to be posted.
+  const [image, setImage] = useState<string>("");
+  const [extraImages, setExtraImages] = useState<string[]>([]);
 
   const set = (field: string, value: string) =>
     setForm((f) => ({ ...f, [field]: value }));
-
-  // ── Main image handlers ──────────────────────────────────────────────────
-  const handleMainSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const removeMain = () => {
-    setImageFile(null);
-    setImagePreview(null);
-    if (mainFileRef.current) mainFileRef.current.value = "";
-  };
-
-  // ── Extra images handlers ────────────────────────────────────────────────
-  const handleExtraSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setExtraImages((prev) => [
-          ...prev,
-          { file, preview: reader.result as string },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    if (extraFileRef.current) extraFileRef.current.value = "";
-  };
-
-  const removeExtra = (index: number) => {
-    setExtraImages((prev) => prev.filter((_, i) => i !== index));
-  };
 
   // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -137,18 +91,17 @@ export default function AddMaterialRatePage() {
       if (form.category.trim()) fd.append("category", form.category.trim());
       fd.append("description", form.description);
 
-      if (imageFile) fd.append("image", imageFile);
-
-      // Append all extra images
-      extraImages.forEach(({ file }) => fd.append("images", file));
+      // Already in the media library — post the URLs, not the bytes.
+      if (image) fd.append("image", image);
+      for (const url of extraImages) fd.append("images", url);
 
       await materialRateApi.createRate(fd);
       toast.success("Material rate added successfully!");
       router.push("/dashboard/material-rate");
-    } catch (err: any) {
+    } catch (err) {
       toast.error("Error", {
         description:
-          err?.response?.data?.message || "Failed to create material rate.",
+          apiErrorMessage(err, "Failed to create material rate."),
       });
     } finally {
       setSubmitting(false);
@@ -197,118 +150,34 @@ export default function AddMaterialRatePage() {
             </Select>
           </div>
 
-          {/* ── Main Image ─────────────────────────────────────────────── */}
-          <div className="space-y-2">
-            <Label>Main Product Image</Label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleMainSelect}
-              className="hidden"
-              ref={mainFileRef}
-            />
-            <div
-              onClick={() => !imagePreview && mainFileRef.current?.click()}
-              className={`relative border-2 border-dashed rounded-xl transition-colors ${
-                imagePreview
-                  ? "border-gray-300"
-                  : "border-gray-300 hover:border-gray-500 cursor-pointer"
-              } overflow-hidden`}
-              style={{ aspectRatio: "1/1", maxWidth: 220 }}
-            >
-              {imagePreview ? (
-                <>
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeMain();
-                    }}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 text-center">
-                  <ImageIcon className="w-10 h-10 text-gray-300" />
-                  <span className="text-sm font-medium text-gray-500">
-                    Upload Main Image
-                  </span>
-                  <span className="text-xs text-gray-400">Click to select</span>
-                </div>
-              )}
-            </div>
-            {imagePreview && (
-              <button
-                type="button"
-                onClick={() => mainFileRef.current?.click()}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Change image
-              </button>
-            )}
-          </div>
+          {/*
+            Shared media controls instead of hand-rolled file inputs.
 
-          {/* ── Extra Images (carousel) ─────────────────────────────────── */}
-          <div className="space-y-2">
-            <Label>
-              Additional Images{" "}
-              <span className="text-gray-400 font-normal">
-                (optional — shown in carousel)
-              </span>
-            </Label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleExtraSelect}
-              className="hidden"
-              ref={extraFileRef}
-            />
+            Each of these forms had its own FileReader preview and no way to
+            reuse a picture already on the site. ImageField and GalleryField
+            upload through the media library, so every rate photo becomes WebP
+            with a readable file name and alt text written for it.
+          */}
+          <ImageField
+            label="Main product image"
+            value={image}
+            onChange={setImage}
+            folder="rates"
+            context={form.brand ? `${form.brand} material` : "Material rate"}
+            aspect="square"
+            hint="Shown as the card image on the public rate page."
+          />
 
-            <div className="flex flex-wrap gap-3">
-              {extraImages.map((img, i) => (
-                <div
-                  key={i}
-                  className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200"
-                >
-                  <img
-                    src={img.preview}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeExtra(i)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
+          <GalleryField
+            label="Additional images"
+            value={extraImages}
+            onChange={setExtraImages}
+            folder="rates"
+            context={form.brand ? `${form.brand} material` : "Material rate"}
+            max={8}
+            hint="Optional — shown in the carousel. Select several at once."
+          />
 
-              {/* Add more button */}
-              <button
-                type="button"
-                onClick={() => extraFileRef.current?.click()}
-                className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-500 flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                <span className="text-xs">Add</span>
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">
-              You can select multiple images at once
-            </p>
-          </div>
-
-          {/* Brand */}
           <div className="space-y-1.5">
             <Label htmlFor="brand">Brand Name *</Label>
             <Input

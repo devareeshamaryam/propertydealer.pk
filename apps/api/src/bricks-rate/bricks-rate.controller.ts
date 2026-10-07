@@ -90,6 +90,9 @@ export class BricksRateController {
       if (imageFile) {
         const key = await this.storageService.upload(imageFile, 'bricks-rates');
         imageUrl = this.storageService.getUrl(key);
+      } else if (typeof body.image === 'string' && body.image.trim()) {
+        // Picked from the media library — already stored, already WebP.
+        imageUrl = body.image.trim();
       }
 
       const extraFiles = files.filter(f => f.fieldname === 'images' || f.fieldname === 'images[]');
@@ -97,6 +100,14 @@ export class BricksRateController {
       for (const file of extraFiles) {
         const key = await this.storageService.upload(file, 'bricks-rates');
         extraUrls.push(this.storageService.getUrl(key));
+      }
+
+      // Library picks arrive as URLs on the body rather than as files.
+      const bodyImages = body.images ?? body['images[]'];
+      if (bodyImages) {
+        for (const url of Array.isArray(bodyImages) ? bodyImages : [bodyImages]) {
+          if (typeof url === 'string' && url.trim()) extraUrls.push(url.trim());
+        }
       }
 
       const dto: CreateBricksRateDto = {
@@ -135,6 +146,9 @@ export class BricksRateController {
       if (imageFile) {
         const key = await this.storageService.upload(imageFile, 'bricks-rates');
         imageUrl = this.storageService.getUrl(key);
+      } else if (typeof body.image === 'string' && body.image.trim()) {
+        // Picked from the media library — already stored, already WebP.
+        imageUrl = body.image.trim();
       }
 
       const extraFiles = files.filter(f => f.fieldname === 'images' || f.fieldname === 'images[]');
@@ -142,6 +156,14 @@ export class BricksRateController {
       for (const file of extraFiles) {
         const key = await this.storageService.upload(file, 'bricks-rates');
         newExtraUrls.push(this.storageService.getUrl(key));
+      }
+
+      // Library picks arrive as URLs on the body rather than as files.
+      const bodyImages = body.images ?? body['images[]'];
+      if (bodyImages) {
+        for (const url of Array.isArray(bodyImages) ? bodyImages : [bodyImages]) {
+          if (typeof url === 'string' && url.trim()) newExtraUrls.push(url.trim());
+        }
       }
 
       let keptImages: string[] = [];

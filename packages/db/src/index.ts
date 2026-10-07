@@ -9,3 +9,4 @@ export * from './schemas/package.schema';
 export * from './schemas/subscription.schema';
 export * from './schemas/cement-rate.schema';
 export * from './schemas/cement-order.schema';
+export * from './schemas/media.schema';

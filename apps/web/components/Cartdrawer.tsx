@@ -25,10 +25,13 @@ export default function CartDrawer() {
 
   return (
     <>
-      {/* Floating Cart Button — smaller, less radius */}
+      {/*
+        Floating Cart Button — smaller, less radius. Lifted on phones so it
+        sits above the floating tab bar rather than on top of it.
+      */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-50 bg-gray-900 hover:bg-black text-white rounded-lg w-11 h-11 flex items-center justify-center shadow-lg transition-all hover:scale-105"
+        className="fixed bottom-28 right-5 z-50 bg-gray-900 hover:bg-black text-white rounded-lg w-11 h-11 flex items-center justify-center shadow-lg transition-all hover:scale-105 md:bottom-5"
         title="View Cart"
       >
         <ShoppingCart className="w-5 h-5" />

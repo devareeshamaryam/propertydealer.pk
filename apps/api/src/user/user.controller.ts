@@ -48,14 +48,31 @@ export class UserController {
     const userId = req.user?.userId;
     if (!userId) throw new ForbiddenException('Authentication required');
 
-    // An empty body would otherwise issue a pointless write.
-    if (dto.name === undefined && dto.phone === undefined) {
-      throw new BadRequestException('Nothing to update');
+    // Trim the text fields; the DTO has already rejected anything else.
+    const patch: Record<string, string | number> = {};
+    const text: (keyof UpdateProfileDto)[] = [
+      'name',
+      'phone',
+      'whatsappNumber',
+      'companyName',
+      'bio',
+      'address',
+      'avatarUrl',
+    ];
+
+    for (const field of text) {
+      const value = dto[field];
+      if (typeof value === 'string') patch[field] = value.trim();
     }
 
-    const patch: { name?: string; phone?: string } = {};
-    if (dto.name !== undefined) patch.name = dto.name.trim();
-    if (dto.phone !== undefined) patch.phone = dto.phone.trim();
+    if (dto.experienceYears !== undefined) {
+      patch.experienceYears = dto.experienceYears;
+    }
+
+    // An empty body would otherwise issue a pointless write.
+    if (Object.keys(patch).length === 0) {
+      throw new BadRequestException('Nothing to update');
+    }
 
     return this.userService.update(userId, patch);
   }

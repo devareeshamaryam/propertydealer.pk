@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   BookOpen,
   Building2,
   CreditCard,
@@ -16,6 +17,8 @@ import type { ComponentType } from "react";
 
 export interface NavLeaf {
   title: string;
+  /** Shown instead of title to non-admins, where the admin wording would mislead. */
+  agentTitle?: string;
   href: string;
   /** Match the href exactly. Use for index routes whose children are separate entries. */
   exact?: boolean;
@@ -111,6 +114,22 @@ export const NAV_SECTIONS: NavSection[] = [
         exact: true,
         keywords: ["home", "stats", "dashboard"],
       },
+      {
+        // An agent's second-most-visited screen after their listings: "is
+        // anybody looking at them?". Not admin-only — the numbers are scoped
+        // to whoever is asking.
+        title: "Insights",
+        href: "/dashboard/insights",
+        keywords: ["analytics", "views", "performance", "stats", "enquiries"],
+      },
+      {
+        // Top level, the way WordPress puts Media — and deliberately NOT
+        // admin-only: agents upload property photos, and the API scopes the
+        // library so each one only ever sees their own uploads.
+        title: "Media Library",
+        href: "/dashboard/images-gallery",
+        keywords: ["images", "gallery", "photos", "uploads", "media"],
+      },
     ],
   },
   {
@@ -128,6 +147,9 @@ export const NAV_SECTIONS: NavSection[] = [
         items: [
           {
             title: "All Properties",
+            // An agent only ever sees their own rows here (the API scopes the
+            // list by owner), so "All" would be a lie.
+            agentTitle: "My Properties",
             href: "/dashboard/property",
             exact: true,
             keywords: ["listings"],
@@ -149,6 +171,10 @@ export const NAV_SECTIONS: NavSection[] = [
         id: "locations",
         title: "Locations",
         icon: MapPin,
+        // Cities and areas are ADMIN-only on the API (city.controller.ts /
+        // area.controller.ts guard every write with AdminGuard). Agents used to
+        // see these four links and get a 403 on save.
+        adminOnly: true,
         matches: ["/dashboard/city", "/dashboard/area"],
         items: [
           { title: "Cities", href: "/dashboard/city", exact: true },
@@ -214,12 +240,6 @@ export const NAV_SECTIONS: NavSection[] = [
           },
           { title: "Add Page", href: "/dashboard/pages/add-page" },
         ],
-      },
-      {
-        title: "Media Library",
-        href: "/dashboard/images-gallery",
-        adminOnly: true,
-        keywords: ["images", "gallery", "photos", "uploads"],
       },
     ],
   },
@@ -310,6 +330,7 @@ export const LEAF_ICONS: Record<
   ComponentType<{ className?: string }>
 > = {
   "/dashboard": LayoutDashboard,
+  "/dashboard/insights": BarChart3,
   "/dashboard/images-gallery": ImageIcon,
   "/dashboard/subscriptions": CreditCard,
   "/dashboard/my-subscription": Wallet,
@@ -344,6 +365,7 @@ export function collectAdminRoutes(): string[] {
 /** Human labels for breadcrumbs, keyed by path segment. */
 export const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
+  insights: "Insights",
   property: "Properties",
   "add-property": "Add Property",
   "listed-properties": "Listed Properties",

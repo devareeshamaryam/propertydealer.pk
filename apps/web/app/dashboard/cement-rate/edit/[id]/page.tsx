@@ -1,11 +1,13 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, ArrowLeft, Image as ImageIcon, X, Plus } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageField, GalleryField } from "@/components/media";
+import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -33,11 +35,6 @@ const CATEGORIES = [
   "Sulphate Resistant",
 ];
 
-interface NewImage {
-  file: File;
-  preview: string;
-}
-
 function getFullUrl(image: string): string {
   if (!image) return "";
   if (image.startsWith("http://") || image.startsWith("https://")) return image;
@@ -51,9 +48,6 @@ export default function EditCementRatePage() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
-
-  const mainFileRef = useRef<HTMLInputElement>(null);
-  const extraFileRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -69,14 +63,10 @@ export default function EditCementRatePage() {
     metaDescription: "",
   });
 
-  // Main image
-  const [existingImage, setExistingImage] = useState<string | null>(null);
-  const [newMainFile, setNewMainFile] = useState<File | null>(null);
-  const [newMainPreview, setNewMainPreview] = useState<string | null>(null);
-
-  // Extra images — existing (URLs) + new (files)
-  const [existingExtras, setExistingExtras] = useState<string[]>([]);
-  const [newExtras, setNewExtras] = useState<NewImage[]>([]);
+  // Images are uploaded to the media library as they are chosen, so these
+  // hold URLs rather than File objects waiting to be posted.
+  const [image, setImage] = useState<string>("");
+  const [extraImages, setExtraImages] = useState<string[]>([]);
 
   const set = (field: string, value: string) =>
     setForm((f) => ({ ...f, [field]: value }));
@@ -96,57 +86,12 @@ export default function EditCementRatePage() {
           metaTitle: rate.metaTitle ?? "",
           metaDescription: rate.metaDescription ?? "",
         });
-        if (rate.image) setExistingImage(rate.image);
-        if (rate.images?.length) setExistingExtras(rate.images);
+        setImage(rate.image ?? "");
+        setExtraImages(rate.images ?? []);
       })
       .catch(() => toast.error("Failed to load cement rate"))
       .finally(() => setLoading(false));
   }, [id]);
-
-  // ── Main image handlers ──────────────────────────────────────────────────
-  const handleMainSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setNewMainFile(file);
-    setExistingImage(null);
-    const reader = new FileReader();
-    reader.onloadend = () => setNewMainPreview(reader.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const removeMain = () => {
-    setNewMainFile(null);
-    setNewMainPreview(null);
-    setExistingImage(null);
-    if (mainFileRef.current) mainFileRef.current.value = "";
-  };
-
-  const currentMainSrc =
-    newMainPreview ?? (existingImage ? getFullUrl(existingImage) : null);
-
-  // ── Extra images handlers ────────────────────────────────────────────────
-  const handleExtraSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []);
-    if (!files.length) return;
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () =>
-        setNewExtras((prev) => [
-          ...prev,
-          { file, preview: reader.result as string },
-        ]);
-      reader.readAsDataURL(file);
-    });
-    if (extraFileRef.current) extraFileRef.current.value = "";
-  };
-
-  const removeExistingExtra = (url: string) => {
-    setExistingExtras((prev) => prev.filter((u) => u !== url));
-  };
-
-  const removeNewExtra = (index: number) => {
-    setNewExtras((prev) => prev.filter((_, i) => i !== index));
-  };
 
   // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,17 +112,16 @@ export default function EditCementRatePage() {
       fd.append("metaTitle", form.metaTitle.trim());
       fd.append("metaDescription", form.metaDescription.trim());
 
-      if (newMainFile) fd.append("image", newMainFile);
-
-      existingExtras.forEach((url) => fd.append("existingImages", url));
-      newExtras.forEach(({ file }) => fd.append("images", file));
+      // Already in the media library — post the URLs, not the bytes.
+      if (image) fd.append("image", image);
+      for (const url of extraImages) fd.append("images", url);
 
       await cementRateApi.updateRate(id, fd);
       toast.success("Cement rate updated successfully!");
       router.push("/dashboard/cement-rate");
-    } catch (err: any) {
+    } catch (err) {
       toast.error("Error", {
-        description: err?.response?.data?.message || "Failed to update.",
+        description: apiErrorMessage(err, "Failed to update."),
       });
     } finally {
       setSubmitting(false);
@@ -214,140 +158,34 @@ export default function EditCementRatePage() {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ── Main Image ─────────────────────────────────────────────── */}
-          <div className="space-y-2">
-            <Label>Main Product Image</Label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleMainSelect}
-              className="hidden"
-              ref={mainFileRef}
-            />
-            <div
-              onClick={() => !currentMainSrc && mainFileRef.current?.click()}
-              className={`relative border-2 border-dashed rounded-xl transition-colors ${
-                currentMainSrc
-                  ? "border-gray-300"
-                  : "border-gray-300 hover:border-gray-500 cursor-pointer"
-              } overflow-hidden`}
-              style={{ aspectRatio: "1/1", maxWidth: 220 }}
-            >
-              {currentMainSrc ? (
-                <>
-                  <img
-                    src={currentMainSrc}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeMain();
-                    }}
-                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-2 p-4 text-center">
-                  <ImageIcon className="w-10 h-10 text-gray-300" />
-                  <span className="text-sm font-medium text-gray-500">
-                    Upload Main Image
-                  </span>
-                  <span className="text-xs text-gray-400">Click to select</span>
-                </div>
-              )}
-            </div>
-            {currentMainSrc && (
-              <button
-                type="button"
-                onClick={() => mainFileRef.current?.click()}
-                className="text-xs text-blue-600 hover:underline"
-              >
-                Change image
-              </button>
-            )}
-          </div>
+          {/*
+            Shared media controls instead of hand-rolled file inputs.
 
-          {/* ── Extra Images ────────────────────────────────────────────── */}
-          <div className="space-y-2">
-            <Label>
-              Additional Images{" "}
-              <span className="text-gray-400 font-normal">
-                (shown in carousel)
-              </span>
-            </Label>
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleExtraSelect}
-              className="hidden"
-              ref={extraFileRef}
-            />
+            Each of these forms had its own FileReader preview and no way to
+            reuse a picture already on the site. ImageField and GalleryField
+            upload through the media library, so every rate photo becomes WebP
+            with a readable file name and alt text written for it.
+          */}
+          <ImageField
+            label="Main product image"
+            value={image}
+            onChange={setImage}
+            folder="rates"
+            context={form.brand ? `${form.brand} cement` : "Cement rate"}
+            aspect="square"
+            hint="Shown as the card image on the public rate page."
+          />
 
-            <div className="flex flex-wrap gap-3">
-              {existingExtras.map((url) => (
-                <div
-                  key={url}
-                  className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200"
-                >
-                  <img
-                    src={getFullUrl(url)}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeExistingExtra(url)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
+          <GalleryField
+            label="Additional images"
+            value={extraImages}
+            onChange={setExtraImages}
+            folder="rates"
+            context={form.brand ? `${form.brand} cement` : "Cement rate"}
+            max={8}
+            hint="Optional — shown in the carousel. Select several at once."
+          />
 
-              {newExtras.map((img, i) => (
-                <div
-                  key={i}
-                  className="relative w-24 h-24 rounded-lg overflow-hidden border border-blue-300"
-                >
-                  <img
-                    src={img.preview}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-blue-500 text-white text-[9px] text-center py-0.5">
-                    New
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeNewExtra(i)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 hover:bg-red-600"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => extraFileRef.current?.click()}
-                className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-500 flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-                <span className="text-xs">Add</span>
-              </button>
-            </div>
-            <p className="text-xs text-gray-400">
-              Remove old images by clicking ✕ — add new ones with the + button
-            </p>
-          </div>
-
-          {/* Brand */}
           <div className="space-y-1.5">
             <Label htmlFor="brand">Brand Name *</Label>
             <Input

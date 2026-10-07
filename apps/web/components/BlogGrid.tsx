@@ -1,125 +1,195 @@
-'use client'
+"use client";
+
 /**
- * BlogGrid Component - Complete Flow Explanation
- * 
- * FLOW:
- * 1. Component mounts → useEffect runs → Fetches blogs from API
- * 2. API call goes to /api/blog/published (Next.js rewrites to backend)
- * 3. Backend returns array of blog objects
- * 4. Transform function converts backend format to frontend format
- * 5. Extract unique categories from blogs
- * 6. Filter blogs by selected category
- * 7. Display blogs in grid with pagination
+ * The blog index, grouped by section.
+ *
+ * It used to be one flat grid of everything with chips that filtered in place:
+ * nothing told you what the blog covers, picking a topic changed no URL (so it
+ * could not be shared, linked or indexed), and the category pages that already
+ * exist — with their own titles and intros — were unreachable from here.
+ *
+ * Now the index is a contents page: the newest articles, then a row per
+ * category with a link into that category's own page. Choosing a topic
+ * navigates to that real page instead of hiding rows.
  */
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Calendar, User, ArrowRight, Grid3x3, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import blogApi from '@/lib/api/blog/blog.api';
-import { transformBlogsToPosts } from '@/lib/utils/blog-utils';
-import type { BlogPost } from '@/lib/utils/blog-utils';
-import { Blog } from '@/lib/types/blog';
-import { toast } from 'sonner';
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, Calendar, Loader2, User } from "lucide-react";
+import { toast } from "sonner";
+
+import { Button } from "@/components/ui/button";
+import blogApi from "@/lib/api/blog/blog.api";
+import blogCategoryApi from "@/lib/api/blog-category/blog-category.api";
+import { transformBlogsToPosts } from "@/lib/utils/blog-utils";
+import type { BlogPost } from "@/lib/utils/blog-utils";
+import { Blog } from "@/lib/types/blog";
+import { cn } from "@/lib/utils";
 
 interface BlogGridProps {
+  /**
+   * A category name, passed by /blog/category/[slug]. Present = show only that
+   * category as a grid; absent = show the grouped index.
+   */
   initialCategory?: string;
 }
 
-const BlogGrid = ({ initialCategory = 'All' }: BlogGridProps) => {
-  // STATE MANAGEMENT
-  // ================
-  // These state variables store the component's data and UI state
+interface CategoryRef {
+  _id?: string;
+  name: string;
+  slug?: string;
+}
 
-  const [blogs, setBlogs] = useState<BlogPost[]>([]); // All blogs from API (transformed)
-  const [loading, setLoading] = useState(true);        // Loading state for API call
-  const [error, setError] = useState<string | null>(null); // Error message if API fails
-  const [selectedCategory, setSelectedCategory] = useState(initialCategory); // Currently selected category filter
-  const [visiblePosts, setVisiblePosts] = useState(9); // Number of posts to show (pagination)
+/** How many of a category's articles the index shows before "View all". */
+const PER_SECTION = 3;
+const PAGE_SIZE = 9;
 
-  // FETCH BLOGS FROM API
-  // ====================
-  // This useEffect runs once when component mounts (empty dependency array [])
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function BlogCard({ post, index = 0 }: { post: BlogPost; index?: number }) {
+  return (
+    <Link href={`/blog/${post.slug}`} className="h-full">
+      <article
+        className="group flex h-full flex-col overflow-hidden rounded-xl border border-border/50 bg-card transition-all duration-300 hover:border-primary/30 hover:shadow-lg"
+        style={{ animation: `fadeInUp 0.5s ease-out ${index * 0.05}s both` }}
+      >
+        <div className="relative h-44 overflow-hidden">
+          <img
+            src={post.image}
+            alt={post.title}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          <div className="absolute left-3 top-3">
+            <span className="rounded-md bg-background/95 px-3 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur-sm">
+              {post.category}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-1 flex-col p-4">
+          <div className="mb-2 flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Calendar size={12} />
+              {post.date}
+            </span>
+            <span>•</span>
+            <span>{post.readTime}</span>
+          </div>
+
+          <h3 className="mb-2 line-clamp-2 text-base font-bold leading-snug text-foreground transition-colors group-hover:text-primary">
+            {post.title}
+          </h3>
+
+          <p className="mb-3 line-clamp-2 flex-1 text-xs leading-relaxed text-muted-foreground">
+            {post.excerpt}
+          </p>
+
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <User size={12} />
+              {post.author}
+            </span>
+            <span className="flex items-center gap-1 text-xs font-semibold text-primary transition-all group-hover:gap-2">
+              Read
+              <ArrowRight size={14} />
+            </span>
+          </div>
+        </div>
+      </article>
+    </Link>
+  );
+}
+
+const BlogGrid = ({ initialCategory }: BlogGridProps) => {
+  const [blogs, setBlogs] = useState<BlogPost[]>([]);
+  const [categories, setCategories] = useState<CategoryRef[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [visiblePosts, setVisiblePosts] = useState(PAGE_SIZE);
+
   useEffect(() => {
-    const fetchBlogs = async () => {
+    const load = async () => {
       try {
-        setLoading(true); // Show loading state
-        setError(null);   // Clear any previous errors
+        setLoading(true);
+        setError(null);
 
-        // STEP 1: Make API call to backend
-        // blogApi.getPublishedBlogs() → GET /api/blog/published
-        // Next.js rewrites /api/* to http://localhost:3001/* (see next.config.ts)
-        // Backend controller receives request at /blog/published
-        // Backend service queries MongoDB for blogs with status='published'
-        // Backend returns array of Blog documents (with populated author & categories)
-        const response = await blogApi.getPublishedBlogs();
+        // The category list is a nicety — it supplies the real slugs for the
+        // links. Posts are what the page is for, so one must not fail the other.
+        const [postsResult, categoriesResult] = await Promise.allSettled([
+          blogApi.getPublishedBlogs(),
+          blogCategoryApi.getAllCategories(),
+        ]);
 
-        // STEP 2: Transform backend data to frontend format
-        // Backend returns: { _id, title, slug, content, author: { name, email }, categories: [{ name, slug }], ... }
-        // Transform function converts to: { id, title, slug, excerpt, date, author: "Name", category: "Category Name", ... }
-        const transformedBlogs = transformBlogsToPosts(response as Blog[]);
+        if (postsResult.status !== "fulfilled") throw postsResult.reason;
+        setBlogs(transformBlogsToPosts(postsResult.value as Blog[]));
 
-        // STEP 3: Store in state (triggers re-render)
-        setBlogs(transformedBlogs);
-      } catch (err: any) {
-        // Handle errors gracefully
-        const errorMessage = err.response?.data?.message || 'Failed to load blogs';
-        setError(errorMessage);
-        toast.error('Error', { description: errorMessage });
-        console.error('Error fetching blogs:', err);
+        if (categoriesResult.status === "fulfilled") {
+          const list = Array.isArray(categoriesResult.value)
+            ? categoriesResult.value
+            : (categoriesResult.value?.categories ?? []);
+          setCategories(list as CategoryRef[]);
+        }
+      } catch (err: unknown) {
+        const message =
+          (err as { response?: { data?: { message?: string } } })?.response?.data
+            ?.message || "Failed to load blogs";
+        setError(message);
+        toast.error("Error", { description: message });
       } finally {
-        setLoading(false); // Hide loading state
+        setLoading(false);
       }
     };
 
-    fetchBlogs(); // Call the async function
-  }, []); // Empty array = run only once on mount
+    void load();
+  }, []);
 
-  // Update selected category when initialCategory changes
   useEffect(() => {
-    if (initialCategory) {
-      setSelectedCategory(initialCategory);
-    }
+    setVisiblePosts(PAGE_SIZE);
   }, [initialCategory]);
 
-  // EXTRACT CATEGORIES FROM BLOGS
-  // =============================
-  // Get unique categories from all blogs
-  // ['All', ...uniqueCategories] creates array starting with 'All' option
-  const categories = ['All', ...Array.from(new Set(blogs.map(blog => blog.category)))];
+  /** name → slug, preferring the real category record over a derived slug. */
+  const slugFor = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of categories) {
+      if (category?.name) map.set(category.name, category.slug || slugify(category.name));
+    }
+    return (name: string) => map.get(name) || slugify(name);
+  }, [categories]);
 
-  // FILTER BLOGS BY CATEGORY
-  // ========================
-  // If 'All' selected → show all blogs
-  // Otherwise → filter blogs where category matches selectedCategory
-  const filteredPosts = selectedCategory === 'All'
-    ? blogs
-    : blogs.filter(post => post.category === selectedCategory);
+  /** Every category that actually has published articles, biggest first. */
+  const sections = useMemo(() => {
+    const counts = new Map<string, BlogPost[]>();
+    for (const post of blogs) {
+      const key = post.category || "Uncategorized";
+      const bucket = counts.get(key);
+      if (bucket) bucket.push(post);
+      else counts.set(key, [post]);
+    }
+    return [...counts.entries()]
+      .map(([name, posts]) => ({ name, posts }))
+      .sort((a, b) => b.posts.length - a.posts.length);
+  }, [blogs]);
 
-  // PAGINATION LOGIC
-  // ================
-  // Slice array to show only first N posts (visiblePosts)
-  const displayedPosts = filteredPosts.slice(0, visiblePosts);
-  const hasMore = visiblePosts < filteredPosts.length; // Check if more posts available
+  const inCategory = useMemo(
+    () => (initialCategory ? blogs.filter((post) => post.category === initialCategory) : blogs),
+    [blogs, initialCategory],
+  );
 
-  // LOAD MORE FUNCTION
-  // ==================
-  // Increases visiblePosts count by 9 to show more posts
-  const loadMore = () => {
-    setVisiblePosts(prev => prev + 9);
-  };
-
-  // LOADING STATE
-  // =============
-  // Show loading spinner while fetching data
   if (loading) {
     return (
-      <section className="py-8 bg-background">
+      <section className="bg-background py-8">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-              <p className="text-muted-foreground">Loading blogs...</p>
+              <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-primary" />
+              <p className="text-muted-foreground">Loading articles…</p>
             </div>
           </div>
         </div>
@@ -127,15 +197,12 @@ const BlogGrid = ({ initialCategory = 'All' }: BlogGridProps) => {
     );
   }
 
-  // ERROR STATE
-  // ===========
-  // Show error message if API call failed
   if (error) {
     return (
-      <section className="py-8 bg-background">
+      <section className="bg-background py-8">
         <div className="container mx-auto px-4">
-          <div className="text-center py-20">
-            <p className="text-destructive mb-4">{error}</p>
+          <div className="py-20 text-center">
+            <p className="mb-4 text-destructive">{error}</p>
             <Button onClick={() => window.location.reload()}>Retry</Button>
           </div>
         </div>
@@ -143,213 +210,157 @@ const BlogGrid = ({ initialCategory = 'All' }: BlogGridProps) => {
     );
   }
 
-  // MAIN RENDER
-  // ===========
-  // Render the blog grid with all the data
+  const displayed = inCategory.slice(0, visiblePosts);
+  const hasMore = visiblePosts < inCategory.length;
+
   return (
-    <section className="py-8 bg-background">
+    <section className="bg-background py-8">
       <div className="container mx-auto px-4">
-        {/* Header with Filter and Controls */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-8">
-          {/* Category Filter - Premium Smooth Buttons */}
-          <div className="flex flex-wrap gap-2">
-            {categories.map(category => (
-              <button
-                key={category}
-                onClick={() => {
-                  setSelectedCategory(category);
-                  setVisiblePosts(9);
-                }}
-                className={`relative px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-500 overflow-hidden group ${selectedCategory === category
-                    ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                    : 'bg-secondary/50 text-muted-foreground hover:text-foreground'
-                  }`}
+        {/*
+          The topic bar. Each chip is a link to that category's own page, so a
+          topic can be shared, bookmarked and indexed — and the back button
+          works the way people expect.
+        */}
+        <nav
+          aria-label="Blog categories"
+          className="-mx-4 mb-8 flex gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <Link
+            href="/blog"
+            className={cn(
+              "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+              !initialCategory
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-secondary/40 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            All articles
+            <span className="ml-1.5 opacity-70">{blogs.length}</span>
+          </Link>
+
+          {sections.map((section) => {
+            const on = initialCategory === section.name;
+            return (
+              <Link
+                key={section.name}
+                href={`/blog/category/${slugFor(section.name)}`}
+                className={cn(
+                  "shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                  on
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-secondary/40 text-muted-foreground hover:text-foreground",
+                )}
               >
-                {/* Smooth Gradient Background on Hover */}
-                <div className={`absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0 -translate-x-full transition-transform duration-700 ${selectedCategory !== category ? 'group-hover:translate-x-full' : ''
-                  }`} />
+                {section.name}
+                <span className="ml-1.5 opacity-70">{section.posts.length}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
-                {/* Glow Effect */}
-                <div className={`absolute inset-0 rounded-lg transition-all duration-500 ${selectedCategory === category
-                    ? 'bg-primary/20 blur-xl'
-                    : 'bg-transparent group-hover:bg-primary/5 group-hover:blur-md'
-                  }`} />
-
-                {/* Text */}
-                <span className="relative z-10">{category}</span>
-
-                {/* Bottom Border Animation */}
-                <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-primary transform origin-left transition-transform duration-500 ${selectedCategory === category
-                    ? 'scale-x-100'
-                    : 'scale-x-0 group-hover:scale-x-100'
-                  }`} />
-              </button>
-            ))}
-          </div>
-
-          {/* Results Count */}
-          <div className="text-sm text-muted-foreground font-medium">
-            Showing <span className="text-foreground font-semibold">{displayedPosts.length}</span> of <span className="text-foreground font-semibold">{filteredPosts.length}</span> articles
-          </div>
-        </div>
-
-        {/* Main Content Area */}
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Blog Grid - Main Content */}
-          <div className="flex-1">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayedPosts.length === 0 ? (
-                <div className="col-span-full text-center py-16 bg-secondary/20 rounded-2xl">
-                  <p className="text-muted-foreground text-base mb-4">
-                    No posts found in this category.
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedCategory('All')}
-                    className="gap-2"
-                  >
-                    View All Posts
-                    <ArrowRight size={16} />
-                  </Button>
-                </div>
-              ) : (
-                displayedPosts.map((post, index) => (
-                  <Link key={post.id} href={`/blog/${post.slug}`}>
-                    <article
-                      className="bg-card border border-border/50 rounded-xl overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer group h-full flex flex-col"
-                      style={{
-                        animation: `fadeInUp 0.5s ease-out ${index * 0.05}s both`
-                      }}
-                    >
-                      {/* Image - Smaller */}
-                      <div className="relative overflow-hidden h-44">
-                        <img
-                          src={post.image}
-                          alt={post.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                        {/* Subtle Gradient Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-
-                        {/* Category Badge - Smaller */}
-                        <div className="absolute top-3 left-3">
-                          <span className="px-3 py-1 bg-background/95 backdrop-blur-sm text-foreground text-xs font-medium rounded-md shadow-sm">
-                            {post.category}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Content - Compact */}
-                      <div className="p-4 flex-1 flex flex-col">
-                        {/* Meta Info - Smaller */}
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} />
-                            {post.date}
-                          </span>
-                          <span>•</span>
-                          <span>{post.readTime}</span>
-                        </div>
-
-                        {/* Title - Smaller */}
-                        <h3 className="text-base font-bold text-foreground mb-2 group-hover:text-primary transition-colors line-clamp-2 leading-snug">
-                          {post.title}
-                        </h3>
-
-                        {/* Excerpt - Smaller */}
-                        <p className="text-muted-foreground text-xs mb-3 line-clamp-2 leading-relaxed flex-1">
-                          {post.excerpt}
-                        </p>
-
-                        {/* Read More - Inline */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <User size={12} />
-                            {post.author}
-                          </span>
-                          <span className="flex items-center gap-1 text-primary text-xs font-semibold group-hover:gap-2 transition-all">
-                            Read
-                            <ArrowRight size={14} />
-                          </span>
-                        </div>
-                      </div>
-                    </article>
-                  </Link>
-                ))
-              )}
+        {initialCategory ? (
+          /* ── One category: a plain grid with Load more ── */
+          <>
+            <div className="mb-4 flex items-baseline justify-between gap-4">
+              <h2 className="text-lg font-bold text-foreground">
+                {initialCategory}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Showing{" "}
+                <span className="font-semibold text-foreground">
+                  {displayed.length}
+                </span>{" "}
+                of{" "}
+                <span className="font-semibold text-foreground">
+                  {inCategory.length}
+                </span>
+              </p>
             </div>
-          </div>
 
-          {/* Sidebar - Load More & Info */}
-          <aside className="lg:w-80 space-y-6">
-            {/* Load More Card */}
-            {hasMore && (
-              <div className="bg-card border border-border/50 rounded-xl p-6 sticky top-24">
-                <h3 className="text-lg font-bold text-foreground mb-2">
-                  More Articles Available
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {filteredPosts.length - visiblePosts} more articles in this category
+            {displayed.length === 0 ? (
+              <div className="rounded-2xl bg-secondary/20 py-16 text-center">
+                <p className="mb-4 text-base text-muted-foreground">
+                  No articles in this category yet.
                 </p>
-                <Button
-                  onClick={loadMore}
-                  className="w-full gap-2 relative overflow-hidden bg-gradient-to-r from-primary to-primary/90 hover:shadow-lg hover:shadow-primary/30 group"
-                >
-                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                  <span className="relative z-10">Load More</span>
-                  <ArrowRight size={16} className="relative z-10 group-hover:translate-x-1 transition-transform" />
+                <Button variant="outline" asChild className="gap-2">
+                  <Link href="/blog">
+                    View all articles
+                    <ArrowRight size={16} />
+                  </Link>
                 </Button>
               </div>
-            )}
-
-            {/* End Message */}
-            {!hasMore && filteredPosts.length > 0 && (
-              <div className="bg-secondary/30 border border-border/50 rounded-xl p-6">
-                <div className="text-center">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <Grid3x3 className="text-primary" size={24} />
-                  </div>
-                  <h3 className="text-base font-semibold text-foreground mb-1">
-                    All Caught Up!
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    You've seen all articles in this category
-                  </p>
-                </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {displayed.map((post, index) => (
+                  <BlogCard key={post.id} post={post} index={index} />
+                ))}
               </div>
             )}
 
-            {/* Categories Overview */}
-            <div className="bg-card border border-border/50 rounded-xl p-6">
-              <h3 className="text-base font-bold text-foreground mb-4">
-                Popular Topics
-              </h3>
-              <div className="space-y-2">
-                {categories.slice(1, 6).map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => {
-                      setSelectedCategory(cat);
-                      setVisiblePosts(9);
-                    }}
-                    className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-300 relative group overflow-hidden"
-                  >
-                    {/* Smooth Slide Effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/5 to-primary/0 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-
-                    <span className="relative z-10">{cat}</span>
-
-                    {/* Arrow on Hover */}
-                    <ArrowRight
-                      size={14}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-hover:translate-x-0 -translate-x-2 transition-all duration-300 text-primary"
-                    />
-                  </button>
+            {hasMore && (
+              <div className="mt-8 text-center">
+                <Button
+                  size="lg"
+                  onClick={() => setVisiblePosts((n) => n + PAGE_SIZE)}
+                  className="gap-2"
+                >
+                  Load more
+                  <ArrowRight size={16} />
+                </Button>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {inCategory.length - visiblePosts} more to read
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          /* ── The index: newest first, then a row per section ── */
+          <div className="space-y-12">
+            <div>
+              <h2 className="mb-4 text-lg font-bold text-foreground">
+                Latest articles
+              </h2>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {blogs.slice(0, 6).map((post, index) => (
+                  <BlogCard key={post.id} post={post} index={index} />
                 ))}
               </div>
             </div>
-          </aside>
-        </div>
+
+            {sections.map((section) => (
+              <div key={section.name}>
+                <div className="mb-4 flex items-baseline justify-between gap-4 border-b pb-2">
+                  <h2 className="text-lg font-bold text-foreground">
+                    {section.name}
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      {section.posts.length}{" "}
+                      {section.posts.length === 1 ? "article" : "articles"}
+                    </span>
+                  </h2>
+                  <Link
+                    href={`/blog/category/${slugFor(section.name)}`}
+                    className="flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:gap-2"
+                  >
+                    View all
+                    <ArrowRight size={14} />
+                  </Link>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {section.posts.slice(0, PER_SECTION).map((post, index) => (
+                    <BlogCard key={post.id} post={post} index={index} />
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            {blogs.length === 0 && (
+              <p className="rounded-2xl bg-secondary/20 py-16 text-center text-muted-foreground">
+                No articles published yet.
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <style jsx>{`

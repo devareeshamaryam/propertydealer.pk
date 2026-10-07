@@ -11,6 +11,7 @@ import {
   SubscriptionDocument,
 } from '@rent-ghar/db/schemas/subscription.schema';
 import { Package, PackageDocument } from '@rent-ghar/db/schemas/package.schema';
+import { Property } from '@rent-ghar/db/schemas/property.schema';
 import { CreateSubscriptionDto } from '@rent-ghar/types/subscription';
 
 @Injectable()
@@ -20,7 +21,19 @@ export class SubscriptionService {
     private subscriptionModel: Model<SubscriptionDocument>,
     @InjectModel(Package.name)
     private packageModel: Model<PackageDocument>,
+    // Needed to count a free user's live listings against the free allowance.
+    @InjectModel(Property.name)
+    private propertyModel: Model<any>,
   ) {}
+
+  /**
+   * Live listings allowed without a paid package.
+   *
+   * Deliberately a constant rather than a Setting lookup: it is read on every
+   * "add property" attempt, and one is the number that makes the dashboard
+   * usable on day one while still leaving a reason to buy a package.
+   */
+  static readonly FREE_PROPERTY_LIMIT = 1;
 
   async purchase(
     userId: string,
@@ -185,6 +198,59 @@ export class SubscriptionService {
     return subscription.save();
   }
 
+  /**
+   * The plan this account is actually on, paid or not.
+   *
+   * canCreateProperty() answers "may I add one more?"; this answers "what do I
+   * have?", which is what the My Subscription screen needs. Without it that
+   * screen said "No active subscription — buy a package to start publishing"
+   * to every new agent, while the API was perfectly willing to publish their
+   * first listing. Same free-tier rule in both places, read from one method.
+   */
+  async getEffectivePlan(userId: string): Promise<{
+    tier: 'free' | 'paid';
+    name: string;
+    propertyLimit: number;
+    used: number;
+    remaining: number;
+    canCreate: boolean;
+    subscription: SubscriptionDocument | null;
+  }> {
+    const subscription = await this.findActiveSubscription(userId);
+
+    if (!subscription) {
+      const propertyLimit = SubscriptionService.FREE_PROPERTY_LIMIT;
+      const used = await this.propertyModel.countDocuments({
+        owner: userId,
+        status: { $in: ['pending', 'approved'] },
+      });
+
+      return {
+        tier: 'free',
+        name: 'Free',
+        propertyLimit,
+        used,
+        remaining: Math.max(0, propertyLimit - used),
+        canCreate: used < propertyLimit,
+        subscription: null,
+      };
+    }
+
+    const packageDoc = subscription.packageId as any;
+    const propertyLimit = Number(packageDoc?.propertyLimit ?? 0);
+    const used = Number(subscription.propertiesUsed ?? 0);
+
+    return {
+      tier: 'paid',
+      name: packageDoc?.name ?? 'Subscription',
+      propertyLimit,
+      used,
+      remaining: Math.max(0, propertyLimit - used),
+      canCreate: used < propertyLimit,
+      subscription,
+    };
+  }
+
   async canCreateProperty(userId: string): Promise<{
     canCreate: boolean;
     subscription?: SubscriptionDocument;
@@ -195,10 +261,32 @@ export class SubscriptionService {
     console.log('Subscription found:', subscription ? subscription._id : 'null');
 
     if (!subscription) {
-      return {
-        canCreate: false,
-        message: 'No active subscription found. Please purchase a package to list properties.',
-      };
+      /*
+       * Everyone starts on the Free plan.
+       *
+       * This used to refuse outright — a brand-new agent signed up, went to
+       * add their first property and was told to buy a package before they had
+       * seen the dashboard do anything. Rather than writing a subscription row
+       * at sign-up (which would need a migration for every existing account,
+       * and would go stale), the entitlement simply falls back to a free tier
+       * when there is no paid one. Existing users get it too, with no backfill.
+       */
+      const freeLimit = SubscriptionService.FREE_PROPERTY_LIMIT;
+      const used = await this.propertyModel.countDocuments({
+        owner: userId,
+        status: { $in: ['pending', 'approved'] },
+      });
+
+      if (used >= freeLimit) {
+        return {
+          canCreate: false,
+          message:
+            `The Free plan allows ${freeLimit} live ${freeLimit === 1 ? 'listing' : 'listings'} at a time. ` +
+            'Choose a package to list more, or remove one of your current listings.',
+        };
+      }
+
+      return { canCreate: true };
     }
 
     const packageDoc = subscription.packageId as any;

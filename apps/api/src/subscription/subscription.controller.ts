@@ -39,6 +39,16 @@ export class SubscriptionController {
     return this.subscriptionService.findActiveSubscription(req.user.userId);
   }
 
+  /**
+   * What the signed-in account is entitled to right now — the Free tier
+   * included. Must come before the @Get(':id') route below.
+   */
+  @Get('my-plan')
+  @UseGuards(JwtAuthGuard)
+  async myPlan(@Request() req) {
+    return this.subscriptionService.getEffectivePlan(req.user.userId);
+  }
+
   @Get('can-create-property')
   @UseGuards(JwtAuthGuard)
   async canCreateProperty(@Request() req) {

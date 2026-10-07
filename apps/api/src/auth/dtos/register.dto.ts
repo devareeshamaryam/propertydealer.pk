@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, MinLength , IsEnum, IsString, Matches } from "class-validator";
+import { IsEmail, IsNotEmpty, MinLength, IsEnum, IsString } from "class-validator";
 
 export class RegisterDto{
     @IsNotEmpty()
@@ -8,15 +8,23 @@ export class RegisterDto{
     @IsEmail()
     email: string;
 
-    // 🔒 SECURITY: Strong password policy (HIGH PRIORITY)
+    /**
+     * A length floor, and nothing more.
+     *
+     * This used to demand 8 characters AND an uppercase AND a lowercase AND a
+     * digit AND one of @$!%*?& — while the sign-up form said "at least 6" and
+     * offered no way to see what you had typed. The result was people being
+     * rejected repeatedly with a rule they could not read back.
+     *
+     * Composition rules of this kind push people towards "Password1!" and
+     * towards reusing a password they already have elsewhere, which is worse
+     * for the account than a long passphrase with no symbol in it. Length is
+     * the part that actually matters, and the real protections are elsewhere:
+     * bcrypt hashing, the account lockout in AuthService.login, and the rate
+     * limiter on this endpoint.
+     */
     @IsNotEmpty()
-    @MinLength(8, { message: 'Password must be at least 8 characters long' })
-    @Matches(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/,
-        {
-            message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)',
-        }
-    )
+    @MinLength(6, { message: 'Use at least 6 characters for your password' })
     password: string;
 
     @IsEnum(['USER' ,'AGENT'])

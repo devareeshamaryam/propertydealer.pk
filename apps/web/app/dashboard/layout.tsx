@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/context/auth-context";
 import DashboardSidebar from "../layout/components/dashboard/sidebar";
+import DashboardMobileTabs from "../layout/components/dashboard/mobile-tabs";
 import {
   collectAdminRoutes,
   SEGMENT_LABELS,
@@ -168,6 +169,9 @@ export default function DashboardLayout({
               children
             )}
           </main>
+
+          {/* Phones: the five things an agent does, one tap each. */}
+          <DashboardMobileTabs />
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

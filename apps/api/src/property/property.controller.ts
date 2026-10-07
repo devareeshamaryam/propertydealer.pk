@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Query, UseGuards, UseInterceptors, Request, Param, Patch, Delete, Put, UploadedFile, UnauthorizedException, BadRequestException, Header, Res, Logger } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Post, Query, UseGuards, UseInterceptors, Request, Param, Patch, Delete, Put, UploadedFile, UnauthorizedException, BadRequestException, Header, Res, Logger } from "@nestjs/common";
 import { AnyFilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { StorageService } from '@rent-ghar/storage/storage.service';
 import { PropertyService, type DashboardPropertyFilters } from './property.service';
+import { PropertyCountersService } from './property-counters.service';
 import { CreatePropertyDto } from './dto/create-property.dto'; // Local DTO with validation
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -15,7 +16,8 @@ export class PropertyController {
   constructor(
     private readonly propertyService: PropertyService,
     // Temporarily commented out to debug DI issue
-    private readonly storageService: StorageService
+    private readonly storageService: StorageService,
+    private readonly propertyCounters: PropertyCountersService,
   ) {}
 
   @Post()
@@ -122,6 +124,7 @@ export class PropertyController {
   @Get()
   @Header('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400')
   async findAll(
+    @Query('ownerId') ownerId?: string,
     @Query('cityId') cityId?: string, 
     @Query('city') city?: string,
     @Query('areaId') areaId?: string,
@@ -144,6 +147,7 @@ export class PropertyController {
 
     try {
       const filters: any = {};
+      if (ownerId) filters.ownerId = ownerId;
       if (cityId) filters.cityId = cityId;
       if (areaId) filters.areaId = areaId;
       if (priceMin) filters.priceMin = Number(priceMin);
@@ -232,6 +236,72 @@ export class PropertyController {
     return this.propertyService.getDashboardStats(req.user?.userId, req.user?.role);
   }
 
+  /**
+   * Listing performance for whoever is asking: an agent's own numbers, or the
+   * whole platform for an admin.
+   */
+  @Get('analytics/me')
+  @UseGuards(JwtAuthGuard)
+  async getMyPerformance(@Request() req) {
+    return this.propertyService.getPerformance(req.user?.userId, req.user?.role);
+  }
+
+  /*
+   * ── Event collection ────────────────────────────────────────────────────
+   *
+   * Public and deliberately cheap: nothing is read, nothing is validated
+   * beyond the id, and the response does not wait for a database write (see
+   * PropertyCountersService). They always answer 200 — a failed counter must
+   * never show the visitor an error on a page that rendered perfectly.
+   */
+
+  /** One detail-page open. The browser de-duplicates per session. */
+  @Post('analytics/view')
+  @HttpCode(202)
+  trackView(@Request() req, @Body('id') id?: string) {
+    if (typeof id === 'string') {
+      void this.propertyCounters.countView(id, this.fingerprint(req));
+    }
+    return { ok: true };
+  }
+
+  /** The cards that actually came into view, batched by the feed. */
+  @Post('analytics/impressions')
+  @HttpCode(202)
+  trackImpressions(@Body('ids') ids?: unknown) {
+    if (Array.isArray(ids)) {
+      this.propertyCounters.countImpressions(
+        // Cap it: a batch is what one screen showed, not a list of everything.
+        ids.filter((id): id is string => typeof id === 'string').slice(0, 60),
+      );
+    }
+    return { ok: true };
+  }
+
+  /** A tap on Call or WhatsApp. */
+  @Post('analytics/contact')
+  @HttpCode(202)
+  trackContact(
+    @Request() req,
+    @Body('id') id?: string,
+    @Body('kind') kind?: string,
+  ) {
+    if (typeof id === 'string' && (kind === 'phone' || kind === 'whatsapp')) {
+      void this.propertyCounters.countContact(id, kind, this.fingerprint(req));
+    }
+    return { ok: true };
+  }
+
+  /**
+   * A coarse "who is this" for the flood ceiling only — never stored, never
+   * logged, and not an identity: the client address (Express resolves it
+   * through the trusted proxy) plus the browser string.
+   */
+  private fingerprint(req: { ip?: string; headers?: Record<string, unknown> }): string {
+    const agent = String(req.headers?.['user-agent'] ?? '').slice(0, 80);
+    return `${req.ip ?? 'unknown'}|${agent}`;
+  }
+
   // get property by slug (must be before :id route)
   @Get('slug/:slug')
   @Header('Cache-Control', 'public, max-age=600, s-maxage=1800, stale-while-revalidate=86400')
@@ -264,10 +334,10 @@ export class PropertyController {
       const additionalPhotos = files?.filter(file => file.fieldname === 'additionalPhotos') || []
 
       // Upload files using StorageService
-      const mainPhotoUrl = mainPhoto 
+      let mainPhotoUrl = mainPhoto
         ? this.storageService.getUrl(await this.storageService.upload(mainPhoto, 'properties'))
         : undefined
-      const additionalPhotosUrls = additionalPhotos.length > 0
+      let additionalPhotosUrls = additionalPhotos.length > 0
         ? await Promise.all(
             additionalPhotos.map(async (file) => {
               const key = await this.storageService.upload(file, 'properties');
@@ -275,10 +345,43 @@ export class PropertyController {
             })
           )
         : undefined
+
+      /*
+       * Photos picked from the media library arrive as URLs in the body, the
+       * same way create() already accepted them — the dashboard uploads them
+       * before submitting, so the form posts links instead of megabytes.
+       *
+       * Read straight off req.body: these are not on CreatePropertyDto, and the
+       * global ValidationPipe runs with `whitelist: true`, so they are stripped
+       * out of `dto` before this handler ever sees it. Without this, editing a
+       * listing silently discarded every photo change — reorder, remove and add
+       * all looked like they had worked and nothing was saved.
+       */
+      if (!mainPhotoUrl && typeof req.body?.mainPhotoUrl === 'string' && req.body.mainPhotoUrl.trim()) {
+        mainPhotoUrl = req.body.mainPhotoUrl.trim();
+      }
+
+      const bodyAdditional = (req.body?.additionalPhotosUrls ??
+        req.body?.['additionalPhotosUrls[]']) as string | string[] | undefined;
+
+      // A body list is authoritative: it is the gallery exactly as the user
+      // left it, so removing the last extra photo has to persist as an empty
+      // list rather than "no change".
+      let replaceAdditionalPhotos = false;
+      if (bodyAdditional !== undefined || req.body?.photosProvided === 'true') {
+        const bodyUrls = bodyAdditional === undefined
+          ? []
+          : (Array.isArray(bodyAdditional) ? bodyAdditional : [bodyAdditional]).filter(
+              (url): url is string => typeof url === 'string' && url.trim() !== '',
+            );
+        additionalPhotosUrls = [...bodyUrls, ...(additionalPhotosUrls ?? [])];
+        replaceAdditionalPhotos = true;
+      }
+
       const userId = req.user?.userId;
       const userRole = req.user?.role;
 
-      const updated = await this.propertyService.update(id, dto as any, mainPhotoUrl, additionalPhotosUrls, userId, userRole)
+      const updated = await this.propertyService.update(id, dto as any, mainPhotoUrl, additionalPhotosUrls, userId, userRole, replaceAdditionalPhotos)
       return { message: 'Property updated successfully', property: updated }
     } catch (error) {
       console.error('Error in update controller:', error);
@@ -286,13 +389,24 @@ export class PropertyController {
     }
   }
 
+  /**
+   * JwtAuthGuard, not AdminGuard: the service decides. An owner may move their
+   * own listing between draft and pending (submit for review / pull it back);
+   * publishing, rejecting and un-publishing remain admin-only.
+   */
   @Patch(':id/update-status')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard)
   async updateStatus(
     @Param('id') id: string,
+    @Request() req,
     @Body('status') status?: 'pending' | 'approved' | 'rejected' | 'draft',
   ) {
-    return await this.propertyService.updateStatus(id, status || 'approved')
+    return await this.propertyService.updateStatus(
+      id,
+      status || 'approved',
+      req.user?.userId,
+      req.user?.role,
+    )
   }
 
   @Delete(':id')

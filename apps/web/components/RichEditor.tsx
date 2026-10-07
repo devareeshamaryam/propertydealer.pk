@@ -52,7 +52,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ImagePickerDialog, type GalleryImageItem } from '@/components/ImagePickerDialog'
+import { MediaPicker } from '@/components/media'
 
 export type RichEditorProps = {
     value: any
@@ -61,6 +61,12 @@ export type RichEditorProps = {
     minHeight?: string
     stickyTopOffset?: string
     className?: string
+    /**
+     * What the article is about. Passed to the media library so an image
+     * uploaded from inside the editor gets a readable file name and useful
+     * AI alt text instead of "img_8842".
+     */
+    imageContext?: string
 }
 
 /**
@@ -113,13 +119,13 @@ export default function RichEditor({
     minHeight = 'min-h-[350px]',
     stickyTopOffset,
     className,
+    imageContext,
 }: RichEditorProps) {
     const [mounted, setMounted] = useState(false)
     const [linkDialogOpen, setLinkDialogOpen] = useState(false)
     const [imageDialogOpen, setImageDialogOpen] = useState(false)
     const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false)
     const [linkUrl, setLinkUrl] = useState('')
-    const [imageAlt, setImageAlt] = useState('')
 
     // Track what we last emitted to avoid cursor resets & race conditions
     const lastEmittedRef = useRef<string | null>(null)
@@ -338,36 +344,8 @@ export default function RichEditor({
         setLinkUrl('')
     }
 
-    const handleSetImage = () => {
-        setImageAlt('')
-        setImageDialogOpen(true)
-    }
+    const handleSetImage = () => setImageDialogOpen(true)
 
-    const handleImageSelect = (image: GalleryImageItem | { url: string; key: string }) => {
-        if (!editor) return
-        const imageUrl = image.url
-
-        const getFullImageUrl = (url: string): string => {
-            if (url.startsWith('http://') || url.startsWith('https://')) return url
-            return url
-        }
-
-        const fullUrl = getFullImageUrl(imageUrl)
-        const getAltText = (): string => {
-            if (imageAlt) return imageAlt
-            const key = 'key' in image ? image.key : (image as any).url
-            const filename = key.split('/').pop() || key.split('\\').pop() || ''
-            return filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ') || 'Image'
-        }
-
-        editor.chain().focus().setImage({
-            src: fullUrl,
-            alt: getAltText(),
-        }).run()
-
-        setImageDialogOpen(false)
-        setImageAlt('')
-    }
 
     if (!mounted || !editor) {
         return (
@@ -805,14 +783,28 @@ export default function RichEditor({
                 </DialogContent>
             </Dialog>
 
-            {/* ── Image Picker Dialog with Gallery Support ───────────────────── */}
-            <ImagePickerDialog
+            {/*
+              Insert an image from the media library — or upload one right
+              here. The previous dialog could only pick something already in
+              the gallery, so adding a picture mid-article meant leaving the
+              editor. Alt text comes from the library (written by AI on upload),
+              so images inserted into articles are not invisible to Google.
+            */}
+            <MediaPicker
                 open={imageDialogOpen}
                 onOpenChange={setImageDialogOpen}
-                onSelect={handleImageSelect}
-                title="Insert Image"
-                description="Choose an image from your gallery or enter a URL. Upload new images anytime from Dashboard > Images Gallery."
-                allowUrlInput={true}
+                folder="blog"
+                context={imageContext}
+                title="Insert image"
+                onSelect={(items) => {
+                    const picked = items[0]
+                    if (!picked || !editor) return
+                    editor.chain().focus().setImage({
+                        src: picked.url,
+                        alt: picked.alt || picked.title || 'Image',
+                    }).run()
+                    setImageDialogOpen(false)
+                }}
             />
 
             {/* ── Keyboard Shortcuts Guide Dialog ────────────────────────────── */}

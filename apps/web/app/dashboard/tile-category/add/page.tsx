@@ -6,6 +6,7 @@ import { Plus, Trash2, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageField } from "@/components/media";
 import api from "@/lib/api";
 
 interface Subcategory {
@@ -24,8 +25,8 @@ function generateSlug(text: string): string {
 export default function AddTileCategoryPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>("");
+  // The media library stores the file; this holds the resulting URL.
+  const [image, setImage] = useState<string>("");
 
   const [form, setForm] = useState({
     name: "",
@@ -39,13 +40,6 @@ export default function AddTileCategoryPage() {
 
   const handleNameChange = (value: string) => {
     setForm((f) => ({ ...f, name: value, slug: generateSlug(value) }));
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
   };
 
   const addSubcategory = () => {
@@ -73,28 +67,16 @@ export default function AddTileCategoryPage() {
     try {
       setSaving(true);
 
-      const formData = new FormData();
-      formData.append("name", form.name.trim());
-      formData.append("slug", form.slug.trim());
-      formData.append("order", String(form.order));
-      formData.append("isActive", String(form.isActive));
-      formData.append("subcategories", JSON.stringify(subcategories));
-      if (imageFile) formData.append("image", imageFile);
-
-      // Use JSON if no image, else FormData
-      if (imageFile) {
-        await api.post("/tile-category", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      } else {
-        await api.post("/tile-category", {
-          name: form.name.trim(),
-          slug: form.slug.trim(),
-          order: form.order,
-          isActive: form.isActive,
-          subcategories,
-        });
-      }
+      // The image is already stored, so this is a plain JSON write — the
+      // multipart/JSON fork this used to need is gone.
+      await api.post("/tile-category", {
+        name: form.name.trim(),
+        slug: form.slug.trim(),
+        order: form.order,
+        isActive: form.isActive,
+        subcategories,
+        ...(image ? { image } : {}),
+      });
 
       toast.success("Category created successfully!");
       router.push("/dashboard/tile-category");
@@ -147,23 +129,15 @@ export default function AddTileCategoryPage() {
           </p>
         </div>
 
-        {/* Image */}
-        <div className="space-y-1.5">
-          <Label>Category Image</Label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-          />
-          {imagePreview && (
-            <img
-              src={imagePreview}
-              alt="Preview"
-              className="w-32 h-24 object-cover rounded-lg border mt-2"
-            />
-          )}
-        </div>
+        {/* Upload here, or reuse something already in the library. */}
+        <ImageField
+          label="Category image"
+          value={image}
+          onChange={setImage}
+          folder="tile-categories"
+          context={form.name ? `${form.name} tiles` : "Tile category"}
+          aspect="wide"
+        />
 
         {/* Order */}
         <div className="space-y-1.5">

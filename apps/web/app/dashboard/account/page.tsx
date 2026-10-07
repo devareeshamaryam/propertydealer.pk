@@ -5,10 +5,10 @@ import Link from "next/link";
 import {
   Building2,
   CheckCircle2,
-  Info,
   Loader2,
   Mail,
   Phone,
+  ExternalLink,
   Save,
   ShieldCheck,
   User as UserIcon,
@@ -25,7 +25,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { propertyApi, userApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { DataCard, DataCardTitle, PageHeader } from "@/components/dashboard";
+import { ImageField } from "@/components/media";
+import { Textarea } from "@/components/ui/textarea";
+import { agentProfilePath } from "@/lib/agent";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+
+/** The public fields /auth/profile returns alongside the sign-in details. */
+interface PublicProfileFields {
+  phone?: string;
+  whatsappNumber?: string;
+  companyName?: string;
+  bio?: string;
+  experienceYears?: number | null;
+  address?: string;
+  avatarUrl?: string;
+}
 
 interface PropertyStats {
   total: number;
@@ -39,15 +53,60 @@ export default function AccountPage() {
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  // The public half of the account: what /agents/<slug> shows.
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [bio, setBio] = useState("");
+  const [experienceYears, setExperienceYears] = useState("");
+  const [address, setAddress] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState<PropertyStats | null>(null);
 
-  // Seed the form once the signed-in user is known.
+  /*
+   * Seeded from GET /users/me, not from the auth context.
+   *
+   * The context user comes from /auth/profile, which answers straight out of
+   * the JWT — email, role, isActive and nothing else. After a page reload it
+   * therefore carries no name, phone or profile fields at all, so seeding this
+   * form from it emptied every box and a save would have blanked the profile.
+   */
+  const [record, setRecord] = useState<PublicProfileFields & { _id?: string; name?: string } | null>(null);
+
   useEffect(() => {
     if (!user) return;
-    setName(user.name ?? "");
-    setPhone((user as { phone?: string }).phone ?? "");
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const data = await userApi.getMe();
+        if (!cancelled) setRecord(data);
+      } catch (err) {
+        console.error("Could not load your account record:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
+
+  useEffect(() => {
+    if (!record) return;
+    const profile = record;
+    setName(record.name ?? "");
+    setPhone(profile.phone ?? "");
+    setWhatsappNumber(profile.whatsappNumber ?? "");
+    setCompanyName(profile.companyName ?? "");
+    setBio(profile.bio ?? "");
+    setExperienceYears(
+      profile.experienceYears === undefined || profile.experienceYears === null
+        ? ""
+        : String(profile.experienceYears),
+    );
+    setAddress(profile.address ?? "");
+    setAvatarUrl(profile.avatarUrl ?? "");
+  }, [record]);
 
   // Real listing counts, from the stats aggregation. This used to download
   // every property the user could see and count them in the browser.
@@ -69,17 +128,34 @@ export default function AccountPage() {
   }, [user, loadStats]);
 
   const initials =
-    (user?.name ?? user?.email ?? "?")
+    (record?.name ?? user?.name ?? user?.email ?? "?")
       .split(/[\s@.]+/)
       .filter(Boolean)
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join("") || "?";
 
-  const dirty = user
-    ? name !== (user.name ?? "") ||
-      phone !== ((user as { phone?: string }).phone ?? "")
+  const profile = (record ?? {}) as Partial<PublicProfileFields>;
+  const dirty = record
+    ? name !== (record.name ?? "") ||
+      phone !== (profile.phone ?? "") ||
+      whatsappNumber !== (profile.whatsappNumber ?? "") ||
+      companyName !== (profile.companyName ?? "") ||
+      bio !== (profile.bio ?? "") ||
+      experienceYears !==
+        (profile.experienceYears === undefined || profile.experienceYears === null
+          ? ""
+          : String(profile.experienceYears)) ||
+      address !== (profile.address ?? "") ||
+      avatarUrl !== (profile.avatarUrl ?? "")
     : false;
+
+  // Where buyers see this account. Only meaningful once it has an id.
+  const publicPath = agentProfilePath({
+    _id: record?._id,
+    name: record?.name,
+    companyName,
+  });
 
   const save = async () => {
     if (!user) return;
@@ -91,7 +167,20 @@ export default function AccountPage() {
       setSaving(true);
       // PATCH /users/me — authenticated, not admin-only, and it accepts only
       // name and phone, so every role can maintain their own contact details.
-      await userApi.updateMe({ name: name.trim(), phone: phone.trim() });
+      await userApi.updateMe({
+        name: name.trim(),
+        phone: phone.trim(),
+        whatsappNumber: whatsappNumber.trim(),
+        companyName: companyName.trim(),
+        bio: bio.trim(),
+        address: address.trim(),
+        avatarUrl: avatarUrl.trim(),
+        ...(experienceYears.trim() === ""
+          ? {}
+          : { experienceYears: Number(experienceYears) }),
+      });
+      const updated = await userApi.getMe();
+      setRecord(updated);
       toast.success("Profile updated", {
         description: "Sign in again to see the new name everywhere.",
       });
@@ -133,7 +222,7 @@ export default function AccountPage() {
 
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-xl font-semibold">
-              {user.name || "No name set"}
+              {record?.name || user.name || "No name set"}
             </h2>
             <p className="mt-0.5 flex items-center gap-1.5 text-sm text-muted-foreground">
               <Mail className="h-3.5 w-3.5 shrink-0" />
@@ -257,6 +346,118 @@ export default function AccountPage() {
               </Link>
               .
             </p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center gap-3">
+          <Button onClick={() => void save()} disabled={saving || !dirty}>
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save changes
+          </Button>
+          {dirty && !saving && (
+            <span className="text-sm text-muted-foreground">
+              Unsaved changes
+            </span>
+          )}
+        </div>
+      </DataCard>
+
+      {/* The page buyers land on from any of this account's listings. */}
+      <DataCard>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <DataCardTitle hint="Shown on /agents — buyers reach it from your listings">
+            Public profile
+          </DataCardTitle>
+          {publicPath && (
+            <Button variant="outline" size="sm" asChild>
+              <Link href={publicPath} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                View as buyer
+              </Link>
+            </Button>
+          )}
+        </div>
+
+        <Separator className="my-5" />
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="account-company">Agency / office name</Label>
+            <Input
+              id="account-company"
+              value={companyName}
+              onChange={(event) => setCompanyName(event.target.value)}
+              placeholder="e.g. Al-Hamd Estate & Builders"
+            />
+            <p className="text-xs text-muted-foreground">
+              Used as the heading of your profile when set.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="account-whatsapp">WhatsApp number</Label>
+            <div className="relative">
+              <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="account-whatsapp"
+                type="tel"
+                value={whatsappNumber}
+                onChange={(event) => setWhatsappNumber(event.target.value)}
+                placeholder="+92 300 1234567"
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="account-experience">Years in the market</Label>
+            <Input
+              id="account-experience"
+              type="number"
+              min="0"
+              max="70"
+              value={experienceYears}
+              onChange={(event) => setExperienceYears(event.target.value)}
+              placeholder="e.g. 8"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="account-address">Office address</Label>
+            <Input
+              id="account-address"
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+              placeholder="Main Boulevard, DHA Phase 6, Lahore"
+            />
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="account-bio">About you</Label>
+            <Textarea
+              id="account-bio"
+              value={bio}
+              onChange={(event) => setBio(event.target.value)}
+              rows={4}
+              maxLength={2000}
+              placeholder="Which areas you deal in, what you specialise in, how long you have been doing it."
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <ImageField
+              label="Profile photo / logo"
+              value={avatarUrl}
+              onChange={setAvatarUrl}
+              folder="general"
+              context={companyName || name || "Agent profile photo"}
+              aspect="square"
+              hint="Square works best. Shown on your profile and next to your listings."
+            />
           </div>
         </div>
 

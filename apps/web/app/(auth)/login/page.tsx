@@ -6,7 +6,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '@/context/auth-context'
 import * as z from 'zod'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import { GoogleButton } from '@/components/auth/google-button'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -37,6 +38,10 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+
+  // Set when the Google round trip came back without a usable account.
+  const googleFailed = searchParams.get('error') === 'google'
 
   useEffect(() => {
     if (searchParams.get('sessionExpired') === 'true') {
@@ -47,7 +52,9 @@ function LoginForm() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: "",
+      // Carried over when someone tried to register with an address that
+      // already has an account, so they only have to type the password.
+      email: searchParams.get('email') ?? "",
       password: "",
     },
   })
@@ -102,7 +109,19 @@ function LoginForm() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="space-y-5">
+          {googleFailed && (
+            <div className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                Google sign-in did not complete. Please try again, or use your
+                email and password.
+              </span>
+            </div>
+          )}
+
+          <GoogleButton next={searchParams.get('next')} disabled={isLoading} />
+
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             {/* Email Field */}
             <div className="space-y-2">
@@ -126,16 +145,35 @@ function LoginForm() {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <a
-                  href="/forgot-password"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Forgot password?
-                </a>
+                <div className="flex items-center gap-3">
+                  {/* Same show/hide as the sign-up form — typing a password
+                      blind is how people end up locked out. */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((previous) => !previous)}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                  >
+                    {showPassword ? (
+                      <>
+                        <EyeOff className="h-3.5 w-3.5" /> Hide
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-3.5 w-3.5" /> Show
+                      </>
+                    )}
+                  </button>
+                  <a
+                    href="/forgot-password"
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Forgot password?
+                  </a>
+                </div>
               </div>
               <Input
                 id="password"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 {...form.register('password')}
                 disabled={isLoading}

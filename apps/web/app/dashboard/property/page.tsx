@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -62,6 +63,7 @@ import {
   useServerTable,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+import { amountShort, propertySizeLabel } from "@/lib/pk";
 import { PropertyPreviewDialog } from "@/components/dashboard/property-preview-dialog";
 
 type StatusFilter = "all" | "draft" | "pending" | "approved" | "rejected";
@@ -81,7 +83,8 @@ const STATUS_STYLES: Record<string, string> = {
   draft: "bg-slate-200 text-slate-700 hover:bg-slate-200",
 };
 
-const COLUMN_COUNT = 7;
+// Property, Type, Location, Price, Status, Views, Created, Actions.
+const COLUMN_COUNT = 8;
 
 /** "pending" -> "Pending"; never renders "undefinedundefined" for a missing status. */
 function titleCase(value?: string) {
@@ -101,6 +104,14 @@ function formatDate(value?: string) {
 }
 
 /** Thumbnail that degrades to an icon rather than calling a dead placeholder host. */
+/** Call taps + WhatsApp taps: the enquiries a listing produced. */
+function contactsOf(property: {
+  phoneClicks?: number;
+  whatsappClicks?: number;
+}): number {
+  return (property.phoneClicks ?? 0) + (property.whatsappClicks ?? 0);
+}
+
 function Thumbnail({ src, alt }: { src?: string; alt: string }) {
   // Track which src failed, so a row whose image changes retries on its own.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
@@ -414,9 +425,190 @@ export default function PropertiesPage() {
           />
         </div>
 
+        {/*
+          Phones get cards. The table stays for tablets and up, where seven
+          columns actually fit.
+        */}
         <div
           className={cn(
-            "overflow-x-auto transition-opacity",
+            "space-y-3 p-4 transition-opacity md:hidden",
+            table.refreshing && "opacity-60",
+          )}
+        >
+          {table.loading ? (
+            [0, 1, 2, 3, 4].map((row) => (
+              <Skeleton key={row} className="h-32 w-full rounded-xl" />
+            ))
+          ) : table.error ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm">
+              <p className="font-medium text-red-900">{table.error}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={table.reload}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : table.rows.length === 0 ? (
+            <div className="py-10 text-center">
+              <Building2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {showEmptyState
+                  ? "No properties yet."
+                  : "Nothing matches those filters."}
+              </p>
+              {showEmptyState ? (
+                <Button
+                  size="sm"
+                  className="mt-4"
+                  onClick={() => router.push("/dashboard/property/add-property")}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Property
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" className="mt-4" onClick={resetAll}>
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          ) : (
+            table.rows.map((property) => {
+              const busy = busyId === property._id;
+              const contacts = contactsOf(property);
+
+              return (
+                <div
+                  key={property._id}
+                  className={cn(
+                    "rounded-xl border bg-card p-3",
+                    busy && "opacity-60",
+                  )}
+                >
+                  <div className="flex gap-3">
+                    <Thumbnail
+                      src={property.mainPhotoUrl}
+                      alt={property.title}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => void openPreview(property._id)}
+                        className="block w-full truncate text-left text-sm font-semibold"
+                      >
+                        {property.title}
+                      </button>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {property.location ?? "—"}
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span className="text-sm font-semibold tabular-nums">
+                          {amountShort(property.price) || "—"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {propertySizeLabel(property)}
+                        </span>
+                        <Badge
+                          className={cn(
+                            "ml-auto shrink-0",
+                            STATUS_STYLES[property.status] ??
+                              "bg-muted text-muted-foreground",
+                          )}
+                        >
+                          {titleCase(property.status)}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-2.5 flex items-center gap-4 border-t pt-2.5 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1 tabular-nums">
+                      <Eye className="h-3.5 w-3.5" />
+                      {(property.views ?? 0).toLocaleString("en-PK")}
+                    </span>
+                    {contacts > 0 && (
+                      <span className="font-medium text-emerald-700">
+                        {contacts} enquir{contacts === 1 ? "y" : "ies"}
+                      </span>
+                    )}
+                    <span className="ml-auto">
+                      {formatDate(property.createdAt)}
+                    </span>
+                  </div>
+
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {property.status === "draft" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() =>
+                          void changeStatus(
+                            property,
+                            isAdmin ? "approved" : "pending",
+                          )
+                        }
+                      >
+                        <Send className="mr-1.5 h-3.5 w-3.5" />
+                        {isAdmin ? "Publish" : "Submit"}
+                      </Button>
+                    )}
+                    {isAdmin && property.status !== "draft" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void changeStatus(property)}
+                      >
+                        {property.status === "approved" ? (
+                          <>
+                            <X className="mr-1.5 h-3.5 w-3.5" />
+                            Unpublish
+                          </>
+                        ) : (
+                          <>
+                            <Check className="mr-1.5 h-3.5 w-3.5" />
+                            Approve
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" asChild>
+                      <Link href={`/dashboard/property/edit/${property._id}`}>
+                        <SquarePen className="mr-1.5 h-3.5 w-3.5" />
+                        Edit
+                      </Link>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => void openPreview(property._id)}
+                    >
+                      <Eye className="mr-1.5 h-3.5 w-3.5" />
+                      Preview
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto text-destructive hover:text-destructive"
+                      disabled={busy}
+                      onClick={() => requestDelete(property)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span className="sr-only">Delete</span>
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div
+          className={cn(
+            "hidden overflow-x-auto transition-opacity md:block",
             table.refreshing && "opacity-60",
           )}
         >
@@ -437,6 +629,9 @@ export default function PropertiesPage() {
                 </TableHead>
                 <TableHead>
                   <SortButton column="status">Status</SortButton>
+                </TableHead>
+                <TableHead className="whitespace-nowrap">
+                  <SortButton column="views">Views</SortButton>
                 </TableHead>
                 <TableHead className="whitespace-nowrap">
                   <SortButton column="createdAt">Created</SortButton>
@@ -502,7 +697,7 @@ export default function PropertiesPage() {
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {property.bedrooms ?? 0} beds ·{" "}
                               {property.bathrooms ?? 0} baths ·{" "}
-                              {property.areaSize ?? 0} sq ft
+                              {propertySizeLabel(property)}
                             </p>
                           </div>
                         </div>
@@ -526,6 +721,10 @@ export default function PropertiesPage() {
                         <p className="font-semibold tabular-nums">
                           Rs {property.price?.toLocaleString("en-PK") ?? "—"}
                         </p>
+                        {/* The same amount the way it is advertised. */}
+                        <p className="text-xs font-medium text-emerald-700">
+                          {amountShort(property.price)}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {property.listingType === "rent"
                             ? "per month"
@@ -541,6 +740,18 @@ export default function PropertiesPage() {
                         >
                           {titleCase(property.status)}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <span className="flex items-center gap-1.5 text-sm tabular-nums">
+                          <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                          {(property.views ?? 0).toLocaleString("en-PK")}
+                        </span>
+                        {contactsOf(property) > 0 && (
+                          <span className="mt-0.5 block text-xs text-emerald-700">
+                            {contactsOf(property)} enquir
+                            {contactsOf(property) === 1 ? "y" : "ies"}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                         {formatDate(property.createdAt)}
@@ -610,7 +821,14 @@ export default function PropertiesPage() {
                             <TooltipContent>Preview</TooltipContent>
                           </Tooltip>
 
-                          {isAdmin && (
+                          {/*
+                            Edit and Delete used to be admin-only here. The
+                            dashboard list is owner-scoped and the API checks
+                            ownership on both routes, so every row an agent can
+                            see is one they are allowed to change — hiding the
+                            buttons just meant going the long way round.
+                          */}
+                          {true && (
                             <>
                               <Tooltip>
                                 <TooltipTrigger asChild>
@@ -679,7 +897,7 @@ export default function PropertiesPage() {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
         loading={previewLoading && !preview}
-        canEdit={isAdmin}
+        canEdit
       />
 
       <ConfirmDialog {...dialogProps} />

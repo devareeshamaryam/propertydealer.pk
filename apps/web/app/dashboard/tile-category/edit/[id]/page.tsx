@@ -6,6 +6,7 @@ import { Plus, Trash2, Loader2, ArrowLeft, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageField } from "@/components/media";
 import api from "@/lib/api";
 
 interface Subcategory {
@@ -26,8 +27,8 @@ export default function EditTileCategoryPage() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>("");
+  // The media library stores the file; this holds the resulting URL.
+  const [image, setImage] = useState<string>("");
 
   const [form, setForm] = useState({
     name: "",
@@ -54,20 +55,13 @@ export default function EditTileCategoryPage() {
         isActive: cat.isActive,
       });
       setSubcategories(cat.subcategories ?? []);
-      if (cat.image) setImagePreview(cat.image);
+      setImage(cat.image ?? "");
     } catch (error) {
       toast.error("Failed to fetch category");
       router.push("/dashboard/tile-category");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
   };
 
   const addSubcategory = () => {
@@ -115,26 +109,15 @@ export default function EditTileCategoryPage() {
     try {
       setSaving(true);
 
-      if (imageFile) {
-        const formData = new FormData();
-        formData.append("name", form.name.trim());
-        formData.append("slug", form.slug.trim());
-        formData.append("order", String(form.order));
-        formData.append("isActive", String(form.isActive));
-        formData.append("subcategories", JSON.stringify(subcategories));
-        formData.append("image", imageFile);
-        await api.put(`/tile-category/${id}`, formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
-      } else {
-        await api.put(`/tile-category/${id}`, {
-          name: form.name.trim(),
-          slug: form.slug.trim(),
-          order: form.order,
-          isActive: form.isActive,
-          subcategories,
-        });
-      }
+      // The image is already stored, so this is a plain JSON write.
+      await api.put(`/tile-category/${id}`, {
+        name: form.name.trim(),
+        slug: form.slug.trim(),
+        order: form.order,
+        isActive: form.isActive,
+        subcategories,
+        image,
+      });
 
       toast.success("Category updated successfully!");
       router.push("/dashboard/tile-category");
@@ -193,26 +176,15 @@ export default function EditTileCategoryPage() {
           <p className="text-xs text-gray-400">URL-friendly identifier</p>
         </div>
 
-        {/* Image */}
-        <div className="space-y-1.5">
-          <Label>Category Image</Label>
-          {imagePreview && (
-            <img
-              src={imagePreview}
-              alt="Current"
-              className="w-32 h-24 object-cover rounded-lg border mb-2"
-            />
-          )}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-          />
-          <p className="text-xs text-gray-400">
-            Upload new image to replace current one
-          </p>
-        </div>
+        {/* Upload here, or reuse something already in the library. */}
+        <ImageField
+          label="Category image"
+          value={image}
+          onChange={setImage}
+          folder="tile-categories"
+          context={form.name ? `${form.name} tiles` : "Tile category"}
+          aspect="wide"
+        />
 
         {/* Order */}
         <div className="space-y-1.5">

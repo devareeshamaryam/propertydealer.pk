@@ -11,8 +11,22 @@ export class User {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
 
-  @Prop({ required: true, select: false })
-  password: string;
+  /**
+   * Not required: an account created through "Continue with Google" never has
+   * one. The pre-save hook below skips hashing when it is absent, and
+   * comparePassword returns false, so a Google-only account cannot be signed
+   * into with a guessed password.
+   */
+  @Prop({ select: false })
+  password?: string;
+
+  /** Set when the account was created or linked through Google sign-in. */
+  @Prop({ index: true, sparse: true })
+  googleId?: string;
+
+  /** How this account signs in. Useful when telling someone why their password does not work. */
+  @Prop({ enum: ["credentials", "google"], default: "credentials" })
+  provider?: string;
 
   @Prop({ enum: ["USER", "AGENT", "ADMIN"], default: "USER" })
   role: string;
@@ -61,12 +75,15 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 
 UserSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return;
+  // Google accounts have no password to hash.
+  if (!this.password || !this.isModified("password")) return;
   this.password = await bcrypt.hash(this.password, 10);
 });
 
 UserSchema.methods.comparePassword = async function (
   candidatePassword: string,
 ) {
+  // A Google-only account has no password — never let a comparison succeed.
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };

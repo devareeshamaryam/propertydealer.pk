@@ -20,6 +20,19 @@ const getBaseURL = () => {
   return apiUrl.endsWith("/") ? `${apiUrl}api` : `${apiUrl}/api`;
 };
 
+/**
+ * The API base the browser itself should travel to.
+ *
+ * getBaseURL() above is for axios and may return an internal URL during SSR;
+ * this is for links the browser follows as a full navigation — the OAuth
+ * redirect, which cannot go through fetch().
+ */
+export function publicApiBaseUrl(): string {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) return "/api";
+  return apiUrl.endsWith("/") ? `${apiUrl}api` : `${apiUrl}/api`;
+}
+
 // In-memory access token storage — works even when cross-origin cookies are blocked
 let accessToken: string | null = null;
 
@@ -160,12 +173,48 @@ export interface DashboardStats {
   byStatus: Record<string, number>;
 }
 
+/** One row of the listing performance table. */
+export interface ListingPerformanceRow {
+  _id: string;
+  title: string;
+  slug?: string;
+  status: string;
+  listingType?: "rent" | "sale";
+  price: number;
+  views: number;
+  impressions: number;
+  phoneClicks: number;
+  whatsappClicks: number;
+  mainPhotoUrl?: string | null;
+  createdAt?: string;
+  marla?: number;
+  kanal?: number;
+  areaSize?: number;
+}
+
+/** GET /properties/analytics/me */
+export interface ListingPerformance {
+  totals: {
+    listings: number;
+    active: number;
+    views: number;
+    impressions: number;
+    phoneClicks: number;
+    whatsappClicks: number;
+    contacts: number;
+  };
+  byStatus: Record<string, number>;
+  listings: ListingPerformanceRow[];
+}
+
 // Property API functions
 export const propertyApi = {
   // Get all approved properties
   // Get all approved properties with pagination and filters
   getAll: async (filters?: {
     cityId?: string;
+    /** Every approved listing by one agent — their public profile page. */
+    ownerId?: string;
     cityName?: string;
     areaId?: string;
     areaSlug?: string;
@@ -184,6 +233,7 @@ export const propertyApi = {
     search?: string;
   }): Promise<PropertyResponse | BackendProperty[]> => {
     const params = new URLSearchParams();
+    if (filters?.ownerId) params.append("ownerId", filters.ownerId);
     if (filters?.cityId) params.append("cityId", filters.cityId);
     if (filters?.cityName) params.append("city", filters.cityName);
 
@@ -278,6 +328,15 @@ export const propertyApi = {
   getDashboardStats: async (): Promise<DashboardStats> => {
     const response = await api.get("/properties/all/stats");
     return response.data as DashboardStats;
+  },
+
+  /**
+   * Listing performance: an agent's own numbers, or the whole platform for an
+   * admin. The same scoping as the dashboard list.
+   */
+  getPerformance: async (): Promise<ListingPerformance> => {
+    const response = await api.get("/properties/analytics/me");
+    return response.data as ListingPerformance;
   },
 
   // Get property by slug
@@ -435,6 +494,23 @@ export const subscriptionApi = {
     return response.data;
   },
 
+  /**
+   * The plan in force right now, including the Free tier that every account has
+   * without buying anything. Use this to describe what someone has;
+   * `getActiveSubscription` only knows about paid rows.
+   */
+  getMyPlan: async (): Promise<{
+    tier: "free" | "paid";
+    name: string;
+    propertyLimit: number;
+    used: number;
+    remaining: number;
+    canCreate: boolean;
+  }> => {
+    const response = await api.get("/subscriptions/my-plan");
+    return response.data;
+  },
+
   canCreateProperty: async () => {
     const response = await api.get("/subscriptions/can-create-property");
     return response.data;
@@ -535,7 +611,17 @@ export const userApi = {
    * Update your own name / phone. Any other field is rejected server-side, so
    * this cannot be used to change a role or reactivate an account.
    */
-  updateMe: async (data: { name?: string; phone?: string }) => {
+  /** The fields PATCH /users/me accepts — see UpdateProfileDto on the API. */
+  updateMe: async (data: {
+    name?: string;
+    phone?: string;
+    whatsappNumber?: string;
+    companyName?: string;
+    bio?: string;
+    experienceYears?: number;
+    address?: string;
+    avatarUrl?: string;
+  }) => {
     const response = await api.patch("/users/me", data);
     return response.data;
   },

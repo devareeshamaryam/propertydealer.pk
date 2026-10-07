@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
@@ -26,8 +26,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ImagePickerDialog } from "@/components/ImagePickerDialog";
-import { Image as ImageIcon, X } from "lucide-react";
+import { ImageField } from "@/components/media";
+
 import { useState } from "react";
 
 // Assuming this is your API client (adjust path/name if different)
@@ -78,7 +78,6 @@ const formSchema = z.object({
 
 export default function AddCityPage() {
   const router = useRouter();
-  const [imageDialogOpen, setImageDialogOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -101,6 +100,13 @@ export default function AddCityPage() {
       typeContents: [],
     },
   });
+
+  /*
+   * Subscribed with useWatch instead of form.watch(): watch() returns a new
+   * function on every render, which makes React Compiler skip memoising the
+   * whole page. Same value, no bail-out.
+   */
+  const cityName = useWatch({ control: form.control, name: "name" });
 
   const [availableTypes, setAvailableTypes] = useState<string[]>([]);
   useEffect(() => {
@@ -277,49 +283,14 @@ export default function AddCityPage() {
                 name="thumbnail"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>City Thumbnail (Optional)</FormLabel>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-4">
-                        <FormControl>
-                          <Input
-                            placeholder="Image URL or choose from gallery"
-                            {...field}
-                            value={field.value || ""}
-                          />
-                        </FormControl>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => setImageDialogOpen(true)}
-                        >
-                          <ImageIcon className="h-4 w-4 mr-2" />
-                          Gallery
-                        </Button>
-                      </div>
-
-                      {field.value && (
-                        <div className="relative w-full h-48 rounded-lg overflow-hidden border bg-gray-50">
-                          <img
-                            src={field.value}
-                            alt="City thumbnail preview"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "https://placehold.co/600x400?text=Invalid+Image+URL";
-                            }}
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="absolute top-2 right-2 h-8 w-8 rounded-full"
-                            onClick={() => field.onChange("")}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
+                    <ImageField
+                      label="City Thumbnail (Optional)"
+                      value={field.value}
+                      onChange={field.onChange}
+                      folder="cities"
+                      context={cityName || "City"}
+                      aspect="wide"
+                    />
                     <FormMessage />
                   </FormItem>
                 )}
@@ -566,7 +537,7 @@ export default function AddCityPage() {
                       </h3>
                       <p className="text-sm text-gray-500">
                         Add custom content for specific combinations like "House
-                        for Rent in {form.watch("name") || "City"}"
+                        for Rent in {cityName || "City"}"
                       </p>
                     </div>
                     <Button
@@ -716,16 +687,6 @@ export default function AddCityPage() {
               </div>
 
               {/* Image Picker Dialog */}
-              <ImagePickerDialog
-                open={imageDialogOpen}
-                onOpenChange={setImageDialogOpen}
-                onSelect={(image) => {
-                  form.setValue("thumbnail", image.url);
-                }}
-                title="Select City Thumbnail"
-                description="Choose an image for the city card on the home page."
-              />
-
               {/* Submit Buttons */}
               <div className="flex gap-4 pt-6">
                 <Button

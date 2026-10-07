@@ -41,6 +41,7 @@ import {
   ImagePickerDialog,
   type GalleryImageItem,
 } from "@/components/ImagePickerDialog";
+import { ImageField } from "@/components/media";
 
 // Custom validation for image URLs - accepts full URLs or relative paths starting with /uploads/
 const imageUrlSchema = z
@@ -321,49 +322,26 @@ export default function EditBlogPage() {
                     )}
                   />
 
+                  {/*
+                    Upload a cover straight from here. The old field was a URL
+                    box plus a gallery button, so changing a cover meant going
+                    to the gallery, uploading, copying the link and coming back.
+                  */}
                   <FormField
                     control={form.control}
                     name="featuredImage"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Featured Image</FormLabel>
                         <FormControl>
-                          <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Input
-                                placeholder="https://example.com/image.jpg"
-                                {...field}
-                              />
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                onClick={() => setImagePickerOpen(true)}
-                                title="Choose from gallery"
-                              >
-                                <ImageIcon className="w-4 h-4" />
-                              </Button>
-                            </div>
-                            {field.value && (
-                              <div className="flex items-center gap-3 mt-2">
-                                <div className="w-16 h-16 rounded-md overflow-hidden bg-muted">
-                                  <img
-                                    src={field.value}
-                                    alt="Featured preview"
-                                    className="w-full h-full object-cover"
-                                  />
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => field.onChange("")}
-                                >
-                                  Remove image
-                                </Button>
-                              </div>
-                            )}
-                          </div>
+                          <ImageField
+                            label="Featured image"
+                            value={field.value}
+                            onChange={field.onChange}
+                            folder="blog"
+                            context={form.watch("title") || "Blog cover image"}
+                            aspect="wide"
+                            hint="Shown on the blog list and when the post is shared. Alt text is written automatically."
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

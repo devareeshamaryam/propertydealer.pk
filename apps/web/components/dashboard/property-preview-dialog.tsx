@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { BackendProperty } from "@/lib/types/property-utils";
 import { cn } from "@/lib/utils";
+import { amountShort, propertySizeLabel } from "@/lib/pk";
 
 const PropertyMap = dynamic(() => import("@/components/PropertyMap"), {
   ssr: false,
@@ -366,24 +367,19 @@ export function PropertyPreviewDialog({
                     label="Bathrooms"
                     value={property.bathrooms ?? 0}
                   />
+                  {/* Marla / kanal first — that is how a plot is quoted here. */}
+                  <Field
+                    icon={Maximize2}
+                    label="Plot size"
+                    value={propertySizeLabel(property)}
+                  />
                   <Field
                     icon={Ruler}
-                    label="Area"
+                    label="Covered area"
                     value={
                       property.areaSize
                         ? `${property.areaSize.toLocaleString("en-PK")} sq ft`
                         : "—"
-                    }
-                  />
-                  <Field
-                    icon={Maximize2}
-                    label="Plot size"
-                    value={
-                      property.kanal
-                        ? `${property.kanal} kanal`
-                        : property.marla
-                          ? `${property.marla} marla`
-                          : "—"
                     }
                   />
                 </div>
@@ -489,6 +485,9 @@ export function PropertyPreviewDialog({
                   </p>
                   <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-primary">
                     Rs {property.price?.toLocaleString("en-PK") ?? "—"}
+                  </p>
+                  <p className="mt-0.5 text-sm font-semibold text-emerald-700">
+                    {amountShort(property.price)}
                   </p>
                 </div>
 

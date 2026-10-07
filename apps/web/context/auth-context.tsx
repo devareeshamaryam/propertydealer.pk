@@ -20,6 +20,15 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (data: any) => Promise<void>;
   register: (data: any) => Promise<void>;
+  /** Create the account and sign in without a second trip through /login. */
+  registerAndSignIn: (data: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+  }) => Promise<void>;
+  /** Finish a redirect-based sign-in (Google) once the API has set its cookies. */
+  completeSocialSignIn: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -68,11 +77,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
+  /**
+   * `/auth/profile` answers straight out of the JWT, so it returns `userId`
+   * where every other endpoint returns `_id`. Normalising here means nothing
+   * downstream has to know which shape it is holding — before this, anything
+   * that needed `user._id` (a link to your own public profile, for instance)
+   * silently stopped working after a page reload.
+   */
+  const normalize = (data: Record<string, unknown> | null | undefined): User | null => {
+    if (!data) return null;
+    const id = (data._id ?? data.userId) as string | undefined;
+    return { ...(data as unknown as User), _id: id ?? "" };
+  };
+
   const fetchUser = async () => {
     try {
       // Try fetching profile using existing token (cookie or in-memory Bearer)
       const response = await api.get("/auth/profile");
-      setUser(response.data);
+      setUser(normalize(response.data));
     } catch (error) {
       // Profile failed — try to refresh to get a new access token
       try {
@@ -82,7 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         // Retry profile with new token
         const profileResponse = await api.get("/auth/profile");
-        setUser(profileResponse.data);
+        setUser(normalize(profileResponse.data));
       } catch (refreshError) {
         // Both failed — user is not authenticated
         setUser(null);
@@ -133,9 +155,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (data: any) => {
     await api.post("/auth/register", data);
-    // Auto login after register? Or redirect to login?
-    // Let's assume redirect to login or auto-login.
-    // For now, doing nothing, let the calling component handle navigation
+  };
+
+  /**
+   * Create the account and sign in, in one step.
+   *
+   * `/auth/register` already returns the same `{ token, user }` payload as
+   * `/auth/login`; the old flow threw it away and sent people to the login
+   * page, so signing up ended at a form asking for the password they had just
+   * chosen. Nothing new on the server — this just uses what it already sends.
+   */
+  const registerAndSignIn = async (data: {
+    name: string;
+    email: string;
+    password: string;
+    role?: string;
+  }) => {
+    const response = await api.post("/auth/register", data);
+
+    if (response.data?.token) setAccessToken(response.data.token);
+
+    if (response.data?.user) {
+      setUser(response.data.user);
+    } else {
+      // Older API build that only acknowledges the write — fall back to the
+      // credentials we already hold rather than bouncing to the login page.
+      await login({ email: data.email, password: data.password });
+    }
+  };
+
+  /**
+   * Finish "Continue with Google".
+   *
+   * Google sends the browser back to the API, which sets the httpOnly cookies
+   * and bounces here. The cookies alone are enough for same-domain requests,
+   * but the axios client prefers a Bearer token — so trade the refresh cookie
+   * for an access token straight away, exactly as a password login would hold
+   * one. No token ever travels in a URL.
+   */
+  const completeSocialSignIn = async () => {
+    const response = await api.post("/auth/refresh");
+
+    if (response.data?.token) setAccessToken(response.data.token);
+
+    if (response.data?.user) {
+      setUser(response.data.user);
+      setIsLoading(false);
+    } else {
+      await fetchUser();
+    }
   };
 
   const logout = async () => {
@@ -158,6 +226,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         login,
         register,
+        registerAndSignIn,
+        completeSocialSignIn,
         logout,
       }}
     >

@@ -1,11 +1,11 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Image as ImageIcon } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import {
   Form,
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { ImageField } from "@/components/media";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,10 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { pageApi } from "@/lib/api/page/page.api";
-import {
-  ImagePickerDialog,
-  type GalleryImageItem,
-} from "@/components/ImagePickerDialog";
 import dynamic from "next/dynamic";
 const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ssr: false,
@@ -92,7 +89,6 @@ export default function EditPagePage() {
   const params = useParams();
   const pageId = params?.id as string;
   const [loading, setLoading] = useState(true);
-  const [imagePickerOpen, setImagePickerOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -109,6 +105,13 @@ export default function EditPagePage() {
       keywords: "",
     },
   });
+
+  /*
+   * Subscribed with useWatch instead of form.watch(): watch() returns a new
+   * function on every render, which makes React Compiler skip memoising the
+   * whole page. Same value, no bail-out.
+   */
+  const pageTitle = useWatch({ control: form.control, name: "title" });
 
   useEffect(() => {
     const fetchPage = async () => {
@@ -329,45 +332,14 @@ export default function EditPagePage() {
                   name="featuredImage"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Featured Image</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2">
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder="https://example.com/image.jpg or /uploads/..."
-                              {...field}
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              onClick={() => setImagePickerOpen(true)}
-                              title="Choose from gallery"
-                            >
-                              <ImageIcon className="w-4 h-4" />
-                            </Button>
-                          </div>
-                          {field.value && (
-                            <div className="flex items-center gap-3 mt-2">
-                              <div className="w-16 h-16 rounded-md overflow-hidden bg-muted">
-                                <img
-                                  src={field.value}
-                                  alt="Featured preview"
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => field.onChange("")}
-                              >
-                                Remove image
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </FormControl>
+                      <ImageField
+                        label="Featured Image"
+                        value={field.value}
+                        onChange={field.onChange}
+                        folder="pages"
+                        context={pageTitle || "Page"}
+                        aspect="wide"
+                      />
                       <FormMessage />
                     </FormItem>
                   )}
@@ -453,16 +425,6 @@ export default function EditPagePage() {
           </div>
         </div>
       </div>
-      <ImagePickerDialog
-        open={imagePickerOpen}
-        onOpenChange={setImagePickerOpen}
-        onSelect={(image: GalleryImageItem) => {
-          const url = image.url;
-          form.setValue("featuredImage", url, { shouldValidate: true });
-        }}
-        title="Select Featured Image"
-        description="Choose an existing image from the gallery to use as the featured image for this page."
-      />
     </>
   );
 }

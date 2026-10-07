@@ -169,6 +169,10 @@ export default function DashboardSidebar() {
       .map((part) => part[0]?.toUpperCase())
       .join("") || "?";
 
+  /** Admin wording is not always the right wording for an agent. */
+  const labelFor = (item: NavLeaf) =>
+    !isAdmin && item.agentTitle ? item.agentTitle : item.title;
+
   const renderLeaf = (item: NavLeaf) => {
     const Icon = LEAF_ICONS[item.href] ?? CircleDot;
     return (
@@ -176,11 +180,11 @@ export default function DashboardSidebar() {
         <SidebarMenuButton
           asChild
           isActive={isActive(item)}
-          tooltip={item.title}
+          tooltip={labelFor(item)}
         >
           <Link href={item.href}>
             <Icon className="h-4 w-4" />
-            <span>{item.title}</span>
+            <span>{labelFor(item)}</span>
           </Link>
         </SidebarMenuButton>
       </SidebarMenuItem>
@@ -226,7 +230,7 @@ export default function DashboardSidebar() {
                 <SidebarMenuSubItem key={item.href}>
                   <SidebarMenuSubButton asChild isActive={isActive(item)}>
                     <Link href={item.href}>
-                      <span>{item.title}</span>
+                      <span>{labelFor(item)}</span>
                     </Link>
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

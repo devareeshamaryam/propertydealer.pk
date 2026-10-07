@@ -38,6 +38,16 @@ interface PackageRef {
   duration?: number;
 }
 
+/** What GET /subscriptions/my-plan returns — the Free tier included. */
+interface EffectivePlan {
+  tier: "free" | "paid";
+  name: string;
+  propertyLimit: number;
+  used: number;
+  remaining: number;
+  canCreate: boolean;
+}
+
 interface SubscriptionRecord {
   _id: string;
   status?: string;
@@ -87,6 +97,8 @@ export default function MySubscriptionPage() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   const [active, setActive] = useState<SubscriptionRecord | null>(null);
+  /** The entitlement in force when there is no paid subscription. */
+  const [freePlan, setFreePlan] = useState<EffectivePlan | null>(null);
   const [history, setHistory] = useState<SubscriptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,15 +112,23 @@ export default function MySubscriptionPage() {
       setError(null);
       // The active subscription is optional (a 404 is a normal "no plan"
       // answer), so it must not take the history down with it.
-      const [activeResult, historyResult] = await Promise.allSettled([
-        subscriptionApi.getActiveSubscription(),
-        subscriptionApi.getMySubscriptions(),
-      ]);
+      const [activeResult, historyResult, planResult] =
+        await Promise.allSettled([
+          subscriptionApi.getActiveSubscription(),
+          subscriptionApi.getMySubscriptions(),
+          subscriptionApi.getMyPlan(),
+        ]);
 
       setActive(
         activeResult.status === "fulfilled"
           ? (activeResult.value ?? null)
           : null,
+      );
+
+      // Optional: an older API build has no /my-plan. The card then falls back
+      // to naming the Free plan without the usage numbers.
+      setFreePlan(
+        planResult.status === "fulfilled" ? (planResult.value ?? null) : null,
       );
 
       if (historyResult.status === "fulfilled") {
@@ -338,22 +358,78 @@ export default function MySubscriptionPage() {
         </>
       ) : (
         !error && (
-          <DataCard className="py-12 text-center">
-            <div className="mx-auto flex max-w-sm flex-col items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <CreditCard className="h-6 w-6 text-muted-foreground" />
+          /*
+           * The Free plan, not an empty state.
+           *
+           * This card used to read "No active subscription — buy a package to
+           * start publishing", which was wrong: every account can publish its
+           * first listing without paying. The numbers come from the API's own
+           * entitlement check, so what this says and what a save is allowed to
+           * do cannot drift apart.
+           */
+          <>
+            <div className="rounded-xl border bg-muted/40 p-6">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Current plan</p>
+                  <h2 className="mt-1 text-2xl font-bold">
+                    {freePlan?.name ?? "Free"}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Included with your account — no payment needed.
+                  </p>
+                </div>
+                <Badge variant="secondary">Active</Badge>
               </div>
-              <div>
-                <p className="text-lg font-semibold">No active subscription</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Buy a package to start publishing property listings.
-                </p>
+
+              {freePlan && freePlan.propertyLimit > 0 && (
+                <div className="mt-6">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Listings used</span>
+                    <span className="font-semibold tabular-nums">
+                      {freePlan.used} / {freePlan.propertyLimit}
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(
+                      100,
+                      Math.round(
+                        (freePlan.used / freePlan.propertyLimit) * 100,
+                      ),
+                    )}
+                    className="mt-2 h-2"
+                  />
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    {freePlan.canCreate
+                      ? `You can publish ${freePlan.remaining} more ${
+                          freePlan.remaining === 1 ? "listing" : "listings"
+                        } on the Free plan.`
+                      : "You have used your free listing. Choose a package to publish more."}
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-6 flex flex-wrap gap-2">
+                {/* Hidden rather than disabled when the free listing is used
+                    up: `asChild` hands rendering to the Link, which ignores
+                    `disabled` and would stay clickable. */}
+                {(!freePlan || freePlan.canCreate) && (
+                  <Button asChild>
+                    <Link href="/dashboard/property/add-property">
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      List New Property
+                    </Link>
+                  </Button>
+                )}
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/purchase-package">
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    View Packages
+                  </Link>
+                </Button>
               </div>
-              <Button size="lg" asChild>
-                <Link href="/dashboard/purchase-package">View Packages</Link>
-              </Button>
             </div>
-          </DataCard>
+          </>
         )
       )}
 

@@ -49,6 +49,14 @@ export interface BackendProperty {
   status: 'pending' | 'approved' | 'rejected' | 'draft';
   source?: string;
   owner?: any;
+  /*
+   * Performance counters. Absent on listings that predate them, and on the
+   * public endpoints that do not project them — always read with `?? 0`.
+   */
+  views?: number;
+  impressions?: number;
+  phoneClicks?: number;
+  whatsappClicks?: number;
   createdAt?: string;
   updatedAt?: string;
   latitude?: number;
@@ -164,7 +172,7 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
     area: backend.areaSize || 0, // Property size in sq ft
     areaSlug: areaSlug,
     marla: backend.marla,
-    kenal: backend.kanal,
+    kanal: backend.kanal,
     purpose: purposeMap[backend.listingType] || 'rent',
     image: getImageUrl(backend.mainPhotoUrl),
     description: backend.description,

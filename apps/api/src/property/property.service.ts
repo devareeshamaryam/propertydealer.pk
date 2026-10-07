@@ -55,6 +55,11 @@ const DASHBOARD_SORTABLE = new Set([
     'title',
     'price',
     'status',
+    // Performance: an agent's first question is which listing is working.
+    'views',
+    'impressions',
+    'phoneClicks',
+    'whatsappClicks',
     'propertyType',
     'location',
 ]);
@@ -82,6 +87,11 @@ const DASHBOARD_LIST_FIELDS = [
     'source',
     'mainPhotoUrl',
     'contactNumber',
+    // Performance counters, shown as a column in the list.
+    'views',
+    'impressions',
+    'phoneClicks',
+    'whatsappClicks',
     'owner',
     'createdAt',
     'updatedAt',
@@ -319,6 +329,13 @@ export class PropertyService {
         });
       }
 
+      /**
+       * What a visitor may know about whoever posted a listing: enough to say
+       * "posted by" and link to their profile. Deliberately no email, and no
+       * role, flags or counters.
+       */
+      static readonly PUBLIC_OWNER_FIELDS = 'name companyName avatarUrl';
+
       private async findAllApprovedImpl(filters?: any) {
         try {
           const query: any = { status: 'approved' };
@@ -329,6 +346,13 @@ export class PropertyService {
               { title: searchRegex },
               { location: searchRegex }
             ];
+          }
+
+          if (filters?.ownerId) {
+            if (!this.isValidObjectId(filters.ownerId)) {
+              return { properties: [], total: 0, page: filters?.page || 1, limit: filters?.limit || 12, totalPages: 0 };
+            }
+            query.owner = new Types.ObjectId(filters.ownerId);
           }
 
           if (filters?.areaId) {
@@ -670,6 +694,123 @@ export class PropertyService {
         return { total, byStatus };
       }
 
+      /**
+       * "How are my listings doing?" — the numbers behind an agent's dashboard.
+       *
+       * Scoped exactly like the dashboard list: an admin sees the whole
+       * platform, anyone else sees only the listings they own. Three
+       * aggregations, no document download: the previous way to answer any of
+       * this was to fetch every listing and count in the browser.
+       */
+      async getPerformance(userId?: string, userRole?: string) {
+        const empty = {
+          totals: {
+            listings: 0,
+            active: 0,
+            views: 0,
+            impressions: 0,
+            phoneClicks: 0,
+            whatsappClicks: 0,
+            contacts: 0,
+          },
+          byStatus: { draft: 0, pending: 0, approved: 0, rejected: 0 } as Record<string, number>,
+          listings: [] as Record<string, unknown>[],
+        };
+
+        const match: Record<string, any> = {};
+        if (userRole !== 'ADMIN') {
+          if (!userId || !this.isValidObjectId(userId)) return empty;
+          match.owner = new Types.ObjectId(userId);
+        }
+
+        const [totalsRows, statusRows, listings] = await Promise.all([
+          this.propertyModel
+            .aggregate<{
+              _id: null;
+              listings: number;
+              active: number;
+              views: number;
+              impressions: number;
+              phoneClicks: number;
+              whatsappClicks: number;
+            }>([
+              { $match: match },
+              {
+                $group: {
+                  _id: null,
+                  listings: { $sum: 1 },
+                  active: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } },
+                  // $ifNull so listings that predate the counters count as 0
+                  // rather than turning the whole sum into null.
+                  views: { $sum: { $ifNull: ['$views', 0] } },
+                  impressions: { $sum: { $ifNull: ['$impressions', 0] } },
+                  phoneClicks: { $sum: { $ifNull: ['$phoneClicks', 0] } },
+                  whatsappClicks: { $sum: { $ifNull: ['$whatsappClicks', 0] } },
+                },
+              },
+            ])
+            .exec(),
+
+          this.propertyModel
+            .aggregate<{ _id: string; count: number }>([
+              { $match: match },
+              { $group: { _id: '$status', count: { $sum: 1 } } },
+            ])
+            .exec(),
+
+          // The per-listing table. Busiest first — that is the question being
+          // asked ("which of mine is working?"), not "which is newest".
+          this.propertyModel
+            .find(match)
+            .select('title slug status listingType price views impressions phoneClicks whatsappClicks mainPhotoUrl createdAt marla kanal areaSize')
+            .sort({ views: -1, createdAt: -1 })
+            .limit(100)
+            .lean()
+            .exec(),
+        ]);
+
+        const totals = totalsRows[0];
+        const byStatus: Record<string, number> = {
+          draft: 0,
+          pending: 0,
+          approved: 0,
+          rejected: 0,
+        };
+        for (const row of statusRows) {
+          if (row._id) byStatus[row._id] = row.count;
+        }
+
+        return {
+          totals: {
+            listings: totals?.listings ?? 0,
+            active: totals?.active ?? 0,
+            views: totals?.views ?? 0,
+            impressions: totals?.impressions ?? 0,
+            phoneClicks: totals?.phoneClicks ?? 0,
+            whatsappClicks: totals?.whatsappClicks ?? 0,
+            contacts: (totals?.phoneClicks ?? 0) + (totals?.whatsappClicks ?? 0),
+          },
+          byStatus,
+          listings: listings.map((row: any) => ({
+            _id: String(row._id),
+            title: row.title,
+            slug: row.slug,
+            status: row.status,
+            listingType: row.listingType,
+            price: row.price ?? 0,
+            views: row.views ?? 0,
+            impressions: row.impressions ?? 0,
+            phoneClicks: row.phoneClicks ?? 0,
+            whatsappClicks: row.whatsappClicks ?? 0,
+            mainPhotoUrl: row.mainPhotoUrl ?? null,
+            createdAt: row.createdAt,
+            marla: row.marla ?? 0,
+            kanal: row.kanal ?? 0,
+            areaSize: row.areaSize ?? 0,
+          })),
+        };
+      }
+
       async findPropertyByid(id: string) {
         const property = await this.propertyModel.findById(id).exec();
         if (!property) {
@@ -719,7 +860,7 @@ export class PropertyService {
 
         // Populate area and city - handle errors gracefully
         try {
-          return await this.propertyModel.populate(property, {
+          await this.propertyModel.populate(property, {
             path: 'area',
             select: 'name areaSlug',
             populate: {
@@ -729,14 +870,61 @@ export class PropertyService {
           });
         } catch (populateError) {
           console.error('Error populating property:', populateError);
-          return property;
         }
+
+        // Who posted it, for the agent card and the "more from this agent"
+        // strip. Non-critical: a listing whose owner was deleted still renders.
+        try {
+          await this.propertyModel.populate(property, {
+            path: 'owner',
+            select: PropertyService.PUBLIC_OWNER_FIELDS,
+          });
+        } catch (populateError) {
+          console.warn('Non-critical: could not populate listing owner:', populateError);
+        }
+
+        return property;
       }
 
-      async updateStatus(id: string, status: 'pending' | 'approved' | 'rejected' | 'draft' = 'approved') {
+      /**
+       * @param userId / @param userRole present for a non-admin caller.
+       *
+       * An owner may submit their own draft for review, or pull a submission
+       * back to draft — nothing else. Publishing, rejecting and un-publishing
+       * stay with admins, which is the same rule update() already applies to
+       * a status sent with a form.
+       *
+       * Previously this route was AdminGuard-only while the dashboard offered
+       * agents a "Submit for approval" button on their drafts, so the button
+       * answered 403.
+       */
+      async updateStatus(
+        id: string,
+        status: 'pending' | 'approved' | 'rejected' | 'draft' = 'approved',
+        userId?: string,
+        userRole?: string,
+      ) {
         const allowed: Array<'pending' | 'approved' | 'rejected' | 'draft'> = ['pending', 'approved', 'rejected', 'draft'];
         if (!allowed.includes(status)) {
             throw new BadRequestException(`Invalid status: ${status}`);
+        }
+
+        if (userRole !== 'ADMIN') {
+            const existing = await this.propertyModel.findById(id).select('owner status').lean().exec();
+            if (!existing) {
+                throw new NotFoundException('Property not found');
+            }
+            if (!userId || String(existing.owner) !== String(userId)) {
+                throw new ForbiddenException('You do not have permission to modify this property listing');
+            }
+            if (status !== 'draft' && status !== 'pending') {
+                throw new ForbiddenException('Only an admin can publish or reject a listing');
+            }
+            // An approved listing may not be edited back into the queue by its
+            // owner: taking something off the site is an admin decision.
+            if (existing.status === 'approved') {
+                throw new ForbiddenException('Ask an admin to unpublish a live listing');
+            }
         }
 
         const property = await this.propertyModel.findByIdAndUpdate(id, { status }, { new: true }).exec();
@@ -760,7 +948,13 @@ export class PropertyService {
         }
       }
 
-      async update(id: string, dto: CreatePropertyDto, mainPhotoUrl?: string, additionalPhotosUrls?: string[], userId?: string, userRole?: string) {
+      /**
+       * @param replaceAdditionalPhotos the caller sent the gallery as it should
+       *   now be (dashboard forms do), so an empty list means "no extra photos"
+       *   rather than "nothing to change". Older clients that post
+       *   `existingPhotos` leave it false and keep the merge behaviour.
+       */
+      async update(id: string, dto: CreatePropertyDto, mainPhotoUrl?: string, additionalPhotosUrls?: string[], userId?: string, userRole?: string, replaceAdditionalPhotos = false) {
         try {
           const property = await this.propertyModel.findById(id).exec();
           if (!property) {
@@ -828,7 +1022,10 @@ export class PropertyService {
           // Ensure existingPhotos is an array (might be single string if only one sent in form data and not parsed correctly as array)
           const validExistingPhotos = Array.isArray(existingPhotos) ? existingPhotos : [existingPhotos].filter(Boolean);
           
-          if (validExistingPhotos.length > 0 || (additionalPhotosUrls && additionalPhotosUrls.length > 0)) {
+          if (replaceAdditionalPhotos) {
+             // The gallery as the user left it — including empty.
+             updateData.additionalPhotosUrls = additionalPhotosUrls || [];
+          } else if (validExistingPhotos.length > 0 || (additionalPhotosUrls && additionalPhotosUrls.length > 0)) {
              updateData.additionalPhotosUrls = [
                  ...validExistingPhotos,
                  ...(additionalPhotosUrls || [])
