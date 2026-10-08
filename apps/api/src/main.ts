@@ -60,15 +60,15 @@ async function bootstrap() {
 
   app.use(cookieParser());
 
-  // Increase body limit for large file uploads
+  // Increase body limit for large file and video uploads
   const { json, urlencoded } = require('express');
-  app.use(json({ limit: '50mb' }));
-  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  app.use(json({ limit: '150mb' }));
+  app.use(urlencoded({ extended: true, limit: '150mb' }));
 
-  // Increase timeout for slow requests
+  // Increase timeout for slow requests (e.g. video uploads)
   app.use((req: any, res: any, next: any) => {
-    req.setTimeout(30000); // 30 seconds
-    res.setTimeout(30000); // 30 seconds
+    req.setTimeout(300000); // 5 minutes
+    res.setTimeout(300000); // 5 minutes
     next();
   });
 

@@ -46,6 +46,10 @@ export class PropertyController {
       // If no uploaded main photo but a URL is provided (selected from gallery), use it
       mainPhotoUrl = req.body.mainPhotoUrl;
       console.log('Using existing main photo URL from body:', mainPhotoUrl);
+    } else if (req.body.videoPosterUrl) {
+      // If only video is uploaded without photos, use its poster frame as main photo
+      mainPhotoUrl = req.body.videoPosterUrl;
+      console.log('Using video poster as main photo URL:', mainPhotoUrl);
     }
     
     let additionalPhotosUrls: string[] = [];
@@ -379,6 +383,8 @@ export class PropertyController {
        */
       if (!mainPhotoUrl && typeof req.body?.mainPhotoUrl === 'string' && req.body.mainPhotoUrl.trim()) {
         mainPhotoUrl = req.body.mainPhotoUrl.trim();
+      } else if (!mainPhotoUrl && typeof req.body?.videoPosterUrl === 'string' && req.body.videoPosterUrl.trim()) {
+        mainPhotoUrl = req.body.videoPosterUrl.trim();
       }
 
       const bodyAdditional = (req.body?.additionalPhotosUrls ??

@@ -1,5 +1,5 @@
  'use client'
-import { Heart, MapPin, Bed, Bath, Maximize, Loader2 } from 'lucide-react';
+import { Heart, MapPin, Bed, Bath, Maximize, Loader2, Play } from 'lucide-react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import React, { useState, useEffect } from 'react';
@@ -37,20 +37,55 @@ type FeaturedProperty = {
   baths: number;
   marla: string;
   slug?: string;
+  videoUrl?: string | null;
+  videoPosterUrl?: string | null;
+  isVideoThumbnail?: boolean;
 };
 
 const PropertyCard = ({ property }: { property: FeaturedProperty }) => {
+  const isVideo = Boolean(
+    property.isVideoThumbnail ||
+    ((property.videoUrl || property.videoPosterUrl) && (!property.image || property.image.includes('unsplash.com')))
+  );
+  const rawVideo = property.videoUrl || '';
+  const hasPosterOrImage = Boolean(property.image && !property.image.includes('unsplash.com'));
+
   return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col">
+    <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col group">
       <Link href={`/properties/${property.slug || toSlug(property.title)}`}>
-        <div className="relative h-36 sm:h-52 lg:h-64 overflow-hidden group cursor-pointer">
-          <Image
-            src={property.image}
-            alt={property.title}
-            fill
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
-            sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
-          />
+        <div className="relative h-36 sm:h-52 lg:h-64 overflow-hidden cursor-pointer bg-gray-900">
+          {!hasPosterOrImage && isVideo && rawVideo ? (
+            <video
+              src={`${rawVideo}#t=0.5`}
+              preload="metadata"
+              muted
+              playsInline
+              className="w-full h-full object-cover pointer-events-none"
+            />
+          ) : (
+            <Image
+              src={property.image}
+              alt={property.title}
+              fill
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
+            />
+          )}
+          {isVideo && (
+            <>
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-xl group-hover:scale-110 group-hover:bg-red-600 transition-all duration-300">
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white ml-0.5" />
+                </div>
+              </div>
+              <div className="absolute bottom-2.5 left-2.5 z-10">
+                <span className="flex items-center gap-1 px-2 py-0.5 bg-black/75 backdrop-blur-sm text-white text-[10px] font-bold rounded-full border border-white/10 shadow-sm">
+                  <Play className="w-2.5 h-2.5 fill-current text-red-500" /> Video Tour
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </Link>
 
@@ -136,6 +171,9 @@ const FeaturedSection: React.FC<FeaturedSectionProps> = ({ initialProperties }) 
           baths: property.bathrooms,
           marla: property.marla && property.marla > 0 ? `${property.marla} marla` : `${property.marla} `,
           slug: property.slug,
+          videoUrl: property.videoUrl || null,
+          videoPosterUrl: property.videoPosterUrl || null,
+          isVideoThumbnail: property.isVideoThumbnail,
         }));
 
         setFeaturedProperties(mappedProperties);

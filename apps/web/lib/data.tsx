@@ -25,6 +25,8 @@ export interface Property {
   whatsappNumber?: string;
   contactNumber?: string;
   videoUrl?: string | null;
+  videoPosterUrl?: string | null;
+  isVideoThumbnail?: boolean;
 }
 
 export interface Hotel {

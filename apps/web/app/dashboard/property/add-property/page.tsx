@@ -364,8 +364,8 @@ export default function AddProperty() {
         return;
       }
 
-      if (photos.length === 0) {
-        toast.error("Add at least one photo of the property");
+      if (photos.length === 0 && !videoUrl) {
+        toast.error("Add at least one photo or walkthrough video");
         return;
       }
     }
@@ -380,7 +380,8 @@ export default function AddProperty() {
       // URLs. The API accepts mainPhotoUrl / additionalPhotosUrls alongside the
       // older file fields, so nothing on the server had to change.
       const [cover, ...rest] = photos;
-      if (cover) formData.append("mainPhotoUrl", cover);
+      const effectiveCover = cover || videoPosterUrl || "";
+      if (effectiveCover) formData.append("mainPhotoUrl", effectiveCover);
       for (const url of rest) formData.append("additionalPhotosUrls", url);
       // Tells the API this list is the gallery as it now stands, so removing
       // the last extra photo is saved as "no extra photos" rather than ignored.

@@ -42,7 +42,20 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
   };
 
   const fallbackImage = getPlaceholderImage(property.type);
-  const imageUrl = (property.image && property.image.trim() !== '') ? property.image : fallbackImage;
+
+  // Check if property has a video
+  const hasVideo = Boolean(property.videoUrl || property.videoPosterUrl);
+  // Is this card using video as the primary visual? (explicit isVideoThumbnail or no custom image with video present)
+  const isVideoPrimary = Boolean(
+    property.isVideoThumbnail ||
+    (hasVideo && (!property.image || property.image.trim() === '' || property.image.includes('images.unsplash.com')))
+  );
+
+  // Determine media source
+  const customPosterOrImage = property.videoPosterUrl || (property.image && !property.image.includes('images.unsplash.com') ? property.image : '');
+  const hasPosterOrImage = Boolean(customPosterOrImage);
+  const imageUrl = customPosterOrImage || fallbackImage;
+  const rawVideoUrl = property.videoUrl || '';
 
   const whatsappNumber = property.whatsappNumber || property.contactNumber || '';
   const phoneNumber = property.contactNumber || property.whatsappNumber || '';
@@ -85,26 +98,52 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
       ════════════════════════════════════════ */}
       <div
         ref={mobileRef}
-        className="md:hidden cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 flex flex-col"
+        className="md:hidden group cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 flex flex-col"
         onClick={handleCardClick}
       >
         {hideActions ? (
           <>
             <div className="relative w-full overflow-hidden bg-secondary" style={{ height: '110px' }}>
-              {/* ✅ next/image */}
-              <Image
-                src={imageUrl}
-                alt={property.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 250px"
-                onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
-              />
-              <div className="absolute top-1.5 left-1.5">
-                <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded">
+              {!hasPosterOrImage && isVideoPrimary && rawVideoUrl ? (
+                <video
+                  src={`${rawVideoUrl}#t=0.5`}
+                  preload="metadata"
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover pointer-events-none"
+                />
+              ) : (
+                <Image
+                  src={imageUrl}
+                  alt={property.name}
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100vw, 250px"
+                  onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
+                />
+              )}
+              {isVideoPrimary && (
+                <>
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                    <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-lg group-hover:scale-110 group-hover:bg-red-600 transition-all duration-300">
+                      <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
+                    </div>
+                  </div>
+                </>
+              )}
+              <div className="absolute top-1.5 left-1.5 z-10">
+                <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded shadow-sm">
                   {property.purpose === 'buy' ? 'For Sale' : 'For Rent'}
                 </span>
               </div>
+              {hasVideo && (
+                <div className="absolute bottom-1.5 left-1.5 z-10">
+                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-black/75 backdrop-blur-sm text-white text-[9px] font-bold rounded shadow-sm border border-white/10">
+                    <Play className="w-2 h-2 fill-current text-red-500" /> Video
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col p-2 gap-1">
               <p className="text-xs font-bold text-primary leading-tight">
@@ -133,24 +172,43 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
           <>
             <div className="flex flex-row" style={{ height: '110px' }}>
               <div className="relative shrink-0 overflow-hidden bg-secondary" style={{ width: '120px' }}>
-                {/* ✅ next/image */}
-                <Image
-                  src={imageUrl}
-                  alt={property.name}
-                  fill
-                  className="object-cover"
-                  sizes="120px"
-                  onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
-                />
-                <div className="absolute top-1.5 left-1.5">
-                  <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded">
+                {!hasPosterOrImage && isVideoPrimary && rawVideoUrl ? (
+                  <video
+                    src={`${rawVideoUrl}#t=0.5`}
+                    preload="metadata"
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover pointer-events-none"
+                  />
+                ) : (
+                  <Image
+                    src={imageUrl}
+                    alt={property.name}
+                    fill
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    sizes="120px"
+                    onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
+                  />
+                )}
+                {isVideoPrimary && (
+                  <>
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                      <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-lg group-hover:scale-110 group-hover:bg-red-600 transition-all duration-300">
+                        <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
+                      </div>
+                    </div>
+                  </>
+                )}
+                <div className="absolute top-1.5 left-1.5 z-10">
+                  <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded shadow-sm">
                     {property.purpose === 'buy' ? 'For Sale' : 'For Rent'}
                   </span>
                 </div>
-                {property.videoUrl && (
-                  <div className="absolute bottom-1.5 left-1.5">
-                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-bold rounded">
-                      <Play className="w-2 h-2 fill-current" /> Video
+                {hasVideo && (
+                  <div className="absolute bottom-1.5 left-1.5 z-10">
+                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-black/75 backdrop-blur-sm text-white text-[9px] font-bold rounded shadow-sm border border-white/10">
+                      <Play className="w-2 h-2 fill-current text-red-500" /> Video
                     </span>
                   </div>
                 )}
@@ -209,32 +267,51 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
       ════════════════════════════════════════ */}
       <div
         ref={desktopRef}
-        className="hidden md:flex flex-col cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300"
+        className="hidden md:flex group flex-col cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300"
         onClick={handleCardClick}
       >
         <div className="flex flex-row" style={{ height: '190px' }}>
           <div className="relative shrink-0 overflow-hidden bg-secondary" style={{ width: '250px' }}>
-            {/* ✅ next/image */}
-            <Image
-              src={imageUrl}
-              alt={property.name}
-              fill
-              className="object-cover"
-              sizes="250px"
-              onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
-            />
-            <div className="absolute top-3 left-3 flex gap-2">
+            {!hasPosterOrImage && isVideoPrimary && rawVideoUrl ? (
+              <video
+                src={`${rawVideoUrl}#t=0.5`}
+                preload="metadata"
+                muted
+                playsInline
+                className="w-full h-full object-cover pointer-events-none"
+              />
+            ) : (
+              <Image
+                src={imageUrl}
+                alt={property.name}
+                fill
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
+                sizes="250px"
+                onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
+              />
+            )}
+            {isVideoPrimary && (
+              <>
+                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                  <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-2xl group-hover:scale-115 group-hover:bg-red-600 transition-all duration-300">
+                    <Play className="w-5 h-5 fill-white text-white ml-0.5" />
+                  </div>
+                </div>
+              </>
+            )}
+            <div className="absolute top-3 left-3 flex gap-2 z-10">
               <span className="px-2.5 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full shadow-md">
                 {property.purpose === 'buy' ? 'For Sale' : 'For Rent'}
               </span>
-              {property.videoUrl && (
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full">
+              {hasVideo && (
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow-md">
                   <Play className="w-3 h-3 fill-current" /> Video
                 </span>
               )}
             </div>
-            <div className="absolute top-3 right-3">
-              <span className="px-2.5 py-1 bg-black/60 text-white text-xs font-medium rounded-full backdrop-blur-sm">
+            <div className="absolute top-3 right-3 z-10">
+              <span className="px-2.5 py-1 bg-black/60 text-white text-xs font-medium rounded-full backdrop-blur-sm shadow">
                 {property.type}
               </span>
             </div>

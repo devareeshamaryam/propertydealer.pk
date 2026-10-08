@@ -150,8 +150,8 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
   const areaSlug = (backend.area && typeof backend.area === 'object') ? backend.area.areaSlug : '';
 
   // Convert image URL to full URL if it's a relative path
-  const getImageUrl = (url?: string): string => {
-    if (!url) return 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80';
+  const getImageUrl = (url?: string | null): string => {
+    if (!url) return '';
     // If it's already a full URL, return as is
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
@@ -163,6 +163,25 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
     }
     return url;
   };
+
+  const hasRealPhoto = Boolean(backend.mainPhotoUrl && backend.mainPhotoUrl.trim() !== '');
+  const hasPoster = Boolean(backend.videoPosterUrl && backend.videoPosterUrl.trim() !== '');
+  const hasVideo = Boolean(backend.videoUrl && backend.videoUrl.trim() !== '');
+
+  let displayImage = '';
+  let isVideoThumbnail = false;
+
+  if (hasRealPhoto) {
+    displayImage = getImageUrl(backend.mainPhotoUrl);
+  } else if (hasPoster) {
+    displayImage = getImageUrl(backend.videoPosterUrl);
+    isVideoThumbnail = true;
+  } else if (hasVideo) {
+    displayImage = '';
+    isVideoThumbnail = true;
+  } else {
+    displayImage = 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80';
+  }
 
   return {
     id: backend._id,
@@ -180,7 +199,7 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
     marla: backend.marla,
     kanal: backend.kanal,
     purpose: purposeMap[backend.listingType] || 'rent',
-    image: getImageUrl(backend.mainPhotoUrl),
+    image: displayImage,
     description: backend.description,
     features: backend.features || [],
     areaId: backend.area && typeof backend.area === 'object' ? backend.area._id : (typeof backend.area === 'string' ? backend.area : undefined),
@@ -189,7 +208,9 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
     longitude: backend.longitude,
     whatsappNumber: backend.whatsappNumber,
     contactNumber: backend.contactNumber,
-    videoUrl: backend.videoUrl,
+    videoUrl: backend.videoUrl || null,
+    videoPosterUrl: backend.videoPosterUrl || null,
+    isVideoThumbnail,
   };
 }
 

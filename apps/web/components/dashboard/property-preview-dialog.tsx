@@ -190,6 +190,9 @@ export function PropertyPreviewDialog({
       property.mainPhotoUrl,
       ...(property.additionalPhotosUrls ?? []),
     ].filter((url): url is string => Boolean(url));
+    if (images.length === 0 && property.videoPosterUrl) {
+      images.push(property.videoPosterUrl);
+    }
     // De-duplicate: mainPhotoUrl is often repeated in additionalPhotosUrls.
     return [...new Set(images)];
   }, [property]);
@@ -295,39 +298,64 @@ export function PropertyPreviewDialog({
               {/* Main column */}
               <div className="min-w-0 p-6">
                 {/* Gallery */}
-                <div className="group relative overflow-hidden rounded-xl border bg-muted">
-                  <SafeImage
-                    src={gallery[activeImage]}
-                    alt={`${property.title} — image ${activeImage + 1}`}
-                    className="h-[300px] w-full object-cover sm:h-[380px]"
-                  />
+                {gallery.length === 0 && property.videoUrl ? (
+                  <div className="relative overflow-hidden rounded-xl border bg-black">
+                    <video
+                      src={property.videoUrl}
+                      poster={property.videoPosterUrl || undefined}
+                      controls
+                      playsInline
+                      className="h-[300px] w-full object-contain sm:h-[380px]"
+                    />
+                    <div className="absolute top-3 left-3 pointer-events-none">
+                      <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow">
+                        <Video className="h-3.5 w-3.5" /> Walkthrough Video
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="group relative overflow-hidden rounded-xl border bg-muted">
+                    <SafeImage
+                      src={gallery[activeImage]}
+                      alt={`${property.title} — image ${activeImage + 1}`}
+                      className="h-[300px] w-full object-cover sm:h-[380px]"
+                    />
 
-                  {gallery.length > 1 && (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        onClick={showPrevious}
-                        aria-label="Previous image"
-                        className="absolute left-3 top-1/2 h-9 w-9 -translate-y-1/2 opacity-0 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        onClick={showNext}
-                        aria-label="Next image"
-                        className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 opacity-0 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                      <div className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1 text-xs font-medium text-white tabular-nums">
-                        {activeImage + 1} / {gallery.length}
+                    {gallery.length === 1 && property.videoUrl && gallery[0] === property.videoPosterUrl && (
+                      <div className="absolute top-3 left-3 pointer-events-none">
+                        <span className="flex items-center gap-1.5 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow">
+                          <Video className="h-3.5 w-3.5" /> Video Thumbnail
+                        </span>
                       </div>
-                    </>
-                  )}
-                </div>
+                    )}
+
+                    {gallery.length > 1 && (
+                      <>
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          onClick={showPrevious}
+                          aria-label="Previous image"
+                          className="absolute left-3 top-1/2 h-9 w-9 -translate-y-1/2 opacity-0 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          onClick={showNext}
+                          aria-label="Next image"
+                          className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 opacity-0 shadow-md transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                        <div className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1 text-xs font-medium text-white tabular-nums">
+                          {activeImage + 1} / {gallery.length}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {gallery.length > 1 && (
                   <div className="mt-3 flex gap-2 overflow-x-auto pb-1">

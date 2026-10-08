@@ -3,7 +3,7 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams, usePathname } from 'next/navigation';
-import { MapPin, Bed, Bath, Maximize, Share2, Phone, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, House, Tag, LayoutDashboard, Clock } from 'lucide-react';
+import { MapPin, Bed, Bath, Maximize, Share2, Phone, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, House, Tag, LayoutDashboard, Clock, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -246,13 +246,19 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       if (main) validImages.push(main);
       backendProperty.additionalPhotosUrls?.forEach(url => { const u = getImageUrl(url); if (u) validImages.push(u); });
     }
+    if (validImages.length === 0 && backendProperty?.videoUrl) {
+      // If no photos exist but walkthrough video exists, don't show fake stock photos.
+      // PropertyGallery will render the video as the main item.
+      return [];
+    }
     return validImages.length > 0 ? validImages : getPlaceholderImages(property.type);
   };
 
  const getRelatedPropertyImage = (item: Property): string => {
     const bp = item as any;
-    const main = bp.mainPhotoUrl || bp.images?.[0];
+    const main = bp.mainPhotoUrl || bp.images?.[0] || bp.videoPosterUrl || item.videoPosterUrl;
     if (main && (main.startsWith('http') || main.startsWith('/uploads/'))) return main;
+    if (item.image && !item.image.includes('unsplash.com')) return item.image;
     return getPlaceholderImages(item.type)[0] ?? '';
   };
   // Helper: format price compactly
@@ -365,29 +371,61 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   );
 
   // ── Vertical Related Property Card ──────────────────────────────────────
-  const RelatedPropertyCard = ({ item }: { item: Property }) => (
-    <div
-      onClick={() => router.push(`/properties/${item.slug}`)}
-      className="min-w-[62vw] max-w-[62vw] md:min-w-[260px] md:max-w-[260px] shrink-0 snap-start rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.14)] transition-all duration-300 cursor-pointer group flex flex-col"
-    >
-      <div className="relative w-full h-[150px] md:h-[170px] overflow-hidden bg-gray-100 shrink-0">
-        <img
-          src={getRelatedPropertyImage(item)}
-          alt={item.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          onError={(e) => {
-            const t = e.target as HTMLImageElement;
-            const ph = getPlaceholderImages(item.type)[0];
-            if (ph && t.src !== ph) t.src = ph;
-          }}
-        />
-        <span className="absolute top-2.5 left-2.5 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow">
-          {item.purpose === 'buy' ? 'For Sale' : 'For Rent'}
-        </span>
-        <span className="absolute top-2.5 right-2.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full">
-          {item.type}
-        </span>
-      </div>
+  const RelatedPropertyCard = ({ item }: { item: Property }) => {
+    const isVideo = Boolean(
+      item.isVideoThumbnail ||
+      ((item.videoUrl || item.videoPosterUrl) && (!item.image || item.image.includes('unsplash.com')))
+    );
+    const imgSrc = getRelatedPropertyImage(item);
+
+    return (
+      <div
+        onClick={() => router.push(`/properties/${item.slug}`)}
+        className="min-w-[62vw] max-w-[62vw] md:min-w-[260px] md:max-w-[260px] shrink-0 snap-start rounded-2xl overflow-hidden bg-white border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.08)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.14)] transition-all duration-300 cursor-pointer group flex flex-col"
+      >
+        <div className="relative w-full h-[150px] md:h-[170px] overflow-hidden bg-gray-100 shrink-0">
+          {!imgSrc && isVideo && item.videoUrl ? (
+            <video
+              src={`${item.videoUrl}#t=0.5`}
+              preload="metadata"
+              muted
+              playsInline
+              className="w-full h-full object-cover pointer-events-none"
+            />
+          ) : (
+            <img
+              src={imgSrc || getPlaceholderImages(item.type)[0]}
+              alt={item.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={(e) => {
+                const t = e.target as HTMLImageElement;
+                const ph = getPlaceholderImages(item.type)[0];
+                if (ph && t.src !== ph) t.src = ph;
+              }}
+            />
+          )}
+          {isVideo && (
+            <>
+              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                <div className="w-9 h-9 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-lg group-hover:scale-110 group-hover:bg-red-600 transition-all duration-300">
+                  <Play className="w-4 h-4 fill-white text-white ml-0.5" />
+                </div>
+              </div>
+            </>
+          )}
+          <span className="absolute top-2.5 left-2.5 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide shadow z-10">
+            {item.purpose === 'buy' ? 'For Sale' : 'For Rent'}
+          </span>
+          {item.videoUrl && (
+            <span className="absolute bottom-2.5 left-2.5 flex items-center gap-1 bg-black/75 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow border border-white/10 z-10">
+              <Play className="w-2.5 h-2.5 fill-current text-red-500" /> Video
+            </span>
+          )}
+          <span className="absolute top-2.5 right-2.5 bg-black/60 text-white text-[10px] font-medium px-2 py-0.5 rounded-full z-10">
+            {item.type}
+          </span>
+        </div>
       <div className="flex flex-col flex-1 p-3 gap-1.5">
         <h3 className="text-sm font-bold text-foreground line-clamp-2 leading-snug">{item.name}</h3>
         <div className="flex items-center gap-1 text-muted-foreground">
@@ -424,6 +462,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       </div>
     </div>
   );
+};
 
   return (
     <div className="min-h-screen bg-background max-w-full">

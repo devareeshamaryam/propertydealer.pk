@@ -46,8 +46,8 @@ const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
  * not a YouTube upload, and most buyers are on mobile data. The browser checks
  * the same numbers before uploading so nobody waits for a refusal.
  */
-export const MAX_VIDEO_BYTES = 30 * 1024 * 1024;
-export const MAX_VIDEO_SECONDS = 90;
+export const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+export const MAX_VIDEO_SECONDS = 180;
 
 const SUPPORTED_VIDEO_MIME = new Set([
   'video/mp4',

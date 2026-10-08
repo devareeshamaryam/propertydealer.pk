@@ -210,10 +210,10 @@ export async function uploadMedia(
  * upload on a phone connection.
  */
 export const VIDEO_LIMITS = {
-  maxBytes: 30 * 1024 * 1024,
-  maxSeconds: 90,
+  maxBytes: 100 * 1024 * 1024,
+  maxSeconds: 180,
   accept: "video/mp4,video/webm,video/quicktime",
-  label: "MP4, WebM or MOV · up to 90 seconds · up to 30 MB",
+  label: "MP4, WebM or MOV · up to 3 minutes · up to 100 MB",
 };
 
 export interface VideoProbe {

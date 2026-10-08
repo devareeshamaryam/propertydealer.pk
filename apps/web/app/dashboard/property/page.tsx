@@ -19,6 +19,7 @@ import {
   SquarePen,
   Trash2,
   X,
+  Play,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -169,12 +170,24 @@ function contactsOf(property: {
   return (property.phoneClicks ?? 0) + (property.whatsappClicks ?? 0);
 }
 
-function Thumbnail({ src, alt }: { src?: string; alt: string }) {
+function Thumbnail({
+  src,
+  alt,
+  videoUrl,
+  videoPosterUrl,
+}: {
+  src?: string;
+  alt: string;
+  videoUrl?: string | null;
+  videoPosterUrl?: string | null;
+}) {
   // Track which src failed, so a row whose image changes retries on its own.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
-  const failed = Boolean(src) && failedSrc === src;
+  const effectiveSrc = src || videoPosterUrl || "";
+  const failed = Boolean(effectiveSrc) && failedSrc === effectiveSrc;
+  const isVideo = Boolean(videoUrl || videoPosterUrl);
 
-  if (!src || failed) {
+  if ((!effectiveSrc || failed) && !videoUrl) {
     return (
       <div className="flex h-11 w-14 shrink-0 items-center justify-center rounded-md bg-muted">
         <ImageOff className="h-4 w-4 text-muted-foreground" />
@@ -183,14 +196,37 @@ function Thumbnail({ src, alt }: { src?: string; alt: string }) {
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt={alt}
-      loading="lazy"
-      onError={() => setFailedSrc(src)}
-      className="h-11 w-14 shrink-0 rounded-md border object-cover"
-    />
+    <div className="relative h-11 w-14 shrink-0 overflow-hidden rounded-md border bg-black">
+      {effectiveSrc && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={effectiveSrc}
+          alt={alt}
+          loading="lazy"
+          onError={() => setFailedSrc(effectiveSrc)}
+          className="h-full w-full object-cover"
+        />
+      ) : videoUrl ? (
+        <video
+          src={`${videoUrl}#t=0.5`}
+          preload="metadata"
+          muted
+          playsInline
+          className="h-full w-full object-cover pointer-events-none"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-muted">
+          <ImageOff className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
+      {isVideo && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
+          <div className="flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white shadow">
+            <Play className="h-2.5 w-2.5 fill-white text-white ml-0.5" />
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -548,6 +584,8 @@ export default function PropertiesPage() {
                     <Thumbnail
                       src={property.mainPhotoUrl}
                       alt={property.title}
+                      videoUrl={property.videoUrl}
+                      videoPosterUrl={property.videoPosterUrl}
                     />
                     <div className="min-w-0 flex-1">
                       <button
@@ -744,6 +782,8 @@ export default function PropertiesPage() {
                           <Thumbnail
                             src={property.mainPhotoUrl}
                             alt={property.title}
+                            videoUrl={property.videoUrl}
+                            videoPosterUrl={property.videoPosterUrl}
                           />
                           <div className="min-w-0">
                             <button
