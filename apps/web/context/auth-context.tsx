@@ -27,6 +27,14 @@ interface AuthContextType {
     password: string;
     role?: string;
   }) => Promise<void>;
+  /**
+   * Re-issue the token and re-read the user.
+   *
+   * The role lives inside the JWT, so a role change on the server is invisible
+   * to this app until a new token is minted — which is what /auth/refresh
+   * does, straight from the database.
+   */
+  refreshSession: () => Promise<void>;
   /** Finish a redirect-based sign-in (Google) once the API has set its cookies. */
   completeSocialSignIn: () => Promise<void>;
   logout: () => Promise<void>;
@@ -206,6 +214,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshSession = async () => {
+    try {
+      const response = await api.post("/auth/refresh");
+      if (response.data?.token) setAccessToken(response.data.token);
+      if (response.data?.user) setUser(normalize(response.data.user));
+      else await fetchUser();
+    } catch (error) {
+      console.error("Could not refresh the session:", error);
+    }
+  };
+
   const logout = async () => {
     try {
       await api.post("/auth/logout", {});
@@ -228,6 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         registerAndSignIn,
         completeSocialSignIn,
+        refreshSession,
         logout,
       }}
     >

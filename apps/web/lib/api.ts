@@ -173,6 +173,18 @@ export interface DashboardStats {
   byStatus: Record<string, number>;
 }
 
+/** An account the admin accepts payment into, shown at checkout. */
+export interface PaymentMethodRecord {
+  _id: string;
+  label: string;
+  type: "jazzcash" | "easypaisa" | "bank" | "other";
+  accountNumber: string;
+  accountTitle?: string;
+  instructions?: string;
+  isActive?: boolean;
+  order?: number;
+}
+
 /** One row of the listing performance table. */
 export interface ListingPerformanceRow {
   _id: string;
@@ -495,6 +507,55 @@ export const subscriptionApi = {
   },
 
   /**
+   * The accounts an agent can pay into. Signed-in callers only — it is the
+   * checkout page, not public information.
+   */
+  getPaymentMethods: async (): Promise<PaymentMethodRecord[]> => {
+    const response = await api.get("/payment-methods");
+    return response.data?.data ?? [];
+  },
+
+  /** Admin: every account, including the switched-off ones. */
+  getAllPaymentMethods: async (): Promise<PaymentMethodRecord[]> => {
+    const response = await api.get("/payment-methods/all");
+    return response.data?.data ?? [];
+  },
+
+  savePaymentMethod: async (
+    id: string | null,
+    data: Partial<PaymentMethodRecord>,
+  ) => {
+    const response = id
+      ? await api.put(`/payment-methods/${id}`, data)
+      : await api.post("/payment-methods", data);
+    return response.data?.data;
+  },
+
+  deletePaymentMethod: async (id: string) => {
+    const response = await api.delete(`/payment-methods/${id}`);
+    return response.data;
+  },
+
+  /** "I have paid" — the screenshot and how it was sent. */
+  submitPayment: async (
+    invoiceId: string,
+    data: {
+      paymentScreenshotUrl: string;
+      paymentMethod?: string;
+      paymentNote?: string;
+    },
+  ) => {
+    const response = await api.post(`/subscriptions/${invoiceId}/payment`, data);
+    return response.data;
+  },
+
+  /** Admin: the payment could not be verified. */
+  rejectPayment: async (invoiceId: string, reason: string) => {
+    const response = await api.put(`/subscriptions/${invoiceId}/reject`, { reason });
+    return response.data;
+  },
+
+  /**
    * The plan in force right now, including the Free tier that every account has
    * without buying anything. Use this to describe what someone has;
    * `getActiveSubscription` only knows about paid rows.
@@ -611,6 +672,15 @@ export const userApi = {
    * Update your own name / phone. Any other field is rejected server-side, so
    * this cannot be used to change a role or reactivate an account.
    */
+  /**
+   * Turn this account into an agent account. Called when someone opens the
+   * listing form — the role follows what they are doing.
+   */
+  becomeAgent: async (): Promise<{ success: boolean; role: string }> => {
+    const response = await api.post("/users/me/become-agent");
+    return response.data;
+  },
+
   /** The fields PATCH /users/me accepts — see UpdateProfileDto on the API. */
   updateMe: async (data: {
     name?: string;

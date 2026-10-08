@@ -1,6 +1,8 @@
 import {
+  Banknote,
   BarChart3,
   BookOpen,
+  Flag,
   Building2,
   CreditCard,
   FileText,
@@ -301,7 +303,13 @@ export const NAV_SECTIONS: NavSection[] = [
         title: "Subscriptions",
         href: "/dashboard/subscriptions",
         adminOnly: true,
-        keywords: ["billing", "payments", "plans"],
+        keywords: ["billing", "payments", "plans", "invoices", "verify"],
+      },
+      {
+        title: "Payment Methods",
+        href: "/dashboard/payment-methods",
+        adminOnly: true,
+        keywords: ["jazzcash", "easypaisa", "bank", "account", "checkout"],
       },
       {
         title: "My Subscription",
@@ -313,6 +321,12 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     label: "Administration",
     entries: [
+      {
+        title: "Reports",
+        href: "/dashboard/reports",
+        adminOnly: true,
+        keywords: ["flag", "scam", "fraud", "complaints", "abuse"],
+      },
       {
         title: "Users",
         href: "/dashboard/users",
@@ -331,6 +345,8 @@ export const LEAF_ICONS: Record<
 > = {
   "/dashboard": LayoutDashboard,
   "/dashboard/insights": BarChart3,
+  "/dashboard/reports": Flag,
+  "/dashboard/payment-methods": Banknote,
   "/dashboard/images-gallery": ImageIcon,
   "/dashboard/subscriptions": CreditCard,
   "/dashboard/my-subscription": Wallet,
@@ -366,6 +382,7 @@ export function collectAdminRoutes(): string[] {
 export const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   insights: "Insights",
+  reports: "Reports",
   property: "Properties",
   "add-property": "Add Property",
   "listed-properties": "Listed Properties",
@@ -394,6 +411,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   "tile-category": "Tile Categories",
   packages: "Packages",
   subscriptions: "Subscriptions",
+  "payment-methods": "Payment Methods",
   "my-subscription": "My Subscription",
   "purchase-package": "Purchase Package",
   users: "Users",

@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { Property } from '@rent-ghar/db/schemas/property.schema';
+import { Property } from '@rent-ghar/db/schemas/property.schema'
+import { ListingBrainService } from './listing-brain.service'
+import { DiscordService, DISCORD_COLORS } from '../notify/discord.service';
 import { InjectModel} from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreatePropertyDto } from './dto/create-property.dto';
@@ -87,6 +89,11 @@ const DASHBOARD_LIST_FIELDS = [
     'source',
     'mainPhotoUrl',
     'contactNumber',
+    // Why a listing is in the approval queue — shown on the row so the admin
+    // does not have to open each one to find out.
+    'moderationScore',
+    'moderationReasons',
+    'autoPublished',
     // Performance counters, shown as a column in the list.
     'views',
     'impressions',
@@ -103,6 +110,8 @@ export class PropertyService {
         @InjectModel(Property.name) private propertyModel: Model<Property>,
         @InjectModel(Area.name) private areaModel: Model<Area>,
         private subscriptionService: SubscriptionService,
+        private readonly brain: ListingBrainService,
+        private readonly discord: DiscordService,
         private indexNowService: IndexNowService,
         private configService: ConfigService,
         private readonly cache: RedisCacheService,
@@ -222,6 +231,49 @@ export class PropertyService {
 
         const source = options?.source || 'manual';
 
+        /*
+         * The brain decides whether this needs a human.
+         *
+         * Every agent listing used to sit in the approval queue — honest
+         * listings were invisible for hours and the queue got long enough that
+         * nobody read it properly. Now a clean listing publishes itself and
+         * only the suspicious ones wait, with the reasons attached so the
+         * admin can decide in seconds. See listing-brain.service.ts.
+         *
+         * Admins are never second-guessed, drafts are not reviewed (nothing is
+         * public yet), and the API/n8n import keeps its own behaviour.
+         */
+        let brainVerdict: Awaited<ReturnType<ListingBrainService['review']>> | null = null;
+
+        if (finalStatus === 'pending' && userRole !== 'ADMIN' && source === 'manual' && this.brain.isEnabled()) {
+            const photos = [mainPhotoUrl, ...(additionalPhotosUrls ?? [])].filter(
+                (url): url is string => Boolean(url),
+            );
+
+            brainVerdict = await this.brain.review(
+                {
+                    title: dto.title,
+                    description: dto.description,
+                    price: Number(dto.price) || 0,
+                    areaSize: Number(dto.areaSize) || 0,
+                    marla: Number(dto.marla) || 0,
+                    listingType: dto.listingType,
+                    propertyType: dto.propertyType,
+                    bedrooms: Number(dto.bedrooms) || 0,
+                    bathrooms: Number(dto.bathrooms) || 0,
+                    location: dto.location,
+                    contactNumber: dto.contactNumber,
+                    whatsappNumber: dto.whatsappNumber,
+                    photos,
+                    hasVideo: Boolean(dto.videoUrl),
+                    features: dto.features,
+                },
+                userId,
+            );
+
+            if (brainVerdict.action === 'publish') finalStatus = 'approved';
+        }
+
 
         // Drafts do not consume subscription slots — they aren't published yet.
         const consumesSubscription = userRole !== 'ADMIN' && finalStatus !== 'draft';
@@ -283,6 +335,12 @@ export class PropertyService {
               // is just the link plus its poster frame.
               videoUrl: dto.videoUrl?.trim() || undefined,
               videoPosterUrl: dto.videoPosterUrl?.trim() || undefined,
+              // Kept so the admin sees WHY something is in the queue, and so a
+              // pattern across one agent's listings is visible later.
+              moderationScore: brainVerdict?.score ?? 0,
+              moderationReasons: brainVerdict?.reasons ?? [],
+              moderationSource: brainVerdict?.source,
+              autoPublished: brainVerdict?.action === 'publish',
             })
             const saved = await property.save()
 
@@ -292,6 +350,9 @@ export class PropertyService {
             if (saved.status === 'approved') {
                 this.bustPropertyCaches(saved.slug).catch(() => {});
             }
+
+            this.announceNewListing(saved, brainVerdict, userId);
+
             return saved;
         } catch (error) {
             // ROLLBACK: If property creation fails, decrement the subscription count
@@ -706,6 +767,57 @@ export class PropertyService {
        * aggregations, no document download: the previous way to answer any of
        * this was to fetch every listing and count in the browser.
        */
+      /**
+       * Push the new listing to the admin's Discord channel.
+       *
+       * Held listings are the ones that matter — the alert carries the score,
+       * the reasons and a link straight to the approval queue, so reviewing
+       * happens from a phone without opening the dashboard first.
+       */
+      private announceNewListing(
+        saved: any,
+        verdict: {
+          score: number;
+          reasons: string[];
+          action: string;
+          source?: string;
+        } | null,
+        ownerId: string,
+      ) {
+        try {
+          const held = saved.status === 'pending';
+          const price = DiscordService.money(saved.price);
+
+          this.discord.send({
+            title: held
+              ? '🕵️ New listing held for approval'
+              : '✅ New listing published automatically',
+            description: String(saved.title || '').slice(0, 300),
+            url: held
+              ? '/dashboard/property?status=pending'
+              : saved.slug
+                ? `/properties/${saved.slug}`
+                : '/dashboard/property',
+            color: held ? DISCORD_COLORS.review : DISCORD_COLORS.approved,
+            fields: [
+              { name: 'Price', value: `${price}${saved.listingType === 'rent' ? ' / month' : ''}` },
+              { name: 'Where', value: String(saved.location || '—').slice(0, 120) },
+              { name: 'Type', value: String(saved.propertyType || '—') },
+              {
+                name: 'Risk score',
+                value: verdict ? `${verdict.score}/100 (${verdict.source ?? 'rules'})` : 'not scored',
+              },
+              { name: 'Agent', value: `\`${ownerId}\``, inline: false },
+              ...(verdict?.reasons.length
+                ? [{ name: 'Why held', value: verdict.reasons.slice(0, 6).map((r) => `• ${r}`).join('\n'), inline: false }]
+                : []),
+            ],
+          });
+        } catch {
+          // An alert must never be the reason a listing fails to save.
+        }
+      }
+
       async getPerformance(userId?: string, userRole?: string) {
         const empty = {
           totals: {
@@ -1041,6 +1153,73 @@ export class PropertyService {
                  ...validExistingPhotos,
                  ...(additionalPhotosUrls || [])
              ];
+          }
+
+          /*
+           * Re-scored on edit.
+           *
+           * Without this, the way past the brain is obvious: post something
+           * clean, let it publish, then edit a phone number into the
+           * description. So a non-admin editing a live listing is screened
+           * again on the new text, and anything that now fails goes back to
+           * the queue. An admin's edit is never second-guessed.
+           */
+          if (
+            userRole !== 'ADMIN' &&
+            property.status === 'approved' &&
+            updateData.status === undefined &&
+            this.brain.isEnabled()
+          ) {
+            const photos = [
+              (updateData.mainPhotoUrl ?? property.mainPhotoUrl) as string | undefined,
+              ...((updateData.additionalPhotosUrls ?? property.additionalPhotosUrls ?? []) as string[]),
+            ].filter((url): url is string => Boolean(url));
+
+            const verdict = await this.brain.review(
+              {
+                title: String(updateData.title ?? property.title ?? ''),
+                description: String(updateData.description ?? property.description ?? ''),
+                price: Number(updateData.price ?? property.price) || 0,
+                areaSize: Number(updateData.areaSize ?? property.areaSize) || 0,
+                marla: Number(updateData.marla ?? property.marla) || 0,
+                listingType: (updateData.listingType ?? property.listingType) as 'rent' | 'sale',
+                propertyType: String(updateData.propertyType ?? property.propertyType ?? ''),
+                bedrooms: Number(updateData.bedrooms ?? property.bedrooms) || 0,
+                bathrooms: Number(updateData.bathrooms ?? property.bathrooms) || 0,
+                location: String(updateData.location ?? property.location ?? ''),
+                contactNumber: String(updateData.contactNumber ?? property.contactNumber ?? ''),
+                photos,
+                hasVideo: Boolean(updateData.videoUrl ?? property.videoUrl),
+                features: (updateData.features ?? property.features ?? []) as string[],
+              },
+              // No duplicate check here: a listing is not a duplicate of itself.
+              undefined,
+            );
+
+            updateData.moderationScore = verdict.score;
+            updateData.moderationReasons = verdict.reasons;
+            updateData.moderationSource = verdict.source;
+
+            if (verdict.action === 'review') {
+              updateData.status = 'pending';
+              updateData.autoPublished = false;
+
+              this.discord.send({
+                title: '⚠️ Live listing pulled back for review after an edit',
+                description: String(updateData.title ?? property.title ?? '').slice(0, 300),
+                url: '/dashboard/property?status=pending',
+                color: DISCORD_COLORS.review,
+                fields: [
+                  { name: 'Risk score', value: `${verdict.score}/100` },
+                  { name: 'Listing id', value: `\`${id}\`` },
+                  {
+                    name: 'Why',
+                    value: verdict.reasons.slice(0, 6).map((reason) => `• ${reason}`).join('\n') || '—',
+                    inline: false,
+                  },
+                ],
+              });
+            }
           }
 
           const updatedProperty = await this.propertyModel.findByIdAndUpdate(id, updateData, { new: true }).exec();

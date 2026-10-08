@@ -9,7 +9,9 @@ import {
   Check,
   CreditCard,
   Loader2,
+  Receipt,
   RefreshCcw,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,6 +52,15 @@ interface SubscriptionRecord {
     | string;
   status?: string;
   paymentStatus?: string;
+  /* The invoice half — see subscription.schema.ts. */
+  invoiceNumber?: string;
+  amount?: number;
+  planName?: string;
+  paymentMethod?: string;
+  paymentNote?: string;
+  paymentScreenshotUrl?: string;
+  rejectionReason?: string;
+  submittedAt?: string;
   propertiesUsed?: number;
   createdAt?: string;
   expiresAt?: string;
@@ -168,6 +179,37 @@ export default function SubscriptionsPage() {
     table.setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter]);
+
+  /**
+   * Rejecting tells the agent why, because the next thing they do is fix it
+   * and submit again — "payment failed" with no reason just produces a phone
+   * call to the office.
+   */
+  const requestReject = (sub: SubscriptionRecord) =>
+    confirm({
+      title: "Reject this payment?",
+      description:
+        "The agent is told it could not be verified and can upload a new screenshot. Use this when the amount or the account does not match.",
+      confirmLabel: "Reject payment",
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          setBusyId(sub._id);
+          await subscriptionApi.rejectPayment(
+            sub._id,
+            "The payment could not be verified. Please check the amount and the account, then upload the screenshot again.",
+          );
+          toast.success("Payment rejected");
+          await load();
+        } catch (err) {
+          toast.error("Could not reject the payment", {
+            description: apiErrorMessage(err, "Please try again."),
+          });
+        } finally {
+          setBusyId(null);
+        }
+      },
+    });
 
   const requestActivate = (sub: SubscriptionRecord) => {
     const who = userOf(sub)?.name ?? userOf(sub)?.email ?? "this user";
@@ -370,13 +412,55 @@ export default function SubscriptionsPage() {
                       </TableCell>
                       <TableCell>
                         {sub.paymentStatus ? (
-                          <Badge variant="outline" className="capitalize">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "capitalize",
+                              sub.paymentStatus === "submitted" &&
+                                "border-blue-300 bg-blue-50 text-blue-800",
+                              sub.paymentStatus === "completed" &&
+                                "border-emerald-300 bg-emerald-50 text-emerald-800",
+                              sub.paymentStatus === "failed" &&
+                                "border-red-300 bg-red-50 text-red-800",
+                            )}
+                          >
                             {sub.paymentStatus}
                           </Badge>
                         ) : (
-                          <span className="text-sm text-muted-foreground">
-                            —
-                          </span>
+                          <span className="text-sm text-muted-foreground">—</span>
+                        )}
+
+                        {/*
+                          The proof, where the decision is made. Without it an
+                          admin was activating plans on trust.
+                        */}
+                        {sub.paymentScreenshotUrl && (
+                          <a
+                            href={sub.paymentScreenshotUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                          >
+                            <Receipt className="h-3.5 w-3.5" />
+                            View screenshot
+                          </a>
+                        )}
+                        {sub.invoiceNumber && (
+                          <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                            {sub.invoiceNumber}
+                          </p>
+                        )}
+                        {(sub.paymentMethod || sub.paymentNote) && (
+                          <p className="text-[11px] text-muted-foreground">
+                            {[sub.paymentMethod, sub.paymentNote]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        )}
+                        {sub.rejectionReason && (
+                          <p className="mt-0.5 text-[11px] text-red-700">
+                            Rejected: {sub.rejectionReason}
+                          </p>
                         )}
                       </TableCell>
                       <TableCell>
@@ -395,22 +479,36 @@ export default function SubscriptionsPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         {sub.status === "pending" ? (
-                          <Button
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => requestActivate(sub)}
-                          >
-                            {busy ? (
-                              <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <Check className="mr-2 h-3.5 w-3.5" />
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              disabled={busy}
+                              onClick={() => requestActivate(sub)}
+                            >
+                              {busy ? (
+                                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Check className="mr-2 h-3.5 w-3.5" />
+                              )}
+                              {sub.paymentStatus === "submitted"
+                                ? "Verify & activate"
+                                : "Activate"}
+                            </Button>
+
+                            {sub.paymentStatus === "submitted" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={busy}
+                                onClick={() => requestReject(sub)}
+                              >
+                                <X className="mr-1.5 h-3.5 w-3.5" />
+                                Reject
+                              </Button>
                             )}
-                            Activate
-                          </Button>
+                          </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">
-                            —
-                          </span>
+                          <span className="text-sm text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     </TableRow>

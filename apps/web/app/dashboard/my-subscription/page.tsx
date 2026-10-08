@@ -30,6 +30,8 @@ import {
   useConfirm,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+import { CheckoutDialog } from "@/components/billing/checkout-dialog";
+import { amountShort } from "@/lib/pk";
 
 interface PackageRef {
   name?: string;
@@ -51,6 +53,14 @@ interface EffectivePlan {
 interface SubscriptionRecord {
   _id: string;
   status?: string;
+  /* The invoice half of a purchase — see subscription.schema.ts. */
+  invoiceNumber?: string;
+  amount?: number;
+  planName?: string;
+  planDurationDays?: number;
+  planPropertyLimit?: number;
+  paymentStatus?: string;
+  rejectionReason?: string;
   startDate?: string;
   endDate?: string;
   propertiesUsed?: number;
@@ -103,6 +113,7 @@ export default function MySubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [checkout, setCheckout] = useState<SubscriptionRecord | null>(null);
 
   const { confirm, dialogProps } = useConfirm();
 
@@ -169,6 +180,28 @@ export default function MySubscriptionPage() {
     typeof limit === "number" && limit > 0
       ? Math.min(100, Math.round((used / limit) * 100))
       : null;
+
+  /*
+   * A purchase that has not been paid for yet, or whose payment was rejected.
+   *
+   * This is the thing an agent comes back to this page for, and before the
+   * checkout existed there was nothing to come back to: the row said "pending"
+   * with no amount, no account and no way to say they had paid.
+   */
+  const unpaid = useMemo(
+    () =>
+      history.find(
+        (row) =>
+          row.status !== "active" &&
+          (row.paymentStatus === "pending" || row.paymentStatus === "failed"),
+      ) ?? null,
+    [history],
+  );
+
+  const awaitingReview = useMemo(
+    () => history.find((row) => row.paymentStatus === "submitted") ?? null,
+    [history],
+  );
 
   const sortedHistory = useMemo(
     () =>
@@ -247,6 +280,40 @@ export default function MySubscriptionPage() {
               Try again
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Unpaid invoice: the one action that matters on this page. */}
+      {unpaid && (
+        <div className="flex flex-col gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold">
+              {unpaid.paymentStatus === "failed"
+                ? "Your payment could not be verified"
+                : "Payment pending"}
+            </p>
+            <p className="mt-0.5 text-sm">
+              {unpaid.invoiceNumber ? `${unpaid.invoiceNumber} · ` : ""}
+              {unpaid.planName ?? "Plan"}
+              {typeof unpaid.amount === "number" ? ` · ${amountShort(unpaid.amount)}` : ""}
+              {unpaid.rejectionReason ? ` — ${unpaid.rejectionReason}` : ""}
+            </p>
+          </div>
+          <Button className="shrink-0" onClick={() => setCheckout(unpaid)}>
+            <CreditCard className="mr-2 h-4 w-4" />
+            {unpaid.paymentStatus === "failed" ? "Try again" : "Complete payment"}
+          </Button>
+        </div>
+      )}
+
+      {awaitingReview && (
+        <div className="rounded-xl border bg-muted/40 p-4 text-sm">
+          <p className="font-semibold">Payment submitted — being verified</p>
+          <p className="mt-0.5 text-muted-foreground">
+            {awaitingReview.invoiceNumber ? `${awaitingReview.invoiceNumber} · ` : ""}
+            {awaitingReview.planName ?? "Plan"} — your plan activates as soon as
+            an admin checks the screenshot.
+          </p>
         </div>
       )}
 
@@ -484,6 +551,12 @@ export default function MySubscriptionPage() {
       </DataCard>
 
       <ConfirmDialog {...dialogProps} />
+
+      <CheckoutDialog
+        invoice={checkout}
+        onClose={() => setCheckout(null)}
+        onSubmitted={() => void load()}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import PropertyCard from "@/components/PropertyCard";
+import { ReportButton } from "@/components/property/ReportButton";
 import { Button } from "@/components/ui/button";
 import agentApi, { type AgentProfile } from "@/lib/api/agent/agent.api";
 import { propertyApi } from "@/lib/api";
@@ -165,6 +166,11 @@ export default async function AgentProfilePage({ params }: PageProps) {
                   {profile.bio}
                 </p>
               )}
+
+              {/* A dealer's record is the thing buyers most need to flag. */}
+              <div className="mt-3">
+                <ReportButton type="agent" agentId={profile._id} label="Report this agent" />
+              </div>
 
               {(phone || whatsapp) && (
                 <div className="mt-4 flex flex-wrap gap-2">

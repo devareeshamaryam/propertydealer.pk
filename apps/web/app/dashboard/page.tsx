@@ -14,7 +14,6 @@ import {
   Layers,
   MapPin,
   Eye,
-  Images,
   PhoneCall,
   PlusCircle,
   RefreshCcw,
@@ -148,10 +147,18 @@ function GettingStarted() {
       body: "Your name, photo and WhatsApp number appear on every listing you post.",
     },
     {
-      href: "/dashboard/images-gallery",
-      icon: Images,
-      title: "Upload your photos",
-      body: "Drop them in once and pick them on any listing afterwards.",
+      /*
+       * NOT "upload your photos first".
+       *
+       * Photos are chosen while writing the listing — the form uploads them as
+       * they are picked — so sending an agent to the library before they have
+       * anything to attach them to is busy-work. The library is for finding a
+       * photo again, which is a second-visit job, not a setup step.
+       */
+      href: "/dashboard/insights",
+      icon: BarChart3,
+      title: "Watch how it performs",
+      body: "Views and enquiries per listing, so you know which one to re-shoot or re-price.",
     },
   ];
 

@@ -19,6 +19,10 @@ import {
   useConfirm,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+import {
+  CheckoutDialog,
+  type CheckoutInvoice,
+} from "@/components/billing/checkout-dialog";
 
 interface PackageRecord {
   _id: string;
@@ -52,6 +56,7 @@ function PurchaseContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
+  const [checkout, setCheckout] = useState<CheckoutInvoice | null>(null);
 
   const { confirm, dialogProps } = useConfirm();
 
@@ -88,22 +93,36 @@ function PurchaseContent() {
     void load();
   }, [load]);
 
+  /*
+   * Buying opens a checkout, it does not fire a request into the dark.
+   *
+   * Before this, "Confirm purchase" created a pending subscription and told the
+   * agent an admin would activate it "shortly" — with no amount to send, no
+   * account to send it to and no way to say they had paid. The purchase now
+   * returns an invoice, and the checkout shows the accounts and takes the
+   * screenshot.
+   */
   const requestPurchase = (pkg: PackageRecord) =>
     confirm({
       title: `Subscribe to ${pkg.name}?`,
       description: `Rs ${pkg.price?.toLocaleString("en-PK")} for ${
         pkg.duration
-      } days. The request is sent to an administrator for approval.`,
-      confirmLabel: "Confirm purchase",
+      } days. The next screen shows where to send the payment.`,
+      confirmLabel: "Continue to payment",
       destructive: false,
       onConfirm: async () => {
         try {
           setPurchasing(true);
-          await subscriptionApi.purchase(pkg._id);
-          toast.success("Subscription requested", {
-            description: "An administrator will activate it shortly.",
+          const invoice = await subscriptionApi.purchase(pkg._id);
+          setCheckout({
+            _id: String(invoice?._id ?? ""),
+            invoiceNumber: invoice?.invoiceNumber,
+            planName: invoice?.planName ?? pkg.name,
+            amount: invoice?.amount ?? pkg.price,
+            planDurationDays: invoice?.planDurationDays ?? pkg.duration,
+            planPropertyLimit: invoice?.planPropertyLimit ?? pkg.propertyLimit,
+            paymentStatus: invoice?.paymentStatus,
           });
-          router.push("/dashboard/my-subscription");
         } catch (err) {
           console.error("Error purchasing package:", err);
           // The old handler used window.alert() for both success and failure.
@@ -257,6 +276,12 @@ function PurchaseContent() {
         </DataCard>
 
         <ConfirmDialog {...dialogProps} />
+
+      <CheckoutDialog
+        invoice={checkout}
+        onClose={() => setCheckout(null)}
+        onSubmitted={() => router.push("/dashboard/my-subscription")}
+      />
       </div>
     );
   }

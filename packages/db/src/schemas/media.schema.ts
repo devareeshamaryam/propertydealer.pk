@@ -26,6 +26,9 @@ export const MEDIA_FOLDERS = [
   "tile-categories",
   "packages",
   "branding",
+  // Payment screenshots from the plan checkout. Scoped to the uploader like
+  // everything else, so an agent only ever sees their own.
+  "payments",
 ] as const;
 
 export type MediaFolder = (typeof MEDIA_FOLDERS)[number];

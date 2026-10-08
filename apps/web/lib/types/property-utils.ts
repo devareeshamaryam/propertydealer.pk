@@ -53,6 +53,10 @@ export interface BackendProperty {
    * Performance counters. Absent on listings that predate them, and on the
    * public endpoints that do not project them — always read with `?? 0`.
    */
+  /** Listing-brain verdict: why this is (or is not) in the approval queue. */
+  moderationScore?: number;
+  moderationReasons?: string[];
+  autoPublished?: boolean;
   views?: number;
   impressions?: number;
   phoneClicks?: number;

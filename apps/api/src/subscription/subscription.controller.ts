@@ -43,6 +43,54 @@ export class SubscriptionController {
    * What the signed-in account is entitled to right now — the Free tier
    * included. Must come before the @Get(':id') route below.
    */
+  /**
+   * POST /subscriptions/:id/payment — the agent's "I have paid" step.
+   *
+   * Owner only, checked in the service. Before :id/activate in declaration
+   * order is irrelevant here (different methods), but it must come before the
+   * @Get(':id') route below for the same reason that one does.
+   */
+  @Post(':id/payment')
+  @UseGuards(JwtAuthGuard)
+  async submitPayment(
+    @Param('id') id: string,
+    @Request() req,
+    @Body()
+    body: {
+      paymentScreenshotUrl?: string;
+      paymentMethod?: string;
+      paymentNote?: string;
+    },
+  ) {
+    const saved = await this.subscriptionService.submitPayment(
+      id,
+      req.user.userId,
+      body ?? {},
+    );
+    return {
+      success: true,
+      message:
+        'Payment submitted. Your plan activates as soon as an admin verifies it.',
+      data: saved,
+    };
+  }
+
+  /** PUT /subscriptions/:id/reject — admin could not verify the payment. */
+  @Put(':id/reject')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async rejectPayment(
+    @Param('id') id: string,
+    @Request() req,
+    @Body() body: { reason?: string },
+  ) {
+    const saved = await this.subscriptionService.rejectPayment(
+      id,
+      body?.reason ?? '',
+      req.user.userId,
+    );
+    return { success: true, data: saved };
+  }
+
   @Get('my-plan')
   @UseGuards(JwtAuthGuard)
   async myPlan(@Request() req) {

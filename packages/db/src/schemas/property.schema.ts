@@ -79,6 +79,27 @@ export class Property extends Document {
   @Prop({ type: String })
   videoPosterUrl?: string
 
+  /*
+   * What the listing brain thought (listing-brain.service.ts).
+   *
+   * Stored rather than recomputed so the admin can see WHY a listing is in the
+   * queue, and so a pattern across one agent is visible later. Listings created
+   * before the brain existed simply have 0 and an empty list.
+   */
+  @Prop({ type: Number, default: 0, index: true })
+  moderationScore?: number
+
+  @Prop({ type: [String], default: [] })
+  moderationReasons?: string[]
+
+  /** "rules" or "rules+ai" — which pass produced the score. */
+  @Prop({ type: String })
+  moderationSource?: string
+
+  /** True when the brain published it without a human looking. */
+  @Prop({ type: Boolean, default: false })
+  autoPublished?: boolean
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   owner: Types.ObjectId
 

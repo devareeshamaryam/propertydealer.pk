@@ -13,10 +13,12 @@ import {
 import { Package, PackageDocument } from '@rent-ghar/db/schemas/package.schema';
 import { Property } from '@rent-ghar/db/schemas/property.schema';
 import { CreateSubscriptionDto } from '@rent-ghar/types/subscription';
+import { DiscordService, DISCORD_COLORS } from '../notify/discord.service';
 
 @Injectable()
 export class SubscriptionService {
   constructor(
+    private readonly discord: DiscordService,
     @InjectModel(Subscription.name)
     private subscriptionModel: Model<SubscriptionDocument>,
     @InjectModel(Package.name)
@@ -63,15 +65,47 @@ export class SubscriptionService {
       );
     }
 
-    // Create subscription with pending status
+    /*
+     * A purchase starts as an unpaid invoice.
+     *
+     * The amount and the plan's terms are copied in rather than read from the
+     * package later: the admin may change the price or delete the package
+     * entirely, and an invoice whose amount moves on its own is worthless in
+     * an argument about what someone paid.
+     */
     const subscription = new this.subscriptionModel({
       userId,
       packageId: dto.packageId,
       status: 'pending',
       paymentStatus: 'pending',
+      invoiceNumber: await this.nextInvoiceNumber(),
+      amount: packageDoc.price,
+      planName: packageDoc.name,
+      planPropertyLimit: packageDoc.propertyLimit,
+      planDurationDays: packageDoc.duration,
     });
 
-    return subscription.save();
+    const saved = await subscription.save();
+
+    /*
+     * A purchase arrives as "pending" and an admin activates it, so this alert
+     * is the only thing standing between an agent paying and somebody
+     * noticing. The link goes straight to the subscriptions screen.
+     */
+    this.discord.send({
+      title: '💳 Package purchased — needs activating',
+      description: `${packageDoc.name} · ${DiscordService.money(packageDoc.price)}`,
+      url: '/dashboard/subscriptions',
+      color: DISCORD_COLORS.money,
+      fields: [
+        { name: 'Listings included', value: String(packageDoc.propertyLimit ?? '—') },
+        { name: 'Duration', value: packageDoc.duration ? `${packageDoc.duration} days` : '—' },
+        { name: 'Buyer id', value: `\`${userId}\``, inline: false },
+        { name: 'Subscription id', value: `\`${saved._id.toString()}\``, inline: false },
+      ],
+    });
+
+    return saved;
   }
 
   async findUserSubscriptions(userId: string): Promise<SubscriptionDocument[]> {
@@ -146,8 +180,39 @@ export class SubscriptionService {
     subscription.paymentStatus = 'completed';
     subscription.startDate = startDate;
     subscription.endDate = endDate;
+    subscription.reviewedAt = new Date();
+    subscription.rejectionReason = '';
 
-    return subscription.save();
+    /*
+     * One active plan at a time. Activating this one retires whatever else was
+     * still marked active for this account, or the entitlement check would
+     * find the older row and apply the smaller limit.
+     */
+    await this.subscriptionModel
+      .updateMany(
+        {
+          userId: subscription.userId,
+          status: 'active',
+          _id: { $ne: subscription._id },
+        },
+        { $set: { status: 'expired' } },
+      )
+      .exec();
+
+    const saved = await subscription.save();
+
+    this.discord.send({
+      title: '✅ Payment verified — plan active',
+      description: `${saved.invoiceNumber ?? ''} · ${saved.planName ?? 'Plan'} · ${DiscordService.money(saved.amount)}`,
+      url: '/dashboard/subscriptions',
+      color: DISCORD_COLORS.approved,
+      fields: [
+        { name: 'Listings', value: String(saved.planPropertyLimit ?? '—') },
+        { name: 'Active until', value: endDate.toLocaleDateString('en-PK') },
+      ],
+    });
+
+    return saved;
   }
 
   async cancel(id: string, userId: string): Promise<SubscriptionDocument> {
@@ -196,6 +261,106 @@ export class SubscriptionService {
 
     subscription.propertiesUsed += 1;
     return subscription.save();
+  }
+
+  /**
+   * A short reference both sides can quote: INV-7KQ2M41.
+   *
+   * Time-based rather than a counter, so two purchases in the same second do
+   * not collide on a shared sequence, and retried on the tiny chance of a
+   * clash.
+   */
+  private async nextInvoiceNumber(): Promise<string> {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = `INV-${Date.now().toString(36).toUpperCase().slice(-6)}${Math.floor(10 + Math.random() * 89)}`;
+      const taken = await this.subscriptionModel.exists({ invoiceNumber: candidate });
+      if (!taken) return candidate;
+    }
+    return `INV-${Date.now()}`;
+  }
+
+  /**
+   * "I have paid" — the agent's half of the checkout.
+   *
+   * There is no gateway: they transfer to one of the admin's accounts and
+   * upload the screenshot, which is what the admin then verifies. Re-submitting
+   * is allowed on purpose, because the first screenshot is often the wrong one.
+   */
+  async submitPayment(
+    id: string,
+    userId: string,
+    input: { paymentScreenshotUrl?: string; paymentMethod?: string; paymentNote?: string },
+  ): Promise<SubscriptionDocument> {
+    const screenshot = String(input.paymentScreenshotUrl || '').trim();
+    if (!screenshot) {
+      throw new BadRequestException('Please upload the payment screenshot');
+    }
+
+    const subscription = await this.subscriptionModel.findById(id).exec();
+    if (!subscription) throw new NotFoundException('Invoice not found');
+
+    if (String(subscription.userId) !== String(userId)) {
+      throw new ForbiddenException('This invoice belongs to another account');
+    }
+    if (subscription.paymentStatus === 'completed') {
+      throw new BadRequestException('This payment has already been verified');
+    }
+
+    subscription.paymentScreenshotUrl = screenshot;
+    subscription.paymentMethod = String(input.paymentMethod || '').trim() || undefined;
+    subscription.paymentNote = String(input.paymentNote || '').trim().slice(0, 500);
+    subscription.paymentStatus = 'submitted';
+    subscription.submittedAt = new Date();
+    // A re-submission after a rejection starts clean.
+    subscription.rejectionReason = '';
+
+    const saved = await subscription.save();
+
+    this.discord.send({
+      title: '🧾 Payment submitted — needs verifying',
+      description: `${saved.invoiceNumber ?? ''} · ${saved.planName ?? 'Plan'} · ${DiscordService.money(saved.amount)}`,
+      url: '/dashboard/subscriptions',
+      color: DISCORD_COLORS.money,
+      fields: [
+        { name: 'Paid via', value: saved.paymentMethod || '—' },
+        { name: 'Reference', value: saved.paymentNote || '—' },
+        { name: 'Screenshot', value: this.discord.link(screenshot), inline: false },
+        { name: 'Buyer id', value: `\`${userId}\``, inline: false },
+      ],
+    });
+
+    return saved;
+  }
+
+  /** The admin could not verify the payment. The agent sees the reason. */
+  async rejectPayment(
+    id: string,
+    reason: string,
+    adminId: string,
+  ): Promise<SubscriptionDocument> {
+    const subscription = await this.subscriptionModel.findById(id).exec();
+    if (!subscription) throw new NotFoundException('Invoice not found');
+
+    subscription.paymentStatus = 'failed';
+    subscription.status = 'pending';
+    subscription.rejectionReason =
+      String(reason || '').trim().slice(0, 500) ||
+      'We could not verify this payment. Please check the amount and upload the screenshot again.';
+    subscription.reviewedAt = new Date();
+
+    const saved = await subscription.save();
+
+    this.discord.send({
+      title: '🚫 Payment rejected',
+      description: `${saved.invoiceNumber ?? ''} · ${saved.planName ?? 'Plan'}`,
+      color: DISCORD_COLORS.report,
+      fields: [
+        { name: 'Reason', value: saved.rejectionReason || '—', inline: false },
+        { name: 'Reviewed by', value: `\`${adminId}\``, inline: false },
+      ],
+    });
+
+    return saved;
   }
 
   /**

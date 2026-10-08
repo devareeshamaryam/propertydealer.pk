@@ -20,6 +20,7 @@ import { loginUrl, maskPhone, useResumeIntent } from '@/lib/auth-intent';
 import { useAuth } from '@/context/auth-context';
 import dynamic from 'next/dynamic';
 import PropertyGallery from '@/components/property/PropertyGallery';
+import { ReportButton } from '@/components/property/ReportButton';
 
 const PropertyMap = dynamic(() => import('@/components/PropertyMap'), {
   ssr: false,
@@ -738,7 +739,15 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                       </Button>
                     </div>
                     <div className="pt-6 border-t border-border">
-                      <p className="text-sm text-muted-foreground mb-3">Schedule a visit</p>
+                      {/*
+                        Somewhere to say "this is a scam" — the buyer who
+                        called is the only person who finds out.
+                      */}
+                      <ReportButton
+                        type="listing"
+                        propertyId={backendProperty?._id}
+                        label="Report this listing"
+                      />
                     </div>
                   </CardContent>
                 </Card>

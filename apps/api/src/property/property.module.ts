@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { PropertyController } from './property.controller';
 import { PropertyService } from './property.service';
 import { PropertyCountersService } from './property-counters.service';
+import { ListingBrainService } from './listing-brain.service';
 import { Property, PropertySchema } from '@rent-ghar/db/schemas/property.schema';
 import { Area, AreaSchema } from '@rent-ghar/db/schemas/area.schema';
 import { City, CitySchema } from '@rent-ghar/db/schemas/city.schema';
@@ -23,7 +24,7 @@ import { UserModule } from '../user/user.module';
     UserModule,
   ],
   controllers: [PropertyController],
-  providers: [PropertyService, PropertyCountersService],
+  providers: [PropertyService, PropertyCountersService, ListingBrainService],
   exports: [PropertyService]
 })
 export class PropertyModule {}

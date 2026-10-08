@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Loader2, Plus } from "lucide-react";
-import { propertyApi, subscriptionApi } from "@/lib/api";
+import { propertyApi, subscriptionApi, userApi } from "@/lib/api";
 import cityApi from "@/lib/api/city/city.api";
 import areaApi from "@/lib/api/area/area.api";
 
@@ -98,7 +98,7 @@ const PROPERTY_STEPS = [
 
 export default function AddProperty() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refreshSession } = useAuth();
   const isAdmin = user?.role === "ADMIN";
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
@@ -153,6 +153,40 @@ export default function AddProperty() {
   const [newCityName, setNewCityName] = useState("");
   const [newAreaName, setNewAreaName] = useState("");
   const [isAddingLocation, setIsAddingLocation] = useState(false);
+
+  /*
+   * Opening this form is what makes somebody an agent.
+   *
+   * Everyone signs up as a USER — including the people who only wanted to see
+   * a phone number — so the switch happens here, the moment they start a
+   * listing. No application, no admin step, which is how OLX and Zameen handle
+   * it too.
+   *
+   * The role lives inside the JWT, so the session is refreshed straight after:
+   * without that the sidebar would keep showing a buyer's dashboard until the
+   * next sign-in.
+   */
+  useEffect(() => {
+    if (!user || isAdmin) return;
+    if (user.role === "AGENT") return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        await userApi.becomeAgent();
+        if (!cancelled) await refreshSession();
+      } catch (error) {
+        // Not fatal: the listing still saves, and the API promotes the account
+        // again when the property is actually created.
+        console.error("Could not switch this account to an agent:", error);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isAdmin, refreshSession]);
 
   useEffect(() => {
     if (isAdmin) return;
@@ -394,13 +428,30 @@ export default function AddProperty() {
       // Submit to API
       const response = await propertyApi.create(formData);
 
-      const successMsg = asDraft
-        ? "Saved as draft"
-        : "Property submitted successfully!";
-      const successDesc = asDraft
-        ? "You can find it under Drafts and publish it later from the dashboard."
-        : "Your property is pending approval and will be visible once approved.";
-      toast.success(successMsg, { description: successDesc });
+      /*
+       * What actually happened is decided on the server: a clean listing is
+       * published immediately by the screening check, a questionable one waits
+       * for an admin. Telling everyone "pending approval" would be wrong half
+       * the time, so the real status is read back from the response.
+       */
+      const saved = response?.property ?? response?.data?.property;
+      const savedStatus: string | undefined = saved?.status;
+
+      if (asDraft) {
+        toast.success("Saved as draft", {
+          description:
+            "You can find it under Drafts and publish it later from the dashboard.",
+        });
+      } else if (savedStatus === "approved") {
+        toast.success("Your property is live", {
+          description: "It is on the website now — share the link or view it.",
+        });
+      } else {
+        toast.success("Property submitted", {
+          description:
+            "Our team is checking it for safety. It usually goes live the same day.",
+        });
+      }
 
       // Redirect to dashboard after a short delay
       setTimeout(() => {

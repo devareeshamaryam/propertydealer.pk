@@ -6,6 +6,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { RedisCacheModule } from './redis-cache/redis-cache.module';
+import { NotifyModule } from './notify/notify.module';
 import { RevalidateModule } from './revalidate/revalidate.module';
 import { AuthModule } from './auth/auth.module';
 import { PropertyModule } from './property/property.module';
@@ -32,6 +33,8 @@ import { SteelRateModule } from './steel-rate/steel-rate.module';
 import { BricksRateModule } from './bricks-rate/bricks-rate.module';
 import { TileCategoryModule } from './tile-category/tile-category.module';
 import { MediaModule } from './media/media.module';
+import { ReportModule } from './report/report.module';
+import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { ListingApiModule } from './listing-api/listing-api.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import * as path from 'path';
@@ -82,6 +85,8 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     // ⚡ Redis cache (60s default TTL) and revalidation webhook caller —
     // both are global so any service can inject them.
     RedisCacheModule,
+    // Global: admin alerts to Discord, available to every module.
+    NotifyModule,
     RevalidateModule,
     MongooseModule.forRootAsync({
       inject: [ConfigService],
@@ -138,6 +143,8 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     BricksRateModule,
     TileCategoryModule,
     MediaModule,
+    ReportModule,
+    PaymentMethodModule,
     ListingApiModule,
   ],
   controllers: [AppController],

@@ -10,6 +10,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from '@rent-ghar/db/schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dtos/login.dto';
+import { DiscordService, DISCORD_COLORS } from '../notify/discord.service';
 
 export interface TokenResponse {
   token: string;
@@ -27,12 +28,25 @@ export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private jwtService: JwtService,
+    private readonly discord: DiscordService,
   ) {}
   async register(dto: RegisterDto): Promise<TokenResponse> {
     const existingUser = await this.userModel.findOne({ email: dto.email });
     if (existingUser) throw new BadGatewayException('User already exists');
     const user = new this.userModel(dto);
     await user.save();
+
+    this.discord.send({
+      title: '👤 New account',
+      description: `${user.name || 'No name'} — ${user.email}`,
+      url: '/dashboard/users',
+      color: DISCORD_COLORS.account,
+      fields: [
+        { name: 'Role', value: String(user.role || 'USER') },
+        { name: 'Signed up with', value: 'Email + password' },
+        { name: 'User id', value: `\`${user._id.toString()}\``, inline: false },
+      ],
+    });
 
     const token = this.generateToken(user);
     return {
@@ -163,6 +177,18 @@ export class AuthService {
         avatarUrl: profile.picture,
       });
       await user.save();
+
+      this.discord.send({
+        title: '👤 New account (Google)',
+        description: `${profile.name || 'No name'} — ${profile.email}`,
+        url: '/dashboard/users',
+        color: DISCORD_COLORS.account,
+        fields: [
+          { name: 'Role', value: String(user.role || 'USER') },
+          { name: 'Signed up with', value: 'Continue with Google' },
+          { name: 'User id', value: `\`${user._id.toString()}\``, inline: false },
+        ],
+      });
     } else if (!user.googleId) {
       // Existing password account using the button for the first time.
       user.googleId = profile.googleId;

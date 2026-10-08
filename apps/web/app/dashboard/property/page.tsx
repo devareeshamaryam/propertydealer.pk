@@ -14,6 +14,8 @@ import {
   PlusCircle,
   RefreshCcw,
   Send,
+  ShieldAlert,
+  ShieldCheck,
   SquarePen,
   Trash2,
   X,
@@ -104,6 +106,61 @@ function formatDate(value?: string) {
 }
 
 /** Thumbnail that degrades to an icon rather than calling a dead placeholder host. */
+/**
+ * Why the brain held this listing — or that it published it itself.
+ *
+ * The reasons are the whole point: "Phone number in the description" is a
+ * ten-second decision, an unexplained queue is an afternoon.
+ */
+function ModerationNote({
+  property,
+}: {
+  property: {
+    status?: string;
+    moderationScore?: number;
+    moderationReasons?: string[];
+    autoPublished?: boolean;
+  };
+}) {
+  const score = property.moderationScore ?? 0;
+  const reasons = property.moderationReasons ?? [];
+
+  if (property.status === "pending" && reasons.length > 0) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="mt-1 inline-flex cursor-help items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
+            <ShieldAlert className="h-3 w-3" />
+            Held · {score}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <p className="mb-1 font-semibold">Why this needs checking</p>
+          <ul className="list-disc space-y-0.5 pl-4 text-xs">
+            {reasons.slice(0, 6).map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  if (property.autoPublished && property.status === "approved") {
+    return (
+      <span
+        title={`Published automatically — risk score ${score}/100`}
+        className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-800"
+      >
+        <ShieldCheck className="h-3 w-3" />
+        Auto
+      </span>
+    );
+  }
+
+  return null;
+}
+
 /** Call taps + WhatsApp taps: the enquiries a listing produced. */
 function contactsOf(property: {
   phoneClicks?: number;
@@ -510,15 +567,17 @@ export default function PropertiesPage() {
                         <span className="text-xs text-muted-foreground">
                           {propertySizeLabel(property)}
                         </span>
-                        <Badge
-                          className={cn(
-                            "ml-auto shrink-0",
-                            STATUS_STYLES[property.status] ??
-                              "bg-muted text-muted-foreground",
-                          )}
-                        >
-                          {titleCase(property.status)}
-                        </Badge>
+                        <span className="ml-auto flex shrink-0 flex-col items-end">
+                          <Badge
+                            className={cn(
+                              STATUS_STYLES[property.status] ??
+                                "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {titleCase(property.status)}
+                          </Badge>
+                          <ModerationNote property={property} />
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -740,6 +799,7 @@ export default function PropertiesPage() {
                         >
                           {titleCase(property.status)}
                         </Badge>
+                        <ModerationNote property={property} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         <span className="flex items-center gap-1.5 text-sm tabular-nums">

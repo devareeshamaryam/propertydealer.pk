@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Patch,
+  Post,
   Delete,
   Param,
   Body,
@@ -75,6 +76,27 @@ export class UserController {
     }
 
     return this.userService.update(userId, patch);
+  }
+
+  /**
+   * POST /users/me/become-agent — "I want to list a property".
+   *
+   * The account type follows what someone is trying to do, not what they
+   * ticked at sign-up: everyone starts as USER (including the people who only
+   * wanted to see a phone number), and opening the listing form is the moment
+   * that changes. No application, no admin step — the same way OLX and Zameen
+   * turn a browser into a seller.
+   *
+   * Idempotent, and it can never touch an ADMIN. The caller refreshes its
+   * token afterwards, because the role lives in the JWT.
+   */
+  @Post('me/become-agent')
+  async becomeAgent(@Req() req: AuthedRequest) {
+    const userId = req.user?.userId;
+    if (!userId) throw new ForbiddenException('Authentication required');
+
+    await this.userService.promoteToAgent(userId);
+    return { success: true, role: 'AGENT' };
   }
 
   @Get('stats')
