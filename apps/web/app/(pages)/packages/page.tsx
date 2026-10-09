@@ -5,6 +5,8 @@ import { packageApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Check } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/auth-context';
+import { loginUrl } from '@/lib/auth-intent';
 
 interface Package {
   _id: string;
@@ -19,6 +21,7 @@ interface Package {
 
 export default function PackagesPublicPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [packages, setPackages] = useState<Package[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -88,9 +91,20 @@ export default function PackagesPublicPage() {
                     </li>
                   ))}
                 </ul>
+                {/*
+                  Signed out, this used to push straight at a dashboard route
+                  and let the layout bounce it to /login — which worked, but
+                  dropped the plan on the way: you signed in and landed on the
+                  dashboard with no idea what you had clicked. The destination
+                  now rides along in ?next=, so signing in finishes the job.
+                */}
                 <Button
                   className="w-full"
-                  onClick={() => router.push(`/dashboard/purchase-package?packageId=${pkg._id}`)}
+                  disabled={authLoading}
+                  onClick={() => {
+                    const target = `/dashboard/purchase-package?packageId=${pkg._id}`;
+                    router.push(isAuthenticated ? target : loginUrl(target));
+                  }}
                 >
                   Get Started
                 </Button>

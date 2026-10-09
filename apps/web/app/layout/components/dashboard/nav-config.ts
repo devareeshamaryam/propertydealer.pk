@@ -316,6 +316,19 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/my-subscription",
         keywords: ["plan", "billing", "upgrade"],
       },
+      {
+        /*
+         * The one billing entry an agent can see.
+         *
+         * Packages, Subscriptions and Payment Methods are all adminOnly, so
+         * the only way to buy anything was a "View Packages" button on the My
+         * Subscription page — one click deeper than anyone looks. An agent
+         * who wants to pay should never have to hunt for where.
+         */
+        title: "Buy a Plan",
+        href: "/dashboard/purchase-package",
+        keywords: ["package", "packages", "upgrade", "subscribe", "checkout", "pay"],
+      },
     ],
   },
   {
@@ -350,6 +363,7 @@ export const LEAF_ICONS: Record<
   "/dashboard/images-gallery": ImageIcon,
   "/dashboard/subscriptions": CreditCard,
   "/dashboard/my-subscription": Wallet,
+  "/dashboard/purchase-package": Package2,
   "/dashboard/users": Users,
 };
 
