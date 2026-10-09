@@ -30,7 +30,7 @@ export class AuthService {
     private jwtService: JwtService,
     private readonly discord: DiscordService,
   ) {}
-  async register(dto: RegisterDto): Promise<TokenResponse> {
+  async register(dto: RegisterDto): Promise<LoginResponse> {
     const existingUser = await this.userModel.findOne({ email: dto.email });
     if (existingUser) throw new BadGatewayException('User already exists');
     /*
@@ -58,26 +58,25 @@ export class AuthService {
       ],
     });
 
-    const token = this.generateToken(user);
-    return {
-      token,
-      user: {
-        _id: user._id.toString(),
-        name: user.name || '',
-        email: user.email,
-        role: user.role || 'user',
-        isActive: user.isActive,
-      },
-      status: 201,
-      message: 'Registered successfully',
-    };
+    /*
+     * A real session, not just an access token.
+     *
+     * register() used to mint only the short-lived access token and return
+     * it — no refresh token, so the controller had nothing to put in a
+     * cookie. A brand-new account therefore worked for exactly as long as
+     * JWT_EXPIRES_IN (an hour by default) and then could not renew: the
+     * dashboard emptied out and the person was bounced to /login having done
+     * nothing wrong. Sign-up now produces the same session login() does.
+     */
+    const session = await this.issueSession(user, 'Registered successfully');
+    return { ...session, status: 201 };
   }
 
   // 🔒 SECURITY: Login with account lockout protection (HIGH PRIORITY)
   async login(dto: LoginDto): Promise<LoginResponse> {
     const user = await this.userModel
       .findOne({ email: dto.email })
-      .select('+password +loginAttempts +lockUntil');
+      .select('+password +loginAttempts +lockUntil +refreshToken');
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -174,9 +173,13 @@ export class AuthService {
     googleId: string;
     picture?: string;
   }): Promise<LoginResponse> {
-    let user = await this.userModel.findOne({
-      $or: [{ googleId: profile.googleId }, { email: profile.email }],
-    });
+    let user = await this.userModel
+      .findOne({
+        $or: [{ googleId: profile.googleId }, { email: profile.email }],
+      })
+      // Written back by issueSession below; selected so the document is not
+      // saving a field it never loaded.
+      .select('+refreshToken');
 
     if (!user) {
       user = new this.userModel({
@@ -277,7 +280,22 @@ export class AuthService {
       const payload = this.jwtService.verify(oldRefreshToken, {
         secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
       }) as { sub: string };
-      const user = await this.userModel.findById(payload.sub);
+
+      /*
+       * `+refreshToken` is not optional here.
+       *
+       * The field is declared `@Prop({ select: false })` on the user schema,
+       * so a plain findById leaves it undefined — and the comparison two lines
+       * down then failed for everybody, every time. /auth/refresh could not
+       * succeed at all: "Continue with Google" ended on "the session did not
+       * stick" (the whole flow hangs off this one call), and a password
+       * session simply died the moment its access token expired instead of
+       * renewing, which is the dashboard going blank until a manual reload.
+       */
+      const user = await this.userModel
+        .findById(payload.sub)
+        .select('+refreshToken');
+
       if (!user) throw new UnauthorizedException('Invalid token');
       if (user.refreshToken !== oldRefreshToken)
         throw new UnauthorizedException('Invalid token');
@@ -307,7 +325,13 @@ export class AuthService {
       const payload = this.jwtService.verify(oldRefreshToken, {
         secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
       }) as { sub: string };
-      const user = await this.userModel.findById(payload.sub);
+      // Same reason as refreshToken() above: without +refreshToken this
+      // comparison never matched, so signing out left the stored token in
+      // place and the cookie was the only thing actually revoked.
+      const user = await this.userModel
+        .findById(payload.sub)
+        .select('+refreshToken');
+
       if (user && user.refreshToken === oldRefreshToken) {
         user.refreshToken = undefined;
         await user.save();

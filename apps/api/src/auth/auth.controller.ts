@@ -124,8 +124,41 @@ export class AuthController {
   // 🔒 SECURITY: Strict rate limiting on registration (CRITICAL)
   @Post('register')
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 registrations per minute
-  async register(@Body() dto: RegisterDto): Promise<TokenResponse> {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponse> {
+    const result = await this.authService.register(dto);
+
+    /*
+     * The same two cookies login() sets.
+     *
+     * Without the refresh cookie a new account had no way to renew its access
+     * token, so an hour after signing up the session died and the dashboard
+     * went blank. Signing up and signing in should leave the browser in
+     * exactly the same state.
+     */
+    const cookieOpts: CookieOptions = {
+      httpOnly: true,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    };
+
+    if (result.refreshToken) {
+      res.cookie('refreshToken', result.refreshToken, {
+        ...cookieOpts,
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+      });
+    }
+    if (result.token) {
+      res.cookie('access_token', result.token, {
+        ...cookieOpts,
+        maxAge: 1000 * 60 * 60 * 24 * 7,
+      });
+    }
+
+    return result;
   }
   
   // 🔒 SECURITY: Strict rate limiting on login to prevent brute force (CRITICAL)
