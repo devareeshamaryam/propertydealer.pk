@@ -45,7 +45,7 @@ function LoginForm() {
   // Set when the Google round trip came back without a usable account.
   const googleFailed = searchParams.get('error') === 'google'
 
-  // "Sign in to see the agent's number" — the reason beats a generic greeting.
+  // "Sign in to list your property" — the reason beats a generic greeting.
   const reason = intentReason(searchParams.get('next'))
   const nextPath = searchParams.get('next')
 
@@ -218,7 +218,8 @@ function LoginForm() {
           <div className="w-full rounded-lg border bg-muted/40 p-4">
             <p className="font-medium text-foreground">New here?</p>
             <p className="mt-0.5 text-xs">
-              You need an account to see agents&apos; contact details.
+              Listing a property is free — browsing and contacting agents needs
+              no account at all.
             </p>
             <Button variant="outline" className="mt-3 h-11 w-full" asChild>
               <Link href={registerUrl(safeNextUrl(nextPath, '/dashboard'))}>

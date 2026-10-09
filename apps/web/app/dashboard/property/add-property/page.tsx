@@ -155,12 +155,12 @@ export default function AddProperty() {
   const [isAddingLocation, setIsAddingLocation] = useState(false);
 
   /*
-   * Opening this form is what makes somebody an agent.
+   * A backstop, for the accounts that predate agent-by-default.
    *
-   * Everyone signs up as a USER — including the people who only wanted to see
-   * a phone number — so the switch happens here, the moment they start a
-   * listing. No application, no admin step, which is how OLX and Zameen handle
-   * it too.
+   * Sign-up makes every new account an AGENT now, so this does nothing for
+   * almost everyone. It stays for the USER rows created while sign-up still
+   * asked "buying or selling?" — they open this form, get promoted, and never
+   * see an application or an admin step.
    *
    * The role lives inside the JWT, so the session is refreshed straight after:
    * without that the sidebar would keep showing a buyer's dashboard until the

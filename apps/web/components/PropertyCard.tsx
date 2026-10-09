@@ -7,8 +7,6 @@ import { toTitleCase } from '@/lib/utils';
 import { amountShort, propertySizeLabel } from '@/lib/pk';
 import { useImpression } from '@/components/analytics/impression';
 import { trackContact } from '@/lib/analytics';
-import { loginUrl } from '@/lib/auth-intent';
-import { useAuth } from '@/context/auth-context';
 
 interface PropertyCardProps {
   property: Property;
@@ -17,7 +15,6 @@ interface PropertyCardProps {
 
 const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
   /*
    * Counted when the card is actually on screen. The mobile and desktop
    * layouts are two separate elements, only one of which is ever displayed,
@@ -65,17 +62,15 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
   };
 
   /*
-   * The card's contact buttons are gated the same way the listing page is —
-   * otherwise the number simply moved from one screen to another. Signing in
-   * returns to the listing with the action resumed.
+   * Straight through to the agent.
+   *
+   * These two buttons used to bounce a visitor to /login and resume the
+   * action afterwards. Nothing was gained: the card shows no number to
+   * begin with, so there was nothing to protect — only an enquiry to lose.
+   * The listing page keeps the number itself behind one tap.
    */
-  const gate = (intent: 'call' | 'whatsapp') => {
-    router.push(loginUrl(`/properties/${property.slug}`, intent));
-  };
-
   const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isAuthenticated) { gate('whatsapp'); return; }
     trackContact(property.id, 'whatsapp');
     if (whatsappNumber) {
       window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}`, '_blank');
@@ -84,7 +79,6 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isAuthenticated) { gate('call'); return; }
     trackContact(property.id, 'phone');
     if (phoneNumber) {
       window.location.href = `tel:${phoneNumber}`;

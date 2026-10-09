@@ -105,13 +105,13 @@ export class PropertyController {
       const created = await this.propertyService.create(userId, dto as any, mainPhotoUrl, additionalPhotosUrls, userRole)
 
       /*
-       * Posting a property is what makes somebody an agent.
+       * A backstop for pre-agent-by-default accounts.
        *
-       * Accounts start as USER — including the ones created just to see a
-       * phone number — so the first listing is the moment the role changes.
-       * Nobody has to pick 'agent' at sign-up and nobody is mislabelled for
-       * signing up to contact someone. Non-fatal: a failed promotion must not
-       * lose the listing that was just created.
+       * New accounts are AGENT from sign-up, so this is a no-op for almost
+       * everyone. It still matters for the USER rows created while sign-up
+       * asked "buying or selling?", and for any account an admin demoted:
+       * posting a listing promotes them rather than failing. Non-fatal — a
+       * failed promotion must not lose the listing that was just created.
        */
       if (userRole !== 'ADMIN' && userRole !== 'AGENT') {
         this.users.promoteToAgent(userId).catch((error) =>

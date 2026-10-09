@@ -25,7 +25,6 @@ interface AuthContextType {
     name: string;
     email: string;
     password: string;
-    role?: string;
   }) => Promise<void>;
   /**
    * Re-issue the token and re-read the user.
@@ -173,11 +172,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * page, so signing up ended at a form asking for the password they had just
    * chosen. Nothing new on the server — this just uses what it already sends.
    */
+  /* No role: the API makes every new account an AGENT on the Free plan. */
   const registerAndSignIn = async (data: {
     name: string;
     email: string;
     password: string;
-    role?: string;
   }) => {
     const response = await api.post("/auth/register", data);
 

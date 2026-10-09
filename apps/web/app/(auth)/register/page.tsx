@@ -51,20 +51,6 @@ function RegisterForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  /*
-   * Two kinds of account, one form.
-   *
-   * Everybody used to be registered as an AGENT — including someone who only
-   * wanted to see a phone number — which made the user list meaningless and
-   * put a listings dashboard in front of buyers. The kind comes from where
-   * they started: "List your property" asks for an agent account, the header
-   * and the contact buttons ask for a buyer account. Either way the choice is
-   * visible below, and a buyer who later posts a property is upgraded then.
-   */
-  const [wantsAgent, setWantsAgent] = useState(
-    searchParams.get('as') === 'agent',
-  )
-
   const form = useForm<FormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: { name: '', email: '', password: '' },
@@ -74,24 +60,25 @@ function RegisterForm() {
     setIsLoading(true)
     try {
       /*
-       * Create the account AND sign in, in one step.
+       * Create the account, sign in, and send no role.
        *
-       * This used to `router.push('/login')` after registering — so the reward
-       * for signing up was a login form asking for the password you had just
-       * chosen. The API already returns a token from /auth/register; it simply
-       * was not being used.
+       * This used to `router.push('/login')` after registering — so the
+       * reward for signing up was a login form asking for the password you
+       * had just chosen. The API already returns a token from /auth/register.
+       *
+       * The form also used to ask "find a property or list one?" and send
+       * USER or AGENT. Buyers need no account at all now — phone numbers and
+       * WhatsApp are open to everyone — so whoever is filling this in wants
+       * to post, and the API makes every new account an AGENT on the Free plan.
        */
       await registerAndSignIn({
         name: values.name.trim(),
         email: values.email.trim().toLowerCase(),
         password: values.password,
-        role: wantsAgent ? 'AGENT' : 'USER',
       })
 
       toast.success('Welcome to PropertyDealer', {
-        description: wantsAgent
-          ? 'Your account is ready — you can list a property right away.'
-          : 'Your account is ready — agents\' contact details are now visible.',
+        description: 'You are on the Free plan — list your first property now.',
       })
 
       router.replace(safeNextUrl(searchParams.get('next')))
@@ -126,8 +113,17 @@ function RegisterForm() {
         <CardHeader className="space-y-1">
           <CardTitle className="text-center text-2xl font-bold">Create your account</CardTitle>
           <CardDescription className="text-center">
-            One account to list properties, manage photos and track enquiries.
+            List properties, manage photos and track enquiries.
           </CardDescription>
+          {/*
+            Browsing needs no account at all, so anyone on this page is here to
+            post. Saying what they walk away with — a live listing, free — beats
+            a generic "sign up" and sets the expectation before the form.
+          */}
+          <p className="mt-2 rounded-lg bg-primary/5 px-3 py-2 text-center text-sm text-foreground">
+            <span className="font-semibold">Free plan included.</span> Post your
+            first property straight away — no card, no waiting.
+          </p>
         </CardHeader>
 
         <CardContent className="space-y-5">
@@ -135,31 +131,6 @@ function RegisterForm() {
           <GoogleButton label="Sign up with Google" next={searchParams.get('next')} disabled={isLoading} />
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            <div className="space-y-2">
-              <Label>I am here to</Label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { agent: false, title: 'Find a property', hint: 'Contact agents' },
-                  { agent: true, title: 'List a property', hint: 'Post listings' },
-                ].map((option) => (
-                  <button
-                    key={option.title}
-                    type="button"
-                    onClick={() => setWantsAgent(option.agent)}
-                    aria-pressed={wantsAgent === option.agent}
-                    className={`rounded-lg border p-3 text-left transition-colors ${
-                      wantsAgent === option.agent
-                        ? 'border-primary bg-primary/5'
-                        : 'hover:bg-muted'
-                    }`}
-                  >
-                    <span className="block text-sm font-semibold">{option.title}</span>
-                    <span className="block text-xs text-muted-foreground">{option.hint}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="name">Full name</Label>
               <Input

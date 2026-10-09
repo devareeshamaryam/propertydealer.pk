@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, MinLength, IsEnum, IsString } from "class-validator";
+import { IsEmail, IsNotEmpty, MinLength, IsString } from "class-validator";
 
 export class RegisterDto{
     @IsNotEmpty()
@@ -27,7 +27,14 @@ export class RegisterDto{
     @MinLength(6, { message: 'Use at least 6 characters for your password' })
     password: string;
 
-    @IsEnum(['USER' ,'AGENT'])
-    role?: string;
+    /*
+     * No role here on purpose.
+     *
+     * Sign-up used to ask "are you buying or selling?" and send USER or AGENT.
+     * It is one question too many: a buyer who finds nothing and decides to
+     * sell their own flat had to be upgraded mid-flow, and the answer told us
+     * nothing we could not learn from what they did next. AuthService.register
+     * sets AGENT for everyone; ADMIN is never self-assigned.
+     */
 
 }

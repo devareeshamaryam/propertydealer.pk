@@ -33,7 +33,17 @@ export class AuthService {
   async register(dto: RegisterDto): Promise<TokenResponse> {
     const existingUser = await this.userModel.findOne({ email: dto.email });
     if (existingUser) throw new BadGatewayException('User already exists');
-    const user = new this.userModel(dto);
+    /*
+     * Everyone is an agent from the first second.
+     *
+     * The old USER role could read listings and nothing else, so the moment
+     * somebody wanted to post one we had to detect it and flip the role
+     * underneath them. Starting as AGENT costs a buyer nothing — the dashboard
+     * is simply there if they ever want it — and it removes a branch from
+     * sign-up, from the listing flow and from this file. The Free plan needs
+     * no row: SubscriptionService falls back to it when there is no paid one.
+     */
+    const user = new this.userModel({ ...dto, role: 'AGENT' });
     await user.save();
 
     this.discord.send({
@@ -175,6 +185,8 @@ export class AuthService {
         googleId: profile.googleId,
         provider: 'google',
         avatarUrl: profile.picture,
+        // Same as the password path above: one kind of account.
+        role: 'AGENT',
       });
       await user.save();
 

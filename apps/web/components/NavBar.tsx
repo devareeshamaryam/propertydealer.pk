@@ -305,7 +305,7 @@ const Navbar = () => {
                         href={
                           isAuthenticated
                             ? "/dashboard/property/add-property"
-                            : "/register?as=agent&next=/dashboard/property/add-property"
+                            : "/register?next=/dashboard/property/add-property"
                         }
                       >
                       <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />

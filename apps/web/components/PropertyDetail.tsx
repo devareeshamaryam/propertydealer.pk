@@ -2,8 +2,8 @@
 'use client'
 import { useCallback, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter, useParams, usePathname } from 'next/navigation';
-import { MapPin, Bed, Bath, Maximize, Share2, Phone, CheckCircle2, X, Loader2, ChevronLeft, ChevronRight, House, Tag, LayoutDashboard, Clock, Play } from 'lucide-react';
+import { useRouter, useParams } from 'next/navigation';
+import { MapPin, Bed, Bath, Maximize, Share2, Phone, CheckCircle2, Loader2, ChevronRight, House, Tag, LayoutDashboard, Clock, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -16,8 +16,7 @@ import { toast } from 'sonner';
 import { toTitleCase } from '@/lib/utils';
 import { agentDisplayName, agentProfilePath } from '@/lib/agent';
 import { trackContact, trackView } from '@/lib/analytics';
-import { loginUrl, maskPhone, useResumeIntent } from '@/lib/auth-intent';
-import { useAuth } from '@/context/auth-context';
+import { maskPhone } from '@/lib/auth-intent';
 import dynamic from 'next/dynamic';
 import PropertyGallery from '@/components/property/PropertyGallery';
 import { ReportButton } from '@/components/property/ReportButton';
@@ -33,8 +32,6 @@ const PropertyMap = dynamic(() => import('@/components/PropertyMap'), {
 
 const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialProperty?: BackendProperty | null }) => {
   const router = useRouter();
-  const pathname = usePathname();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const params = useParams();
   const resolvedSlug = (slug || (params?.slug as string) || (params?.id as string))?.trim();
 
@@ -55,6 +52,52 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const [showStickyContact, setShowStickyContact] = useState(false);
   const contactButtonsRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
+
+  /*
+   * Contact: three hooks, declared up here on purpose.
+   *
+   * They used to sit further down, below the `if (loading)` and
+   * `if (error || !property)` early returns — so a first render that bailed
+   * out ran fewer hooks than the render after the fetch resolved, which is
+   * exactly the "Rendered more hooks than during the previous render" crash.
+   * Pages that pass `initialProperty` never hit it; /listing-detail/[id],
+   * which fetches on the client, did.
+   */
+  const [numberShown, setNumberShown] = useState(false);
+
+  const waLink = useCallback(() => {
+    const message = encodeURIComponent(`I want to know more about this property: ${property?.name ?? ''}\nLink: ${window.location.href}`);
+    const raw = property?.whatsappNumber || property?.contactNumber || '923123456789';
+    const clean = raw.replace(/\D/g, '');
+    const num = clean.startsWith('92') ? clean : '92' + clean.replace(/^0/, '');
+    return `https://wa.me/${num}?text=${message}`;
+  }, [property?.name, property?.whatsappNumber, property?.contactNumber]);
+
+  /*
+   * One tap for the number, no account.
+   *
+   * Tapping Call used to send a buyer to a login form and bring them back to
+   * resume the call. That wall cost the agent enquiries without protecting
+   * anything: the number travels inside the page's own data either way, so
+   * the only people it stopped were real buyers. Keeping it out of the
+   * rendered markup until somebody asks is the part that actually helps — a
+   * scraper reading the HTML finds a bullet mask — and the tap is a far
+   * better enquiry signal than a page view.
+   */
+  const revealOrDial = useCallback(() => {
+    if (!numberShown) {
+      setNumberShown(true);
+      // Counted on the reveal, not the dial: on a desktop there is no dial.
+      trackContact(backendProperty?._id, 'phone');
+      return;
+    }
+    window.location.href = `tel:${property?.contactNumber ?? ''}`;
+  }, [numberShown, backendProperty?._id, property?.contactNumber]);
+
+  const openWhatsApp = useCallback(() => {
+    trackContact(backendProperty?._id, 'whatsapp');
+    window.open(waLink(), '_blank');
+  }, [backendProperty?._id, waLink]);
 
   const getTimeAgo = (dateString?: string) => {
     if (!dateString) return 'Recently';
@@ -288,49 +331,6 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       alert('Link copied to clipboard!');
     }
   };
-
-  const waLink = useCallback(() => {
-    const message = encodeURIComponent(`I want to know more about this property: ${property.name}\nLink: ${window.location.href}`);
-    const raw = property.whatsappNumber || property.contactNumber || '923123456789';
-    const clean = raw.replace(/\D/g, '');
-    const num = clean.startsWith('92') ? clean : '92' + clean.replace(/^0/, '');
-    return `https://wa.me/${num}?text=${message}`;
-  }, [property.name, property.whatsappNumber, property.contactNumber]);
-
-  /*
-   * Contact is for signed-in visitors.
-   *
-   * Agents were being called by anyone who happened to open the page, and the
-   * numbers were sitting in the HTML for every scraper to collect. Signing in
-   * costs a buyer ten seconds and makes the enquiry traceable; the intent is
-   * remembered, so the call still happens on the way back.
-   */
-  const dial = useCallback(() => {
-    trackContact(backendProperty?._id, 'phone');
-    window.location.href = `tel:${property.contactNumber}`;
-  }, [backendProperty?._id, property.contactNumber]);
-
-  const openWhatsApp = useCallback(() => {
-    trackContact(backendProperty?._id, 'whatsapp');
-    window.open(waLink(), '_blank');
-  }, [backendProperty?._id, waLink]);
-
-  const requireAuthThen = (intent: 'call' | 'whatsapp', run: () => void) => {
-    if (isAuthenticated) {
-      run();
-      return;
-    }
-    toast.info(
-      intent === 'call'
-        ? 'Sign in to see the number'
-        : 'Sign in to message on WhatsApp',
-      { description: 'It takes a few seconds — we will bring you right back.' },
-    );
-    router.push(loginUrl(pathname || `/properties/${property.slug}`, intent));
-  };
-
-  // Back from signing in: do the thing they were trying to do.
-  useResumeIntent({ call: dial, whatsapp: openWhatsApp }, !authLoading && isAuthenticated);
 
   const getSchemaType = (type: string) => {
     switch ((type || '').toLowerCase()) {
@@ -586,11 +586,14 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
                 <div className="flex px-4 py-1" ref={contactButtonsRef}>
                   <div className="flex space-x-3 w-full">
-                    <Button className="flex-1 bg-[#25D366] rounded-sm hover:bg-[#128C7E] text-white border-none shadow-sm" size="lg" onClick={() => requireAuthThen('whatsapp', openWhatsApp)}>
+                    <Button className="flex-1 bg-[#25D366] rounded-sm hover:bg-[#128C7E] text-white border-none shadow-sm" size="lg" onClick={openWhatsApp}>
                       <WaIcon /> WhatsApp
                     </Button>
                     <Button variant="outline" className="flex-1 rounded-sm border-primary text-primary hover:bg-primary/5 shadow-sm" size="lg" asChild>
-                      <button type="button" onClick={() => requireAuthThen('call', dial)}><Phone className="w-4 h-4 mr-2" />{isAuthenticated ? 'Call' : 'Show number'}</button>
+                      <button type="button" onClick={revealOrDial}>
+                        <Phone className="w-4 h-4 mr-2" />
+                        {numberShown ? property.contactNumber : 'Show number'}
+                      </button>
                     </Button>
                   </div>
                 </div>
@@ -765,13 +768,13 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                     )}
 
                     <div className="space-y-3 mb-6">
-                      <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-none" size="lg" onClick={() => requireAuthThen('whatsapp', openWhatsApp)}>
+                      <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-none" size="lg" onClick={openWhatsApp}>
                         <WaIcon /> WhatsApp Inquiry
                       </Button>
                       <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/10" size="lg" asChild>
-                        <button type="button" onClick={() => requireAuthThen('call', dial)}>
+                        <button type="button" onClick={revealOrDial}>
                           <Phone className="w-4 h-4 mr-2" />
-                          {isAuthenticated
+                          {numberShown
                             ? `Call: ${property.contactNumber}`
                             : `Show number: ${maskPhone(property.contactNumber)}`}
                         </button>
@@ -872,9 +875,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${showStickyContact ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="grid grid-cols-2 gap-3 p-4">
           <Button variant="outline" className="w-full flex items-center justify-center gap-2 border-primary text-primary hover:bg-primary/5 h-12" asChild>
-            <button type="button" onClick={() => requireAuthThen('call', dial)}><Phone className="w-4 h-4" />{isAuthenticated ? 'Call' : 'Show number'}</button>
+            <button type="button" onClick={revealOrDial}><Phone className="w-4 h-4" />{numberShown ? 'Call now' : 'Show number'}</button>
           </Button>
-          <Button className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-none h-12 font-semibold" onClick={() => requireAuthThen('whatsapp', openWhatsApp)}>
+          <Button className="w-full flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white border-none h-12 font-semibold" onClick={openWhatsApp}>
             <WaIcon /> WhatsApp
           </Button>
         </div>
