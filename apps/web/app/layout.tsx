@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Providers } from "./providers";
 import { AuthProvider } from "@/context/auth-context";
 import StructuredData from "@/components/StructuredData";
+import ChunkReloadGuard from "@/components/ChunkReloadGuard";
 
 // ✅ Sirf Geist Sans — Mono hata diya (FCP improve)
 const geistSans = Geist({
@@ -68,6 +69,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${geistSans.variable} antialiased`}>
+        {/* First, and outside the providers: a stale document that cannot load
+            its chunks must still be able to rescue itself. */}
+        <ChunkReloadGuard />
         <Providers>
           <AuthProvider>
             <TooltipProvider>
