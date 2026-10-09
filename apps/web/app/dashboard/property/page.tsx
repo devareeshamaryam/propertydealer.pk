@@ -13,10 +13,12 @@ import {
   ImageOff,
   PlusCircle,
   RefreshCcw,
+  RotateCcw,
   Send,
   ShieldAlert,
   ShieldCheck,
   SquarePen,
+  Tag,
   Trash2,
   X,
   Play,
@@ -113,6 +115,50 @@ function formatDate(value?: string) {
  * The reasons are the whole point: "Phone number in the description" is a
  * ten-second decision, an unexplained queue is an afternoon.
  */
+/**
+ * "Sold" / "Rented" on a dashboard row.
+ *
+ * Availability is not the same thing as the approval status beside it, so it
+ * gets its own chip rather than being folded into that one — an approved
+ * listing that has sold is still approved, and it goes back on the market
+ * without re-entering the queue.
+ */
+function AvailabilityChip({
+  property,
+}: {
+  property: BackendProperty & { availabilityChangedAt?: string | null };
+}) {
+  const value = property.availability;
+  if (!value || value === "available") return null;
+
+  /*
+   * The date it was marked, not "x days left".
+   *
+   * A countdown would mean reading the clock while rendering, which makes the
+   * markup depend on the instant it was produced — the server and the browser
+   * then disagree and React reports a hydration mismatch. The date is a fact
+   * about the row, and the rule it feeds (15 days) is stated in the tooltip.
+   */
+  const marked = property.availabilityChangedAt
+    ? formatDate(property.availabilityChangedAt)
+    : null;
+
+  return (
+    <span
+      className="mt-1 block"
+      title={
+        marked
+          ? `Marked ${value} on ${marked}. Contact details are hidden now; it leaves search 15 days after that date, and its own page keeps working.`
+          : `Marked ${value}. Contact details are hidden.`
+      }
+    >
+      <Badge className="bg-neutral-900 text-white hover:bg-neutral-900">
+        {value === "rented" ? "Rented" : "Sold"}
+      </Badge>
+    </span>
+  );
+}
+
 function ModerationNote({
   property,
 }: {
@@ -360,6 +406,52 @@ export default function PropertiesPage() {
     } catch (err) {
       console.error("Error updating status:", err);
       toast.error("Could not update status", {
+        description: apiErrorMessage(err, "Please try again."),
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  /**
+   * Sold / rented / back on the market.
+   *
+   * Open to the agent as well as the admin, and deliberately not part of the
+   * approval flow above: a house that sold is not a listing that failed
+   * review, and marking it must not push it back into the queue.
+   *
+   * The listing keeps its page and stays in search for fifteen days with the
+   * phone number hidden, then drops out of the lists while the URL carries on
+   * working — see PropertyService.AVAILABILITY_GRACE_DAYS.
+   */
+  const changeAvailability = async (
+    property: BackendProperty,
+    availability: "available" | "sold" | "rented",
+  ) => {
+    try {
+      setBusyId(property._id);
+      await propertyApi.setAvailability(property._id, availability);
+      table.patchRow((item) => item._id === property._id, {
+        availability,
+        availabilityChangedAt:
+          availability === "available" ? null : new Date().toISOString(),
+      });
+      toast.success(
+        availability === "available"
+          ? "Back on the market"
+          : availability === "sold"
+            ? "Marked sold"
+            : "Marked rented",
+        {
+          description:
+            availability === "available"
+              ? "It will show in search again."
+              : "Contact details are hidden now; it leaves search in 15 days.",
+        },
+      );
+    } catch (err) {
+      console.error("Error updating availability:", err);
+      toast.error("Could not update availability", {
         description: apiErrorMessage(err, "Please try again."),
       });
     } finally {
@@ -615,6 +707,7 @@ export default function PropertiesPage() {
                             {titleCase(property.status)}
                           </Badge>
                           <ModerationNote property={property} />
+                          <AvailabilityChip property={property} />
                         </span>
                       </div>
                     </div>
@@ -636,6 +729,33 @@ export default function PropertiesPage() {
                   </div>
 
                   <div className="mt-2.5 flex flex-wrap gap-2">
+                    {/* Owners get this one too: telling the site a house has
+                        gone should never need an admin. */}
+                    {property.availability && property.availability !== "available" ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void changeAvailability(property, "available")}
+                      >
+                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                        Back on market
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() =>
+                          void changeAvailability(
+                            property,
+                            property.listingType === "rent" ? "rented" : "sold",
+                          )
+                        }
+                      >
+                        Mark {property.listingType === "rent" ? "rented" : "sold"}
+                      </Button>
+                    )}
                     {property.status === "draft" && (
                       <Button
                         size="sm"
@@ -840,6 +960,7 @@ export default function PropertiesPage() {
                           {titleCase(property.status)}
                         </Badge>
                         <ModerationNote property={property} />
+                        <AvailabilityChip property={property} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         <span className="flex items-center gap-1.5 text-sm tabular-nums">
@@ -858,6 +979,41 @@ export default function PropertiesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={busy}
+                                onClick={() =>
+                                  void changeAvailability(
+                                    property,
+                                    property.availability &&
+                                      property.availability !== "available"
+                                      ? "available"
+                                      : property.listingType === "rent"
+                                        ? "rented"
+                                        : "sold",
+                                  )
+                                }
+                              >
+                                {property.availability &&
+                                property.availability !== "available" ? (
+                                  <RotateCcw className="h-4 w-4 text-emerald-600" />
+                                ) : (
+                                  <Tag className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {property.availability &&
+                              property.availability !== "available"
+                                ? "Put back on the market"
+                                : `Mark ${property.listingType === "rent" ? "rented out" : "sold out"}`}
+                            </TooltipContent>
+                          </Tooltip>
+
                           {property.status === "draft" && (
                             <Tooltip>
                               <TooltipTrigger asChild>

@@ -54,6 +54,15 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
   const imageUrl = customPosterOrImage || fallbackImage;
   const rawVideoUrl = property.videoUrl || '';
 
+  /*
+   * A sold or rented listing keeps its card for fifteen days (the API drops
+   * it from the lists after that), but it must not look like something you
+   * can still buy — so the badge changes and the contact buttons go.
+   */
+  const closed =
+    property.availability === 'sold' || property.availability === 'rented';
+  const closedLabel = property.availability === 'rented' ? 'Rented' : 'Sold';
+
   const whatsappNumber = property.whatsappNumber || property.contactNumber || '';
   const phoneNumber = property.contactNumber || property.whatsappNumber || '';
 
@@ -127,8 +136,12 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
                 </>
               )}
               <div className="absolute top-1.5 left-1.5 z-10">
-                <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded shadow-sm">
-                  {property.purpose === 'buy' ? 'For Sale' : 'For Rent'}
+                <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded shadow-sm ${closed ? 'bg-neutral-900 text-white' : 'bg-primary text-primary-foreground'}`}>
+                  {closed
+                    ? closedLabel
+                    : property.purpose === 'buy'
+                      ? 'For Sale'
+                      : 'For Rent'}
                 </span>
               </div>
               {hasVideo && (
@@ -195,8 +208,12 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
                   </>
                 )}
                 <div className="absolute top-1.5 left-1.5 z-10">
-                  <span className="px-1.5 py-0.5 bg-primary text-primary-foreground text-[9px] font-bold rounded shadow-sm">
-                    {property.purpose === 'buy' ? 'For Sale' : 'For Rent'}
+                  <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded shadow-sm ${closed ? 'bg-neutral-900 text-white' : 'bg-primary text-primary-foreground'}`}>
+                    {closed
+                      ? closedLabel
+                      : property.purpose === 'buy'
+                        ? 'For Sale'
+                        : 'For Rent'}
                   </span>
                 </div>
                 {hasVideo && (
@@ -234,6 +251,11 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
               </div>
             </div>
 
+            {closed ? (
+              <div className="border-t border-border bg-muted/50 py-2 text-center text-[11px] font-semibold text-muted-foreground">
+                {closedLabel} — no longer available
+              </div>
+            ) : (
             <div className="flex border-t border-[#25D366]">
               <button
                 onClick={handleCall}
@@ -252,6 +274,7 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
                 WhatsApp
               </button>
             </div>
+            )}
           </>
         )}
       </div>
@@ -295,8 +318,12 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
               </>
             )}
             <div className="absolute top-3 left-3 flex gap-2 z-10">
-              <span className="px-2.5 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full shadow-md">
-                {property.purpose === 'buy' ? 'For Sale' : 'For Rent'}
+              <span className={`px-2.5 py-1 text-xs font-semibold rounded-full shadow-md ${closed ? 'bg-neutral-900 text-white' : 'bg-primary text-primary-foreground'}`}>
+                {closed
+                  ? closedLabel
+                  : property.purpose === 'buy'
+                    ? 'For Sale'
+                    : 'For Rent'}
               </span>
               {hasVideo && (
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow-md">
@@ -343,7 +370,13 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
           </div>
         </div>
 
-        {!hideActions && (
+        {!hideActions && closed && (
+          <div className="border-t border-border bg-muted/50 py-2.5 text-center text-sm font-semibold text-muted-foreground">
+            {closedLabel} — no longer available
+          </div>
+        )}
+
+        {!hideActions && !closed && (
           <div className="flex border-t border-[#25D366]">
             <button
               onClick={handleCall}

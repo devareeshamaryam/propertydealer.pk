@@ -112,6 +112,36 @@ export class Property extends Document {
   @Prop({ default: 'pending', index: true, enum: ['pending', 'approved', 'rejected', 'draft'] })
   status: 'pending' | 'approved' | 'rejected' | 'draft'
 
+  /**
+   * Has it gone? Separate from `status`, which is moderation.
+   *
+   * A sold house is not a rejected listing: it was fine, it is simply off the
+   * market. Keeping the two apart means an agent can mark their own listing
+   * sold without touching the approval state, and the approval queue does not
+   * fill up with houses that were never in question.
+   *
+   * Rows written before this field existed have neither value, which reads as
+   * 'available' everywhere — nothing already on the site changes.
+   */
+  @Prop({ enum: ['available', 'sold', 'rented'], default: 'available', index: true })
+  availability?: 'available' | 'sold' | 'rented'
+
+  /**
+   * When it was marked sold or rented — the clock for the 15-day grace period.
+   *
+   * For those fifteen days the listing stays on the site wearing a "Sold" or
+   * "Rented" badge with the phone number hidden: it is social proof, and a
+   * buyer who saw it yesterday is not left staring at a 404. After that it
+   * drops out of search, the city and area pages and the agent's profile,
+   * while the URL itself keeps answering — the page is ranked, and deleting
+   * or redirecting it would throw that away.
+   *
+   * Computed at query time rather than flipped by a cron job, so marking a
+   * listing available again brings it straight back with no second job to run.
+   */
+  @Prop({ type: Date })
+  availabilityChangedAt?: Date
+
   // Optional source tag (e.g. 'manual', 'api', 'n8n') so admin can see automated vs manual drafts
   @Prop({ type: String, default: 'manual' })
   source?: string
@@ -177,3 +207,7 @@ PropertySchema.index({ createdAt: -1 });
 
 // Area-scoped dashboard and public queries, newest first.
 PropertySchema.index({ area: 1, createdAt: -1 });
+
+// Every public list now also asks "is this still on the market, or did it sell
+// more than fifteen days ago?" — see the availability fields above.
+PropertySchema.index({ availability: 1, availabilityChangedAt: -1 });

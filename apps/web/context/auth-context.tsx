@@ -2,7 +2,11 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import api, { getAccessToken, setAccessToken } from "@/lib/api";
+import api, {
+  getAccessToken,
+  refreshAccessToken,
+  setAccessToken,
+} from "@/lib/api";
 import { toast } from "sonner";
 
 interface User {
@@ -103,12 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await api.get("/auth/profile");
       setUser(normalize(response.data));
     } catch (error) {
-      // Profile failed — try to refresh to get a new access token
+      // Profile failed — try to refresh to get a new access token.
+      // Shared with the axios interceptor so a page that mounts and 401s at
+      // the same moment does not start a second refresh against the first.
       try {
-        const refreshResponse = await api.post("/auth/refresh");
-        if (refreshResponse.data?.token) {
-          setAccessToken(refreshResponse.data.token);
-        }
+        await refreshAccessToken();
         // Retry profile with new token
         const profileResponse = await api.get("/auth/profile");
         setUser(normalize(profileResponse.data));
@@ -215,10 +218,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshSession = async () => {
     try {
-      const response = await api.post("/auth/refresh");
-      if (response.data?.token) setAccessToken(response.data.token);
-      if (response.data?.user) setUser(normalize(response.data.user));
-      else await fetchUser();
+      // The new token carries the new role; fetchUser() then reads the
+      // authoritative record rather than trusting the JWT's copy of it.
+      await refreshAccessToken();
+      await fetchUser();
     } catch (error) {
       console.error("Could not refresh the session:", error);
     }

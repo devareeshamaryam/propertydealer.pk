@@ -435,6 +435,29 @@ export class PropertyController {
     )
   }
 
+  /**
+   * Sold, rented, or back on the market.
+   *
+   * Open to the owner as well as an admin — see setAvailability. Separate
+   * from update-status on purpose: moderation and availability are different
+   * questions, and marking a house sold must not send it back through
+   * approval.
+   */
+  @Patch(':id/availability')
+  @UseGuards(JwtAuthGuard)
+  async setAvailability(
+    @Param('id') id: string,
+    @Request() req,
+    @Body('availability') availability?: 'available' | 'sold' | 'rented',
+  ) {
+    return await this.propertyService.setAvailability(
+      id,
+      availability || 'available',
+      req.user?.userId,
+      req.user?.role,
+    );
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   async delete(@Param('id') id: string, @Request() req) {

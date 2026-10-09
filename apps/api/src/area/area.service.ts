@@ -1,7 +1,7 @@
  /* eslint-disable prettier/prettier */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, isValidObjectId } from 'mongoose';
+import { Model, Types, isValidObjectId } from 'mongoose';
 import { Area, AreaDocument } from '@rent-ghar/db/schemas/area.schema';
 import { CreateAreaDto } from '@rent-ghar/dtos/area/createarea.dto';
 import { UpdateAreaDto } from '@rent-ghar/dtos/area/updatearea.dto';
@@ -98,18 +98,46 @@ export class AreaService {
     return area as AreaDocument;
   }
 
+  /**
+   * Every area in a city — including the ones whose `city` is stored as a
+   * string.
+   *
+   * `find({ city: cityId })` looks right and is not: Mongoose casts the value
+   * to the path's declared ObjectId, and part of this collection holds `city`
+   * as a plain 24-character string. MongoDB does not consider those equal, so
+   * the cast query skipped them. Measured on 9 Oct 2026: 115 areas came back
+   * for Multan while the unfiltered list held 132 — and among the 17 missing
+   * was the area a live listing had been saved with, so opening that listing
+   * to edit it found an Area dropdown that did not contain its own area.
+   *
+   * The ids are gathered through the raw collection, where nothing is cast
+   * and both stored forms match, then read back through the model so the
+   * caller still gets populated documents. `scripts/normalize-owner-ids.ts`
+   * repairs the stored types; this keeps the dropdown honest either way.
+   */
   async findAreasByCity(cityId: string): Promise<AreaDocument[]> {
     if (!isValidObjectId(cityId)) {
       throw new NotFoundException('Invalid city ID');
     }
     return this.cache.wrap(
       this.cache.buildKey('areas:by-city', [cityId]),
-      () =>
-        this.areaModel
-          .find({ city: cityId })
+      async () => {
+        const matches = await this.areaModel.collection
+          .find({
+            city: { $in: [new Types.ObjectId(cityId), cityId] },
+          })
+          .project({ _id: 1 })
+          .toArray();
+
+        const ids = matches.map((row) => row._id);
+        if (ids.length === 0) return [];
+
+        return this.areaModel
+          .find({ _id: { $in: ids } })
           .populate('city', 'name state country')
           .sort({ name: 1 })
-          .exec(),
+          .exec();
+      },
       { ttl: 60, tags: [TAG_AREAS] },
     );
   }

@@ -94,6 +94,19 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     window.location.href = `tel:${property?.contactNumber ?? ''}`;
   }, [numberShown, backendProperty?._id, property?.contactNumber]);
 
+  /*
+   * Sold and rented listings keep their page but lose their phone number.
+   *
+   * The URL stays alive on purpose — these pages are ranked, and a 404 would
+   * throw that away — so the page has to say plainly that the house has gone
+   * rather than leave a Call button that wastes everyone's time. The listing
+   * also drops out of search fifteen days after it was marked (the API does
+   * that part); until then it stays, badged.
+   */
+  const closed =
+    property?.availability === 'sold' || property?.availability === 'rented';
+  const closedLabel = property?.availability === 'rented' ? 'Rented out' : 'Sold out';
+
   const openWhatsApp = useCallback(() => {
     trackContact(backendProperty?._id, 'whatsapp');
     window.open(waLink(), '_blank');
@@ -585,6 +598,13 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 )}
 
                 <div className="flex px-4 py-1" ref={contactButtonsRef}>
+                  {closed ? (
+                    <div className="w-full rounded-sm border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                      <span className="font-semibold">{closedLabel}.</span>{' '}
+                      This property is no longer available, so the contact
+                      details are hidden.
+                    </div>
+                  ) : (
                   <div className="flex space-x-3 w-full">
                     <Button className="flex-1 bg-[#25D366] rounded-sm hover:bg-[#128C7E] text-white border-none shadow-sm" size="lg" onClick={openWhatsApp}>
                       <WaIcon /> WhatsApp
@@ -596,6 +616,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                       </button>
                     </Button>
                   </div>
+                  )}
                 </div>
               </div>
 
@@ -767,7 +788,15 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                       </Link>
                     )}
 
-                    <div className="space-y-3 mb-6">
+                    {closed && (
+                      <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                        <span className="font-semibold">{closedLabel}.</span>{' '}
+                        Contact details are hidden for listings that are no
+                        longer available.
+                      </div>
+                    )}
+
+                    <div className={closed ? 'hidden' : 'space-y-3 mb-6'}>
                       <Button className="w-full bg-[#25D366] hover:bg-[#128C7E] text-white border-none" size="lg" onClick={openWhatsApp}>
                         <WaIcon /> WhatsApp Inquiry
                       </Button>
@@ -871,8 +900,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
         </DialogContent>
       </Dialog>
 
-      {/* Sticky Mobile Contact Bar */}
-      <div className={`md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${showStickyContact ? 'translate-y-0' : 'translate-y-full'}`}>
+      {/* Sticky Mobile Contact Bar — nothing to offer once it has gone. */}
+      <div className={`${closed ? 'hidden' : ''} md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] transition-transform duration-300 ease-in-out ${showStickyContact ? 'translate-y-0' : 'translate-y-full'}`}>
         <div className="grid grid-cols-2 gap-3 p-4">
           <Button variant="outline" className="w-full flex items-center justify-center gap-2 border-primary text-primary hover:bg-primary/5 h-12" asChild>
             <button type="button" onClick={revealOrDial}><Phone className="w-4 h-4" />{numberShown ? 'Call now' : 'Show number'}</button>

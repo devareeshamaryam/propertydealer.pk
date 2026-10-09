@@ -21,6 +21,7 @@ export const DISCORD_COLORS = {
   report: 0xe11d2a, // red — someone reported something
   account: 0x8b5cf6, // purple — new account
   money: 0x10b981, // emerald — a plan was bought
+  order: 0xf97316, // orange — a materials order came in
   info: 0x6b7280, // grey
 } as const;
 

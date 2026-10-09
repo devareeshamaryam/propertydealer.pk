@@ -86,6 +86,9 @@ const DASHBOARD_LIST_FIELDS = [
     'kanal',
     'price',
     'status',
+    // Sold / rented, and when — the row carries the control that sets it.
+    'availability',
+    'availabilityChangedAt',
     'source',
     'mainPhotoUrl',
     'contactNumber',
@@ -106,6 +109,16 @@ const DASHBOARD_LIST_FIELDS = [
 
 @Injectable()
 export class PropertyService {
+    /**
+     * How long a sold or rented listing stays in the public lists.
+     *
+     * Long enough for anyone who saw it this week to find it again and see
+     * what happened, short enough that search is not full of houses nobody
+     * can buy. Zameen and OLX both keep closed listings around for roughly
+     * this long before dropping them out of browse.
+     */
+    static readonly AVAILABILITY_GRACE_DAYS = 15;
+
     constructor(
         @InjectModel(Property.name) private propertyModel: Model<Property>,
         @InjectModel(Area.name) private areaModel: Model<Area>,
@@ -323,6 +336,15 @@ export class PropertyService {
               kanal: dto.kanal ? Number(dto.kanal) : 0,
               description: dto.description,
               contactNumber: dto.contactNumber,
+              /*
+               * Accepted by the DTO, sent by both forms, and until now never
+               * written — in create or in update. It only looked like it
+               * worked because every read falls back to contactNumber, so the
+               * WhatsApp box filled in at listing time came back empty the
+               * next time the listing was opened to edit, which reads as "the
+               * form reset itself".
+               */
+              whatsappNumber: dto.whatsappNumber || dto.contactNumber,
               features: dto.features || [],
               owner: userId,
               mainPhotoUrl,
@@ -417,7 +439,35 @@ export class PropertyService {
             if (!this.isValidObjectId(filters.ownerId)) {
               return { properties: [], total: 0, page: filters?.page || 1, limit: filters?.limit || 12, totalPages: 0 };
             }
-            query.owner = new Types.ObjectId(filters.ownerId);
+
+            /*
+             * Owners come in both stored types, like `area` below.
+             *
+             * Part of this collection holds `owner` as a plain 24-character
+             * string rather than an ObjectId, and MongoDB does not consider
+             * the two equal. Matching the ObjectId alone returned nothing for
+             * three of the four agents who actually have live listings, so
+             * their public profile read "This agent has no active listings
+             * right now" with their listings sitting on the site.
+             *
+             * The ids are gathered through the raw collection, where nothing
+             * is cast and both forms match, and then matched by `_id` so the
+             * rest of this query — filters, sort, pagination, populate — is
+             * untouched. `scripts/normalize-owner-ids.ts` repairs the stored
+             * types; this keeps the page right either way.
+             */
+            const owned = await this.propertyModel.collection
+              .find({
+                owner: { $in: [new Types.ObjectId(filters.ownerId), filters.ownerId] },
+              })
+              .project({ _id: 1 })
+              .toArray();
+
+            if (owned.length === 0) {
+              return { properties: [], total: 0, page: filters?.page || 1, limit: filters?.limit || 12, totalPages: 0 };
+            }
+
+            query._id = { $in: owned.map((row) => row._id) };
           }
 
           if (filters?.areaId) {
@@ -553,6 +603,39 @@ export class PropertyService {
              query.listingType = mappedPurpose;
           }
           
+          /*
+           * Sold and rented listings leave the lists after fifteen days.
+           *
+           * For the first fifteen they stay, badged and with the phone number
+           * hidden — "this one went" is useful to a buyer and it is proof the
+           * agent closes deals. After that they stop appearing in search, on
+           * the city and area pages, and on the agent's profile.
+           *
+           * Only the lists. The listing's own URL keeps answering forever:
+           * these pages are ranked, and a 404 or a redirect would throw that
+           * away. PropertyDetail shows the "no longer available" state.
+           *
+           * Computed here rather than written by a cron job, so flipping a
+           * listing back to available brings it straight back.
+           *
+           * `$nin` also matches rows where the field is missing, which is
+           * every listing that existed before this was added — they stay
+           * exactly as they are.
+           */
+          const graceCutoff = new Date(
+            Date.now() - PropertyService.AVAILABILITY_GRACE_DAYS * 24 * 60 * 60 * 1000,
+          );
+          const stillListed = {
+            $or: [
+              { availability: { $nin: ['sold', 'rented'] } },
+              { availabilityChangedAt: { $gt: graceCutoff } },
+            ],
+          };
+
+          // Merged into $and so it cannot collide with the $or that the
+          // search, area and city filters above may already have taken.
+          query.$and = [...(query.$and ?? []), stillListed];
+
           const page = filters?.page || 1;
           const limit = filters?.limit || 12;
           const skip = (page - 1) * limit;
@@ -1065,6 +1148,71 @@ export class PropertyService {
       }
 
       /**
+       * Mark a listing sold, rented, or back on the market.
+       *
+       * The owner may do this themselves — unlike publishing, which is the
+       * admin's call. Telling the site a house has gone is a favour to
+       * everyone, so nothing should stand between an agent and doing it; the
+       * worst case is an agent hiding their own listing, which is theirs to
+       * hide.
+       *
+       * Only two fields move. The moderation `status` is untouched: a sold
+       * house is not an unapproved one, and it must not re-enter the approval
+       * queue or lose its place in search on the way back.
+       */
+      async setAvailability(
+        id: string,
+        availability: 'available' | 'sold' | 'rented',
+        userId?: string,
+        userRole?: string,
+      ) {
+        const allowed: Array<'available' | 'sold' | 'rented'> = ['available', 'sold', 'rented'];
+        if (!allowed.includes(availability)) {
+            throw new BadRequestException(`Invalid availability: ${availability}`);
+        }
+
+        const existing = await this.propertyModel
+            .findById(id)
+            .select('owner slug listingType availability')
+            .lean()
+            .exec();
+
+        if (!existing) {
+            throw new NotFoundException('Property not found');
+        }
+
+        if (userRole !== 'ADMIN') {
+            if (!userId || String(existing.owner) !== String(userId)) {
+                throw new ForbiddenException('You do not have permission to modify this property listing');
+            }
+        }
+
+        // Back on the market clears the clock, so the fifteen-day window
+        // starts again if it sells a second time.
+        const property = await this.propertyModel
+            .findByIdAndUpdate(
+                id,
+                {
+                    availability,
+                    availabilityChangedAt: availability === 'available' ? null : new Date(),
+                },
+                { new: true },
+            )
+            .exec();
+
+        this.bustPropertyCaches(property?.slug ?? undefined).catch(() => {});
+
+        return {
+            success: true,
+            message:
+                availability === 'available'
+                    ? 'Listing is back on the market'
+                    : `Listing marked ${availability}`,
+            property,
+        };
+      }
+
+      /**
        * @param replaceAdditionalPhotos the caller sent the gallery as it should
        *   now be (dashboard forms do), so an empty list means "no extra photos"
        *   rather than "nothing to change". Older clients that post
@@ -1097,6 +1245,7 @@ export class PropertyService {
             kanal: dto.kanal ? Number(dto.kanal) : 0,
             description: dto.description,
             contactNumber: dto.contactNumber,
+            whatsappNumber: dto.whatsappNumber || dto.contactNumber,
             features: dto.features || [],
             latitude: dto.latitude ? Number(dto.latitude) : undefined,
             longitude: dto.longitude ? Number(dto.longitude) : undefined,

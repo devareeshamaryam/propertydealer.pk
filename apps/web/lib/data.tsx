@@ -24,6 +24,8 @@ export interface Property {
   latitude?: number;
   whatsappNumber?: string;
   contactNumber?: string;
+  /** 'sold' / 'rented' put a badge on the card and hide the phone number. */
+  availability?: 'available' | 'sold' | 'rented';
   videoUrl?: string | null;
   videoPosterUrl?: string | null;
   isVideoThumbnail?: boolean;

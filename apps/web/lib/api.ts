@@ -78,6 +78,41 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/**
+ * One refresh at a time, shared by everyone waiting on it.
+ *
+ * A dashboard screen fires five or six requests the moment it mounts. When the
+ * access token has expired they all come back 401 at the same instant, and
+ * without this each one started its own `/auth/refresh`. The winner stored a
+ * good token; the losers finished afterwards, and any that failed ran
+ * `setAccessToken(null)` — throwing away the perfectly valid token the winner
+ * had just saved. Every request after that had no credentials, so the page
+ * painted itself empty, and a manual reload "fixed" it because by then the
+ * token was back in localStorage.
+ *
+ * Now the first 401 starts the refresh and the rest await the same promise.
+ */
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function refreshAccessToken(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = api
+      .post("/auth/refresh")
+      .then((response) => {
+        const token = (response.data?.token as string | undefined) ?? null;
+        if (token) setAccessToken(token);
+        return token;
+      })
+      .finally(() => {
+        // Cleared in a microtask, not synchronously: everyone who queued up
+        // behind this attempt resolves from it before the next 401 can start
+        // a second one.
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
 // Response interceptor for auto refresh on 401
 api.interceptors.response.use(
   (response) => response,
@@ -103,11 +138,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshResponse = await api.post("/auth/refresh");
-        // Store new access token from refresh response
-        if (refreshResponse.data?.token) {
-          setAccessToken(refreshResponse.data.token);
-        }
+        await refreshAccessToken();
         // Retry the original request with the new token
         const token = getAccessToken();
         if (token && originalRequest.headers) {
@@ -367,6 +398,24 @@ export const propertyApi = {
     );
     return response.data;
   },
+
+  /**
+   * Mark a listing sold, rented, or back on the market.
+   *
+   * Separate from updateStatus: that one is moderation (draft → pending →
+   * approved) and is mostly the admin's. This one belongs to whoever owns the
+   * listing, and never moves it back into the approval queue.
+   */
+  setAvailability: async (
+    propertyId: string,
+    availability: "available" | "sold" | "rented",
+  ) => {
+    const response = await api.patch(`/properties/${propertyId}/availability`, {
+      availability,
+    });
+    return response.data;
+  },
+
   // Create a new property
   create: async (data: FormData) => {
     const response = await api.post("/properties", data, {

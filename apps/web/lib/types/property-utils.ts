@@ -47,6 +47,9 @@ export interface BackendProperty {
   mainPhotoUrl?: string;
   additionalPhotosUrls?: string[];
   status: 'pending' | 'approved' | 'rejected' | 'draft';
+  /** Sold / rented, which is a different question from moderation status. */
+  availability?: 'available' | 'sold' | 'rented';
+  availabilityChangedAt?: string | null;
   source?: string;
   owner?: any;
   /*
@@ -208,6 +211,7 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
     longitude: backend.longitude,
     whatsappNumber: backend.whatsappNumber,
     contactNumber: backend.contactNumber,
+    availability: backend.availability || 'available',
     videoUrl: backend.videoUrl || null,
     videoPosterUrl: backend.videoPosterUrl || null,
     isVideoThumbnail,

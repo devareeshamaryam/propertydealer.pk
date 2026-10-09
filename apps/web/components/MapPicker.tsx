@@ -106,6 +106,30 @@ export default function MapPicker({
     if (!position && cityCenter(city)) setZoom(12);
   }, [city, position]);
 
+  /*
+   * Adopt coordinates that arrive after mount.
+   *
+   * `initialLat`/`initialLng` were read once, in the useState initialisers
+   * above. That is right for the add form, where they are known from the
+   * start, and wrong for the edit form, which renders the whole form straight
+   * away and fills it in when the fetch resolves — so the map mounted with
+   * nothing, the real pin landed a moment later as a prop, and the map never
+   * looked at it. The listing opened with no marker, and saving the form
+   * wrote back whatever that empty map held. That is the "the map resets when
+   * I edit" report.
+   *
+   * Guarded on `position` being null, so this only ever fills an empty map:
+   * once there is a pin — placed by the fetch or by the person using it — a
+   * re-render with the same props can never move it back.
+   */
+  useEffect(() => {
+    if (position) return;
+    if (!initialLat || !initialLng) return;
+
+    setPosition([initialLat, initialLng]);
+    setZoom(16);
+  }, [initialLat, initialLng, position]);
+
   const place = useCallback(
     (lat: number, lng: number, nextZoom = 17) => {
       setPosition([lat, lng]);

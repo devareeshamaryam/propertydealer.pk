@@ -16,6 +16,7 @@
     "import:wp": "node node_modules/.bin/ts-node -r tsconfig-paths/register src/scripts/import-wp.ts",
     "import:media": "node node_modules/.bin/ts-node -r tsconfig-paths/register src/scripts/import-existing-media.ts",
     "backfill:slugs": "node node_modules/.bin/ts-node -r tsconfig-paths/register src/scripts/backfill-slugs.ts",
+    "migrate:owner-ids": "node node_modules/.bin/ts-node -r tsconfig-paths/register src/scripts/normalize-owner-ids.ts",
     "migrate:material-rates": "node node_modules/.bin/ts-node -r tsconfig-paths/register src/scripts/migrate-material-rates.ts",
     "lint": "node node_modules/.bin/eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "node node_modules/.bin/jest",
