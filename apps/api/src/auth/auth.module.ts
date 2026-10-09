@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module, Provider } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
@@ -81,7 +81,7 @@ const googleStrategyProvider: Provider = {
       },
     }),
   ],
-  providers: [AuthService, JwtStrategy, ...googleProvider()],
+  providers: [AuthService, JwtStrategy, googleStrategyProvider],
   controllers: [AuthController],
   exports: [AuthService, AuthService],
 })

@@ -39,6 +39,23 @@ export class GoogleOauthGuard extends AuthGuard(GOOGLE_STRATEGY) {
       );
     }
 
-    return (await super.canActivate(context)) as boolean;
+    try {
+      return (await super.canActivate(context)) as boolean;
+    } catch (error) {
+      /*
+       * "Unknown authentication strategy" means the keys are set but nothing
+       * ever registered the strategy with passport — the exact state the
+       * module's factory provider now prevents. It reached the browser as a
+       * bare `{"statusCode":500,"message":"Internal server error"}`, which
+       * says nothing about what to fix, so it is translated here as well:
+       * the guard is the only place that knows both halves of the story.
+       */
+      if (/unknown authentication strategy/i.test((error as Error)?.message ?? '')) {
+        throw new ServiceUnavailableException(
+          'Google sign-in is configured but the strategy did not load. Restart the API; if it persists, check the API log at boot for the "Google sign-in is" line.',
+        );
+      }
+      throw error;
+    }
   }
 }
