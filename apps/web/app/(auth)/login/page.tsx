@@ -218,8 +218,8 @@ function LoginForm() {
           <div className="w-full rounded-lg border bg-muted/40 p-4">
             <p className="font-medium text-foreground">New here?</p>
             <p className="mt-0.5 text-xs">
-              Listing a property is free — browsing and contacting agents needs
-              no account at all.
+              Browsing and contacting agents needs no account. Create one to
+              list a property of your own.
             </p>
             <Button variant="outline" className="mt-3 h-11 w-full" asChild>
               <Link href={registerUrl(safeNextUrl(nextPath, '/dashboard'))}>

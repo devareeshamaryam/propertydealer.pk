@@ -1,5 +1,5 @@
 import {
-  BadGatewayException,
+  ConflictException,
   UnauthorizedException,
   ForbiddenException,
   Injectable,
@@ -32,7 +32,22 @@ export class AuthService {
   ) {}
   async register(dto: RegisterDto): Promise<LoginResponse> {
     const existingUser = await this.userModel.findOne({ email: dto.email });
-    if (existingUser) throw new BadGatewayException('User already exists');
+    /*
+     * 409, not 502.
+     *
+     * This threw BadGatewayException, which is HTTP 502 — "the upstream
+     * server sent me a bad response". Cloudflare treats 5xx from the origin
+     * as the origin being broken and replaces the body with its own error
+     * page, so the browser received the string "error code: 502" and never
+     * saw `{"message":"User already exists"}`. The sign-up form has a branch
+     * for exactly this case — it sends you to /login with the email filled
+     * in — and it could never fire, because neither the status nor the
+     * message it looks for survived the trip. Everyone with an account
+     * already just saw "Could not create your account".
+     *
+     * An email that is taken is a conflict, not a gateway failure.
+     */
+    if (existingUser) throw new ConflictException('User already exists');
     /*
      * Everyone is an agent from the first second.
      *

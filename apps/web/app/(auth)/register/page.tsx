@@ -78,7 +78,7 @@ function RegisterForm() {
       })
 
       toast.success('Welcome to PropertyDealer', {
-        description: 'You are on the Free plan — list your first property now.',
+        description: 'Your account is ready — you can list a property right away.',
       })
 
       router.replace(safeNextUrl(searchParams.get('next')))
@@ -87,6 +87,13 @@ function RegisterForm() {
       const response = (error as { response?: { status?: number; data?: { message?: string | string[] } } }).response
       const status = response?.status
       const message = response?.data?.message
+
+      if (status === 429) {
+        toast.error('Too many attempts', {
+          description: 'Sign-up is limited to a few tries a minute. Wait a moment and try again.',
+        })
+        return
+      }
 
       // Already registered → the login page, with the email carried over.
       if (status === 409 || /already exists/i.test(String(message))) {
@@ -115,15 +122,6 @@ function RegisterForm() {
           <CardDescription className="text-center">
             List properties, manage photos and track enquiries.
           </CardDescription>
-          {/*
-            Browsing needs no account at all, so anyone on this page is here to
-            post. Saying what they walk away with — a live listing, free — beats
-            a generic "sign up" and sets the expectation before the form.
-          */}
-          <p className="mt-2 rounded-lg bg-primary/5 px-3 py-2 text-center text-sm text-foreground">
-            <span className="font-semibold">Free plan included.</span> Post your
-            first property straight away — no card, no waiting.
-          </p>
         </CardHeader>
 
         <CardContent className="space-y-5">
