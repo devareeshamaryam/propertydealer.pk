@@ -24,6 +24,8 @@ export interface Property {
   latitude?: number;
   whatsappNumber?: string;
   contactNumber?: string;
+  /** Admin-pinned: shows a badge and sorts above the rest. */
+  isFeatured?: boolean;
   /** 'sold' / 'rented' put a badge on the card and hide the phone number. */
   availability?: 'available' | 'sold' | 'rented';
   videoUrl?: string | null;

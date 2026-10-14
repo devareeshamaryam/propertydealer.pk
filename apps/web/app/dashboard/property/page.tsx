@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   SquarePen,
+  Star,
   Tag,
   Trash2,
   X,
@@ -128,8 +129,18 @@ function AvailabilityChip({
 }: {
   property: BackendProperty & { availabilityChangedAt?: string | null };
 }) {
+  // Both can be true at once — a featured listing can also have sold — so
+  // this renders the pair rather than returning on the first one it finds.
+  const featured = property.isFeatured ? (
+    <span className="mt-1 block">
+      <Badge className="bg-amber-100 text-amber-900 hover:bg-amber-100">
+        Featured
+      </Badge>
+    </span>
+  ) : null;
+
   const value = property.availability;
-  if (!value || value === "available") return null;
+  if (!value || value === "available") return featured;
 
   /*
    * The date it was marked, not "x days left".
@@ -144,18 +155,21 @@ function AvailabilityChip({
     : null;
 
   return (
-    <span
-      className="mt-1 block"
-      title={
-        marked
-          ? `Marked ${value} on ${marked}. Contact details are hidden now; it leaves search 15 days after that date, and its own page keeps working.`
-          : `Marked ${value}. Contact details are hidden.`
-      }
-    >
-      <Badge className="bg-neutral-900 text-white hover:bg-neutral-900">
-        {value === "rented" ? "Rented" : "Sold"}
-      </Badge>
-    </span>
+    <>
+      {featured}
+      <span
+        className="mt-1 block"
+        title={
+          marked
+            ? `Marked ${value} on ${marked}. Contact details are hidden now; it leaves search 15 days after that date, and its own page keeps working.`
+            : `Marked ${value}. Contact details are hidden.`
+        }
+      >
+        <Badge className="bg-neutral-900 text-white hover:bg-neutral-900">
+          {value === "rented" ? "Rented" : "Sold"}
+        </Badge>
+      </span>
+    </>
   );
 }
 
@@ -459,6 +473,34 @@ export default function PropertiesPage() {
     }
   };
 
+  /**
+   * Pin a listing to the top of the public lists.
+   *
+   * Admin only, and with no reference to the owner's plan: featuring is an
+   * editorial call about what the site should be showing, not something a
+   * package buys. The API refuses it for anyone else regardless.
+   */
+  const toggleFeatured = async (property: BackendProperty) => {
+    const next = !property.isFeatured;
+    try {
+      setBusyId(property._id);
+      await propertyApi.setFeatured(property._id, next);
+      table.patchRow((item) => item._id === property._id, { isFeatured: next });
+      toast.success(next ? "Featured" : "No longer featured", {
+        description: next
+          ? "It now shows above other listings on the site."
+          : "It goes back into the normal order.",
+      });
+    } catch (err) {
+      console.error("Error updating featured:", err);
+      toast.error("Could not update", {
+        description: apiErrorMessage(err, "Please try again."),
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const requestDelete = (property: BackendProperty) =>
     confirm({
       title: "Delete this property?",
@@ -729,6 +771,24 @@ export default function PropertiesPage() {
                   </div>
 
                   <div className="mt-2.5 flex flex-wrap gap-2">
+                    {/* Shown to agents too: their plan's allowance decides,
+                        and the API is what enforces it — a Free account gets
+                        a message naming the plan that would allow it, which
+                        is a better advert than hiding the button. */}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void toggleFeatured(property)}
+                    >
+                      <Star
+                        className={cn(
+                          "mr-1.5 h-3.5 w-3.5",
+                          property.isFeatured && "fill-amber-400 text-amber-500",
+                        )}
+                      />
+                      {property.isFeatured ? "Featured" : "Feature"}
+                    </Button>
                     {/* Owners get this one too: telling the site a house has
                         gone should never need an admin. */}
                     {property.availability && property.availability !== "available" ? (
@@ -979,6 +1039,32 @@ export default function PropertiesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                disabled={busy}
+                                onClick={() => void toggleFeatured(property)}
+                              >
+                                <Star
+                                  className={cn(
+                                    "h-4 w-4",
+                                    property.isFeatured
+                                      ? "fill-amber-400 text-amber-500"
+                                      : "text-muted-foreground",
+                                  )}
+                                />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {property.isFeatured
+                                ? "Remove from featured"
+                                : "Feature this listing"}
+                            </TooltipContent>
+                          </Tooltip>
+
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button

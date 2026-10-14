@@ -51,6 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
+import { agentProfilePath } from "@/lib/agent";
 import {
   isGroup,
   LEAF_ICONS,
@@ -89,6 +90,9 @@ export default function DashboardSidebar() {
   const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
   const isActive = useIsActive();
   const isAdmin = user?.role === "ADMIN";
+
+  // Null until the session is known, and for an account with no usable id.
+  const myProfilePath = useMemo(() => agentProfilePath(user ?? null), [user]);
   const collapsed = state === "collapsed" && !isMobile;
 
   const [filter, setFilter] = useState("");
@@ -375,6 +379,25 @@ export default function DashboardSidebar() {
                     My Account
                   </Link>
                 </DropdownMenuItem>
+                {/*
+                  An agent's own public page, as a buyer sees it.
+                  There was no way to reach it from inside the dashboard: you
+                  had to open one of your own listings on the site and click
+                  through the agent card. The path carries the id, so it is
+                  built per user and cannot live in the static nav config.
+                */}
+                {myProfilePath && (
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={myProfilePath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <UserCircle className="mr-2 h-4 w-4" />
+                      Visit my profile
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link href="/" target="_blank" rel="noopener noreferrer">
                     <ExternalLink className="mr-2 h-4 w-4" />

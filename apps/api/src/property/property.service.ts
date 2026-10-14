@@ -86,6 +86,7 @@ const DASHBOARD_LIST_FIELDS = [
     'kanal',
     'price',
     'status',
+    'isFeatured',
     // Sold / rented, and when — the row carries the control that sets it.
     'availability',
     'availabilityChangedAt',
@@ -642,7 +643,9 @@ export class PropertyService {
 
           const [properties, total] = await Promise.all([
             this.propertyModel.find(query)
-              .sort({ createdAt: -1 })
+              // Featured first, then newest. Rows written before the field
+              // existed have no value, which sorts with the unfeatured.
+              .sort({ isFeatured: -1, createdAt: -1 })
               .skip(skip)
               .limit(limit)
               .exec(),
@@ -1145,6 +1148,89 @@ export class PropertyService {
             message: 'Property status updated successfully',
             property: property
         }
+      }
+
+      /**
+       * Pin a listing to the top of the public lists, or unpin it.
+       *
+       * Admin only, and with no reference to the owner's plan. Featuring is
+       * an editorial call about what the site should be showing today — a
+       * well-photographed house in a sought-after block earns the slot
+       * whether or not its agent has paid for anything.
+       */
+      async setFeatured(
+        id: string,
+        isFeatured: boolean,
+        userId?: string,
+        userRole?: string,
+      ) {
+        /*
+         * Two ways in, with different rules.
+         *
+         * An admin pins anything, for editorial reasons, with no reference to
+         * anybody's plan — that is the point of the control. An agent pins
+         * their own listings, up to the number their plan includes, which is
+         * what the "featured listings" line on the pricing page is selling.
+         * Unpinning is always allowed: nobody needs permission to take their
+         * own listing out of the spotlight.
+         */
+        if (userRole !== 'ADMIN') {
+          const existing = await this.propertyModel
+            .findById(id)
+            .select('owner')
+            .lean()
+            .exec();
+
+          if (!existing) throw new NotFoundException('Property not found');
+          if (!userId || String(existing.owner) !== String(userId)) {
+            throw new ForbiddenException(
+              'You do not have permission to modify this property listing',
+            );
+          }
+
+          if (isFeatured) {
+            const plan = await this.subscriptionService.getEffectivePlan(userId);
+
+            // Raw collection: part of this data stores `owner` as a string
+            // rather than an ObjectId, and a cast query would undercount.
+            const alreadyFeatured = await this.propertyModel.collection.countDocuments({
+              owner: { $in: [new Types.ObjectId(userId), userId] },
+              isFeatured: true,
+              _id: { $ne: new Types.ObjectId(id) },
+            });
+
+            if (alreadyFeatured >= plan.featuredLimit) {
+              throw new ForbiddenException(
+                plan.featuredLimit === 0
+                  ? 'Featuring a listing needs a paid plan. Choose one from Buy a Plan.'
+                  : `Your plan includes ${plan.featuredLimit} featured listing${plan.featuredLimit === 1 ? '' : 's'}, and they are all in use. Un-feature one first, or move up a plan.`,
+              );
+            }
+          }
+        }
+
+        const property = await this.propertyModel
+          .findByIdAndUpdate(
+            id,
+            {
+              isFeatured,
+              featuredAt: isFeatured ? new Date() : null,
+            },
+            { new: true },
+          )
+          .exec();
+
+        if (!property) {
+          throw new NotFoundException('Property not found');
+        }
+
+        this.bustPropertyCaches(property.slug ?? undefined).catch(() => {});
+
+        return {
+          success: true,
+          message: isFeatured ? 'Listing featured' : 'Listing unfeatured',
+          property,
+        };
       }
 
       /**

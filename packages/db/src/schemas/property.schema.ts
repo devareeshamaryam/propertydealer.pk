@@ -106,8 +106,21 @@ export class Property extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Subscription', required: false })
   subscriptionId?: Types.ObjectId
 
-  @Prop({ default: false })
+  /**
+   * Pinned to the top of the public lists by an admin.
+   *
+   * The field has existed since the beginning and nothing ever read or wrote
+   * it: no endpoint set it, no query sorted on it, and the packages page
+   * advertised "featured listings" that could not be granted. It is wired up
+   * now, and deliberately an admin decision alone — a plan is not a
+   * prerequisite, so a listing worth showing can be shown.
+   */
+  @Prop({ default: false, index: true })
   isFeatured: boolean
+
+  /** When it was featured, so the newest promotion leads. */
+  @Prop({ type: Date })
+  featuredAt?: Date
 
   @Prop({ default: 'pending', index: true, enum: ['pending', 'approved', 'rejected', 'draft'] })
   status: 'pending' | 'approved' | 'rejected' | 'draft'
@@ -211,3 +224,6 @@ PropertySchema.index({ area: 1, createdAt: -1 });
 // Every public list now also asks "is this still on the market, or did it sell
 // more than fifteen days ago?" — see the availability fields above.
 PropertySchema.index({ availability: 1, availabilityChangedAt: -1 });
+
+// The public list sorts featured first, then newest.
+PropertySchema.index({ status: 1, isFeatured: -1, createdAt: -1 });

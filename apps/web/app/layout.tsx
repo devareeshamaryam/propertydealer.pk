@@ -21,7 +21,10 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://propertydealer.pk'),
   title: {
     default: "Property Dealer | Buy, Sell & Rent Property",
-    template: "%s "
+    // "%s " put a trailing space inside every page's <title>. Left as a bare
+    // "%s" rather than appending a brand suffix: these pages are ranked, and
+    // rewriting every title tag on the site is not a tidy-up.
+    template: "%s"
   },
   description: "Property Dealer is a property buying and selling marketplace across Pakistan, connecting buyers and sellers for residential and commercial real estate.",
   keywords: ["property portal pakistan", "Property Dealer", "houses for rent multan", "apartments for sale lahore", "plots karachi", "commercial property islamabad"],

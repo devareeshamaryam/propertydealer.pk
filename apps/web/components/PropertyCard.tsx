@@ -1,6 +1,6 @@
  'use client'
 import { useRouter } from 'next/navigation';
-import { MapPin, Bed, Bath, Maximize, Play, Phone } from 'lucide-react';
+import { MapPin, Bed, Bath, Maximize, Play, Phone, Star } from 'lucide-react';
 import Image from 'next/image';
 import { Property } from '@/lib/data';
 import { toTitleCase } from '@/lib/utils';
@@ -325,6 +325,11 @@ const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
                     ? 'For Sale'
                     : 'For Rent'}
               </span>
+              {property.isFeatured && !closed && (
+                <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow-md">
+                  <Star className="w-3 h-3 fill-current" /> Featured
+                </span>
+              )}
               {hasVideo && (
                 <span className="flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow-md">
                   <Play className="w-3 h-3 fill-current" /> Video

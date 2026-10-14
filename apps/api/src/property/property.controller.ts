@@ -436,6 +436,29 @@ export class PropertyController {
   }
 
   /**
+   * Feature a listing, or take the pin off.
+   *
+   * JwtAuthGuard, not AdminGuard: the service decides. An admin may pin
+   * anything; an agent may pin their own listings up to the number their plan
+   * includes, which is what makes "featured listings" on the pricing page a
+   * real thing rather than a line of copy.
+   */
+  @Patch(':id/featured')
+  @UseGuards(JwtAuthGuard)
+  async setFeatured(
+    @Param('id') id: string,
+    @Request() req,
+    @Body('isFeatured') isFeatured?: boolean,
+  ) {
+    return await this.propertyService.setFeatured(
+      id,
+      isFeatured !== false,
+      req.user?.userId,
+      req.user?.role,
+    );
+  }
+
+  /**
    * Sold, rented, or back on the market.
    *
    * Open to the owner as well as an admin — see setAvailability. Separate

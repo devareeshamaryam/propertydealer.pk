@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Gift,
   Loader2,
   RefreshCcw,
   SquarePen,
@@ -48,7 +49,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { userApi } from "@/lib/api";
+import { packageApi, subscriptionApi, userApi } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 import {
@@ -66,6 +67,15 @@ import {
   useTableControls,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+
+interface PlanOption {
+  _id: string;
+  name: string;
+  price: number;
+  duration: number;
+  propertyLimit?: number;
+  featuredListings?: number;
+}
 
 interface UserRecord {
   _id: string;
@@ -121,6 +131,55 @@ export default function UserManagementPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<UserRecord | null>(null);
+
+  /*
+   * Giving somebody a plan, which is a different job from editing them.
+   *
+   * Plans change hands for reasons the checkout never sees — cash at the
+   * office, a deal struck on the phone, an apology. The only way to do it
+   * before was to make the agent "buy" the plan and then approve an invoice
+   * for money that never moved through the site.
+   */
+  const [granting, setGranting] = useState<UserRecord | null>(null);
+  const [plans, setPlans] = useState<PlanOption[]>([]);
+  const [planId, setPlanId] = useState("");
+  const [grantBusy, setGrantBusy] = useState(false);
+
+  // Fetched on first use rather than on page load: most visits to this screen
+  // never open the dialog.
+  useEffect(() => {
+    if (!granting || plans.length > 0) return;
+    void (async () => {
+      try {
+        const rows = await packageApi.getAll();
+        setPlans(Array.isArray(rows) ? (rows as PlanOption[]) : []);
+      } catch (err) {
+        toast.error("Could not load the plans", {
+          description: apiErrorMessage(err, "Please try again."),
+        });
+      }
+    })();
+  }, [granting, plans.length]);
+
+  const grantPlan = async () => {
+    if (!granting || !planId) return;
+    try {
+      setGrantBusy(true);
+      await subscriptionApi.assignPlan(granting._id, planId);
+      const plan = plans.find((row) => row._id === planId);
+      toast.success(`${plan?.name ?? "Plan"} given to ${granting.name || granting.email}`, {
+        description: "It is active now — their listing allowance has already changed.",
+      });
+      setGranting(null);
+      setPlanId("");
+    } catch (err) {
+      toast.error("Could not give the plan", {
+        description: apiErrorMessage(err, "Please try again."),
+      });
+    } finally {
+      setGrantBusy(false);
+    }
+  };
   const [saving, setSaving] = useState(false);
 
   const { confirm, dialogProps } = useConfirm();
@@ -488,6 +547,24 @@ export default function UserManagementPage() {
                               <Button
                                 variant="ghost"
                                 size="icon"
+                                className="h-8 w-8"
+                                disabled={busy}
+                                onClick={() => {
+                                  setPlanId("");
+                                  setGranting({ ...user });
+                                }}
+                              >
+                                <Gift className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Give a plan</TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
                                 className={cn(
                                   "h-8 w-8",
                                   isActive
@@ -542,6 +619,60 @@ export default function UserManagementPage() {
       </DataCard>
 
       {/* Edit role / status */}
+      <Dialog
+        open={granting !== null}
+        onOpenChange={(open) => !open && !grantBusy && setGranting(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Gift className="h-5 w-5 text-primary" />
+              Give a plan
+            </DialogTitle>
+            <DialogDescription>
+              {granting?.name || granting?.email}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="grant-plan">Plan</Label>
+              <Select value={planId} onValueChange={setPlanId}>
+                <SelectTrigger id="grant-plan">
+                  <SelectValue placeholder="Choose a plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {plans.map((plan) => (
+                    <SelectItem key={plan._id} value={plan._id}>
+                      {plan.name} — {plan.propertyLimit ?? 0} listings,{" "}
+                      {plan.duration} days
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <p className="rounded-lg bg-muted/60 px-3 py-2.5 text-sm text-muted-foreground">
+              No invoice and no payment is recorded. The plan starts now, runs
+              for its full duration, and replaces whatever plan they are on.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setGranting(null)}
+              disabled={grantBusy}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => void grantPlan()} disabled={grantBusy || !planId}>
+              {grantBusy ? "Giving…" : "Give plan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog
         open={editing !== null}
         onOpenChange={(open) => !open && !saving && setEditing(null)}

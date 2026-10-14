@@ -399,6 +399,14 @@ export const propertyApi = {
     return response.data;
   },
 
+  /** Pin a listing to the top of the public lists. Admin only. */
+  setFeatured: async (propertyId: string, isFeatured: boolean) => {
+    const response = await api.patch(`/properties/${propertyId}/featured`, {
+      isFeatured,
+    });
+    return response.data;
+  },
+
   /**
    * Mark a listing sold, rented, or back on the market.
    *
@@ -599,6 +607,20 @@ export const subscriptionApi = {
   },
 
   /** Admin: the payment could not be verified. */
+  /**
+   * Hand an agent a plan outright, with no invoice.
+   *
+   * For the dealer who paid cash at the office, or an agency being courted.
+   * It takes effect immediately — same entitlement as a purchased plan.
+   */
+  assignPlan: async (userId: string, packageId: string) => {
+    const response = await api.post("/subscriptions/assign", {
+      userId,
+      packageId,
+    });
+    return response.data;
+  },
+
   rejectPayment: async (invoiceId: string, reason: string) => {
     const response = await api.put(`/subscriptions/${invoiceId}/reject`, { reason });
     return response.data;

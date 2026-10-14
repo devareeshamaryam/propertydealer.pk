@@ -88,6 +88,18 @@ export class SubscriptionService {
     const saved = await subscription.save();
 
     /*
+     * Nothing to pay, nothing to wait for.
+     *
+     * A zero-price plan went through the whole invoice ritual — pending
+     * status, a checkout screen with bank accounts on it, a screenshot
+     * upload and an admin approval — to hand over something that costs
+     * nothing. It activates on the spot instead.
+     */
+    if ((packageDoc.price ?? 0) <= 0) {
+      return this.activate(saved._id.toString());
+    }
+
+    /*
      * A purchase arrives as "pending" and an admin activates it, so this alert
      * is the only thing standing between an agent paying and somebody
      * noticing. The link goes straight to the subscriptions screen.
@@ -150,6 +162,74 @@ export class SubscriptionService {
     }
 
     return subscription;
+  }
+
+  /**
+   * Give an agent a plan, with no invoice and no payment.
+   *
+   * Plans get handed out for reasons that have nothing to do with the
+   * checkout: a dealer who paid in cash at the office, an agency being
+   * courted, an apology for a bad week. Before this the only route was to
+   * make the agent "buy" the plan and then approve an invoice for money that
+   * never moved through the site, which left the books lying.
+   *
+   * The result is a real subscription — same status, same end date, same
+   * entitlement — marked so it is obvious later that nobody paid for it.
+   */
+  async assignToUser(
+    userId: string,
+    packageId: string,
+    adminId?: string,
+  ): Promise<SubscriptionDocument> {
+    const packageDoc = await this.packageModel.findById(packageId).exec();
+    if (!packageDoc) {
+      throw new NotFoundException('Package not found');
+    }
+
+    const startDate = new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + packageDoc.duration);
+
+    // One active plan at a time, exactly as activate() enforces.
+    await this.subscriptionModel
+      .updateMany(
+        { userId, status: 'active' },
+        { $set: { status: 'expired' } },
+      )
+      .exec();
+
+    const subscription = new this.subscriptionModel({
+      userId,
+      packageId,
+      status: 'active',
+      paymentStatus: 'completed',
+      startDate,
+      endDate,
+      reviewedAt: new Date(),
+      invoiceNumber: await this.nextInvoiceNumber(),
+      amount: 0,
+      planName: packageDoc.name,
+      planPropertyLimit: packageDoc.propertyLimit,
+      planDurationDays: packageDoc.duration,
+      paymentMethod: 'Granted by admin',
+      paymentNote: adminId ? `Assigned by admin ${adminId}` : 'Assigned by admin',
+    });
+
+    const saved = await subscription.save();
+
+    this.discord.send({
+      title: '🎁 Plan granted by admin',
+      description: `${packageDoc.name} · ${packageDoc.duration} days · ${packageDoc.propertyLimit} listings`,
+      url: '/dashboard/subscriptions',
+      color: DISCORD_COLORS.approved,
+      fields: [
+        { name: 'Agent id', value: String(userId), inline: false },
+        { name: 'Granted by', value: String(adminId ?? 'admin'), inline: false },
+        { name: 'Ends', value: endDate.toDateString() },
+      ],
+    });
+
+    return saved;
   }
 
   async activate(id: string): Promise<SubscriptionDocument> {
@@ -379,6 +459,8 @@ export class SubscriptionService {
     used: number;
     remaining: number;
     canCreate: boolean;
+    /** How many of their own listings this account may pin. Free gets none. */
+    featuredLimit: number;
     subscription: SubscriptionDocument | null;
   }> {
     const subscription = await this.findActiveSubscription(userId);
@@ -397,6 +479,7 @@ export class SubscriptionService {
         used,
         remaining: Math.max(0, propertyLimit - used),
         canCreate: used < propertyLimit,
+        featuredLimit: 0,
         subscription: null,
       };
     }
@@ -412,6 +495,7 @@ export class SubscriptionService {
       used,
       remaining: Math.max(0, propertyLimit - used),
       canCreate: used < propertyLimit,
+      featuredLimit: Number(packageDoc?.featuredListings ?? 0),
       subscription,
     };
   }

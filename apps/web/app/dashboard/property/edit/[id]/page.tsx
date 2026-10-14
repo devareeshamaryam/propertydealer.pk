@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { GalleryField, VideoField } from "@/components/media";
@@ -93,6 +93,23 @@ export default function EditProperty() {
   // Cities and Areas state
   const [cities, setCities] = useState<City[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
+
+  /*
+   * The city and area this listing was saved with, held separately.
+   *
+   * They used to be merged into the two lists above and nothing else. That
+   * depended on three fetches and four setState calls landing in the right
+   * order, and when any of them lost the race the dropdowns rendered their
+   * placeholder — "Select city", "Select city first" — on a listing that was
+   * live with a perfectly good location. Saving from that screen then wrote
+   * the empty selection back.
+   *
+   * Kept here they cannot be lost: cityOptions/areaOptions below always
+   * contain them, whatever the fetches do, and whether or not the area is one
+   * of the ones /areas?cityId= happens to return.
+   */
+  const [seededCity, setSeededCity] = useState<City | null>(null);
+  const [seededArea, setSeededArea] = useState<Area | null>(null);
   const [loadingProperty, setLoadingProperty] = useState(true);
   const [loadingAreas, setLoadingAreas] = useState(false);
   const [showAddCityModal, setShowAddCityModal] = useState(false);
@@ -187,6 +204,7 @@ export default function EditProperty() {
 
       const areaIdStr = String(areaObj._id);
       setAreaId(areaIdStr);
+      setSeededArea(areaObj as Area);
       setAreas((prev) =>
         prev.some((a) => String(a._id) === areaIdStr) ? prev : [...prev, areaObj],
       );
@@ -208,6 +226,7 @@ export default function EditProperty() {
       if (cityObj?._id) {
         const cityIdStr = String(cityObj._id);
         setCityId(cityIdStr);
+        setSeededCity(cityObj as City);
         setCities((prev) =>
           prev.some((c) => String(c._id) === cityIdStr) ? prev : [...prev, cityObj],
         );
@@ -345,11 +364,33 @@ export default function EditProperty() {
       fetchAreas();
     }
   }, [cityId, areaId, loadingProperty]);
+  /*
+   * What the two dropdowns actually render.
+   *
+   * The fetched list first, then this listing's own city/area if the fetch
+   * did not include it — which happens more often than it should, because
+   * part of the areas collection stores `city` as a string rather than an
+   * ObjectId and /areas?cityId= used to miss those rows entirely.
+   */
+  const cityOptions = useMemo(() => {
+    if (!seededCity) return cities;
+    return cities.some((c) => String(c._id) === String(seededCity._id))
+      ? cities
+      : [seededCity, ...cities];
+  }, [cities, seededCity]);
+
+  const areaOptions = useMemo(() => {
+    if (!seededArea) return areas;
+    return areas.some((a) => String(a._id) === String(seededArea._id))
+      ? areas
+      : [seededArea, ...areas];
+  }, [areas, seededArea]);
+
   /** The chosen city and area by name, for the map search box. */
   const selectedCityName =
-    cities.find((c) => String(c._id) === cityId)?.name ?? "";
+    cityOptions.find((c) => String(c._id) === cityId)?.name ?? "";
   const selectedAreaName =
-    areas.find((a) => String(a._id) === areaId)?.name ?? "";
+    areaOptions.find((a) => String(a._id) === areaId)?.name ?? "";
 
   const handleCreateCity = async () => {
     if (!newCityName.trim()) return;
@@ -663,7 +704,7 @@ export default function EditProperty() {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {cities.map((city) => (
+                    {cityOptions.map((city) => (
                       <SelectItem
                         key={String(city._id)}
                         value={String(city._id)}
@@ -708,7 +749,7 @@ export default function EditProperty() {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {areas.map((area) => (
+                    {areaOptions.map((area) => (
                       <SelectItem
                         key={String(area._id)}
                         value={String(area._id)}

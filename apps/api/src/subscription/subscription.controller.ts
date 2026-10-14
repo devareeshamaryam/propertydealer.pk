@@ -116,6 +116,26 @@ export class SubscriptionController {
     return this.subscriptionService.findOne(id);
   }
 
+  /**
+   * Hand a plan to an agent outright — no invoice, no payment.
+   *
+   * Before @Put(':id/activate') in this file only for readability; Nest
+   * matches on method and path, and POST 'assign' cannot collide with it.
+   */
+  @Post('assign')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async assign(
+    @Body('userId') userId: string,
+    @Body('packageId') packageId: string,
+    @Request() req,
+  ) {
+    return this.subscriptionService.assignToUser(
+      userId,
+      packageId,
+      req.user?.userId,
+    );
+  }
+
   @Put(':id/activate')
   @UseGuards(JwtAuthGuard, AdminGuard)
   async activate(@Param('id') id: string) {
