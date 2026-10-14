@@ -56,6 +56,15 @@ function PurchaseContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
+  /*
+   * Why the checkout did not open, on the page rather than in a toast.
+   *
+   * ConfirmDialog closes as soon as onConfirm resolves, and onConfirm here
+   * catches its own errors — so a refused purchase looked like the dialog
+   * simply shutting, with a toast that was gone before anyone read it. The
+   * reason now stays on screen until the next attempt.
+   */
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutInvoice | null>(null);
 
   const { confirm, dialogProps } = useConfirm();
@@ -113,6 +122,7 @@ function PurchaseContent() {
       onConfirm: async () => {
         try {
           setPurchasing(true);
+          setPurchaseError(null);
           const invoice = await subscriptionApi.purchase(pkg._id);
           setCheckout({
             _id: String(invoice?._id ?? ""),
@@ -125,10 +135,10 @@ function PurchaseContent() {
           });
         } catch (err) {
           console.error("Error purchasing package:", err);
+          const reason = apiErrorMessage(err, "Please try again.");
+          setPurchaseError(reason);
           // The old handler used window.alert() for both success and failure.
-          toast.error("Could not complete purchase", {
-            description: apiErrorMessage(err, "Please try again."),
-          });
+          toast.error("Could not complete purchase", { description: reason });
         } finally {
           setPurchasing(false);
         }
@@ -209,6 +219,13 @@ function PurchaseContent() {
             selected.description || "Review the plan before confirming."
           }
         />
+
+        {purchaseError && (
+          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+            <span className="font-semibold">Could not start the checkout.</span>{" "}
+            {purchaseError}
+          </div>
+        )}
 
         <DataCard>
           <DataCardTitle hint="What this plan includes">
@@ -298,6 +315,13 @@ function PurchaseContent() {
           </Button>
         }
       />
+
+      {purchaseError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <span className="font-semibold">Could not start the checkout.</span>{" "}
+          {purchaseError}
+        </div>
+      )}
 
       {options.length === 0 ? (
         <DataCard className="py-12 text-center">

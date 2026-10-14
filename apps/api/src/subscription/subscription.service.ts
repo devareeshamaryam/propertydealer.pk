@@ -50,19 +50,64 @@ export class SubscriptionService {
       throw new BadRequestException('This package is not available for purchase');
     }
 
-    // Check if user already has an active subscription
-    const existingSubscription = await this.subscriptionModel
-      .findOne({
-        userId,
-        status: 'active',
-        endDate: { $gt: new Date() },
-      })
+    /*
+     * Having a plan is not a reason to refuse selling another one.
+     *
+     * This used to throw "You already have an active subscription. Please
+     * wait for it to expire or cancel it" at anyone who tried — so an agent
+     * on Starter who filled up five listings and wanted Dealer today could
+     * not buy it, and the money went nowhere. It got worse once a zero-price
+     * plan started activating on the spot: clicking Free left an active row
+     * for thirty days, and from then on every single Buy ended as a 400 the
+     * moment the confirmation dialog closed. That is the "popup opens and
+     * then shuts" with nothing behind it.
+     *
+     * Buying while subscribed is an upgrade or a renewal, and activate()
+     * already expires whatever came before, so one plan is still live at a
+     * time. The old plan keeps working until the new one is paid for and
+     * approved, which is the right way round.
+     */
+    const activePlan = await this.subscriptionModel
+      .findOne({ userId, status: 'active', endDate: { $gt: new Date() } })
       .exec();
 
-    if (existingSubscription) {
+    /*
+     * The one case still worth refusing: dropping onto the free plan while
+     * paying for a real one. Zero-price plans activate immediately, so this
+     * would expire the paid plan the instant it was clicked — almost always
+     * a misclick on the pricing page rather than a decision.
+     */
+    if (activePlan && (packageDoc.price ?? 0) <= 0 && (activePlan.amount ?? 0) > 0) {
       throw new BadRequestException(
-        'You already have an active subscription. Please wait for it to expire or cancel it before purchasing a new one.',
+        `You are on the ${activePlan.planName ?? 'paid'} plan. Switching to Free would end it straight away — ask an admin to cancel it if that is what you want.`,
       );
+    }
+
+    /*
+     * An unpaid invoice they already have, rather than a pile of them.
+     *
+     * Clicking Buy twice created two invoices for the same plan, and the
+     * admin screen then showed both with no way to tell which one the
+     * screenshot belonged to.
+     */
+    const openInvoice = await this.subscriptionModel
+      .findOne({
+        userId,
+        status: 'pending',
+        paymentStatus: { $in: ['pending', 'submitted'] },
+      })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (openInvoice) {
+      if (String(openInvoice.packageId) === String(dto.packageId)) {
+        // Same plan, still unpaid: send them back to the invoice they have.
+        return openInvoice;
+      }
+      // They changed their mind about which plan. Retire the old invoice so
+      // only one is ever waiting for payment.
+      openInvoice.status = 'cancelled';
+      await openInvoice.save();
     }
 
     /*

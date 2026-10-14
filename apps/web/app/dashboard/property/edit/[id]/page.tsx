@@ -713,8 +713,45 @@ export default function EditProperty() {
                   City *
                 </label>
                 <Select
+                  /*
+                   * Remounted once the listing is in, and that is the fix.
+                   *
+                   * Radix fires onValueChange when the value it holds changes,
+                   * not only when a person picks something — its
+                   * useControllableState does it from an effect. So restoring
+                   * this Select from "" to the listing's real city counted as
+                   * a change, the handler below ran, and it cleared the area
+                   * that had just been restored alongside it. Saving then
+                   * wrote that empty area back and the listing lost its
+                   * location for real. Three rounds of fixing the fetch order
+                   * never touched it, because the fetches were never wrong.
+                   *
+                   * With the key, the Select is thrown away and rebuilt the
+                   * moment the data lands, so its first value is the final
+                   * one. Nothing transitions, so nothing echoes.
+                   */
+                  key={loadedArea ? "ready" : "loading"}
                   value={cityId}
                   onValueChange={(value) => {
+                    /*
+                     * Radix calls this when the value prop changes, not only
+                     * when somebody picks something.
+                     *
+                     * That is the whole "editing a listing wipes its city and
+                     * area" bug, and it has nothing to do with the fetches.
+                     * Restoring the listing's city moves this Select's value
+                     * from "" to the real id; Radix's useControllableState
+                     * then fires onValueChange with that id during the
+                     * commit; and this handler, written for a human changing
+                     * their mind, dutifully cleared the area that had just
+                     * been restored. Saving from that screen wrote the empty
+                     * area back, and the listing lost its location for real.
+                     *
+                     * An echo of the value we already hold is not a choice,
+                     * so it is ignored. A person picking a different city
+                     * still clears the area, which is what they want.
+                     */
+                    if (value === cityId) return;
                     setCityId(value);
                     setAreaId("");
                   }}
@@ -757,6 +794,8 @@ export default function EditProperty() {
                   Area *
                 </label>
                 <Select
+                  // Same reason as the city Select above.
+                  key={loadedArea ? "ready" : "loading"}
                   value={areaId}
                   onValueChange={setAreaId}
                   disabled={isLoading || loadingAreas || !cityId}
@@ -983,6 +1022,7 @@ export default function EditProperty() {
               value={features.filter((feature) => feature.trim() !== "")}
               onChange={setFeatures}
               propertyType={propertyType}
+              purpose={listingType}
               disabled={isLoading}
             />
 

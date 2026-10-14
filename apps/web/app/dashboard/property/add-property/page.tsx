@@ -938,6 +938,7 @@ export default function AddProperty() {
               value={features.filter((feature) => feature.trim() !== "")}
               onChange={setFeatures}
               propertyType={propertyType}
+              purpose={listingType}
               disabled={isLoading}
             />
 

@@ -35,6 +35,14 @@ export interface FeatureGroup {
   title: string;
   /** Which property types this group makes sense for. Empty = all of them. */
   types?: PropertyTypeKey[];
+  /**
+   * Which listing type it belongs to, when it belongs to only one.
+   *
+   * "Bachelors allowed" and "Maintenance included in rent" are questions for
+   * a rental; "Installments available" and "Exchange considered" are for a
+   * sale. Showing both halves to everyone was half the clutter.
+   */
+  purpose?: 'rent' | 'sale';
   features: string[];
 }
 
@@ -72,13 +80,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       "Back open",
       "Two side open",
       "Three side open",
-      "Double unit",
       "Possession available",
-      "Newly built",
-      "Renovated",
-      "Furnished",
-      "Semi furnished",
-      "Separate entrance",
       "Facing mosque",
       "Sun facing",
       "Wide street (40 ft+)",
@@ -86,6 +88,22 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       "Near entrance gate",
       "Investment opportunity",
       "Ideal for overseas buyers",
+    ],
+  },
+  {
+    /*
+     * Split out of "Main features", which was shown to every property type
+     * and asked whether a plot of land was furnished.
+     */
+    title: "Condition & handover",
+    types: BUILT,
+    features: [
+      "Newly built",
+      "Renovated",
+      "Furnished",
+      "Semi furnished",
+      "Separate entrance",
+      "Double unit",
     ],
   },
   {
@@ -139,6 +157,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
   {
     title: "Utilities",
+    types: BUILT,
     features: [
       "Electricity",
       "Sui gas",
@@ -193,6 +212,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
   {
     title: "Outside",
+    types: BUILT,
     features: [
       "Lawn / garden",
       "Kitchen garden",
@@ -269,6 +289,20 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     ],
   },
   {
+    // The six that mean something on an empty plot. Same strings as the
+    // built-property list above, so a listing that changes type keeps them.
+    title: "Utilities at site",
+    types: OPEN_LAND,
+    features: [
+      "Electricity",
+      "Sui gas",
+      "Water supply",
+      "Boring / water pump",
+      "Sewerage",
+      "Underground wiring",
+    ],
+  },
+  {
     title: "Plot details",
     types: OPEN_LAND,
     features: [
@@ -327,6 +361,7 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
   {
     title: "Payment & terms",
+    purpose: 'sale',
     features: [
       "Cash only",
       "Installments available",
@@ -335,7 +370,14 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
       "Price negotiable",
       "Fixed price",
       "Advance required",
+    ],
+  },
+  {
+    title: "Rental terms",
+    purpose: 'rent',
+    features: [
       "Rent negotiable",
+      "Advance required",
       "Family only",
       "Bachelors allowed",
       "Short term rent",
@@ -372,20 +414,24 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
   },
 ];
 
-/** The groups that apply to one property type. */
-export function featureGroupsFor(type?: string): FeatureGroup[] {
-  if (!type) return FEATURE_GROUPS.filter((group) => !group.types);
+/** The groups that apply to one property type, and one listing type. */
+export function featureGroupsFor(
+  type?: string,
+  purpose?: 'rent' | 'sale',
+): FeatureGroup[] {
+  const key = type as PropertyTypeKey | undefined;
 
-  const key = type as PropertyTypeKey;
-  return FEATURE_GROUPS.filter(
-    (group) => !group.types || group.types.includes(key),
-  );
+  return FEATURE_GROUPS.filter((group) => {
+    if (group.types && (!key || !group.types.includes(key))) return false;
+    if (group.purpose && purpose && group.purpose !== purpose) return false;
+    return true;
+  });
 }
 
 /** Every feature offered for a type, flattened — used to spot custom ones. */
-export function knownFeaturesFor(type?: string): Set<string> {
+export function knownFeaturesFor(type?: string, purpose?: 'rent' | 'sale'): Set<string> {
   const all = new Set<string>();
-  for (const group of featureGroupsFor(type)) {
+  for (const group of featureGroupsFor(type, purpose)) {
     for (const feature of group.features) all.add(feature);
   }
   return all;
