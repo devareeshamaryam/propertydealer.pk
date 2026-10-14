@@ -137,6 +137,16 @@ export default function RichEditor({
     const editor = useEditor({
         extensions: [
             StarterKit.configure({
+                /*
+                 * StarterKit v3 bundles Link and Underline, and both are also
+                 * imported and registered below with their own options —
+                 * hence "[tiptap warn]: Duplicate extension names found:
+                 * ['link', 'underline']". Two copies of a mark is not a
+                 * warning to live with: which one handles a command is
+                 * undefined. The explicit ones win; these are switched off.
+                 */
+                link: false,
+                underline: false,
                 heading: {
                     levels: [1, 2, 3],
                 },

@@ -12,11 +12,9 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { packageApi, subscriptionApi } from "@/lib/api";
 import {
-  ConfirmDialog,
   DataCard,
   DataCardTitle,
   PageHeader,
-  useConfirm,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import {
@@ -67,8 +65,6 @@ function PurchaseContent() {
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutInvoice | null>(null);
 
-  const { confirm, dialogProps } = useConfirm();
-
   const load = useCallback(async () => {
     try {
       setLoading(true);
@@ -103,48 +99,60 @@ function PurchaseContent() {
   }, [load]);
 
   /*
-   * Buying opens a checkout, it does not fire a request into the dark.
+   * One tap, straight to the checkout.
    *
-   * Before this, "Confirm purchase" created a pending subscription and told the
-   * agent an admin would activate it "shortly" — with no amount to send, no
-   * account to send it to and no way to say they had paid. The purchase now
-   * returns an invoice, and the checkout shows the accounts and takes the
-   * screenshot.
+   * There used to be a confirmation dialog in front of this — "Subscribe to
+   * Starter? … Continue to payment" — and it was pure cost. It confirmed
+   * nothing destructive (an unpaid invoice is replaced the moment a different
+   * plan is chosen), it added a second popup to a flow that already ends in
+   * one, and it was the exact control that broke twice: the dialog closed on
+   * confirm whether the call had worked or not, so a failure and a success
+   * looked identical from the outside.
+   *
+   * The checkout itself is the confirmation. It names the plan, shows the
+   * amount, and nothing has been paid until the agent says so.
    */
-  const requestPurchase = (pkg: PackageRecord) =>
-    confirm({
-      title: `Subscribe to ${pkg.name}?`,
-      description: `Rs ${pkg.price?.toLocaleString("en-PK")} for ${
-        pkg.duration
-      } days. The next screen shows where to send the payment.`,
-      confirmLabel: "Continue to payment",
-      destructive: false,
-      onConfirm: async () => {
-        try {
-          setPurchasing(true);
-          setPurchaseError(null);
-          const invoice = await subscriptionApi.purchase(pkg._id);
-          setCheckout({
-            _id: String(invoice?._id ?? ""),
-            invoiceNumber: invoice?.invoiceNumber,
-            planName: invoice?.planName ?? pkg.name,
-            amount: invoice?.amount ?? pkg.price,
-            planDurationDays: invoice?.planDurationDays ?? pkg.duration,
-            planPropertyLimit: invoice?.planPropertyLimit ?? pkg.propertyLimit,
-            paymentStatus: invoice?.paymentStatus,
-          });
-        } catch (err) {
-          console.error("Error purchasing package:", err);
-          const reason = apiErrorMessage(err, "Please try again.");
-          setPurchaseError(reason);
-          // The old handler used window.alert() for both success and failure.
-          toast.error("Could not complete purchase", { description: reason });
-        } finally {
-          setPurchasing(false);
-        }
-      },
-    });
+  const startCheckout = async (pkg: PackageRecord) => {
+    try {
+      setPurchasing(true);
+      setPurchaseError(null);
 
+      const invoice = await subscriptionApi.purchase(pkg._id);
+
+      setCheckout({
+        _id: String(invoice?._id ?? ""),
+        invoiceNumber: invoice?.invoiceNumber,
+        planName: invoice?.planName ?? pkg.name,
+        amount: invoice?.amount ?? pkg.price,
+        planDurationDays: invoice?.planDurationDays ?? pkg.duration,
+        planPropertyLimit: invoice?.planPropertyLimit ?? pkg.propertyLimit,
+        paymentStatus: invoice?.paymentStatus,
+      });
+    } catch (err) {
+      console.error("Error purchasing package:", err);
+      const reason = apiErrorMessage(err, "Please try again.");
+      setPurchaseError(reason);
+      toast.error("Could not open the checkout", { description: reason });
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  /*
+   * Every branch below produces the page body, and the two dialogs are
+   * rendered once, after it.
+   *
+   * They used to be pasted into the single-package branch only. So an agent
+   * who arrived from the pricing page (/dashboard/purchase-package?packageId=…)
+   * got a checkout, and an agent who arrived from the sidebar's "Buy a Plan"
+   * — the list, with no packageId — clicked Continue and watched nothing
+   * happen. The purchase itself went through, which is why the invoice turned
+   * up in the admin screen and My Subscription started showing a pending
+   * payment for a screen the agent had never been shown.
+   *
+   * Rendered out here, a branch cannot forget them.
+   */
+  const body = (() => {
   if (loading) {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-5">
@@ -282,7 +290,7 @@ function PurchaseContent() {
             className="mt-6 w-full"
             size="lg"
             disabled={purchasing}
-            onClick={() => requestPurchase(selected)}
+            onClick={() => void startCheckout(selected)}
           >
             {purchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Confirm purchase
@@ -292,13 +300,6 @@ function PurchaseContent() {
           </p>
         </DataCard>
 
-        <ConfirmDialog {...dialogProps} />
-
-      <CheckoutDialog
-        invoice={checkout}
-        onClose={() => setCheckout(null)}
-        onSubmitted={() => router.push("/dashboard/my-subscription")}
-      />
       </div>
     );
   }
@@ -388,8 +389,11 @@ function PurchaseContent() {
               <Button
                 className="mt-5 w-full"
                 disabled={purchasing}
-                onClick={() => requestPurchase(pkg)}
+                onClick={() => void startCheckout(pkg)}
               >
+                {purchasing && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Choose {pkg.name}
               </Button>
             </DataCard>
@@ -397,8 +401,20 @@ function PurchaseContent() {
         </div>
       )}
 
-      <ConfirmDialog {...dialogProps} />
     </div>
+    );
+  })();
+
+  return (
+    <>
+      {body}
+
+      <CheckoutDialog
+        invoice={checkout}
+        onClose={() => setCheckout(null)}
+        onSubmitted={() => router.push("/dashboard/my-subscription")}
+      />
+    </>
   );
 }
 

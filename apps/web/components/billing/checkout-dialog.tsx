@@ -18,7 +18,6 @@ import { Label } from "@/components/ui/label";
 import { ImageField } from "@/components/media";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { subscriptionApi, type PaymentMethodRecord } from "@/lib/api";
-import { amountShort } from "@/lib/pk";
 import { cn } from "@/lib/utils";
 
 /**
@@ -142,7 +141,19 @@ export function CheckoutDialog({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="text-lg font-bold">
-              Pay {amountShort(invoice.amount) || "—"}
+              {/*
+                The exact figure, not the rounded one.
+
+                This said "Pay 1 Thousand" — amountShort is built for property
+                prices, where "1.5 Crore" is how everyone speaks. A payment
+                instruction is the opposite case: the agent is about to type a
+                number into JazzCash, and anything they have to interpret is a
+                transfer that comes back wrong.
+              */}
+              Pay Rs{" "}
+              {typeof invoice.amount === "number"
+                ? invoice.amount.toLocaleString("en-PK")
+                : "—"}
             </h3>
             <p className="text-xs text-muted-foreground">
               {invoice.invoiceNumber ? `${invoice.invoiceNumber} · ` : ""}

@@ -34,7 +34,17 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options',    value: 'nosniff' },
           { key: 'X-XSS-Protection',          value: '1; mode=block' },
           { key: 'Referrer-Policy',           value: 'origin-when-cross-origin' },
-          { key: 'Permissions-Policy',        value: 'camera=(), microphone=(), geolocation=()' },
+          /*
+           * geolocation=(self), not ().
+           *
+           * () blocks it outright, including for our own pages — so the "I'm
+           * here" button on the map picker threw "Permissions policy
+           * violation: Geolocation access has been blocked" and did nothing.
+           * (self) keeps it off for embedded third parties and lets our own
+           * page ask, which the browser still gates behind the user's own
+           * permission prompt.
+           */
+          { key: 'Permissions-Policy',        value: 'camera=(), microphone=(), geolocation=(self)' },
         ],
       },
       {

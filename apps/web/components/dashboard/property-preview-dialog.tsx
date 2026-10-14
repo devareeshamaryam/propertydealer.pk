@@ -281,7 +281,11 @@ export function PropertyPreviewDialog({
                   {property.status === "approved" && property.slug && (
                     <Button variant="outline" size="sm" asChild>
                       <Link
-                        href={`/property/${property.slug}`}
+                        // /property/<slug> is not a route — the listing
+                        // page is /properties/<slug>. This 404'd every time
+                        // somebody opened the preview, and Next prefetched it
+                        // on hover as well.
+                        href={`/properties/${property.slug}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

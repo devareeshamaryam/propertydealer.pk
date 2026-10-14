@@ -42,6 +42,8 @@ const OBJECT_ID = /^[a-f\d]{24}$/i;
 interface Crumb {
   label: string;
   href: string;
+  /** False for a path segment that only holds the next one, like "edit". */
+  navigable?: boolean;
 }
 
 function buildCrumbs(pathname: string): Crumb[] {
@@ -49,7 +51,7 @@ function buildCrumbs(pathname: string): Crumb[] {
   const crumbs: Crumb[] = [];
   let href = "";
 
-  for (const segment of segments) {
+  for (const [index, segment] of segments.entries()) {
     href += `/${segment}`;
     const label = OBJECT_ID.test(segment)
       ? `#${segment.slice(-6)}`
@@ -57,7 +59,23 @@ function buildCrumbs(pathname: string): Crumb[] {
         segment
           .replace(/-/g, " ")
           .replace(/\b\w/g, (char) => char.toUpperCase()));
-    crumbs.push({ label, href });
+
+    /*
+     * Some segments only exist to hold the next one.
+     *
+     * Every crumb used to be a link, including "edit" in
+     * /dashboard/property/edit/<id> — a path that is not a page. Next
+     * prefetches every Link that comes into view, so opening any edit screen
+     * fired a request for a route that does not exist, and the console filled
+     * with a 404 followed by "Unexpected token '<'" — that is the 404's HTML
+     * being parsed as an RSC payload. Clicking the crumb went nowhere either.
+     *
+     * The last crumb is already plain text, so a genuine .../[id]/edit page
+     * is unaffected.
+     */
+    const navigable = !(segment === "edit" && index < segments.length - 1);
+
+    crumbs.push({ label, href, navigable });
   }
 
   return crumbs;
@@ -133,7 +151,7 @@ export default function DashboardLayout({
                   const isLast = index === crumbs.length - 1;
                   return (
                     <BreadcrumbItem key={crumb.href}>
-                      {isLast ? (
+                      {isLast || crumb.navigable === false ? (
                         <BreadcrumbPage className="font-medium">
                           {crumb.label}
                         </BreadcrumbPage>

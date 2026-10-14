@@ -804,6 +804,7 @@ export default function AddProperty() {
                     .filter(Boolean)
                     .join(", ")}
                   city={selectedCityName}
+                  area={selectedAreaName}
                 />
               </div>
               <p className="text-xs text-gray-500">

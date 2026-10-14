@@ -37,6 +37,8 @@ interface MapPickerProps {
   addressQuery?: string;
   /** The city picked in the form, used as the opening view for a new listing. */
   city?: string;
+  /** The area picked in the form — the fallback when the street is unknown. */
+  area?: string;
 }
 
 function LocationMarker({
@@ -83,6 +85,7 @@ export default function MapPicker({
   initialLng,
   addressQuery,
   city,
+  area,
 }: MapPickerProps) {
   const hasInitial = Boolean(initialLat && initialLng);
 
@@ -93,6 +96,8 @@ export default function MapPicker({
   const [search, setSearch] = useState('');
   const [hits, setHits] = useState<GeocodeHit[]>([]);
   const [searching, setSearching] = useState(false);
+  /** What the address lookup managed, when it managed less than asked. */
+  const [note, setNote] = useState<string | null>(null);
   const [zoom, setZoom] = useState(hasInitial ? 16 : 5);
   const abort = useRef<AbortController | null>(null);
 
@@ -143,6 +148,9 @@ export default function MapPicker({
     const text = query.trim();
     if (text.length < 3) return;
 
+    // A fresh search supersedes whatever the address lookup had to say.
+    setNote(null);
+
     abort.current?.abort();
     const controller = new AbortController();
     abort.current = controller;
@@ -159,6 +167,86 @@ export default function MapPicker({
     } catch {
       // Aborted, offline, or Nominatim throttling us. The map still works by
       // clicking, which is the important part.
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  /**
+   * Address → pin, giving up one piece at a time.
+   *
+   * A single lookup of the whole thing was all this did, and Pakistani street
+   * addresses are exactly what a global gazetteer does not have: "House 12,
+   * Street 4, AlRazaq Block, Sahiwal" returns nothing from Nominatim, the
+   * button did nothing visible, and the listing was saved with no pin at all.
+   *
+   * So it walks down instead of failing: the full address, then area plus
+   * city, then the city on its own. An approximate pin on the right block is
+   * worth far more than an empty map — the agent drags it the last hundred
+   * metres, which they can do, rather than searching for a street name
+   * OpenStreetMap has never heard of.
+   */
+  const findFromAddress = async () => {
+    const candidates = [
+      addressQuery,
+      [area, city].filter(Boolean).join(", "),
+      city,
+    ]
+      .map((text) => (text ?? "").trim())
+      .filter((text, index, all) => text.length > 2 && all.indexOf(text) === index);
+
+    if (candidates.length === 0) return;
+
+    abort.current?.abort();
+    const controller = new AbortController();
+    abort.current = controller;
+
+    setSearching(true);
+    setNote(null);
+    setHits([]);
+
+    try {
+      for (let level = 0; level < candidates.length; level++) {
+        const text = candidates[level]!;
+        const found = await geocodeAddress(text, controller.signal);
+        const best = found[0];
+        if (!best) continue;
+
+        setSearch(text);
+        // Zoom out a little for the vaguer matches: pretending a city-level
+        // hit is street-accurate is how a pin ends up in the wrong block.
+        place(best.lat, best.lng, level === 0 ? 17 : level === 1 ? 15 : 12);
+
+        setNote(
+          level === 0
+            ? null
+            : level === 1
+              ? "Pinned the area. Drag the marker to the exact spot."
+              : "Pinned the city only — drag the marker to the property.",
+        );
+        return;
+      }
+
+      /*
+       * Last resort, and no network involved.
+       *
+       * CITY_CENTERS already holds the sixteen cities this site actually
+       * covers. Measured against the live listings, OpenStreetMap has nothing
+       * for the small blocks of Sahiwal — so without this the button still
+       * ended in "nothing happened" for exactly the agents it was built for.
+       */
+      const centre = cityCenter(city);
+      if (centre) {
+        place(centre[0], centre[1], 12);
+        setNote("Pinned the city only — drag the marker to the property.");
+        return;
+      }
+
+      setNote(
+        "Could not find that address on the map. Drag the marker, or search a nearby landmark.",
+      );
+    } catch {
+      // Aborted or offline. Clicking the map still works.
     } finally {
       setSearching(false);
     }
@@ -209,10 +297,7 @@ export default function MapPicker({
         {addressReady && (
           <button
             type="button"
-            onClick={() => {
-              setSearch(addressQuery!.trim());
-              void runSearch(addressQuery!);
-            }}
+            onClick={() => void findFromAddress()}
             disabled={searching}
             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2.5 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
             title="Use the address, area and city entered above"
@@ -232,6 +317,18 @@ export default function MapPicker({
           I&apos;m here
         </button>
       </div>
+
+      {/*
+        Says what the lookup actually managed. "Find from address" falls back
+        from the street to the area to the city, and an agent who is not told
+        that will trust a city-centre pin as if it were their block.
+      */}
+      {note && (
+        <p className="flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+          {note}
+        </p>
+      )}
 
       {hits.length > 1 && (
         <ul className="divide-y rounded-lg border bg-white text-sm">
