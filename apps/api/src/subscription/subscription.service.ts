@@ -295,15 +295,31 @@ export class SubscriptionService {
     return saved;
   }
 
-  async cancel(id: string, userId: string): Promise<SubscriptionDocument> {
+  /**
+   * End a subscription early.
+   *
+   * An agent may cancel their own. An admin may cancel anybody's, which is
+   * the half that was missing: the admin screen could activate a plan and
+   * reject a payment, but once a plan was live there was no way to take it
+   * back — a refund, a chargeback or an account being closed left the plan
+   * running until its end date with no control over it at all.
+   *
+   * Cancelling takes effect immediately. findActiveSubscription only matches
+   * status 'active', so the account drops to the Free tier on the next
+   * request; nothing it has already published is touched.
+   */
+  async cancel(
+    id: string,
+    userId: string,
+    userRole?: string,
+  ): Promise<SubscriptionDocument> {
     const subscription = await this.subscriptionModel.findById(id).exec();
 
     if (!subscription) {
       throw new NotFoundException('Subscription not found');
     }
 
-    // Verify user owns this subscription
-    if (subscription.userId.toString() !== userId) {
+    if (userRole !== 'ADMIN' && subscription.userId.toString() !== userId) {
       throw new ForbiddenException('You can only cancel your own subscriptions');
     }
 
@@ -312,7 +328,22 @@ export class SubscriptionService {
     }
 
     subscription.status = 'cancelled';
-    return subscription.save();
+    const saved = await subscription.save();
+
+    if (userRole === 'ADMIN') {
+      this.discord.send({
+        title: '🚫 Plan cancelled by admin',
+        description: `${saved.planName ?? 'Plan'} · ${saved.invoiceNumber ?? ''}`,
+        url: '/dashboard/subscriptions',
+        color: DISCORD_COLORS.review,
+        fields: [
+          { name: 'Agent id', value: String(saved.userId), inline: false },
+          { name: 'Cancelled by', value: String(userId), inline: false },
+        ],
+      });
+    }
+
+    return saved;
   }
 
   async incrementPropertyCount(

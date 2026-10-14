@@ -76,8 +76,37 @@ export default function EditProperty() {
   // Form state
   const [listingType, setListingType] = useState<"rent" | "sale">("rent");
   const [propertyType, setPropertyType] = useState("");
-  const [cityId, setCityId] = useState("");
-  const [areaId, setAreaId] = useState("");
+  /*
+   * Location is derived, not assigned.
+   *
+   * Three times now this form has opened on a live listing showing "Select
+   * city" / "Select city first", and saving from that screen wrote the empty
+   * selection back. Every attempt to fix it by getting the setState order
+   * right failed, because the design was the problem: the listing's own
+   * location existed only as whatever was left in two string states after
+   * three fetches and four setters had raced.
+   *
+   * So it is not stored in those states any more. `loadedArea` holds the
+   * area exactly as the API returned it — one assignment, no race — and the
+   * ids below are computed from it. A choice state starts null, meaning "the
+   * person has not touched this control", and only once they do does their
+   * pick take over. There is no sequence of events that can empty this while
+   * the listing has an area, because nothing ever writes to it.
+   */
+  const [loadedArea, setLoadedArea] = useState<Area | null>(null);
+  const [cityChoice, setCityChoice] = useState<string | null>(null);
+  const [areaChoice, setAreaChoice] = useState<string | null>(null);
+
+  const loadedCity =
+    loadedArea && typeof loadedArea.city === "object"
+      ? (loadedArea.city as City)
+      : null;
+
+  const cityId = cityChoice ?? (loadedCity ? String(loadedCity._id) : "");
+  const areaId = areaChoice ?? (loadedArea ? String(loadedArea._id) : "");
+
+  const setCityId = setCityChoice;
+  const setAreaId = setAreaChoice;
   const [title, setTitle] = useState("");
   const [location, setLocation] = useState("");
   const [bedrooms, setBedrooms] = useState("");
@@ -94,22 +123,6 @@ export default function EditProperty() {
   const [cities, setCities] = useState<City[]>([]);
   const [areas, setAreas] = useState<Area[]>([]);
 
-  /*
-   * The city and area this listing was saved with, held separately.
-   *
-   * They used to be merged into the two lists above and nothing else. That
-   * depended on three fetches and four setState calls landing in the right
-   * order, and when any of them lost the race the dropdowns rendered their
-   * placeholder — "Select city", "Select city first" — on a listing that was
-   * live with a perfectly good location. Saving from that screen then wrote
-   * the empty selection back.
-   *
-   * Kept here they cannot be lost: cityOptions/areaOptions below always
-   * contain them, whatever the fetches do, and whether or not the area is one
-   * of the ones /areas?cityId= happens to return.
-   */
-  const [seededCity, setSeededCity] = useState<City | null>(null);
-  const [seededArea, setSeededArea] = useState<Area | null>(null);
   const [loadingProperty, setLoadingProperty] = useState(true);
   const [loadingAreas, setLoadingAreas] = useState(false);
   const [showAddCityModal, setShowAddCityModal] = useState(false);
@@ -203,8 +216,6 @@ export default function EditProperty() {
       }
 
       const areaIdStr = String(areaObj._id);
-      setAreaId(areaIdStr);
-      setSeededArea(areaObj as Area);
       setAreas((prev) =>
         prev.some((a) => String(a._id) === areaIdStr) ? prev : [...prev, areaObj],
       );
@@ -225,14 +236,19 @@ export default function EditProperty() {
 
       if (cityObj?._id) {
         const cityIdStr = String(cityObj._id);
-        setCityId(cityIdStr);
-        setSeededCity(cityObj as City);
         setCities((prev) =>
           prev.some((c) => String(c._id) === cityIdStr) ? prev : [...prev, cityObj],
         );
       } else if (!areaObj.city) {
         setLocationUnresolved(true);
       }
+
+      /*
+       * The one write that matters, and it happens last: the area with its
+       * city attached, whichever of the three shapes it arrived in. Both
+       * dropdowns read from this.
+       */
+      setLoadedArea({ ...areaObj, city: cityObj ?? areaObj.city } as Area);
     } catch (error) {
       console.error("Could not restore the listing's location:", error);
       setLocationUnresolved(true);
@@ -373,18 +389,18 @@ export default function EditProperty() {
    * ObjectId and /areas?cityId= used to miss those rows entirely.
    */
   const cityOptions = useMemo(() => {
-    if (!seededCity) return cities;
-    return cities.some((c) => String(c._id) === String(seededCity._id))
+    if (!loadedCity) return cities;
+    return cities.some((c) => String(c._id) === String(loadedCity._id))
       ? cities
-      : [seededCity, ...cities];
-  }, [cities, seededCity]);
+      : [loadedCity, ...cities];
+  }, [cities, loadedCity]);
 
   const areaOptions = useMemo(() => {
-    if (!seededArea) return areas;
-    return areas.some((a) => String(a._id) === String(seededArea._id))
+    if (!loadedArea) return areas;
+    return areas.some((a) => String(a._id) === String(loadedArea._id))
       ? areas
-      : [seededArea, ...areas];
-  }, [areas, seededArea]);
+      : [loadedArea, ...areas];
+  }, [areas, loadedArea]);
 
   /** The chosen city and area by name, for the map search box. */
   const selectedCityName =
@@ -513,7 +529,15 @@ export default function EditProperty() {
       // Add JSON data as separate fields (backend expects these in the body)
       formData.append("listingType", listingType);
       formData.append("propertyType", mapPropertyTypeToBackend(propertyType));
-      formData.append("area", areaId); // Area ID (ObjectId)
+      /*
+       * Only sent when there is one.
+       *
+       * A draft save skips the required-field check, so an empty areaId used
+       * to go out as `area=""` and take the listing's location with it. Left
+       * out entirely, the server keeps whatever the listing already had —
+       * which is the only safe reading of "the user did not pick an area".
+       */
+      if (areaId) formData.append("area", areaId); // Area ID (ObjectId)
       formData.append("title", title);
       formData.append("location", location);
       formData.append("bedrooms", bedrooms);

@@ -142,9 +142,17 @@ export class SubscriptionController {
     return this.subscriptionService.activate(id);
   }
 
+  /**
+   * JwtAuthGuard, not AdminGuard: the service decides. An agent cancels their
+   * own plan; an admin cancels anybody's.
+   */
   @Put(':id/cancel')
   @UseGuards(JwtAuthGuard)
   async cancel(@Param('id') id: string, @Request() req) {
-    return this.subscriptionService.cancel(id, req.user.userId);
+    return this.subscriptionService.cancel(
+      id,
+      req.user.userId,
+      req.user?.role,
+    );
   }
 }

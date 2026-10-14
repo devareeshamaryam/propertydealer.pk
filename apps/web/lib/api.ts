@@ -607,6 +607,12 @@ export const subscriptionApi = {
   },
 
   /** Admin: the payment could not be verified. */
+  /** End a subscription now. An admin may cancel anyone's. */
+  cancelSubscription: async (subscriptionId: string) => {
+    const response = await api.put(`/subscriptions/${subscriptionId}/cancel`);
+    return response.data;
+  },
+
   /**
    * Hand an agent a plan outright, with no invoice.
    *

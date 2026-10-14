@@ -16,6 +16,8 @@
     "import:wp": "node -r ts-node/register -r tsconfig-paths/register src/scripts/import-wp.ts",
     "import:media": "node -r ts-node/register -r tsconfig-paths/register src/scripts/import-existing-media.ts",
     "backfill:slugs": "node -r ts-node/register -r tsconfig-paths/register src/scripts/backfill-slugs.ts",
+    "backfill:areas": "node -r ts-node/register -r tsconfig-paths/register src/scripts/backfill-area-from-location.ts",
+    "backfill:areas:prod": "node dist/apps/api/src/scripts/backfill-area-from-location.js",
     "migrate:owner-ids:prod": "node dist/apps/api/src/scripts/normalize-owner-ids.js",
     "migrate:owner-ids": "node -r ts-node/register -r tsconfig-paths/register src/scripts/normalize-owner-ids.ts",
     "migrate:material-rates": "node -r ts-node/register -r tsconfig-paths/register src/scripts/migrate-material-rates.ts",

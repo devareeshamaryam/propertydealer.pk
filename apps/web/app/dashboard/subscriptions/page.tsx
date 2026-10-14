@@ -185,6 +185,40 @@ export default function SubscriptionsPage() {
    * and submit again — "payment failed" with no reason just produces a phone
    * call to the office.
    */
+  /**
+   * End a live plan now.
+   *
+   * The screen could start a plan and refuse a payment, but not stop one that
+   * was already running — so a refund, a chargeback or a closed account left
+   * the plan live until its end date with nothing anyone could do about it.
+   *
+   * Confirmed, because it takes effect on the agent's next request: they drop
+   * to the Free tier and their listing allowance shrinks with them. Nothing
+   * they have already published is touched.
+   */
+  const requestCancel = (sub: SubscriptionRecord) =>
+    confirm({
+      title: "Cancel this plan?",
+      description:
+        "It ends immediately — the agent goes back to the Free plan and can publish one listing at a time. Their existing listings stay up. This cannot be undone; you would have to give them the plan again.",
+      confirmLabel: "Cancel the plan",
+      destructive: true,
+      onConfirm: async () => {
+        try {
+          setBusyId(sub._id);
+          await subscriptionApi.cancelSubscription(sub._id);
+          toast.success("Plan cancelled");
+          await load();
+        } catch (err) {
+          toast.error("Could not cancel the plan", {
+            description: apiErrorMessage(err, "Please try again."),
+          });
+        } finally {
+          setBusyId(null);
+        }
+      },
+    });
+
   const requestReject = (sub: SubscriptionRecord) =>
     confirm({
       title: "Reject this payment?",
@@ -507,6 +541,16 @@ export default function SubscriptionsPage() {
                               </Button>
                             )}
                           </div>
+                        ) : sub.status === "active" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() => requestCancel(sub)}
+                          >
+                            <X className="mr-1.5 h-3.5 w-3.5" />
+                            Cancel plan
+                          </Button>
                         ) : (
                           <span className="text-sm text-muted-foreground">—</span>
                         )}
