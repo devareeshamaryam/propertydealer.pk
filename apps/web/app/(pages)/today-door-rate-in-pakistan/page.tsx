@@ -23,7 +23,17 @@ async function getDoorRates() {
   try {
     const apiUrl = process.env.INTERNAL_API_URL || "http://localhost:3010";
     const res = await fetch(`${apiUrl}/api/door-rate`, {
-      cache: "no-store",
+      // Matches `export const revalidate` at the top of this file. It used to
+
+      // be `cache: "no-store"`, which contradicted it: the page asked to be
+
+      // static-with-ISR and the fetch forbade caching, so every build threw
+
+      // DYNAMIC_SERVER_USAGE here and the page fell back to server-rendering on
+
+      // every request. Rate edits call RevalidateService, so this stays fresh.
+
+      next: { revalidate: 60 },
     });
     if (!res.ok) return [];
     return res.json();

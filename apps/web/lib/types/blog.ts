@@ -17,6 +17,14 @@ export interface BlogAuthor {
 
 // Main Blog type matching the backend Blog schema
 export interface Blog {
+  /**
+   * Minutes to read, worked out by the API.
+   *
+   * Present on the published-blogs list, which omits article bodies to stay
+   * under Next.js's 2MB data-cache limit, and absent on a single article —
+   * which carries its content and can be measured directly.
+   */
+  readMinutes?: number;
   _id: string;                    // MongoDB ObjectId
   title: string;                  // Blog title
   slug: string;                   // SEO-friendly URL slug

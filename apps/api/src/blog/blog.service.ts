@@ -33,17 +33,63 @@ export class BlogService {
         await this.revalidate.revalidate({ tags, paths });
     }
 
+    /**
+     * The published blogs, without their bodies.
+     *
+     * This used to return every post in full. The payload reached 6.1 MB,
+     * which is over Next.js's 2MB data-cache ceiling — so the home page's
+     * fetch of it was never cached and re-downloaded all six megabytes on
+     * every regeneration, and Redis held a 6MB value for a list nobody reads
+     * the bodies from. The two callers (the home page's blog strip and the
+     * related-posts row under an article) need titles, slugs, images and
+     * dates.
+     *
+     * `readMinutes` is computed in the pipeline rather than dropped: it is
+     * the one thing a card shows that is derived from the body, and
+     * $strLenCP measures the content without ever sending it. Roughly 1,100
+     * characters a minute, which is about 200 words.
+     *
+     * The full article still comes from findBySlug, untouched.
+     */
     async findPublishedBlogs(): Promise<BlogDocument[]> {
         // ⚡ Cache: blog list is hit on every home-page render.
         return this.cache.wrap(
             this.cache.buildKey('blogs:published', []),
             async () => {
                 try {
-                    return await this.blogModel
-                        .find({ status: 'published' })
-                        .populate('author', 'name email')
-                        .populate('categories', 'name slug')
+                    const rows = await this.blogModel
+                        .aggregate([
+                            { $match: { status: 'published' } },
+                            {
+                                $set: {
+                                    readMinutes: {
+                                        $max: [
+                                            1,
+                                            {
+                                                $ceil: {
+                                                    $divide: [
+                                                        { $strLenCP: { $ifNull: ['$content', ''] } },
+                                                        1100,
+                                                    ],
+                                                },
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                            { $unset: 'content' },
+                            { $sort: { createdAt: -1 } },
+                        ])
                         .exec();
+
+                    // populate() works on plain objects too, so the author and
+                    // category shapes stay exactly as the callers expect.
+                    await this.blogModel.populate(rows, [
+                        { path: 'author', select: 'name email' },
+                        { path: 'categories', select: 'name slug' },
+                    ]);
+
+                    return rows as unknown as BlogDocument[];
                 } catch (error) {
                     console.error('Error fetching published blogs:', error);
                     return [];

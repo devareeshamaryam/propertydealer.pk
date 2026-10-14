@@ -15,14 +15,23 @@ import { Package, PackageDocument } from '@rent-ghar/db/schemas/package.schema';
  * a third of Zameen's entry price for three times the listings, and starts at
  * Rs 500.
  *
- * Longer plans cost less per month, which is the usual shape and also the
- * honest one: a six-month commitment is worth a discount.
+ * Every plan runs for one month. Nothing longer is offered, on purpose: a
+ * six- or twelve-month plan is a bet on a site the agent has not used yet,
+ * and the refund conversation when it does not work out costs more than the
+ * discount ever earned. A dealer who renews twelve times has told you more
+ * than one who prepaid once.
  *
- *   Free         Rs     0   1 month    1 listing
- *   Starter      Rs   500   1 month    5 listings     Rs 500/month
- *   Dealer       Rs 1,200   3 months   15 listings    Rs 400/month
- *   Agency       Rs 2,000   6 months   40 listings    Rs 333/month
- *   Agency Plus  Rs 3,500   12 months  100 listings   Rs 292/month
+ * The ladder is listings and featured slots, nothing else:
+ *
+ *   Free         Rs     0    1 listing
+ *   Starter      Rs 1,000    5 listings     1 featured
+ *   Dealer       Rs 2,500   15 listings     3 featured
+ *   Agency       Rs 5,000   40 listings    10 featured
+ *   Agency Plus  Rs 9,000  100 listings    25 featured
+ *
+ * Still well under Zameen — their entry tier is 30 listings — while leaving
+ * room to move. Prices are a business call, not a code one: change them on
+ * the Packages screen in the admin panel and nothing here needs touching.
  *
  * ## Every claim here is enforced
  *
@@ -80,12 +89,16 @@ const PLANS: PlanSeed[] = [
     featuredListings: 0,
     photosPerProperty: 20,
     isActive: true,
-    features: ['1 live listing at a time', ...INCLUDED_EVERYWHERE],
+    features: [
+      '1 live listing at a time',
+      'Free, with no expiry',
+      ...INCLUDED_EVERYWHERE,
+    ],
   },
   {
     name: 'Starter',
     description: 'For the dealer with a handful of properties on the books.',
-    price: 500,
+    price: 1000,
     duration: 30,
     propertyLimit: 5,
     featuredListings: 1,
@@ -100,49 +113,49 @@ const PLANS: PlanSeed[] = [
   },
   {
     name: 'Dealer',
-    description: 'A working dealer’s plan, at Rs 400 a month.',
-    price: 1200,
-    duration: 90,
+    description: 'A working month: fifteen listings and three of them pinned.',
+    price: 2500,
+    duration: 30,
     propertyLimit: 15,
     featuredListings: 3,
     photosPerProperty: 20,
     isActive: true,
     features: [
       '15 live listings',
-      '3 featured listings',
-      'Valid 3 months — Rs 400 a month',
+      '3 featured listings — pinned above the rest',
+      'Valid 1 month',
       ...INCLUDED_EVERYWHERE,
     ],
   },
   {
     name: 'Agency',
     description: 'For an office running several areas at once.',
-    price: 2000,
-    duration: 180,
+    price: 5000,
+    duration: 30,
     propertyLimit: 40,
     featuredListings: 10,
     photosPerProperty: 20,
     isActive: true,
     features: [
       '40 live listings',
-      '10 featured listings',
-      'Valid 6 months — Rs 333 a month',
+      '10 featured listings — pinned above the rest',
+      'Valid 1 month',
       ...INCLUDED_EVERYWHERE,
     ],
   },
   {
     name: 'Agency Plus',
-    description: 'A full year, and room for a hundred properties.',
-    price: 3500,
-    duration: 365,
+    description: 'Room for a hundred properties and twenty-five pinned.',
+    price: 9000,
+    duration: 30,
     propertyLimit: 100,
     featuredListings: 25,
     photosPerProperty: 20,
     isActive: true,
     features: [
       '100 live listings',
-      '25 featured listings',
-      'Valid 12 months — Rs 292 a month',
+      '25 featured listings — pinned above the rest',
+      'Valid 1 month',
       ...INCLUDED_EVERYWHERE,
     ],
   },

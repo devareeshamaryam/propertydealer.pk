@@ -5,6 +5,21 @@ import { Blog, BlogPost } from '../types/blog';
 export type { BlogPost };
 
 /**
+ * Read time, from the body when it is here and from the server when it is not.
+ *
+ * The published-blogs list no longer ships article bodies — it was 6.1 MB and
+ * blew past Next's data-cache limit — so it carries a `readMinutes` the API
+ * worked out instead. The full article still arrives with its content, and
+ * then this measures it directly.
+ */
+function readTimeOf(blog: { content?: string; readMinutes?: number }): string {
+  if (typeof blog.readMinutes === 'number' && blog.readMinutes > 0) {
+    return `${blog.readMinutes} min read`;
+  }
+  return calculateReadTime(blog.content || '');
+}
+
+/**
  * Calculate estimated read time based on content length
  * Average reading speed: 200 words per minute
  */
@@ -110,7 +125,7 @@ export function transformBlogToPost(blog: Blog | null | undefined): BlogPost {
     author: getAuthorName(blog),
     image: getImage(blog),
     category: getCategoryName(blog),
-    readTime: calculateReadTime(blog.content || ''),
+    readTime: readTimeOf(blog),
     views: blog.views || 0,
   };
 }
