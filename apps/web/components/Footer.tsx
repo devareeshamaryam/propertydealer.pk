@@ -110,7 +110,7 @@ const Footer = async () => {
       {/* A soft highlight along the top edge, so the curve reads on any colour. */}
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
 
-      <div className="container mx-auto px-5 pb-8 pt-10 md:px-6 md:pt-14">
+      <div className="container container-flush mx-auto px-5 pb-8 pt-10 md:px-6 md:pt-14">
         <div className="grid grid-cols-2 gap-x-6 gap-y-9 md:grid-cols-4 lg:grid-cols-[1.5fr_1fr_1fr_1fr]">
           <div className="col-span-2 md:col-span-4 lg:col-span-1">
             <Link href="/" aria-label={`${r.siteName} home`} className="inline-block">
@@ -191,7 +191,7 @@ const Footer = async () => {
       </div>
 
       <div className="mx-5 border-t border-white/10 md:mx-6">
-        <div className="container mx-auto flex flex-col gap-1 py-5 text-[12.5px] text-white/50 sm:flex-row sm:items-center sm:justify-between">
+        <div className="container container-flush mx-auto flex flex-col gap-1 py-5 text-[12.5px] text-white/50 sm:flex-row sm:items-center sm:justify-between">
           <p>{settings.copyrightText ? settings.copyrightText.replace('{year}', String(year)) : `© ${year} ${r.siteName}. All rights reserved.`}</p>
           <p>{settings.tagline || 'Serving buyers, renters and dealers across Pakistan since 2007.'}</p>
         </div>

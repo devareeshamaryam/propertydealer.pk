@@ -100,7 +100,7 @@ export default function ShopCategoryClient({
 
   return (
     <div className="bg-slate-50 pb-10">
-      <div className="container mx-auto px-4 pt-5">
+      <div className="container mx-auto px-4 pt-3 sm:pt-4">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1 text-[12.5px] text-slate-500">
           <Link href="/" className="hover:text-primary">Home</Link>
@@ -108,7 +108,7 @@ export default function ShopCategoryClient({
           <span className="text-slate-700">{TYPE_META[type].label} rates</span>
         </nav>
 
-        <h1 className="text-[22px] font-bold tracking-tight text-slate-900 sm:text-[28px]" suppressHydrationWarning>
+        <h1 className="text-[24px] font-bold tracking-tight text-slate-900 sm:text-[32px]" suppressHydrationWarning>
           {heading} – {today}
         </h1>
         {prices.length > 0 && (
@@ -120,7 +120,7 @@ export default function ShopCategoryClient({
         )}
 
         {/* Material switcher */}
-        <div className="hide-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <div className="hide-scrollbar -mx-[var(--gutter)] mt-4 flex gap-2 overflow-x-auto px-[var(--gutter)] pb-1">
           {PRODUCT_TYPES.map((t) => {
             const active = pathname?.startsWith(TYPE_META[t].path) ?? t === type;
             return (
@@ -172,7 +172,7 @@ export default function ShopCategoryClient({
         )}
 
         {/* Toolbar */}
-        <div className="sticky top-0 z-20 -mx-4 mt-4 border-y border-slate-200 bg-slate-50/95 px-4 py-3 backdrop-blur md:top-[66px] md:mx-0 md:rounded-2xl md:border md:bg-white/95 md:px-3">
+        <div className="sticky top-16 z-20 -mx-[var(--gutter)] mt-4 border-y border-slate-200 bg-white px-2 py-2.5 sm:px-4 md:mx-0 md:rounded-xl md:border md:px-3">
           <div className="grid grid-cols-2 gap-2 md:flex md:items-center">
             <label className="relative col-span-2 md:w-64">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -243,7 +243,7 @@ export default function ShopCategoryClient({
               <button type="button" onClick={reset} className="mt-2 text-sm font-semibold text-primary hover:underline">Clear filters</button>
             </div>
           ) : view === 'grid' ? (
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
               {results.map((p) => <ProductCard key={p.id} product={p} />)}
             </div>
           ) : (

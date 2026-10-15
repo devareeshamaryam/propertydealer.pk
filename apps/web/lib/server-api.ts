@@ -43,6 +43,18 @@ export const serverApi = {
   },
 
   // City API
+  /** [{ _id, name, thumbnail }] — falls back to the full list on an older API. */
+  async getCityNames(): Promise<any[]> {
+    try {
+      const rows = await this.get<any[]>('/cities/names', { next: { revalidate: 600, tags: ['cities'] } });
+      if (Array.isArray(rows)) return rows;
+    } catch {
+      // older API
+    }
+    const all = await this.get<any[]>('/cities', { next: { revalidate: 600, tags: ['cities'] } });
+    return (all ?? []).map((c: any) => ({ _id: c._id, name: c.name, thumbnail: c.thumbnail }));
+  },
+
   async getCities(): Promise<any[]> {
     return this.get('/cities', { next: { revalidate: 60, tags: ['cities'] } });
   },
@@ -257,11 +269,42 @@ export async function fetchInitialListings(filters: {
     const res: any = await serverApi.getProperties(p.toString());
     const raw: BackendProperty[] = Array.isArray(res) ? res : res?.properties ?? [];
     return {
-      properties: raw.map(mapBackendToFrontendProperty),
+      // Cards only: the description is left out of what is sent to the browser.
+      properties: raw.map((r) => ({ ...mapBackendToFrontendProperty(r), description: undefined })),
       totalPages: Array.isArray(res) ? 1 : Number(res?.totalPages) || 1,
-      raw,
+      raw: raw.map((r: any) => ({ _id: r._id, slug: r.slug, title: r.title })) as BackendProperty[],
     };
   } catch {
     return { properties: [], totalPages: 1, raw: [] };
+  }
+}
+
+/**
+ * Cities for the round shortcuts, most listings first. Uses the API's
+ * /properties/city-popularity; if that is not there (an older API) it falls
+ * back to the plain city list with the big cities first. Never throws.
+ */
+export async function getCityStories(): Promise<import('@/components/CityStories').CityStory[]> {
+  const slug = (n: string) => n.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  try {
+    const rows: any[] = await serverApi.get('/properties/city-popularity', {
+      next: { revalidate: 600, tags: ['properties', 'cities'] },
+    });
+    if (Array.isArray(rows) && rows.length) return rows;
+  } catch {
+    // Older API — fall through.
+  }
+  try {
+    const cities: any[] = await serverApi.getCities();
+    const big = ['lahore', 'karachi', 'islamabad', 'rawalpindi', 'multan', 'faisalabad', 'faislabad', 'gujranwala', 'sahiwal', 'peshawar', 'bahawalpur'];
+    const rank = (n: string) => {
+      const i = big.indexOf(n.trim().toLowerCase());
+      return i === -1 ? 999 : i;
+    };
+    return (cities ?? [])
+      .map((c: any) => ({ _id: String(c._id), name: c.name, slug: slug(c.name), thumbnail: c.thumbnail }))
+      .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+  } catch {
+    return [];
   }
 }

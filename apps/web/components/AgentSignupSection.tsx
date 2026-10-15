@@ -24,7 +24,7 @@ const ADD = '/register?next=/dashboard/property/add-property';
 
 export default function AgentSignupSection() {
   return (
-    <section className="bg-white py-10 sm:py-12">
+    <section className="bg-white py-6 sm:py-12">
       <div className="container mx-auto px-4">
         <div className="flex flex-col gap-6 rounded-lg bg-navy px-5 py-7 text-white sm:px-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="max-w-2xl">

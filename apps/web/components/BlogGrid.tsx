@@ -223,7 +223,7 @@ const BlogGrid = ({ initialCategory }: BlogGridProps) => {
         */}
         <nav
           aria-label="Blog categories"
-          className="-mx-4 mb-8 flex gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="-mx-[var(--gutter)] mb-8 flex gap-2 overflow-x-auto px-[var(--gutter)] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <Link
             href="/blog"

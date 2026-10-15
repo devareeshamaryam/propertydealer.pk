@@ -31,6 +31,12 @@ export class CityController {
         }
     }
 
+    /** [{ _id, name, thumbnail }] — the light list for dropdowns. */
+    @Get('names')
+    async findCityNames() {
+        return this.cityService.findCityNames();
+    }
+
     @Get('name/:name')
     async findCityByName(@Param('name') name: string): Promise<CityDocument> {
         return this.cityService.findCityByName(name);

@@ -79,3 +79,6 @@ export const AreaSchema = SchemaFactory.createForClass(Area);
 
 // Create compound index to ensure area names are unique per city
 AreaSchema.index({ name: 1, city: 1 }, { unique: true });
+// A city's areas (dropdowns, location panel): the unique index above starts with
+// name, so it cannot serve "all areas of this city".
+AreaSchema.index({ city: 1, name: 1 });

@@ -80,13 +80,17 @@ export default function MobileNav() {
     return "";
   })();
 
+  /*
+   * A floating glass bar with rounded ends, lifted off the bottom edge.
+   * Labels and icons are near-black so they read on anything that scrolls
+   * beneath; the current tab and the "+" carry the theme colour.
+   */
   return (
     <nav
       aria-label="Main"
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-slate-200 bg-white md:hidden",
-        // Clears the home-area gesture bar on iPhones.
-        "box-content pb-[env(safe-area-inset-bottom)]",
+        "fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex h-16 items-stretch md:hidden",
+        "rounded-[22px] border border-white/60 bg-white/75 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.28),0_2px_6px_rgba(15,23,42,0.06)] backdrop-blur-xl backdrop-saturate-150",
       )}
     >
       {tabs.map((tab) => {
@@ -94,29 +98,35 @@ export default function MobileNav() {
         const Icon = tab.icon;
         const isPost = tab.key === "post";
 
+        if (isPost) {
+          return (
+            <Link
+              key={tab.key}
+              href={tab.href}
+              prefetch={false}
+              aria-label="Add a property"
+              className="flex flex-1 flex-col items-center justify-center"
+            >
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary text-white shadow-[0_6px_16px_-4px_var(--primary)] transition-transform active:scale-95">
+                <Plus className="h-6 w-6" strokeWidth={2.6} />
+              </span>
+            </Link>
+          );
+        }
+
         return (
           <Link
             key={tab.key}
             href={tab.href}
             prefetch={false}
             aria-current={on ? "page" : undefined}
-            aria-label={isPost ? "Add a property" : undefined}
             className={cn(
-              "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1",
-              isPost || on ? "text-primary" : "text-slate-500",
+              "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 transition-colors",
+              on ? "text-primary" : "text-slate-950",
             )}
           >
-            {on && !isPost && (
-              <span aria-hidden className="absolute inset-x-4 top-0 h-0.5 bg-primary" />
-            )}
-            {isPost ? (
-              <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-white">
-                <Plus className="h-4 w-4" strokeWidth={2.6} />
-              </span>
-            ) : (
-              <Icon className="h-5 w-5" strokeWidth={on ? 2.2 : 1.8} />
-            )}
-            <span className={cn("max-w-full truncate text-[10px] leading-tight", on || isPost ? "font-semibold" : "font-medium")}>
+            <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2.4 : 1.9} />
+            <span className={cn("max-w-full truncate text-[10.5px] leading-none", on ? "font-bold" : "font-medium")}>
               {tab.label}
             </span>
           </Link>

@@ -237,10 +237,10 @@ export default function PropertiesListing({
     (async () => {
       setLoadingAllAreas(true);
       try {
-        const data = await areaApi.getAll();
+        const data = await areaApi.getNames();
         if (Array.isArray(data)) {
           setAllAreas(data.map((a: any) => ({
-            id: a._id, name: a.name, slug: a.slug || '', count: a.count || 0,
+            id: a._id, name: a.name, slug: a.areaSlug || a.slug || '', count: a.count || 0,
           })));
         }
       } catch { setAllAreas([]); allAreasRequested.current = false; }
@@ -250,21 +250,18 @@ export default function PropertiesListing({
 
   // 🆕 Fetch full Area document (so we get rentContent/saleContent/description/sizeContents)
   useEffect(() => {
-    if (!initialAreaId && !initialAreaSlug) { setAreaData(null); return; }
+    // The server already worked out the page's SEO text; only fetch the area
+    // document when it did not.
+    if (richDescription || (!initialAreaId && !initialAreaSlug)) { setAreaData(null); return; }
     (async () => {
       try {
         let data: any = null;
         if (initialAreaId) {
           data = await areaApi.getById(initialAreaId);
         } else if (initialAreaSlug) {
+          // (No fallback to downloading every area — that was ~175 KB and
+          // several seconds on every area page whose slug lookup missed.)
           data = await areaApi.getByName(initialAreaSlug).catch(() => null);
-          if (!data) {
-            // fallback: match against full area list by slug
-            const all = await areaApi.getAll();
-            data = Array.isArray(all)
-              ? all.find((a: any) => a.areaSlug === initialAreaSlug)
-              : null;
-          }
         }
         setAreaData(data || null);
       } catch {
@@ -373,7 +370,7 @@ export default function PropertiesListing({
    */
   useEffect(() => {
     let cancelled = false;
-    Promise.all([cityApi.getAll(), propertyApi.getTypes()])
+    Promise.all([cityApi.getNames(), propertyApi.getTypes()])
       .then(([citiesRes, typesRes]) => {
         if (cancelled) return;
         setAllCities(citiesRes);
@@ -819,19 +816,19 @@ export default function PropertiesListing({
       </Sheet>
 
       {/* ── Main listings section ─────────────────────────────────────────── */}
-      <section className="flex-1 bg-slate-50 py-4 md:py-6">
+      <section className="flex-1 bg-slate-50 py-3 md:py-6">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row gap-6">
 
             <aside className="w-72 shrink-0 hidden lg:block">
-              <div className="sticky top-[148px]">
+              <div className="sticky top-[136px]">
                 <SearchSidebar city={matchedCity} purpose={purpose} type={type} useCleanUrls={useCleanUrls} filters={advancedFilters} onFilterChange={handleFilterChange} />
               </div>
             </aside>
 
-            <div className="min-w-0 flex-1 space-y-4">
+            <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
 
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+              <h1 className="text-[21px] font-bold tracking-tight text-slate-900 sm:text-[28px]">
                 {type !== 'all'
                   ? (type.toLowerCase() === 'house' ? 'Property' : `${type.charAt(0).toUpperCase() + type.slice(1)}s`)
                   : 'Properties'}
@@ -839,7 +836,7 @@ export default function PropertiesListing({
                 in {matchedCity || 'Pakistan'}
               </h1>
 
-              <div className="lg:hidden flex h-10 rounded-md overflow-hidden border border-slate-300">
+              <div className="lg:hidden flex h-10 overflow-hidden rounded-xl border border-slate-200 bg-white">
                 <button onClick={() => updateFilters(matchedCity, type, 'buy')}
                   className={`flex-1 text-sm font-semibold transition-colors ${purpose === 'buy' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
                   Buy
@@ -856,23 +853,28 @@ export default function PropertiesListing({
               </div>
 
               <div className="lg:hidden relative">
-                <div className="relative">
-                  <div className="flex flex-wrap gap-x-2 gap-y-0 pr-28">
-                    {typeTabs.map(tab => {
-                      const isActive = tab.key === 'all'
-                        ? (type === 'all' || !type)
-                        : type.toLowerCase() === tab.key;
-                      return (
-                        <button key={tab.key} onClick={() => navigateType(tab.key)}
-                          className={`flex flex-col items-start pb-2 pt-0.5 text-left transition-colors border-b-2 ${isActive ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                          <span className="text-xs font-bold leading-tight whitespace-nowrap">{tab.label}</span>
-                          <span className="text-[10px] text-gray-400 leading-tight">({tab.count})</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                {/*
+                  One scrolling row of chips: the property types, then
+                  "Locations". It was a wrapped grid of tab labels each with a
+                  count in brackets under it — counts of the page loaded so
+                  far, not of the search, so "(0)" sat next to types that do
+                  have listings.
+                */}
+                <div className="hide-scrollbar -mx-[var(--gutter)] flex items-center gap-1.5 overflow-x-auto px-[var(--gutter)]">
+                  {typeTabs.map(tab => {
+                    const isActive = tab.key === 'all'
+                      ? (type === 'all' || !type)
+                      : type.toLowerCase() === tab.key;
+                    return (
+                      <button key={tab.key} onClick={() => navigateType(tab.key)}
+                        className={`h-8 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'bg-primary text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>
+                        {tab.key === 'all' ? 'All' : tab.label}
+                      </button>
+                    );
+                  })}
                   <button onClick={() => setIsLocationPanelOpen(v => !v)}
-                    className={`absolute right-0 top-0.5 text-[11px] font-semibold border px-2 py-1 rounded-md transition-colors whitespace-nowrap ${isLocationPanelOpen ? 'border-primary bg-primary text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'}`}>
+                    className={`inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3.5 text-[13px] font-medium transition-colors ${isLocationPanelOpen ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>
+                    <MapPin className="h-3.5 w-3.5" />
                     {isLocationPanelOpen ? 'Close' : 'Locations'}
                   </button>
                 </div>
@@ -880,7 +882,7 @@ export default function PropertiesListing({
                 {isLocationPanelOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsLocationPanelOpen(false)} />
-                    <div className="absolute right-0 top-8 z-50 w-[260px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
+                    <div className="absolute right-0 top-10 z-50 w-[260px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
                       <div className="px-4 pt-4 pb-3">
                         <p className="text-[15px] font-semibold text-slate-900 leading-snug">{locationPanelTitle}</p>
                       </div>
@@ -910,7 +912,7 @@ export default function PropertiesListing({
               </div>
 
               {showMarlaChips && (
-                <div className="hide-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
+                <div className="hide-scrollbar -mx-[var(--gutter)] flex gap-2 overflow-x-auto px-[var(--gutter)] sm:mx-0 sm:flex-wrap sm:px-0">
                   {SIZE_OPTIONS.map(opt => (
                     <button key={opt.marlaMin} onClick={() => handleMarlaClick(opt.marlaMin)}
                       className={`h-8 shrink-0 whitespace-nowrap px-3 rounded-md text-[13px] font-medium border transition-colors ${selectedMarla === opt.marlaMin ? 'border-primary bg-primary/10 text-primary' : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'}`}>

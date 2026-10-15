@@ -57,7 +57,7 @@ const TOOLS = [
 
 const ExploreTools = () => {
   return (
-    <section className="border-t border-slate-100 bg-white py-10 sm:py-12">
+    <section className="border-t border-slate-100 bg-white py-6 sm:py-12">
       <div className="container mx-auto px-4">
         <SectionHeading title="Explore more" />
 

@@ -42,6 +42,12 @@ export class AreaController {
     return this.areaService.findAllAreas();
   }
 
+  /** [{ _id, name, areaSlug, city }] — the light list for dropdowns. ?cityId= narrows it. */
+  @Get('names')
+  async findAreaNames(@Query('cityId') cityId?: string) {
+    return this.areaService.findAreaNames(cityId);
+  }
+
   @Get(':id')
   async findAreaById(@Param('id') id: string): Promise<AreaDocument> {
     return this.areaService.findAreaById(id);

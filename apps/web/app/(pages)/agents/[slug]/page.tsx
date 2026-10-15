@@ -1,19 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  BadgeCheck,
-  Briefcase,
-  Building2,
-  CalendarDays,
-  Home,
-  KeyRound,
-  MapPin,
-  MessageCircle,
-  Phone,
-} from "lucide-react";
+import { BadgeCheck, MapPin, MessageCircle, Phone } from "lucide-react";
+import { waDigits } from "@/lib/site-settings";
 
-import PropertyCard from "@/components/PropertyCard";
+import AgentListings from "@/components/AgentListings";
 import { ReportButton } from "@/components/property/ReportButton";
 import { Button } from "@/components/ui/button";
 import agentApi, { type AgentProfile } from "@/lib/api/agent/agent.api";
@@ -51,6 +42,9 @@ interface AgentPageData {
   profile: AgentProfile;
   listings: BackendProperty[];
   total: number;
+  /** True counts by purpose (not just of the first page). */
+  saleTotal: number;
+  rentTotal: number;
   /** True when the account itself could not be read and only listings remain. */
   profileMissing: boolean;
 }
@@ -67,10 +61,15 @@ async function getAgent(slug: string): Promise<AgentPageData | null> {
    * row is missing or deactivated — including one account with 178 live
    * listings, all of them linking here from their own listing pages.
    */
-  const [profileResult, listingsResult] = await Promise.allSettled([
+  const [profileResult, listingsResult, saleResult, rentResult] = await Promise.allSettled([
     agentApi.getPublicProfile(id),
     propertyApi.getAll({ ownerId: id, limit: LISTINGS_LIMIT }),
+    // One-row queries just for the totals.
+    propertyApi.getAll({ ownerId: id, limit: 1, purpose: "buy" }),
+    propertyApi.getAll({ ownerId: id, limit: 1, purpose: "rent" }),
   ]);
+  const totalOf = (r: PromiseSettledResult<any>) =>
+    r.status === "fulfilled" ? Number(r.value?.total ?? 0) || 0 : 0;
 
   const profile =
     profileResult.status === "fulfilled" ? profileResult.value : null;
@@ -91,6 +90,8 @@ async function getAgent(slug: string): Promise<AgentPageData | null> {
     profile: profile ?? { _id: id },
     listings,
     total,
+    saleTotal: totalOf(saleResult),
+    rentTotal: totalOf(rentResult),
     profileMissing: !profile,
   };
 }
@@ -115,40 +116,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-/** One number and its label, as the strip under the header. */
-function Stat({
-  icon: Icon,
-  value,
-  label,
-}: {
-  icon: typeof Building2;
-  value: string | number;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-base font-semibold leading-tight text-foreground">
-          {value}
-        </span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {label}
-        </span>
-      </span>
-    </div>
-  );
-}
-
 export default async function AgentProfilePage({ params }: PageProps) {
   const { slug } = await params;
   const data = await getAgent(slug);
 
   if (!data) notFound();
 
-  const { profile, listings, total, profileMissing } = data;
+  const { profile, listings, total, saleTotal, rentTotal, profileMissing } = data;
   const name = agentDisplayName(profile);
   const initials =
     name
@@ -169,200 +143,124 @@ export default async function AgentProfilePage({ params }: PageProps) {
   const forSale = listings.filter((item) => item.listingType === "sale");
   const forRent = listings.filter((item) => item.listingType === "rent");
 
-  const sections = [
-    { key: "sale", title: "For sale", rows: forSale },
-    { key: "rent", title: "For rent", rows: forRent },
-  ].filter((section) => section.rows.length > 0);
+  const stats = [
+    { value: total, label: total === 1 ? "Listing" : "Listings" },
+    { value: saleTotal || forSale.length, label: "For sale" },
+    { value: rentTotal || forRent.length, label: "For rent" },
+    ...(profile.experienceYears
+      ? [{ value: profile.experienceYears, label: "Years active" }]
+      : memberSince
+        ? [{ value: memberSince, label: "Member since" }]
+        : []),
+  ];
 
+  /*
+   * A profile page, app-style: photo in a ring of the theme colour, the name
+   * with a tick, one line of numbers, the two ways to get in touch, a short
+   * about, then the listings. No icon tiles and no cards inside cards.
+   */
   return (
-    <div className="min-h-screen bg-secondary/10">
-      <div className="container mx-auto px-4 pb-10 pt-6">
-        {/* ─────────────────────────── header card ─────────────────────────── */}
-        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-          <div className="h-16 bg-gradient-to-r from-primary/20 via-primary/8 to-transparent sm:h-20" />
-
-          <div className="px-4 pb-5 sm:px-7 sm:pb-6">
-            <div className="-mt-11 flex flex-col gap-4 sm:-mt-14 sm:flex-row sm:items-end">
-              {/* The ring is what lifts the photo off the strip behind it. */}
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-3xl font-semibold text-primary ring-4 ring-card sm:h-28 sm:w-28">
-                {profile.avatarUrl ? (
-                  // Not next/image: agent photos come from the media library and
-                  // from older uploads on paths the image config does not cover.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={profile.avatarUrl}
-                    alt={name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  initials
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1 sm:pb-1">
-                <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold text-foreground sm:text-3xl">
-                  {name}
-                  {total > 0 && (
-                    <span
-                      title="Has listings on PropertyDealer"
-                      className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-                    >
-                      <BadgeCheck className="h-3.5 w-3.5" />
-                      Active dealer
-                    </span>
+    <div className="min-h-screen bg-slate-50 pb-10">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="container mx-auto px-4 pb-5 pt-6 sm:pb-7 sm:pt-8">
+          <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+            <span className="rounded-full bg-primary p-[3px]">
+              <span className="block rounded-full bg-white p-[3px]">
+                <span className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-primary/10 text-3xl font-bold text-primary sm:h-28 sm:w-28">
+                  {profile.avatarUrl ? (
+                    // Not next/image: agent photos come from the media library and
+                    // from older uploads on paths the image config does not cover.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.avatarUrl} alt={name} className="h-full w-full object-cover" />
+                  ) : (
+                    initials
                   )}
-                </h1>
-
-                {profile.companyName && profile.name && (
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {profile.name}
-                  </p>
-                )}
-
-                {profile.address && (
-                  <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4 shrink-0" />
-                    {profile.address}
-                  </p>
-                )}
-              </div>
-
-              {(phone || whatsapp) && (
-                <div className="flex shrink-0 gap-2 sm:pb-1">
-                  {phone && (
-                    <Button asChild className="flex-1 sm:flex-none">
-                      <a href={`tel:${phone.replace(/\s/g, "")}`}>
-                        <Phone className="mr-1.5 h-4 w-4" />
-                        Call
-                      </a>
-                    </Button>
-                  )}
-                  {whatsapp && (
-                    <Button
-                      asChild
-                      className="flex-1 border-none bg-[#25D366] text-white hover:bg-[#128C7E] sm:flex-none"
-                    >
-                      <a
-                        href={`https://wa.me/${whatsapp.replace(/[^0-9]/g, "")}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <MessageCircle className="mr-1.5 h-4 w-4" />
-                        WhatsApp
-                      </a>
-                    </Button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-border/60 pt-4 sm:grid-cols-4">
-              <Stat
-                icon={Building2}
-                value={total}
-                label={total === 1 ? "listing" : "listings"}
-              />
-              <Stat icon={Home} value={forSale.length} label="for sale" />
-              <Stat icon={KeyRound} value={forRent.length} label="for rent" />
-              {profile.experienceYears ? (
-                <Stat
-                  icon={Briefcase}
-                  value={profile.experienceYears}
-                  label="years in the market"
-                />
-              ) : memberSince ? (
-                <Stat
-                  icon={CalendarDays}
-                  value={memberSince}
-                  label="on PropertyDealer since"
-                />
-              ) : null}
-            </dl>
-          </div>
-        </section>
-
-        {/* ──────────────────────────── about ──────────────────────────── */}
-        {(profile.bio || profile.experienceYears || memberSince) && (
-          <section className="mt-5 rounded-lg border border-slate-200 bg-white p-5 sm:p-6">
-            <h2 className="text-base font-semibold text-foreground">About</h2>
-
-            {profile.bio && (
-              <p className="mt-2.5 whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-                {profile.bio}
-              </p>
-            )}
-
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-              {profile.experienceYears ? (
-                <span className="flex items-center gap-1.5">
-                  <Briefcase className="h-4 w-4" />
-                  {profile.experienceYears} years in the market
                 </span>
-              ) : null}
-              {memberSince && (
-                <span className="flex items-center gap-1.5">
-                  <CalendarDays className="h-4 w-4" />
-                  On PropertyDealer since {memberSince}
-                </span>
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* ─────────────────────────── listings ─────────────────────────── */}
-        <section className="mt-5">
-          <div className="mb-4 flex items-baseline justify-between gap-3">
-            <h2 className="text-xl font-bold text-foreground">
-              {total > 0 ? `Listings by ${name}` : "Listings"}
-            </h2>
-            {total > listings.length && (
-              <span className="text-sm text-muted-foreground">
-                Showing {listings.length} of {total}
               </span>
+            </span>
+
+            <div className="mt-3 min-w-0 flex-1 sm:mt-0">
+              <h1 className="inline-flex items-center gap-1.5 text-[24px] font-bold leading-tight tracking-tight text-slate-900 sm:text-[30px]">
+                {name}
+                {total > 0 && (
+                  <BadgeCheck className="h-6 w-6 shrink-0 fill-primary text-white" aria-label="Active dealer" />
+                )}
+              </h1>
+              {profile.companyName && profile.name && (
+                <p className="mt-0.5 text-[15px] text-slate-600">{profile.name}</p>
+              )}
+              {profile.address && (
+                <p className="mt-1 inline-flex items-center gap-1.5 text-[14px] text-slate-600">
+                  <MapPin className="h-4 w-4 shrink-0 text-primary" />
+                  {profile.address}
+                </p>
+              )}
+            </div>
+
+            {(phone || whatsapp) && (
+              <div className="mt-4 grid w-full grid-cols-2 gap-2 sm:mt-0 sm:w-auto sm:min-w-[260px]">
+                {phone ? (
+                  <a
+                    href={`tel:${phone.replace(/\s/g, "")}`}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-primary text-[15px] font-semibold text-primary hover:bg-primary/5"
+                  >
+                    <Phone className="h-4 w-4" /> Call
+                  </a>
+                ) : <span />}
+                {whatsapp && (
+                  <a
+                    href={`https://wa.me/${waDigits(whatsapp)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#25D366] text-[15px] font-semibold text-white hover:bg-[#1ebe5b]"
+                  >
+                    <MessageCircle className="h-4 w-4" /> WhatsApp
+                  </a>
+                )}
+              </div>
             )}
           </div>
 
-          {listings.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center">
-              <p className="text-muted-foreground">
-                {profileMissing
-                  ? "Nothing is listed under this profile right now."
-                  : "This agent has no active listings right now."}
-              </p>
-              <Button variant="outline" asChild className="mt-4">
-                <Link href="/properties">Browse all properties</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {sections.map((section) => (
-                <div key={section.key}>
-                  {sections.length > 1 && (
-                    <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      {section.title} ({section.rows.length})
-                    </h3>
-                  )}
-                  <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2 lg:gap-3">
-                    {section.rows.map((listing) => (
-                      <PropertyCard
-                        key={listing._id}
-                        property={mapBackendToFrontendProperty(listing)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* One line of numbers. */}
+          <dl className="mt-5 grid grid-cols-4 divide-x divide-slate-200 rounded-2xl border border-slate-200 py-3 sm:mt-6 sm:max-w-xl">
+            {stats.map(({ value, label }) => (
+              <div key={label} className="px-1 text-center">
+                <dt className="sr-only">{label}</dt>
+                <dd className="text-[19px] font-bold leading-tight text-slate-900 sm:text-[21px]">{value}</dd>
+                <dd className="text-[11.5px] text-slate-500 sm:text-[12.5px]">{label}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {profile.bio && (
+            <p className="mt-4 max-w-3xl whitespace-pre-line text-[15px] leading-relaxed text-slate-700">{profile.bio}</p>
           )}
-        </section>
+        </div>
+      </section>
+
+      <div className="container mx-auto px-4 pt-5">
+        {listings.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-14 text-center">
+            <p className="text-slate-600">
+              {profileMissing
+                ? "Nothing is listed under this profile right now."
+                : "This agent has no active listings right now."}
+            </p>
+            <Button variant="outline" asChild className="mt-4">
+              <Link href="/properties">Browse all properties</Link>
+            </Button>
+          </div>
+        ) : (
+          <AgentListings
+            agentId={profile._id}
+            initial={listings.map((row) => ({ ...mapBackendToFrontendProperty(row), description: undefined }))}
+            totals={{ all: total, sale: saleTotal || forSale.length, rent: rentTotal || forRent.length }}
+          />
+        )}
 
         {/* A dealer's record is the thing buyers most need to flag. */}
         <div className="mt-8 flex justify-center">
-          <ReportButton
-            type="agent"
-            agentId={profile._id}
-            label="Report this agent"
-          />
+          <ReportButton type="agent" agentId={profile._id} label="Report this agent" />
         </div>
       </div>
     </div>

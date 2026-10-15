@@ -68,7 +68,7 @@ export default function PropertiesFilterBar() {
         // Cities and types are all the two dropdowns need — this used to
         // download the whole listing feed as well, on every results page.
         const [citiesResponse, typesResponse] = await Promise.all([
-          cityApi.getAll(),
+          cityApi.getNames(),
           propertyApi.getTypes()
         ]);
 
@@ -219,8 +219,8 @@ export default function PropertiesFilterBar() {
    */
   return (
     // Phones use the Buy / Rent / Filters row inside PropertiesListing.
-    <section className="sticky top-[66px] z-40 hidden px-3 pt-2 md:block">
-      <div className="container mx-auto flex h-14 items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 px-3 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.25)] backdrop-blur-xl">
+    <section className="sticky top-16 z-40 hidden border-b border-slate-200 bg-white md:block">
+      <div className="container mx-auto flex h-14 items-center gap-3 px-4">
         <div role="tablist" aria-label="Purpose" className="flex h-9 shrink-0 overflow-hidden rounded-lg border border-slate-300">
           {PURPOSES.map(({ value, label }, i) => (
             <button

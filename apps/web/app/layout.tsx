@@ -7,6 +7,7 @@ import { Providers } from "./providers";
 import { AuthProvider } from "@/context/auth-context";
 import StructuredData from "@/components/StructuredData";
 import ChunkReloadGuard from "@/components/ChunkReloadGuard";
+import ScrollRestorer from "@/components/ScrollRestorer";
 import { SiteSettingsProvider } from "@/components/SiteSettingsProvider";
 import { getSiteSettings } from "@/lib/site-settings.server";
 import { themeStyle } from "@/lib/site-settings";
@@ -122,6 +123,7 @@ export default async function RootLayout({
         {/* First, and outside the providers: a stale document that cannot load
             its chunks must still be able to rescue itself. */}
         <ChunkReloadGuard />
+        <ScrollRestorer />
         <Providers>
           <AuthProvider>
             <TooltipProvider>

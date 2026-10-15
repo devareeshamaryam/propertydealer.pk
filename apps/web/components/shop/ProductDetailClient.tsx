@@ -56,7 +56,7 @@ export default function ProductDetailClient({
 
   return (
     <div className="bg-slate-50 pb-12">
-      <div className="container mx-auto px-4 pt-5">
+      <div className="container mx-auto px-4 pt-3 sm:pt-4">
         <nav aria-label="Breadcrumb" className="mb-4 flex flex-wrap items-center gap-1 text-[12.5px] text-slate-500">
           <Link href="/" className="hover:text-primary">Home</Link>
           <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
@@ -94,10 +94,10 @@ export default function ProductDetailClient({
           </div>
 
           {/* Buy box */}
-          <div className="lg:sticky lg:top-[84px] lg:self-start">
+          <div className="lg:sticky lg:top-20 lg:self-start">
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <p className="text-[12px] font-semibold uppercase tracking-wider text-primary">{product.category || meta.single}</p>
-              <h1 className="mt-1 text-[22px] font-bold leading-snug tracking-tight text-slate-900">{product.title}</h1>
+              <h1 className="mt-1 text-[24px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[28px]">{product.title}</h1>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-slate-500">
                 <span>{product.unit}</span>
                 {product.city && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{product.city}</span>}
@@ -154,7 +154,7 @@ export default function ProductDetailClient({
               <h2 className="text-lg font-bold text-slate-900">More {meta.label.toLowerCase()}</h2>
               <Link href={meta.path} className="text-[13.5px] font-semibold text-primary hover:underline">All {meta.label.toLowerCase()} rates</Link>
             </div>
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
               {related.map((p) => <ProductCard key={`${p.type}-${p.id}`} product={p} />)}
             </div>
           </section>

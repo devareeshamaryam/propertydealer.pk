@@ -76,18 +76,34 @@ export class CityService {
         }
     }
 
+    /**
+     * Just the names (and photo) — for dropdowns and shortcuts. The full list
+     * carries every city's SEO content and is about a megabyte; a dropdown
+     * needs a few kilobytes.
+     */
+    async findCityNames(): Promise<Array<{ _id: string; name: string; thumbnail?: string }>> {
+        return this.cache.wrap(
+            this.cache.buildKey('cities:names', []),
+            async () => {
+                const rows = await this.cityModel.find().select('name thumbnail').sort({ name: 1 }).lean().exec();
+                return rows.map((c: any) => ({ _id: String(c._id), name: c.name, thumbnail: c.thumbnail || undefined }));
+            },
+            { ttl: 3600, tags: [TAG_CITIES] },
+        );
+    }
+
     async findAllCities(): Promise<CityDocument[]> {
         return this.cache.wrap(
             this.cache.buildKey('cities:all', []),
             async () => {
                 try {
-                    return await this.cityModel.find().sort({ name: 1 }).exec();
+                    return await this.cityModel.find().sort({ name: 1 }).lean().exec() as unknown as CityDocument[];
                 } catch (error) {
                     console.error('Error in findAllCities:', error);
                     throw error;
                 }
             },
-            { ttl: 60, tags: [TAG_CITIES] },
+            { ttl: 3600, tags: [TAG_CITIES] },
         );
     }
 
@@ -111,7 +127,7 @@ export class CityService {
                 }
                 return city as CityDocument;
             },
-            { ttl: 60, tags: [TAG_CITIES] },
+            { ttl: 3600, tags: [TAG_CITIES] },
         );
     }
 

@@ -200,6 +200,13 @@ export class PropertyController {
     }
   }
 
+  /** All cities with their live listing count, most popular first. */
+  @Get('city-popularity')
+  @Header('Cache-Control', 'public, max-age=300, s-maxage=600')
+  async cityPopularity() {
+    return this.propertyService.cityPopularity();
+  }
+
   @Get('types')
   @Header('Cache-Control', 'public, max-age=3600, s-maxage=7200')
   async getPropertyTypes() {

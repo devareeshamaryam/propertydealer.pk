@@ -79,7 +79,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
     const fetchInitialData = async () => {
       try {
         const [citiesData, propertiesData, typesData] = await Promise.all([
-          cityApi.getAll(),
+          cityApi.getNames(),
           propertyApi.getAll(),
           propertyApi.getTypes()
         ]);
@@ -113,7 +113,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
       if (!cityId) { setAreaList([]); setArea(''); setAreaSlug(''); return; }
       try {
         setLoadingAreas(true);
-        const areasData = await areaApi.getAreasByCity(cityId);
+        const areasData = await areaApi.getNames(cityId);
         const sortedAreas = (areasData as any[]).sort((a, b) => a.name.localeCompare(b.name));
         setAreaList(sortedAreas);
         setArea(''); setAreaSlug('');
@@ -194,14 +194,16 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
   const clearSearch = () => { setSearchQuery(''); setShowSuggestions(false); };
 
   return (
-    <section className="relative isolate overflow-hidden bg-navy">
+    <section className="relative isolate z-10 rounded-b-[28px] bg-navy md:rounded-b-[44px]">
       {/*
         Settings → Appearance → Hero background: a photo under the brand's
         dark colour, faded so the white text and the search panel stay the
         thing you read. Off, it is the plain dark band.
       */}
       {heroImage && (
-        <>
+        // Clipped to the rounded corners here, not on the section, so the
+        // search suggestions can still drop below the band.
+        <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden rounded-b-[28px] md:rounded-b-[44px]">
           <Image
             src={heroImage}
             alt=""
@@ -210,21 +212,17 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
             sizes="100vw"
             // Hosts outside next.config's image list are shown as-is.
             unoptimized={!heroImage.startsWith('/') && !heroImage.includes('images.unsplash.com') && !heroImage.includes('propertydealer.pk')}
-            className="-z-20 object-cover"
+            className="object-cover"
           />
-          <div
-            aria-hidden
-            className="absolute inset-0 -z-10 bg-navy"
-            style={{ opacity: overlay }}
-          />
-          <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-black/10 via-transparent to-black/25" />
-        </>
+          <div className="absolute inset-0 bg-navy" style={{ opacity: overlay }} />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/25" />
+        </div>
       )}
       <div className="container mx-auto px-4 py-9 sm:py-14 lg:py-20">
-        <h1 className="text-center text-2xl font-bold tracking-tight text-white drop-shadow-sm sm:text-3xl lg:text-[38px]">
+        <h1 className="text-center text-[27px] font-extrabold leading-tight tracking-tight text-white drop-shadow-sm sm:text-4xl lg:text-[46px]">
           {heroTitle}
         </h1>
-        <p className="mt-2 text-center text-[14px] text-white/80 sm:text-[15.5px]">
+        <p className="mt-2 text-center text-[15px] text-white/90 sm:text-[17px]">
           {heroSubtitle}
         </p>
 

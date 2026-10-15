@@ -1,12 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
-import { useCallback, useState, useEffect, useRef, type ComponentType } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import {
-  ArrowLeft, Bath, BedDouble, Building2, CalendarClock, Check, ChevronRight, Clock, Compass, DoorOpen,
-  Eye, FileCheck, Grid3x3, Hash, Home, ImageOff, KeyRound, Layers, Loader2, MapPin, MapPinned,
-  Paintbrush, Phone, Plug, Ruler, Share2, ShieldAlert, Sparkles, Star, Store, Tag, Trees, Wallet, Zap,
+  ArrowLeft, Bath, BedDouble, Check, ChevronRight, Clock, Compass, Hash, Home, ImageOff, Loader2, MapPin, Phone, Ruler, Share2, ShieldAlert, Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { propertyApi } from '@/lib/api';
@@ -63,23 +61,6 @@ const SECTIONS = [
   { id: 'location-section', label: 'Location' },
 ];
 
-const GROUP_ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  'Main features': Star,
-  'Condition & handover': KeyRound,
-  'Floors & layout': Layers,
-  Rooms: DoorOpen,
-  Utilities: Zap,
-  Finishing: Paintbrush,
-  Outside: Trees,
-  'Building facilities': Building2,
-  'Society & nearby': MapPinned,
-  'Utilities at site': Plug,
-  'Plot details': Grid3x3,
-  'Ownership & papers': FileCheck,
-  'Payment & terms': Wallet,
-  'Rental terms': CalendarClock,
-  Commercial: Store,
-};
 
 /** A YouTube id from any of the link shapes people paste, or null. */
 function youTubeId(url?: string | null): string | null {
@@ -124,7 +105,6 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const [activeSection, setActiveSection] = useState('overview-section');
   const [relatedByArea, setRelatedByArea] = useState<Property[]>([]);
   const [relatedByCity, setRelatedByCity] = useState<Property[]>([]);
-  const [relatedByOwner, setRelatedByOwner] = useState<Property[]>([]);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [descriptionOverflows, setDescriptionOverflows] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
@@ -262,21 +242,16 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
         cityName: property.city, type: backendProperty?.propertyType,
         purpose: backendProperty?.listingType, limit: 10,
       }),
-      backendProperty?.owner?._id
-        ? propertyApi.getAll({ ownerId: backendProperty.owner._id, limit: 8 } as any)
-        : Promise.resolve([]),
-    ]).then(([areaRes, cityRes, ownerRes]) => {
+    ]).then(([areaRes, cityRes]) => {
       if (cancelled) return;
       const areaRows = areaRes.status === 'fulfilled' ? rows(areaRes.value) : [];
       const cityRows = cityRes.status === 'fulfilled' ? rows(cityRes.value) : [];
-      const ownerRows = ownerRes.status === 'fulfilled' ? rows(ownerRes.value) : [];
       const notThis = (p: Property) => p.slug !== resolvedSlug;
       setRelatedByArea(areaRows.map(mapBackendToFrontendProperty).filter(notThis));
       setRelatedByCity(
         cityRows.map(mapBackendToFrontendProperty)
           .filter((p) => notThis(p) && !areaRows.some((a: any) => a.slug === p.slug)),
       );
-      setRelatedByOwner(ownerRows.map(mapBackendToFrontendProperty).filter(notThis));
     });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -379,7 +354,6 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const typePlural = toTitleCase(property.type || 'Propert') + (property.type ? 's' : 'ies');
   const featureGroups = groupFeatures(backendProperty?.features ?? []);
   const listingRef = backendProperty?._id ? String(backendProperty._id).slice(-6).toUpperCase() : '';
-  const views = Number(backendProperty?.views) || 0;
 
   const facts = [
     ...(property.bedrooms > 0 ? [{ icon: BedDouble, value: String(property.bedrooms), label: property.bedrooms === 1 ? 'Bedroom' : 'Bedrooms' }] : []),
@@ -565,7 +539,6 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       title: `Similar ${typePlural.toLowerCase()} in ${toTitleCase(property.location)}`,
       href: property.areaSlug && citySlug ? `/properties/${purposeSlug}/${citySlug}/${property.areaSlug}` : null,
     },
-    { list: relatedByOwner, title: `More from ${agentName}`, href: agentPath || null },
     {
       list: relatedByCity,
       title: `Similar ${typePlural.toLowerCase()} in ${cityLabel}`,
@@ -582,7 +555,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       {/* Phones: slim bar once the photos have scrolled away (the site header is hidden here). */}
       <div
         className={cn(
-          'fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md transition-transform duration-200 md:hidden',
+          'fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white shadow-sm transition-transform duration-200 md:hidden',
           showTopBar ? 'translate-y-0' : '-translate-y-full',
         )}
       >
@@ -603,7 +576,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
         </div>
       </div>
 
-      <div className="container mx-auto md:px-4">
+      <div className="container container-flush mx-auto md:px-4">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:gap-8">
 
           {/* ── Main column ─────────────────────────────────────────── */}
@@ -639,9 +612,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
             <div ref={galleryEndRef} aria-hidden />
 
             {/* Title, place, quick facts */}
-            <header className="px-4 pt-4 md:px-0 md:pt-5">
+            <header className="px-2 pt-3 md:px-0 md:pt-5">
               {/* Phones: where this sits, as links — the only navigation a visitor from Google has. */}
-              <nav aria-label="Breadcrumb" className="hide-scrollbar -mx-4 mb-2 flex items-center gap-1 overflow-x-auto px-4 text-[12px] text-slate-500 md:hidden">
+              <nav aria-label="Breadcrumb" className="hide-scrollbar -mx-2 mb-2 flex items-center gap-1 overflow-x-auto px-2 text-[12px] text-slate-500 md:hidden">
                 {crumbs.map((c, i) => (
                   <span key={c.href} className="flex shrink-0 items-center gap-1">
                     {i > 0 && <ChevronRight className="h-3 w-3 text-slate-300" />}
@@ -662,7 +635,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 )}
               </div>
 
-              <h1 className="mt-2 text-[19px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[24px]">
+              <h1 className="mt-2 text-[21px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[28px]">
                 {property.name}
               </h1>
               <p className="mt-1.5 flex items-center gap-1.5 text-[14px] text-slate-600">
@@ -676,39 +649,38 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-slate-500">
                 <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {getTimeAgo(backendProperty?.createdAt)}</span>
-                {views > 0 && <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {views.toLocaleString('en-PK')} views</span>}
                 {listingRef && <span className="inline-flex items-center gap-1"><Hash className="h-3.5 w-3.5" /> {listingRef}</span>}
                 <button type="button" onClick={share} className="hidden items-center gap-1 font-medium text-slate-600 hover:text-primary md:inline-flex">
                   <Share2 className="h-3.5 w-3.5" /> Share
                 </button>
               </p>
 
-              {/* Quick facts, as tiles. */}
-              <ul className="mt-4 grid grid-cols-4 gap-2">
+              {/* Quick facts — one plain line, the way portals show them. */}
+              <ul className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-slate-200 py-3 text-[14px] text-slate-700">
                 {facts.map(({ icon: Icon, value, label }) => (
-                  <li key={label} className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50/60 px-1 py-2.5 text-center">
-                    <span className="grid h-8 w-8 place-items-center rounded-full bg-white text-primary shadow-sm ring-1 ring-slate-200">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="mt-1.5 max-w-full truncate text-[13.5px] font-bold text-slate-900">{value}</span>
-                    <span className="text-[10.5px] font-medium uppercase tracking-wide text-slate-400">{label}</span>
+                  <li key={label} className="inline-flex items-center gap-1.5">
+                    <Icon className="h-[18px] w-[18px] text-slate-400" />
+                    <span className="font-semibold text-slate-900">{value}</span>
+                    {['Bedroom', 'Bedrooms', 'Bathroom', 'Bathrooms'].includes(label) && (
+                      <span className="text-slate-500">{label.startsWith('Bed') ? (value === '1' ? 'Bed' : 'Beds') : value === '1' ? 'Bath' : 'Baths'}</span>
+                    )}
                   </li>
                 ))}
               </ul>
             </header>
 
-            {/* Phones: who listed it (desktop has it in the side card). */}
-            <div className="space-y-3 px-4 pt-4 lg:hidden">
-              <AgentCard />
-              {closed && <ClosedNotice />}
-            </div>
+            {closed && (
+              <div className="px-4 pt-4 lg:hidden">
+                <ClosedNotice />
+              </div>
+            )}
 
             {/* Section nav */}
             <nav
               aria-label="Sections"
-              className="sticky top-12 z-30 mt-5 border-b border-slate-200 bg-white/95 backdrop-blur md:top-[72px]"
+              className="sticky top-12 z-30 mt-5 border-b border-slate-200 bg-white md:top-16"
             >
-              <div ref={tabsRef} className="hide-scrollbar flex gap-6 overflow-x-auto px-4 md:px-0">
+              <div ref={tabsRef} className="hide-scrollbar flex gap-6 overflow-x-auto px-2 md:px-0">
                 {SECTIONS.map((tab) => (
                   <button
                     key={tab.id}
@@ -726,10 +698,10 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               </div>
             </nav>
 
-            <div className="space-y-4 px-4 pt-4 md:px-0">
+            <div className="space-y-2 px-[var(--gutter)] pt-2 md:space-y-4 md:px-0 md:pt-4">
               {/* Overview */}
               <section id="overview-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                <h2 className="mb-2 text-[17px] font-bold text-slate-900">Property details</h2>
+                <h2 className="mb-2 text-[19px] font-bold text-slate-900 sm:text-[20px]">Property details</h2>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8">
                   {details.map(({ label, value }) => (
                     <div key={label} className="flex justify-between gap-4 border-b border-dashed border-slate-200 py-2.5 text-[14px] last:border-0 sm:[&:nth-last-child(2)]:border-0">
@@ -742,7 +714,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
               {/* Description */}
               <section id="description-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                <h2 className="mb-2 text-[17px] font-bold text-slate-900">Description</h2>
+                <h2 className="mb-2 text-[19px] font-bold text-slate-900 sm:text-[20px]">Description</h2>
                 <div className={cn('relative', !isDescriptionExpanded && descriptionOverflows && 'max-h-[240px] overflow-hidden')}>
                   <div
                     ref={descriptionRef}
@@ -762,30 +734,22 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
               {/* Features, grouped */}
               <section id="features-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                <h2 className="mb-3 text-[17px] font-bold text-slate-900">Features &amp; amenities</h2>
+                <h2 className="mb-3 text-[19px] font-bold text-slate-900 sm:text-[20px]">Features &amp; amenities</h2>
                 {featureGroups.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {featureGroups.map(({ title, items }) => {
-                      const Icon = GROUP_ICONS[title] ?? Sparkles;
-                      return (
-                        <div key={title} className="rounded-xl bg-slate-50 p-3">
-                          <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-slate-900">
-                            <span className="grid h-7 w-7 place-items-center rounded-lg bg-white text-primary ring-1 ring-slate-200">
-                              <Icon className="h-3.5 w-3.5" />
-                            </span>
-                            {title}
-                          </p>
-                          <ul className="flex flex-wrap gap-1.5">
-                            {items.map((item) => (
-                              <li key={item} className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[12.5px] text-slate-700 ring-1 ring-slate-200">
-                                <Check className="h-3 w-3 text-emerald-600" />
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      );
-                    })}
+                  <div className="divide-y divide-slate-100">
+                    {featureGroups.map(({ title, items }) => (
+                      <div key={title} className="py-3 first:pt-0 last:pb-0">
+                        <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-slate-400">{title}</p>
+                        <ul className="grid grid-cols-2 gap-x-4 gap-y-2 lg:grid-cols-3">
+                          {items.map((item) => (
+                            <li key={item} className="flex items-start gap-2 text-[14px] leading-snug text-slate-800">
+                              <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={2.5} />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
                   </div>
                 ) : (
                   <p className="text-[14px] text-slate-500">The dealer has not listed any features for this property.</p>
@@ -795,7 +759,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               {/* A YouTube link (uploaded videos play in the gallery above). */}
               {youTube && (
                 <section id="video-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                  <h2 className="mb-3 text-[17px] font-bold text-slate-900">Video</h2>
+                  <h2 className="mb-3 text-[19px] font-bold text-slate-900 sm:text-[20px]">Video</h2>
                   <div className="relative aspect-video overflow-hidden rounded-xl bg-slate-100">
                     <iframe
                       src={`https://www.youtube.com/embed/${youTube}`}
@@ -811,7 +775,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
               {/* Location */}
               <section id="location-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                <h2 className="mb-1 text-[17px] font-bold text-slate-900">Location</h2>
+                <h2 className="mb-1 text-[19px] font-bold text-slate-900 sm:text-[20px]">Location</h2>
                 <p className="mb-3 flex items-center gap-1.5 text-[14px] text-slate-500">
                   <MapPin className="h-4 w-4 text-slate-400" />
                   {place}, Pakistan
@@ -825,8 +789,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 )}
               </section>
 
-              {/* Phones: safety + report sit at the end of the listing. */}
+              {/* Phones: who listed it, safety and report, at the end of the listing. */}
               <div className="space-y-3 lg:hidden">
+                <AgentCard />
                 <SafetyTips />
                 <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
               </div>
@@ -834,7 +799,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               {/* Ways on */}
               {explore.length > 0 && (
                 <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-                  <h2 className="mb-3 flex items-center gap-2 text-[17px] font-bold text-slate-900">
+                  <h2 className="mb-3 flex items-center gap-2 text-[19px] font-bold text-slate-900 sm:text-[20px]">
                     <Compass className="h-4 w-4 text-primary" /> Explore more
                   </h2>
                   <div className="flex flex-wrap gap-2">
@@ -856,7 +821,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
           {/* ── Sidebar (desktop) ───────────────────────────────────── */}
           <aside className="hidden lg:block">
-            <div className="sticky top-[84px] space-y-3">
+            <div className="sticky top-20 space-y-3">
               <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.25)]">
                 <div className={cn('px-5 py-4 text-white', closed ? 'bg-slate-900' : 'bg-price-tag')}>
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-white/75">
@@ -894,9 +859,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
         {/* ── Similar properties ─────────────────────────────────── */}
         {related.map(({ list, title, href }) =>
           list.length > 0 ? (
-            <section key={title} className="mt-8 px-4 md:px-0">
+            <section key={title} className="mt-6 px-[var(--gutter)] md:mt-8 md:px-0">
               <div className="mb-3 flex items-end justify-between gap-4">
-                <h2 className="text-[17px] font-bold text-slate-900 sm:text-lg">{title}</h2>
+                <h2 className="text-[19px] font-bold text-slate-900 sm:text-[20px] sm:text-lg">{title}</h2>
                 {href && (
                   <Link href={href} className="shrink-0 text-[13.5px] font-semibold text-primary hover:underline">
                     View all
@@ -914,7 +879,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       </div>
 
       {/* Phones: contact always in reach. Gone once the property has gone. */}
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-4px_16px_-8px_rgba(15,23,42,0.15)] lg:hidden">
         {closed ? (
           <div className="flex items-center justify-between gap-3">
             <p className="text-[13px] text-slate-600">

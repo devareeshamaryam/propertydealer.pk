@@ -397,3 +397,44 @@ a[class*="footerAction"] {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/*
+ * Edge-to-edge on phones, like an app: the public site's content sits 3px
+ * from the screen edge below 640px (16px above). Every `.container` inside
+ * the site shell follows --gutter; rows that bleed to the edge (scrolling
+ * chips, carousels) use -mx-[var(--gutter)] px-[var(--gutter)]. Header and
+ * footer opt out with `.container-flush` and keep their own padding.
+ */
+:root {
+  --gutter: 3px;
+}
+@media (min-width: 640px) {
+  :root {
+    --gutter: 1rem;
+  }
+}
+@media (max-width: 639.98px) {
+  .site-shell .container:not(.container-flush) {
+    padding-left: var(--gutter) !important;
+    padding-right: var(--gutter) !important;
+  }
+}
+
+/*
+ * Readable text on the public site: the grey shades used for secondary text
+ * are shifted a step darker inside the site shell, so captions, locations and
+ * labels read near-black instead of washed-out grey. Borders and backgrounds
+ * (the 50–300 shades) are untouched.
+ */
+.site-shell {
+  --color-slate-400: #64748b;
+  --color-slate-500: #3f4a5a;
+  --color-slate-600: #2b3443;
+  --color-slate-700: #1f2836;
+  --color-slate-800: #151c28;
+  --color-gray-400: #6b7280;
+  --color-gray-500: #404752;
+  --color-gray-600: #2c323b;
+  --color-gray-700: #1f242b;
+  --muted-foreground: #3f4a5a;
+}

@@ -6,6 +6,7 @@ import { InjectModel} from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { Area } from '@rent-ghar/db/schemas/area.schema';
+import { City } from '@rent-ghar/db/schemas/city.schema';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { IndexNowService } from '../indexnow/indexnow.service';
 import { ConfigService } from '@nestjs/config';
@@ -131,6 +132,7 @@ export class PropertyService {
     constructor(
         @InjectModel(Property.name) private propertyModel: Model<Property>,
         @InjectModel(Area.name) private areaModel: Model<Area>,
+        @InjectModel(City.name) private cityModel: Model<City>,
         private subscriptionService: SubscriptionService,
         private readonly brain: ListingBrainService,
         private readonly discord: DiscordService,
@@ -397,6 +399,54 @@ export class PropertyService {
         }
       }
     
+      /**
+       * Every city with how many live listings it has, most first — for the
+       * round city shortcuts on the homepage and the results pages.
+       *
+       * One aggregation instead of one request per city: listings grouped by
+       * area (stored as an ObjectId or a plain string, so both are converted),
+       * areas joined to their city, then summed. Sold/rented listings past
+       * their fifteen days are not counted, matching what the lists show.
+       */
+      async cityPopularity(): Promise<Array<{ _id: string; name: string; slug: string; thumbnail?: string; count: number }>> {
+        return this.cache.wrap(this.cache.buildKey('properties:city-popularity', []), async () => {
+          const graceCutoff = new Date(Date.now() - PropertyService.AVAILABILITY_GRACE_DAYS * 24 * 60 * 60 * 1000);
+          const [counts, cities] = await Promise.all([
+            this.propertyModel
+              .aggregate([
+                {
+                  $match: {
+                    status: 'approved',
+                    $or: [
+                      { availability: { $nin: ['sold', 'rented'] } },
+                      { availabilityChangedAt: { $gt: graceCutoff } },
+                    ],
+                  },
+                },
+                { $project: { areaId: { $convert: { input: '$area', to: 'objectId', onError: null, onNull: null } } } },
+                { $match: { areaId: { $ne: null } } },
+                { $group: { _id: '$areaId', n: { $sum: 1 } } },
+                { $lookup: { from: this.areaModel.collection.name, localField: '_id', foreignField: '_id', as: 'a' } },
+                { $unwind: '$a' },
+                { $project: { n: 1, city: { $convert: { input: '$a.city', to: 'objectId', onError: null, onNull: null } } } },
+                { $group: { _id: '$city', count: { $sum: '$n' } } },
+              ])
+              .exec(),
+            this.cityModel.find().select('name thumbnail').lean().exec(),
+          ]);
+          const byCity = new Map<string, number>(counts.map((c: any) => [String(c._id), c.count]));
+          return cities
+            .map((c: any) => ({
+              _id: String(c._id),
+              name: c.name,
+              slug: String(c.name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+              thumbnail: c.thumbnail || undefined,
+              count: byCity.get(String(c._id)) ?? 0,
+            }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+        }, { ttl: 600, tags: [TAG_PROPERTIES] });
+      }
+
       async findAllApproved(filters?: { 
         cityId?: string; 
         cityName?: string;
@@ -421,8 +471,10 @@ export class PropertyService {
         // cache slot. Tag = 'properties' so any property write invalidates
         // every list page in one shot.
         const cacheKey = this.cache.buildKey('properties:list', [filters || {}]);
+        // 10 minutes: every property write clears this tag, so the TTL only
+        // decides how often an unchanged list is recomputed.
         return this.cache.wrap(cacheKey, async () => this.findAllApprovedImpl(filters), {
-            ttl: 60,
+            ttl: 600,
             tags: [TAG_PROPERTIES],
         });
       }
@@ -1063,7 +1115,7 @@ export class PropertyService {
         const normalizedSlug = this.toSlug(slug);
         const cacheKey = this.cache.buildKey('property:slug', [normalizedSlug]);
         return this.cache.wrap(cacheKey, () => this.findPropertyBySlugImpl(slug), {
-            ttl: 60,
+            ttl: 600,
             tags: [TAG_PROPERTIES, `property:slug:${normalizedSlug}`],
         });
       }
@@ -1523,7 +1575,7 @@ export class PropertyService {
         // ⚡ Cache: city stats are aggregation-heavy and rarely change.
         const cacheKey = this.cache.buildKey('properties:stats', [city, listingType, propertyType]);
         return this.cache.wrap(cacheKey, () => this.getLocationStatsImpl(city, listingType, propertyType), {
-            ttl: 60,
+            ttl: 600,
             tags: [TAG_PROPERTIES],
         });
       }
@@ -1676,7 +1728,7 @@ export class PropertyService {
         return this.cache.wrap(
             this.cache.buildKey('properties:types', []),
             () => this.getPropertyTypesImpl(),
-            { ttl: 60, tags: [TAG_PROPERTY_TYPES] },
+            { ttl: 3600, tags: [TAG_PROPERTY_TYPES] },
         );
     }
 

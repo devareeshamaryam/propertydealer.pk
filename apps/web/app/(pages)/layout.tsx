@@ -12,6 +12,8 @@ export default function PagesLayout({
   return (
     // The materials cart lives here so it follows the visitor across pages.
     <CartProvider>
+      {/* .site-shell: phones get the edge-to-edge gutter (globals.css). */}
+      <div className="site-shell">
       <NavBar />
       {children}
       <Footer />
@@ -21,9 +23,10 @@ export default function PagesLayout({
         underneath it. Footer-coloured so it reads as the footer's last strip.
         Phones only — the bar itself is md:hidden.
       */}
-      <div aria-hidden className="h-[calc(3.5rem+env(safe-area-inset-bottom))] bg-navy md:hidden" />
+      <div aria-hidden className="h-[calc(5.5rem+env(safe-area-inset-bottom))] bg-navy md:hidden" />
       <MobileNav />
       <CartSheet />
+      </div>
     </CartProvider>
   );
 }

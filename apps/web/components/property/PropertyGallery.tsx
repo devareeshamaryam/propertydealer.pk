@@ -438,7 +438,7 @@ export default function PropertyGallery({
         {total > 1 && (
           <div
             ref={thumbsRef}
-            className="hide-scrollbar flex gap-2 overflow-x-auto scroll-smooth px-3 pb-0.5 md:px-0"
+            className="hide-scrollbar flex gap-1.5 overflow-x-auto scroll-smooth px-[var(--gutter)] pb-0.5 md:gap-2 md:px-0"
           >
             {items.map((item, index) => {
               const on = index === active;

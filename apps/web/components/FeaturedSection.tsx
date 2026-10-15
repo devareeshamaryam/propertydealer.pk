@@ -55,7 +55,7 @@ export default function FeaturedSection({ initialProperties, count = 8 }: Featur
   if (!loading && properties.length === 0) return null;
 
   return (
-    <section className="border-t border-slate-100 bg-slate-50 py-8 sm:py-12">
+    <section className="border-t border-slate-100 bg-slate-50 py-6 sm:py-12">
       <div className="container mx-auto px-4">
         <SectionHeading
           title="Latest properties"

@@ -55,6 +55,28 @@ export class AreaService {
     return saved;
   }
 
+  /**
+   * Names only — id, name, slug, city id — optionally for one city. The full
+   * documents carry each area's SEO content (~175 KB for all of them).
+   */
+  async findAreaNames(cityId?: string): Promise<Array<{ _id: string; name: string; areaSlug?: string; city?: string }>> {
+    return this.cache.wrap(
+      this.cache.buildKey('areas:names', [cityId ?? 'all']),
+      async () => {
+        const query: Record<string, unknown> = {};
+        if (cityId && Types.ObjectId.isValid(cityId)) {
+          query.city = { $in: [new Types.ObjectId(cityId), cityId] };
+        }
+        const rows = await this.areaModel.collection
+          .find(query, { projection: { name: 1, areaSlug: 1, city: 1 } })
+          .sort({ name: 1 })
+          .toArray();
+        return rows.map((a: any) => ({ _id: String(a._id), name: a.name, areaSlug: a.areaSlug, city: a.city ? String(a.city) : undefined }));
+      },
+      { ttl: 3600, tags: [TAG_AREAS] },
+    );
+  }
+
   async findAllAreas(): Promise<AreaDocument[]> {
     return this.cache.wrap(
       this.cache.buildKey('areas:all', []),
@@ -64,7 +86,7 @@ export class AreaService {
           .populate('city', 'name state country')
           .sort({ createdAt: -1 })
           .exec(),
-      { ttl: 60, tags: [TAG_AREAS] },
+      { ttl: 3600, tags: [TAG_AREAS] },
     );
   }
 
@@ -138,7 +160,7 @@ export class AreaService {
           .sort({ name: 1 })
           .exec();
       },
-      { ttl: 60, tags: [TAG_AREAS] },
+      { ttl: 3600, tags: [TAG_AREAS] },
     );
   }
 

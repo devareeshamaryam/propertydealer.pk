@@ -155,7 +155,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="bg-slate-50 pb-12 pt-5">
-      <div className="container mx-auto px-4">
+      <div className="container mx-auto px-3 sm:px-4">
         <Link href="/today-cement-rate-in-pakistan" className="inline-flex items-center gap-1 text-[13px] font-medium text-slate-600 hover:text-primary">
           <ChevronLeft className="h-4 w-4" /> Continue shopping
         </Link>
@@ -212,7 +212,7 @@ export default function CheckoutPage() {
           </div>
 
           {/* Summary */}
-          <aside className="lg:sticky lg:top-[84px] lg:self-start">
+          <aside className="lg:sticky lg:top-20 lg:self-start">
             <div className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="mb-3 text-[16px] font-bold text-slate-900">Order summary</h2>
               <ul className="max-h-[320px] divide-y divide-slate-100 overflow-y-auto">

@@ -1,4 +1,5 @@
  import { Metadata } from "next";
+import { slimRates } from "@/lib/shop";
 import { serverApi } from "@/lib/server-api";
 import CementPageClient from "./CementPageClient";
 
@@ -60,7 +61,7 @@ export default async function TodayCementRatePage() {
 
   return (
     <CementPageClient
-        initialBrands={liveBrands}
+        initialBrands={slimRates(liveBrands)}
         pageContent={pageContent}
         pageTitle={pageTitle}
       />

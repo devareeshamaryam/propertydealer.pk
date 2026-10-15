@@ -26,7 +26,7 @@ export function ProductImage({ product, className }: { product: ShopProduct; cla
     <div className={cn('grid place-items-center overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100', className)}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={product.title} loading="lazy" className="h-full w-full object-contain p-3" />
+        <img src={src} alt={product.title} loading="lazy" className="h-full w-full object-contain p-2" />
       ) : (
         <span className="text-center">
           <span className="block text-2xl font-black tracking-tight text-slate-300">{product.brand.slice(0, 2).toUpperCase()}</span>
@@ -119,7 +119,7 @@ export default function ProductCard({ product, view = 'grid' }: { product: ShopP
           </span>
         )}
       </Link>
-      <div className="flex flex-1 flex-col p-3">
+      <div className="flex flex-1 flex-col p-2.5 sm:p-3">
         <Link href={product.href} className="line-clamp-2 text-[13.5px] font-semibold leading-snug text-slate-900 group-hover:text-primary">
           {product.title}
         </Link>

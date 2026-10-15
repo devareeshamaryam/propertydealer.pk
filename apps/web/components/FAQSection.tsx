@@ -54,7 +54,7 @@ const FAQSection = () => {
   };
 
   return (
-    <section className="border-t border-slate-100 bg-white py-10 sm:py-12">
+    <section className="border-t border-slate-100 bg-white py-6 sm:py-12">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}

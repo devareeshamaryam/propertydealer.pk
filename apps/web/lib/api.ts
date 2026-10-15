@@ -688,6 +688,20 @@ export const importApi = {
 
 // City API functions
 export const cityApi = {
+  /**
+   * Just names (and photo) — for dropdowns. The full list carries every
+   * city's SEO content (~1 MB). Falls back to it on an API without /names.
+   */
+  getNames: async (): Promise<{ _id: string; name: string; thumbnail?: string }[]> => {
+    try {
+      const response = await api.get("/cities/names");
+      if (Array.isArray(response.data)) return response.data;
+    } catch {
+      // older API
+    }
+    const response = await api.get("/cities");
+    return (response.data ?? []).map((c: any) => ({ _id: c._id, name: c.name, thumbnail: c.thumbnail }));
+  },
   getAll: async () => {
     const response = await api.get("/cities");
     return response.data;
@@ -704,6 +718,21 @@ export const cityApi = {
 
 // Area API functions
 export const areaApi = {
+  /**
+   * id, name, slug — for dropdowns and the location panel, optionally for one
+   * city. The full documents carry each area's SEO content. Falls back to the
+   * full list on an API without /names.
+   */
+  getNames: async (cityId?: string): Promise<{ _id: string; name: string; areaSlug?: string; city?: string }[]> => {
+    try {
+      const response = await api.get("/areas/names", { params: cityId ? { cityId } : {} });
+      if (Array.isArray(response.data)) return response.data;
+    } catch {
+      // older API
+    }
+    const response = await api.get(cityId ? `/areas?cityId=${cityId}` : "/areas");
+    return (response.data ?? []).map((a: any) => ({ _id: a._id, name: a.name, areaSlug: a.areaSlug, city: a.city?._id ?? a.city }));
+  },
   getAll: async () => {
     const response = await api.get("/areas");
     return response.data;

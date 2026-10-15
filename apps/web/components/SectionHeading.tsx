@@ -27,13 +27,13 @@ export function SectionHeading({
   as?: "h1" | "h2" | "h3";
 }) {
   return (
-    <div className={cn("mb-5 flex items-end justify-between gap-4 sm:mb-6", className)}>
+    <div className={cn("mb-3 flex items-end justify-between gap-4 sm:mb-6", className)}>
       <div className="min-w-0">
-        <Tag className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+        <Tag className="text-[21px] font-bold tracking-tight text-slate-900 sm:text-[27px]">
           {title}
         </Tag>
         {description && (
-          <p className="mt-1 text-sm text-slate-500 sm:text-[15px]">{description}</p>
+          <p className="mt-0.5 text-[14px] text-slate-500 sm:text-[16px]">{description}</p>
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}

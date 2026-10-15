@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ArrowRight, ChevronDown, LayoutDashboard, LogOut, Menu, Plus } from 'lucide-react';
+import { ArrowRight, ChevronDown, LayoutDashboard, LogOut, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { DialogTitle } from '@/components/ui/dialog';
@@ -140,19 +140,16 @@ const Navbar = () => {
       )}
 
     {/*
-      A floating bar with rounded ends, the way most current product sites do
-      it: it sits 8px off the top and the sides, glass-white over whatever
-      scrolls beneath. 64px from the top of the window to its bottom edge —
-      the sticky bars below it line up on that.
+      Solid white, full width, 64px tall — the sticky bars below it line up
+      on that height (top-16).
     */}
-    <div
+    <header
       className={cn(
-        'sticky top-0 z-50 px-2 pt-2 sm:px-3',
+        'sticky top-0 z-50 border-b border-slate-200 bg-white',
         immersive && 'max-md:hidden',
       )}
     >
-    <header className="container mx-auto rounded-2xl border border-slate-200/80 bg-white/85 px-0 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-14px_rgba(15,23,42,0.18)] backdrop-blur-xl backdrop-saturate-150">
-      <div className="flex min-h-14 items-center gap-4 px-3 py-1.5 sm:px-4">
+      <div className="container container-flush mx-auto flex h-16 items-center gap-4 px-3 sm:px-4">
         <Link href="/" aria-label="PropertyDealer home" className="shrink-0">
           <SiteLogo />
         </Link>
@@ -217,7 +214,7 @@ const Navbar = () => {
                 Sign in
               </Link>
             ))}
-          <Button asChild size="sm" className="h-9 gap-1 rounded-xl px-3.5 text-[13px] font-semibold">
+          <Button asChild size="sm" className="h-9 gap-1 rounded-lg px-3.5 text-[13px] font-semibold">
             <Link href={addPropertyHref}>
               <Plus className="h-3.5 w-3.5" />
               Add Property
@@ -230,9 +227,17 @@ const Navbar = () => {
         <CartButton />
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon" aria-label="Open menu" className="-mr-2">
-              <Menu className="h-5 w-5" />
-            </Button>
+            <button
+              type="button"
+              aria-label="Open menu"
+              className="-mr-1.5 grid h-10 w-10 place-items-center rounded-xl text-slate-950 transition-colors hover:bg-slate-100"
+            >
+              {/* Two lines, the lower one shorter — the modern app menu mark. */}
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" aria-hidden>
+                <path d="M4 8.5h16" />
+                <path d="M10 15.5h10" />
+              </svg>
+            </button>
           </SheetTrigger>
 
           <SheetContent side="right" className="flex w-80 flex-col gap-0 p-0">
@@ -312,7 +317,6 @@ const Navbar = () => {
         </div>
       </div>
     </header>
-    </div>
     </>
   );
 };

@@ -1,4 +1,5 @@
  import { Metadata } from "next";
+import { slimRates } from "@/lib/shop";
 import { serverApi } from "@/lib/server-api";
 import MaterialPageClient from "./MaterialPageClient";
 
@@ -64,7 +65,7 @@ export default async function SteelRatePage() {
 
   return (
     <MaterialPageClient
-      initialRates={rates}
+      initialRates={slimRates(rates)}
       materialType="Steel"
       pageTitle="Today Steel Rate in Pakistan"
       pageContent={pageContent}

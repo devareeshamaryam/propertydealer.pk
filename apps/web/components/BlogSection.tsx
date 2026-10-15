@@ -52,7 +52,7 @@ export default function BlogSection({ initialPosts }: BlogSectionProps) {
   if (!loading && posts.length === 0) return null;
 
   return (
-    <section className="border-t border-slate-100 bg-slate-50 py-10 sm:py-12">
+    <section className="border-t border-slate-100 bg-slate-50 py-6 sm:py-12">
       <div className="container mx-auto px-4">
         <SectionHeading
           title="Property guides & news"
@@ -68,7 +68,7 @@ export default function BlogSection({ initialPosts }: BlogSectionProps) {
           }
         />
 
-        <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4 hide-scrollbar">
+        <div className="-mx-[var(--gutter)] flex snap-x snap-mandatory gap-3 overflow-x-auto px-[var(--gutter)] pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4 hide-scrollbar">
           {(loading ? [] : posts.slice(0, SHOWN)).map((post) => (
             <Link
               key={post.id}

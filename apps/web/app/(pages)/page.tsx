@@ -2,10 +2,10 @@
 import FeaturedSection from "@/components/FeaturedSection";
 import BlogSection from "@/components/BlogSection";
 import ExploreTools from "@/components/ExploreTools";
-import PopularLocations from "@/components/PopularLocations";
+import CityStories from "@/components/CityStories";
 import AgentSignupSection from "@/components/AgentSignupSection";
 import FAQSection from "@/components/FAQSection";
-import { serverApi } from "@/lib/server-api";
+import { serverApi, getCityStories } from "@/lib/server-api";
 import { getSiteSettings } from "@/lib/site-settings.server";
 import { mapBackendToFrontendProperty, sortPropertyTypes } from "@/lib/types/property-utils";
 import { transformBlogsToPosts } from "@/lib/utils/blog-utils";
@@ -23,13 +23,15 @@ export default async function Home() {
   // Settings → General → Homepage sections.
   const settings = await getSiteSettings();
   // ✅ Sab kuch ek saath fetch — parallel requests
-  const [citiesResult, propertiesResult, typesResult, blogsResult] =
+  const [citiesResult, propertiesResult, typesResult, blogsResult, cityStoriesResult] =
     await Promise.allSettled([
-      serverApi.getCities(),
+      serverApi.getCityNames(),
       serverApi.getProperties(`limit=${settings.homeLatestCount || 8}`),
       serverApi.getTypes(),
       serverApi.getPublishedBlogs(),
+      getCityStories(),
     ]);
+  const cityStories = cityStoriesResult.status === "fulfilled" ? cityStoriesResult.value : [];
 
   if (citiesResult.status === "rejected")
     console.error("❌ Cities fetch failed:", citiesResult.reason?.message || citiesResult.reason);
@@ -45,52 +47,6 @@ export default async function Home() {
   const typesData: any[] = typesResult.status === "fulfilled" ? typesResult.value ?? [] : [];
   const blogsData: any[] = blogsResult.status === "fulfilled" ? blogsResult.value ?? [] : [];
 
-  const cityToSlug = (name: string) =>
-    name.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-
-  const DEFAULT_CITY_IMAGES: Record<string, string> = {
-    karachi: "https://images.unsplash.com/photo-1570533113000-67623306634d?w=800&q=80",
-    lahore: "https://images.unsplash.com/photo-1596422846543-75c6fc18a5ce?w=800&q=80",
-    islamabad: "https://images.unsplash.com/photo-1621538356947-f495bf847683?w=800&q=80",
-    faisalabad: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80",
-    multan: "https://images.unsplash.com/photo-1570533113000-67623306634d?w=800&q=80",
-    gujranwala: "https://images.unsplash.com/photo-1596422846543-75c6fc18a5ce?w=800&q=80",
-  };
-  const FALLBACK_IMAGE = "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=800&q=80";
-  const CITY_ORDER = ["lahore", "islamabad", "karachi", "multan", "gujranwala", "faisalabad"];
-
-  // ✅ Filter + sort cities pehle
-  const filteredCities = citiesData
-    .filter((city: any) => {
-      const cityName = (city?.name ?? "").trim().toLowerCase();
-      return CITY_ORDER.includes(cityName) || cityName === "faislabad";
-    })
-    .sort((a: any, b: any) => {
-      const nameA = (a?.name ?? "").trim().toLowerCase();
-      const nameB = (b?.name ?? "").trim().toLowerCase();
-      const getIndex = (name: string) => {
-        if (name === "faislabad") return CITY_ORDER.indexOf("faisalabad");
-        return CITY_ORDER.indexOf(name);
-      };
-      return getIndex(nameA) - getIndex(nameB);
-    });
-
-  // ✅ Location stats parallel fetch — sab ek saath, ek ke baad ek nahi
-  const cityStatsResults = await Promise.allSettled(
-    filteredCities.map((city: any) => serverApi.getLocationStats(city.name))
-  );
-
-  const processedCities = filteredCities.map((city: any, index: number) => {
-    const nameKey = (city?.name ?? "").trim().toLowerCase();
- const statsResult = cityStatsResults[index];
-const count = statsResult?.status === "fulfilled" ? (statsResult as PromiseFulfilledResult<any>).value?.total ?? 0 : 0;    return {
-      ...city,
-      count,
-      slug: cityToSlug(city.name),
-      image: city?.thumbnail || DEFAULT_CITY_IMAGES[nameKey] || FALLBACK_IMAGE,
-    };
-  });
-
   // Properties
   const backendProperties = Array.isArray(propertiesData)
     ? propertiesData
@@ -98,7 +54,8 @@ const count = statsResult?.status === "fulfilled" ? (statsResult as PromiseFulfi
 
   const transformedProperties = backendProperties
     .map((p: any) => {
-      try { return mapBackendToFrontendProperty(p); }
+      // Cards need no description — it is the bulk of each listing's data.
+      try { return { ...mapBackendToFrontendProperty(p), description: undefined }; }
       catch { return null; }
     })
     .filter(Boolean);
@@ -121,7 +78,11 @@ const count = statsResult?.status === "fulfilled" ? (statsResult as PromiseFulfi
     .map((t: string) => t.charAt(0).toUpperCase() + t.slice(1));
 
   const sortedProcessedTypes = sortPropertyTypes(processedTypes, t => t);
-  const processedBlogs = transformBlogsToPosts(blogsData).slice(0, 6);
+  // Four cards with title and excerpt — not each article's full HTML, which
+  // was most of the homepage's 1 MB.
+  const processedBlogs = transformBlogsToPosts(blogsData)
+    .slice(0, 4)
+    .map((post) => ({ ...post, content: "" }));
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
   const itemListSchema = {
@@ -161,7 +122,14 @@ const count = statsResult?.status === "fulfilled" ? (statsResult as PromiseFulfi
         initialProperties={transformedProperties}
         initialTypes={sortedProcessedTypes}
       />
-      {settings.homeShowCities && <PopularLocations initialCities={processedCities} />}
+      {/* Cities as round shortcuts — the ten with most listings, then "View all". */}
+      {settings.homeShowCities && cityStories.length > 0 && (
+        <section className="bg-white pb-2 pt-5 sm:pt-7">
+          <div className="container mx-auto px-3 sm:px-4">
+            <CityStories cities={cityStories} limit={10} viewAllHref="/properties" />
+          </div>
+        </section>
+      )}
       {settings.homeShowLatest && (
         <FeaturedSection initialProperties={transformedProperties} count={settings.homeLatestCount} />
       )}

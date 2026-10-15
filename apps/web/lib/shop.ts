@@ -161,3 +161,28 @@ export const shopApi = {
   updateOrder: async (id: string, body: { status?: string; adminNote?: string; paymentStatus?: string; note?: string }) =>
     (await api.patch(`/shop/admin/orders/${id}`, body)).data?.data as AdminOrder,
 };
+
+/**
+ * A rate document cut down to what a product card needs, for passing from a
+ * server page to the browser. The full documents carry each product's
+ * description HTML and every gallery image — on the cement page that made the
+ * HTML half a megabyte for sixteen cards.
+ */
+export function slimRates(rows: any[] | null | undefined): any[] {
+  return (rows ?? []).map((r: any) => ({
+    _id: r._id,
+    brand: r.brand,
+    title: r.title,
+    slug: r.slug,
+    price: r.price,
+    change: r.change,
+    unit: r.unit,
+    city: r.city,
+    category: r.category,
+    image: r.image || r.images?.[0] || '',
+    isActive: r.isActive,
+    updatedAt: r.updatedAt,
+    weightKg: r.weightKg,
+    materialType: r.materialType,
+  }));
+}
