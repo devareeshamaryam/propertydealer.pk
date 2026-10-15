@@ -142,7 +142,7 @@ export default function BlogPostClient({ slug: slugProp }: BlogPostClientProps) 
   if (loading) {
     return (
       <main className="min-h-screen">
-        <div className="container mx-auto px-4 pt-32 pb-16">
+        <div className="container mx-auto px-4 pt-10 pb-16">
           <div className="flex items-center justify-center py-20">
             <div className="text-center">
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
@@ -158,7 +158,7 @@ export default function BlogPostClient({ slug: slugProp }: BlogPostClientProps) 
   if (error || !post) {
     return (
       <main className="min-h-screen">
-        <div className="container mx-auto px-4 pt-32 pb-16 text-center">
+        <div className="container mx-auto px-4 pt-10 pb-16 text-center">
           <h1 className="text-4xl font-bold text-foreground mb-4">
             Post Not Found
           </h1>

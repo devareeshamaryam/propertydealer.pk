@@ -92,7 +92,7 @@ export default function CementDetailClient({ rate }: { rate: CementRate }) {
   };
 
   return (
-    <div className="pt-24 bg-white min-h-screen">
+    <div className="pt-6 bg-white min-h-screen">
       <div className="max-w-6xl mx-auto px-3 py-5">
 
         {/* Breadcrumb */}
@@ -179,7 +179,7 @@ export default function CementDetailClient({ rate }: { rate: CementRate }) {
             <div className="border border-gray-200 rounded-lg px-4 py-3 flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-400 mb-0.5">Today's Price</p>
-                <p className="text-3xl font-black text-gray-900">Rs {rate.price.toLocaleString()}</p>
+                <p className="text-3xl font-bold text-gray-900">Rs {rate.price.toLocaleString()}</p>
               </div>
               <p className="text-xs text-gray-400">per {rate.weightKg ?? 50} Kg bag</p>
             </div>

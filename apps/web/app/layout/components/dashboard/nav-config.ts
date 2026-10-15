@@ -12,6 +12,7 @@ import {
   Layers,
   MapPin,
   Package2,
+  Palette,
   Users,
   Wallet,
 } from "lucide-react";
@@ -347,6 +348,12 @@ export const NAV_SECTIONS: NavSection[] = [
         adminOnly: true,
         keywords: ["accounts", "agents", "roles", "permissions"],
       },
+      {
+        title: "Appearance",
+        href: "/dashboard/appearance",
+        adminOnly: true,
+        keywords: ["theme", "colour", "color", "brand", "logo", "font", "favicon", "design", "settings"],
+      },
     ],
   },
 ];
@@ -365,6 +372,7 @@ export const LEAF_ICONS: Record<
   "/dashboard/my-subscription": Wallet,
   "/dashboard/purchase-package": Package2,
   "/dashboard/users": Users,
+  "/dashboard/appearance": Palette,
 };
 
 /**
@@ -429,6 +437,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   "my-subscription": "My Subscription",
   "purchase-package": "Purchase Package",
   users: "Users",
+  appearance: "Appearance",
   account: "My Account",
   add: "Add",
   edit: "Edit",

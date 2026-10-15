@@ -205,7 +205,13 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
     kanal: backend.kanal,
     purpose: purposeMap[backend.listingType] || 'rent',
     image: displayImage,
+    // Shown as a camera count on the card, as every listing portal does.
+    photoCount:
+      (hasRealPhoto ? 1 : 0) +
+      (backend.additionalPhotosUrls?.filter((url) => Boolean(url && url.trim())).length ?? 0),
     description: backend.description,
+    // "Added 3 days ago" on the card.
+    postedAt: backend.createdAt,
     features: backend.features || [],
     areaId: backend.area && typeof backend.area === 'object' ? backend.area._id : (typeof backend.area === 'string' ? backend.area : undefined),
     areaName: areaName,

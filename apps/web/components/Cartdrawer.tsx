@@ -31,7 +31,7 @@ export default function CartDrawer() {
       */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-28 right-5 z-50 bg-gray-900 hover:bg-black text-white rounded-lg w-11 h-11 flex items-center justify-center shadow-lg transition-all hover:scale-105 md:bottom-5"
+        className="fixed bottom-20 right-4 z-50 bg-gray-900 hover:bg-black text-white rounded-lg w-11 h-11 flex items-center justify-center shadow-lg transition-all hover:scale-105 md:bottom-5"
         title="View Cart"
       >
         <ShoppingCart className="w-5 h-5" />
@@ -146,7 +146,7 @@ export default function CartDrawer() {
           <div className="border-t p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">Total ({count} bags)</span>
-              <span className="text-lg font-black text-gray-900">Rs {total.toLocaleString()}</span>
+              <span className="text-lg font-bold text-gray-900">Rs {total.toLocaleString()}</span>
             </div>
             <button
               onClick={handleCheckout}

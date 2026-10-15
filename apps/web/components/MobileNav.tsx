@@ -6,9 +6,10 @@ import { Home, Search, Plus, Layers, User, type LucideIcon } from "lucide-react"
 
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
+import { isPropertyDetail } from "@/lib/routes";
 
 /**
- * The floating tab bar on phones — the pattern every Pakistani property app
+ * The tab bar on phones — the pattern every Pakistani property app
  * uses (Zameen, OLX, Graana): Home, Search, a raised "+" to post, a section
  * tab, and Account.
  *
@@ -28,18 +29,6 @@ interface Tab {
 const RATES_HREF = "/today-cement-rate-in-pakistan";
 
 const RATE_PATH = /^\/today-[a-z]+-rate-in-pakistan/;
-
-/**
- * A single-segment path under /properties is a listing (/properties/5-marla-
- * house-dha-lahore); /properties/all, /rent and /sale are the search pages.
- */
-function isPropertyDetail(pathname: string): boolean {
-  if (pathname.startsWith("/p/") || pathname.startsWith("/listing-detail")) {
-    return true;
-  }
-  const match = /^\/properties\/([^/]+)\/?$/.exec(pathname);
-  return Boolean(match && !["all", "rent", "sale"].includes(match[1] ?? ""));
-}
 
 export default function MobileNav() {
   const pathname = usePathname() || "/";
@@ -95,34 +84,15 @@ export default function MobileNav() {
     <nav
       aria-label="Main"
       className={cn(
-        "fixed inset-x-3 bottom-2 z-40 flex items-stretch justify-around md:hidden",
-        "rounded-[28px] border border-border/40 bg-background/80 backdrop-blur-xl backdrop-saturate-150",
-        "shadow-[0_10px_30px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.05)]",
+        "fixed inset-x-0 bottom-0 z-40 flex h-14 items-stretch border-t border-slate-200 bg-white md:hidden",
         // Clears the home-area gesture bar on iPhones.
-        "pb-[max(0.375rem,env(safe-area-inset-bottom))]",
+        "box-content pb-[env(safe-area-inset-bottom)]",
       )}
     >
       {tabs.map((tab) => {
         const on = active === tab.key;
         const Icon = tab.icon;
-
-        if (tab.key === "post") {
-          return (
-            <Link
-              key={tab.key}
-              href={tab.href}
-              aria-label="Add a property"
-              className="relative -mt-4 flex shrink-0 flex-col items-center justify-center px-1 transition-transform active:scale-90"
-            >
-              <span className="flex h-12 w-12 items-center justify-center rounded-full border-[3px] border-background bg-primary text-primary-foreground shadow-lg shadow-primary/30">
-                <Plus className="h-5 w-5" strokeWidth={2.8} />
-              </span>
-              <span className="-mt-1 text-[10px] font-semibold leading-none text-primary">
-                {tab.label}
-              </span>
-            </Link>
-          );
-        }
+        const isPost = tab.key === "post";
 
         return (
           <Link
@@ -130,26 +100,23 @@ export default function MobileNav() {
             href={tab.href}
             prefetch={false}
             aria-current={on ? "page" : undefined}
+            aria-label={isPost ? "Add a property" : undefined}
             className={cn(
-              "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] px-1 pb-1 pt-1.5",
-              "transition-colors active:scale-90",
-              on ? "text-primary" : "text-muted-foreground",
+              "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1",
+              isPost || on ? "text-primary" : "text-slate-500",
             )}
           >
-            {/* The pill that marks the current tab. */}
-            {on && (
-              <span
-                aria-hidden
-                className="absolute left-1/2 top-0 h-[3px] w-6 -translate-x-1/2 rounded-b-[3px] bg-primary"
-              />
+            {on && !isPost && (
+              <span aria-hidden className="absolute inset-x-4 top-0 h-0.5 bg-primary" />
             )}
-            <Icon className="h-[21px] w-[21px]" strokeWidth={on ? 2.2 : 1.9} />
-            <span
-              className={cn(
-                "max-w-full truncate text-[10px] leading-tight",
-                on ? "font-extrabold" : "font-semibold",
-              )}
-            >
+            {isPost ? (
+              <span className="grid h-7 w-7 place-items-center rounded-md bg-primary text-white">
+                <Plus className="h-4 w-4" strokeWidth={2.6} />
+              </span>
+            ) : (
+              <Icon className="h-5 w-5" strokeWidth={on ? 2.2 : 1.8} />
+            )}
+            <span className={cn("max-w-full truncate text-[10px] leading-tight", on || isPost ? "font-semibold" : "font-medium")}>
               {tab.label}
             </span>
           </Link>

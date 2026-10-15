@@ -1,90 +1,104 @@
 'use client'
-import React, { useState } from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { SectionHeading } from '@/components/SectionHeading';
 
-const faqs = [
+/*
+ * The questions are unchanged — they carry FAQPage structured data that
+ * search results may already show — but several answers described things the
+ * site does not have: a "Verified" badge on listings, a team that checks
+ * ownership documents, "legal experts" and "consulting services". Structured
+ * data is supposed to match the page, and the page is supposed to be true, so
+ * the answers now describe what actually happens.
+ */
+const FAQS = [
   {
-    question: "How do I verify a property listing on Property Dealer?",
-    answer: "Property Dealer uses a multi-step verification process. Look for the 'Verified' badge on listings, which means our team has manually checked the property details, ownership documents, and location."
+    question: 'How do I verify a property listing on Property Dealer?',
+    answer:
+      'Every listing is checked before it goes live: an automatic review flags phone numbers in the text, prices that do not fit the area and duplicate posts, and anything it is unsure about waits for a person on our team. If a listing still looks wrong, use “Report this listing” on its page — and always see the property and the papers before paying anything.',
   },
   {
-    question: "Are there any service charges for using the platform?",
-    answer: "Searching and browsing properties on Property Dealer is completely free for users. We only charge for premium listing packages and specialized consulting services."
+    question: 'Are there any service charges for using the platform?',
+    answer:
+      'Searching, browsing and contacting dealers is free. Agents can list one property free of charge; paid plans add more listings and featured placement.',
   },
   {
-    question: "What legal documents should I check before renting a house?",
-    answer: "You should typically check the original allotment letter, lease agreement, and CNIC of the owner. We recommend consulting with our legal experts for a comprehensive document review."
+    question: 'What legal documents should I check before renting a house?',
+    answer:
+      'Check the owner’s CNIC and proof of ownership — the registry, fard or allotment letter — and put the terms in a written rent agreement signed by both sides. If anything is unclear, have a lawyer look at the papers before you pay an advance.',
   },
   {
-    question: "Can I list my property for sale or rent for free?",
-    answer: "Yes, you can list your first property for free on our platform. For additional listings or to increase your agency's reach, we offer professional dealer packages tailored to your needs."
+    question: 'Can I list my property for sale or rent for free?',
+    answer:
+      'Yes. Every account can list one property for free. If you have more to list, the agent plans add more listings and featured placement.',
   },
   {
-    question: "Which cities in Pakistan do you cover?",
-    answer: "We currently have extensive listings in Karachi, Lahore, Islamabad, Rawalpindi, Faisalabad, and Peshawar, with expansion plans for other major cities across Pakistan."
-  }
+    question: 'Which cities in Pakistan do you cover?',
+    answer:
+      'Listings are live in Lahore, Islamabad, Rawalpindi, Karachi, Multan, Faisalabad, Gujranwala, Sahiwal, Bahawalpur and other cities across Pakistan, and the construction material rates are published for the major cities every day.',
+  },
 ];
 
 const FAQSection = () => {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [open, setOpen] = useState<number | null>(0);
 
-  // FAQ Schema for SEO
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    'mainEntity': faqs.map(faq => ({
+    mainEntity: FAQS.map((faq) => ({
       '@type': 'Question',
-      'name': faq.question,
-      'acceptedAnswer': {
-        '@type': 'Answer',
-        'text': faq.answer,
-      },
+      name: faq.question,
+      acceptedAnswer: { '@type': 'Answer', text: faq.answer },
     })),
   };
 
   return (
-    <section className="py-16 bg-gray-50">
-      {/* FAQ Schema */}
+    <section className="border-t border-slate-100 bg-white py-10 sm:py-12">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
-      
-      <div className="container mx-auto px-4">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4 tracking-tight">Frequently Asked Questions</h2>
-            <p className="text-gray-600 font-medium">Everything you need to know about properties in Pakistan.</p>
-          </div>
 
-          <div className="space-y-4">
-            {faqs.map((faq, index) => (
-              <div
-                key={index}
-                className="bg-white rounded-2xl border border-gray-100 overflow-hidden transition-all duration-300"
-              >
+      <div className="container mx-auto grid gap-6 px-4 lg:grid-cols-[320px_1fr] lg:gap-12">
+        <SectionHeading
+          title="Frequently asked questions"
+          description="Buying, renting and listing property in Pakistan."
+          className="mb-0 items-start"
+        />
+
+        <div className="divide-y divide-slate-200 rounded-lg border border-slate-200">
+          {FAQS.map((faq, index) => {
+            const isOpen = open === index;
+            return (
+              <div key={faq.question}>
                 <button
-                  onClick={() => setOpenIndex(openIndex === index ? null : index)}
-                  className="w-full flex items-center justify-between p-6 text-left hover:bg-gray-50 transition-colors"
+                  type="button"
+                  onClick={() => setOpen(isOpen ? null : index)}
+                  aria-expanded={isOpen}
+                  className="flex w-full items-center justify-between gap-4 px-4 py-3.5 text-left hover:bg-slate-50 sm:px-5"
                 >
-                  <span className="text-lg font-bold text-gray-900">{faq.question}</span>
-                  {openIndex === index ? (
-                    <Minus className="w-5 h-5 text-black shrink-0" />
-                  ) : (
-                    <Plus className="w-5 h-5 text-gray-400 shrink-0" />
-                  )}
+                  <span className="text-[15px] font-semibold text-slate-900">
+                    {faq.question}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      'h-4 w-4 shrink-0 text-slate-400 transition-transform',
+                      isOpen && 'rotate-180',
+                    )}
+                  />
                 </button>
-                <div
-                  className={`overflow-hidden transition-all duration-500 ease-in-out ${openIndex === index ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                    }`}
+                {/* Always in the HTML, only hidden: FAQPage structured data
+                    should match content that is on the page, collapsed or not. */}
+                <p
+                  hidden={!isOpen}
+                  className="px-4 pb-4 text-[14px] leading-relaxed text-slate-600 sm:px-5"
                 >
-                  <div className="p-6 pt-0 text-gray-600 leading-relaxed font-medium border-t border-gray-50">
-                    {faq.answer}
-                  </div>
-                </div>
+                  {faq.answer}
+                </p>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </div>
     </section>

@@ -1,408 +1,194 @@
- 'use client'
-import { useRouter } from 'next/navigation';
-import { MapPin, Bed, Bath, Maximize, Play, Phone, Star } from 'lucide-react';
+'use client'
+import Link from 'next/link';
 import Image from 'next/image';
+import { Bath, BedDouble, Camera, MapPin, Play, Ruler } from 'lucide-react';
 import { Property } from '@/lib/data';
-import { toTitleCase } from '@/lib/utils';
+import { cn, toTitleCase } from '@/lib/utils';
 import { amountShort, propertySizeLabel } from '@/lib/pk';
 import { useImpression } from '@/components/analytics/impression';
-import { trackContact } from '@/lib/analytics';
+
+/*
+ * The one listing card, used everywhere a listing is shown — search results,
+ * the homepage, related listings, an agent's profile.
+ *
+ * It is the results-page row: photo on the left, the facts on the right, the
+ * shape property and classifieds apps use because a phone screen fits five or
+ * six of them at once. The whole card is one real <Link> (crawlable,
+ * middle-click works). Contact buttons are not on the card — calling or
+ * messaging happens on the listing, where the number is revealed on a tap and
+ * the enquiry is counted; on a list they crowded the row and invited calls
+ * about a house nobody had looked at yet.
+ *
+ * `variant` is accepted for older call sites and ignored.
+ */
 
 interface PropertyCardProps {
   property: Property;
+  /** @deprecated The card has no actions any more. */
   hideActions?: boolean;
+  /** @deprecated There is one card. */
+  variant?: 'list' | 'grid';
+  className?: string;
 }
 
-const PropertyCard = ({ property, hideActions = false }: PropertyCardProps) => {
-  const router = useRouter();
-  /*
-   * Counted when the card is actually on screen. The mobile and desktop
-   * layouts are two separate elements, only one of which is ever displayed,
-   * so each gets a ref and the first to be seen reports the impression.
-   */
-  const mobileRef = useImpression<HTMLDivElement>(property.id);
-  const desktopRef = useImpression<HTMLDivElement>(property.id);
+function postedAgo(iso?: string): string {
+  if (!iso) return '';
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return '';
+  const hours = Math.floor((Date.now() - then) / 3_600_000);
+  if (hours < 1) return 'Just now';
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
 
-  // Lakh / crore, from the one place that knows how to say an amount.
-  const formatPrice = (price: number) => amountShort(price) || String(price);
+const PropertyCard = ({ property, className }: PropertyCardProps) => {
+  const ref = useImpression<HTMLElement>(property.id);
+  const href = `/properties/${property.slug}`;
 
-  const getPlaceholderImage = (type: string) => {
-    const images: { [key: string]: string } = {
-      'House': 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800&q=80',
-      'Apartment': 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80',
-      'Villa': 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&q=80',
-      'Plot': 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&q=80',
-      'Commercial': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&q=80',
-      'Farm House': 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800&q=80',
-    };
-    return images[type] || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80';
-  };
-
-  const fallbackImage = getPlaceholderImage(property.type);
-
-  // Check if property has a video
   const hasVideo = Boolean(property.videoUrl || property.videoPosterUrl);
-  // Is this card using video as the primary visual? (explicit isVideoThumbnail or no custom image with video present)
-  const isVideoPrimary = Boolean(
-    property.isVideoThumbnail ||
-    (hasVideo && (!property.image || property.image.trim() === '' || property.image.includes('images.unsplash.com')))
-  );
-
-  // Determine media source
-  const customPosterOrImage = property.videoPosterUrl || (property.image && !property.image.includes('images.unsplash.com') ? property.image : '');
-  const hasPosterOrImage = Boolean(customPosterOrImage);
-  const imageUrl = customPosterOrImage || fallbackImage;
+  const realImage =
+    property.image && !property.image.includes('images.unsplash.com') ? property.image : '';
+  const poster = property.videoPosterUrl || realImage;
+  const isVideoPrimary = Boolean(property.isVideoThumbnail || (hasVideo && !realImage));
   const rawVideoUrl = property.videoUrl || '';
 
   /*
-   * A sold or rented listing keeps its card for fifteen days (the API drops
-   * it from the lists after that), but it must not look like something you
-   * can still buy — so the badge changes and the contact buttons go.
+   * Sold or rented: the card stays for fifteen days (the API drops it from the
+   * lists after that), but it must not look like something you can still buy.
    */
-  const closed =
-    property.availability === 'sold' || property.availability === 'rented';
+  const closed = property.availability === 'sold' || property.availability === 'rented';
   const closedLabel = property.availability === 'rented' ? 'Rented' : 'Sold';
 
-  const whatsappNumber = property.whatsappNumber || property.contactNumber || '';
-  const phoneNumber = property.contactNumber || property.whatsappNumber || '';
-
-  const handleCardClick = () => {
-    router.push(`/properties/${property.slug}`);
-  };
-
-  /*
-   * Straight through to the agent.
-   *
-   * These two buttons used to bounce a visitor to /login and resume the
-   * action afterwards. Nothing was gained: the card shows no number to
-   * begin with, so there was nothing to protect — only an enquiry to lose.
-   * The listing page keeps the number itself behind one tap.
-   */
-  const handleWhatsApp = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    trackContact(property.id, 'whatsapp');
-    if (whatsappNumber) {
-      window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}`, '_blank');
-    }
-  };
-
-  const handleCall = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    trackContact(property.id, 'phone');
-    if (phoneNumber) {
-      window.location.href = `tel:${phoneNumber}`;
-    }
-  };
+  const price = amountShort(property.price) || property.price.toLocaleString('en-PK');
+  const isRent = property.purpose === 'rent';
+  const place = [property.location, property.city]
+    .filter(Boolean)
+    .map((part) => toTitleCase(String(part)))
+    .filter((part, i, all) => all.findIndex((p) => p.toLowerCase() === part.toLowerCase()) === i)
+    .join(', ');
+  const size = propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) });
+  const photos = property.photoCount ?? 0;
+  const ago = postedAgo(property.postedAt);
 
   return (
-    <>
-      {/* ════════════════════════════════════════
-          MOBILE
-      ════════════════════════════════════════ */}
-      <div
-        ref={mobileRef}
-        className="md:hidden group cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-md transition-all duration-300 flex flex-col"
-        onClick={handleCardClick}
-      >
-        {hideActions ? (
-          <>
-            <div className="relative w-full overflow-hidden bg-secondary" style={{ height: '110px' }}>
-              {!hasPosterOrImage && isVideoPrimary && rawVideoUrl ? (
-                <video
-                  src={`${rawVideoUrl}#t=0.5`}
-                  preload="metadata"
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover pointer-events-none"
-                />
-              ) : (
-                <Image
-                  src={imageUrl}
-                  alt={property.name}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                  sizes="(max-width: 768px) 100vw, 250px"
-                  onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
-                />
-              )}
-              {isVideoPrimary && (
-                <>
-                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                    <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-lg group-hover:scale-110 group-hover:bg-red-600 transition-all duration-300">
-                      <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
-                    </div>
-                  </div>
-                </>
-              )}
-              <div className="absolute top-1.5 left-1.5 z-10">
-                <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded shadow-sm ${closed ? 'bg-neutral-900 text-white' : 'bg-primary text-primary-foreground'}`}>
-                  {closed
-                    ? closedLabel
-                    : property.purpose === 'buy'
-                      ? 'For Sale'
-                      : 'For Rent'}
-                </span>
-              </div>
-              {hasVideo && (
-                <div className="absolute bottom-1.5 left-1.5 z-10">
-                  <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-black/75 backdrop-blur-sm text-white text-[9px] font-bold rounded shadow-sm border border-white/10">
-                    <Play className="w-2 h-2 fill-current text-red-500" /> Video
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col p-2 gap-1">
-              <p className="text-xs font-bold text-primary leading-tight">
-                PKR {formatPrice(property.price)}
-              </p>
-              <h3 className="text-[11px] font-semibold text-foreground line-clamp-2 leading-tight">
-                {property.name}
-              </h3>
-              <div className="flex items-center gap-1 text-muted-foreground text-[10px]">
-                <MapPin className="w-2.5 h-2.5 text-primary shrink-0" />
-                <span className="line-clamp-1">{toTitleCase(property.location)}, {toTitleCase(property.city)}</span>
-              </div>
-              {property.bedrooms > 0 && (
-                <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
-                  <span className="flex items-center gap-0.5"><Bed className="w-3 h-3" />{property.bedrooms}</span>
-                  <span className="flex items-center gap-0.5"><Bath className="w-3 h-3" />{property.bathrooms}</span>
-                  <span className="flex items-center gap-0.5">
-                    <Maximize className="w-3 h-3" />
-                    {propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) }, "short")}
-                  </span>
-                </div>
-              )}
-            </div>
-          </>
+    <article
+      ref={ref}
+      className={cn(
+        'group relative flex gap-3 rounded-lg border border-slate-200 bg-white p-2 transition-colors hover:border-slate-300 sm:gap-4 sm:p-2.5',
+        closed && 'opacity-80',
+        className,
+      )}
+    >
+      <Link href={href} className="absolute inset-0 z-10 rounded-lg" aria-label={property.name} />
+
+      {/* ── Photo ── */}
+      <div className="relative h-[100px] w-[112px] shrink-0 overflow-hidden rounded-md bg-slate-100 sm:h-[150px] sm:w-[210px]">
+        {poster ? (
+          <Image
+            src={poster}
+            alt={property.name}
+            fill
+            className="object-cover"
+            sizes="(max-width: 640px) 112px, 210px"
+          />
+        ) : isVideoPrimary && rawVideoUrl ? (
+          <video
+            src={`${rawVideoUrl}#t=0.5`}
+            preload="metadata"
+            muted
+            playsInline
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          />
         ) : (
-          <>
-            <div className="flex flex-row" style={{ height: '110px' }}>
-              <div className="relative shrink-0 overflow-hidden bg-secondary" style={{ width: '120px' }}>
-                {!hasPosterOrImage && isVideoPrimary && rawVideoUrl ? (
-                  <video
-                    src={`${rawVideoUrl}#t=0.5`}
-                    preload="metadata"
-                    muted
-                    playsInline
-                    className="w-full h-full object-cover pointer-events-none"
-                  />
-                ) : (
-                  <Image
-                    src={imageUrl}
-                    alt={property.name}
-                    fill
-                    className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    sizes="120px"
-                    onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
-                  />
-                )}
-                {isVideoPrimary && (
-                  <>
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                      <div className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-lg group-hover:scale-110 group-hover:bg-red-600 transition-all duration-300">
-                        <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
-                      </div>
-                    </div>
-                  </>
-                )}
-                <div className="absolute top-1.5 left-1.5 z-10">
-                  <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded shadow-sm ${closed ? 'bg-neutral-900 text-white' : 'bg-primary text-primary-foreground'}`}>
-                    {closed
-                      ? closedLabel
-                      : property.purpose === 'buy'
-                        ? 'For Sale'
-                        : 'For Rent'}
-                  </span>
-                </div>
-                {hasVideo && (
-                  <div className="absolute bottom-1.5 left-1.5 z-10">
-                    <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-black/75 backdrop-blur-sm text-white text-[9px] font-bold rounded shadow-sm border border-white/10">
-                      <Play className="w-2 h-2 fill-current text-red-500" /> Video
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-col flex-1 px-2.5 py-2 min-w-0 justify-between">
-                <div>
-                  <p className="text-sm font-bold text-primary leading-tight">
-                    PKR {formatPrice(property.price)}
-                  </p>
-                  <h3 className="text-[11px] font-semibold text-foreground mt-0.5 line-clamp-2 leading-tight">
-                    {property.name}
-                  </h3>
-                  <div className="flex items-center gap-1 mt-1 text-muted-foreground text-[10px]">
-                    <MapPin className="w-2.5 h-2.5 text-primary shrink-0" />
-                    <span className="line-clamp-1">{property.location}, {toTitleCase(property.city)}</span>
-                  </div>
-                </div>
-                {property.bedrooms > 0 && (
-                  <div className="flex items-center gap-2 text-[9px] text-muted-foreground">
-                    <span className="flex items-center gap-0.5"><Bed className="w-3 h-3" />{property.bedrooms}</span>
-                    <span className="flex items-center gap-0.5"><Bath className="w-3 h-3" />{property.bathrooms}</span>
-                    <span className="flex items-center gap-0.5">
-                      <Maximize className="w-3 h-3" />
-                      {propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) }, "short")}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {closed ? (
-              <div className="border-t border-border bg-muted/50 py-2 text-center text-[11px] font-semibold text-muted-foreground">
-                {closedLabel} — no longer available
-              </div>
-            ) : (
-            <div className="flex border-t border-[#25D366]">
-              <button
-                onClick={handleCall}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#25D366] bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors duration-200 border-r border-[#25D366]"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                Call
-              </button>
-              <button
-                onClick={handleWhatsApp}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 text-[11px] font-semibold text-[#25D366] bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors duration-200"
-              >
-                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
-                WhatsApp
-              </button>
-            </div>
-            )}
-          </>
+          <div className="grid h-full w-full place-items-center text-[11px] text-slate-400">No photo</div>
         )}
-      </div>
 
-      {/* ════════════════════════════════════════
-          DESKTOP
-      ════════════════════════════════════════ */}
-      <div
-        ref={desktopRef}
-        className="hidden md:flex group flex-col cursor-pointer bg-card rounded-xl overflow-hidden border border-border hover:border-primary/40 hover:shadow-lg transition-all duration-300"
-        onClick={handleCardClick}
-      >
-        <div className="flex flex-row" style={{ height: '190px' }}>
-          <div className="relative shrink-0 overflow-hidden bg-secondary" style={{ width: '250px' }}>
-            {!hasPosterOrImage && isVideoPrimary && rawVideoUrl ? (
-              <video
-                src={`${rawVideoUrl}#t=0.5`}
-                preload="metadata"
-                muted
-                playsInline
-                className="w-full h-full object-cover pointer-events-none"
-              />
-            ) : (
-              <Image
-                src={imageUrl}
-                alt={property.name}
-                fill
-                className="object-cover group-hover:scale-105 transition-transform duration-500"
-                sizes="250px"
-                onError={(e) => { (e.target as HTMLImageElement).src = fallbackImage; }}
-              />
+        {isVideoPrimary && (
+          <span className="pointer-events-none absolute inset-0 grid place-items-center">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-black/55 text-white">
+              <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
+            </span>
+          </span>
+        )}
+
+        {(closed || property.isFeatured) && (
+          <span
+            className={cn(
+              'pointer-events-none absolute left-1.5 top-1.5 rounded-sm px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide sm:text-[10px]',
+              closed ? 'bg-slate-900 text-white' : 'bg-amber-400 text-slate-900',
             )}
-            {isVideoPrimary && (
+          >
+            {closed ? closedLabel : 'Featured'}
+          </span>
+        )}
+
+        {(photos > 1 || (hasVideo && !isVideoPrimary)) && (
+          <span className="pointer-events-none absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-sm bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white">
+            {photos > 1 ? (
               <>
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                  <div className="w-12 h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-2xl group-hover:scale-115 group-hover:bg-red-600 transition-all duration-300">
-                    <Play className="w-5 h-5 fill-white text-white ml-0.5" />
-                  </div>
-                </div>
+                <Camera className="h-3 w-3" />
+                {photos}
+              </>
+            ) : (
+              <>
+                <Play className="h-2.5 w-2.5 fill-current" />
+                Video
               </>
             )}
-            <div className="absolute top-3 left-3 flex gap-2 z-10">
-              <span className={`px-2.5 py-1 text-xs font-semibold rounded-full shadow-md ${closed ? 'bg-neutral-900 text-white' : 'bg-primary text-primary-foreground'}`}>
-                {closed
-                  ? closedLabel
-                  : property.purpose === 'buy'
-                    ? 'For Sale'
-                    : 'For Rent'}
-              </span>
-              {property.isFeatured && !closed && (
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-amber-500 text-white text-xs font-bold rounded-full shadow-md">
-                  <Star className="w-3 h-3 fill-current" /> Featured
-                </span>
-              )}
-              {hasVideo && (
-                <span className="flex items-center gap-1 px-2.5 py-1 bg-red-600 text-white text-xs font-bold rounded-full shadow-md">
-                  <Play className="w-3 h-3 fill-current" /> Video
-                </span>
-              )}
-            </div>
-            <div className="absolute top-3 right-3 z-10">
-              <span className="px-2.5 py-1 bg-black/60 text-white text-xs font-medium rounded-full backdrop-blur-sm shadow">
-                {property.type}
-              </span>
-            </div>
-          </div>
-
-          <div className="flex flex-col flex-1 p-4 min-w-0 justify-between">
-            <div>
-              <p className="text-xl font-bold text-primary leading-tight">
-                PKR {formatPrice(property.price)}
-              </p>
-              <h3 className="text-base font-semibold text-foreground mt-1 line-clamp-2 hover:text-primary transition-colors duration-200">
-                {property.name}
-              </h3>
-              <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground text-sm">
-                <MapPin className="w-4 h-4 text-primary shrink-0" />
-                <span className="line-clamp-1">{property.location}, {toTitleCase(property.city)}</span>
-              </div>
-            </div>
-
-            <div>
-              {property.bedrooms > 0 && (
-                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                  <span className="flex items-center gap-1.5"><Bed className="w-4 h-4 text-primary" />{property.bedrooms} Beds</span>
-                  <span className="flex items-center gap-1.5"><Bath className="w-4 h-4 text-primary" />{property.bathrooms} Baths</span>
-                  <span className="flex items-center gap-1.5">
-                    <Maximize className="w-4 h-4 text-primary" />
-                    {propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) })}
-                  </span>
-                </div>
-              )}
-              <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold">
-                {property.purpose === 'buy' ? 'Total Price' : 'Monthly Rent'}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {!hideActions && closed && (
-          <div className="border-t border-border bg-muted/50 py-2.5 text-center text-sm font-semibold text-muted-foreground">
-            {closedLabel} — no longer available
-          </div>
-        )}
-
-        {!hideActions && !closed && (
-          <div className="flex border-t border-[#25D366]">
-            <button
-              onClick={handleCall}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-[#25D366] bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors duration-200 border-r border-[#25D366]"
-            >
-              <Phone className="w-4 h-4" />
-              Call
-            </button>
-            <button
-              onClick={handleWhatsApp}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-[#25D366] bg-[#25D366]/10 hover:bg-[#25D366]/20 transition-colors duration-200"
-            >
-              <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
-              WhatsApp
-            </button>
-          </div>
+          </span>
         )}
       </div>
-    </>
+
+      {/* ── Details ── */}
+      <div className="flex min-w-0 flex-1 flex-col py-0.5 sm:py-1">
+        <p className="flex items-baseline gap-1 text-slate-900">
+          <span className="text-[10px] font-semibold text-slate-500 sm:text-[11px]">PKR</span>
+          <span className="text-[16px] font-bold leading-none tracking-tight sm:text-[19px]">{price}</span>
+          {isRent && <span className="text-[11px] text-slate-500 sm:text-[12px]">/month</span>}
+        </p>
+
+        <h3 className="mt-1 line-clamp-2 text-[13px] font-medium leading-snug text-slate-800 group-hover:text-primary sm:mt-1.5 sm:text-[15px]">
+          {property.name}
+        </h3>
+
+        {place && (
+          <p className="mt-0.5 flex items-center gap-1 text-[11.5px] text-slate-500 sm:mt-1 sm:text-[13px]">
+            <MapPin className="h-3 w-3 shrink-0 text-slate-400 sm:h-3.5 sm:w-3.5" />
+            <span className="truncate">{place}</span>
+          </p>
+        )}
+
+        <div className="mt-auto flex items-end justify-between gap-2 pt-1.5">
+          <ul className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11.5px] text-slate-600 sm:gap-x-3.5 sm:text-[13px]">
+            {property.bedrooms > 0 && (
+              <li className="inline-flex items-center gap-1">
+                <BedDouble className="h-3.5 w-3.5 text-slate-400" />
+                {property.bedrooms}
+                <span className="hidden sm:inline">{property.bedrooms === 1 ? 'Bed' : 'Beds'}</span>
+              </li>
+            )}
+            {property.bathrooms > 0 && (
+              <li className="inline-flex items-center gap-1">
+                <Bath className="h-3.5 w-3.5 text-slate-400" />
+                {property.bathrooms}
+                <span className="hidden sm:inline">{property.bathrooms === 1 ? 'Bath' : 'Baths'}</span>
+              </li>
+            )}
+            {size && size !== '—' && (
+              <li className="inline-flex items-center gap-1">
+                <Ruler className="h-3.5 w-3.5 text-slate-400" />
+                {size}
+              </li>
+            )}
+          </ul>
+          {ago && <span className="shrink-0 text-[10.5px] text-slate-400 sm:text-[12px]">{ago}</span>}
+        </div>
+      </div>
+    </article>
   );
 };
 

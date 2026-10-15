@@ -104,7 +104,7 @@ export default function MaterialDetailClient({ rate, materialType }: MaterialDet
   };
 
   return (
-    <div className="pt-24 bg-white min-h-screen">
+    <div className="pt-6 bg-white min-h-screen">
       <div className="max-w-6xl mx-auto px-3 py-5">
 
         {/* Breadcrumb */}

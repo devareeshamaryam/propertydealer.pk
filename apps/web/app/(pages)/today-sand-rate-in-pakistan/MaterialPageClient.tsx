@@ -82,7 +82,7 @@ export default function MaterialPageClient({
   };
 
   return (
-    <div className="pt-24 bg-gray-50 min-h-screen">
+    <div className="pt-6 bg-slate-50 min-h-screen">
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-50 lg:hidden"

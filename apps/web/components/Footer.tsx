@@ -1,183 +1,168 @@
- 'use client';
-
 import Link from 'next/link';
-import { Home, Youtube, Facebook, Linkedin, Mail, Phone, MapPin, ArrowUpRight } from 'lucide-react';
+import { Facebook, Linkedin, Mail, Phone, Youtube } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
+import { getSiteSettings } from '@/lib/site-settings.server';
 
-const Footer = () => {
-  const cities = [
-    { name: 'Lahore',     href: '/properties/all/lahore'     },
-    { name: 'Islamabad',  href: '/properties/all/islamabad'  },
-    { name: 'Karachi',    href: '/properties/all/karachi'    },
-    { name: 'Multan',     href: '/properties/all/multan'     },
-    { name: 'Faisalabad', href: '/properties/all/faisalabad' },
-  ];
+/*
+ * A footer that is a directory, like every listing portal's.
+ *
+ * The old one was a near-black block with a gradient stripe across the top,
+ * social icons that grew on hover, a pulsing green "Trusted since 2007" dot
+ * and arrows that slid in beside each link. On phones it hid every link and
+ * showed only the name and the social buttons.
+ *
+ * Zameen's footer is the useful kind: four or five plain columns of links to
+ * the pages people actually look for — cities, rent and sale, the tools — on
+ * the brand's dark colour, with a thin copyright bar under it. It is also the
+ * one place every page links to the city and rate pages, which is worth
+ * having on phones as much as desktops, so the columns stay on mobile too.
+ *
+ * Only pages that exist are linked. /terms, /privacy and /contact all 404 on
+ * the live site; linking them here would put a broken link on every page and
+ * have Next prefetch three 404s per visit.
+ */
 
-  const quickLinks = [
-    { name: 'Properties for Rent', href: '/properties/rent' },
-    { name: 'Properties for Sale', href: '/properties/sale' },
-    { name: 'About Us',            href: '/about'           },
-  ];
+const EXPLORE = [
+  { name: 'Properties for Sale', href: '/properties/sale' },
+  { name: 'Properties for Rent', href: '/properties/rent' },
+  { name: 'Search on Map', href: '/emap' },
+  { name: 'Agent Packages', href: '/packages' },
+  { name: 'Blog', href: '/blog' },
+  { name: 'About Us', href: '/about' },
+];
 
-  const socials = [
-    { icon: Facebook, href: 'https://www.facebook.com/pkpropertydealer',         label: 'Facebook' },
-    { icon: Youtube,  href: 'https://www.youtube.com/@Propertydealer-y9r',        label: 'YouTube'  },
-    { icon: Linkedin, href: 'https://www.linkedin.com/company/propertydealer-pk/about/', label: 'LinkedIn' },
-  ];
+const CITIES = [
+  { name: 'Lahore', href: '/properties/all/lahore' },
+  { name: 'Islamabad', href: '/properties/all/islamabad' },
+  { name: 'Karachi', href: '/properties/all/karachi' },
+  { name: 'Rawalpindi', href: '/properties/all/rawalpindi' },
+  { name: 'Multan', href: '/properties/all/multan' },
+  { name: 'Faisalabad', href: '/properties/all/faisalabad' },
+  { name: 'Gujranwala', href: '/properties/all/gujranwala' },
+  { name: 'Sahiwal', href: '/properties/all/sahiwal' },
+];
+
+const RATES = [
+  { name: 'Cement Rates', href: '/today-cement-rate-in-pakistan' },
+  { name: 'Steel (Sarya) Rates', href: '/today-steel-rate-in-pakistan' },
+  { name: 'Bricks Rates', href: '/today-bricks-rate-in-pakistan' },
+  { name: 'Sand Rates', href: '/today-sand-rate-in-pakistan' },
+  { name: 'Bajri Rates', href: '/today-bajri-rate-in-pakistan' },
+  { name: 'Tile Rates', href: '/today-tile-rate-in-pakistan' },
+  { name: 'Wood Rates', href: '/today-wood-rate-in-pakistan' },
+  { name: 'Door Rates', href: '/today-door-rate-in-pakistan' },
+];
+
+const SOCIALS = [
+  { icon: Facebook, href: 'https://www.facebook.com/pkpropertydealer', label: 'Facebook' },
+  { icon: Youtube, href: 'https://www.youtube.com/@Propertydealer-y9r', label: 'YouTube' },
+  { icon: Linkedin, href: 'https://www.linkedin.com/company/propertydealer-pk/about/', label: 'LinkedIn' },
+];
+
+function Column({
+  title,
+  links,
+}: {
+  title: string;
+  links: { name: string; href: string }[];
+}) {
+  return (
+    <div>
+      <h3 className="mb-3 text-[13px] font-semibold text-white">{title}</h3>
+      <ul className="space-y-2">
+        {links.map((link) => (
+          <li key={link.href}>
+            <Link
+              href={link.href}
+              className="text-[13px] text-slate-300 transition-colors hover:text-white"
+            >
+              {link.name}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const Footer = async () => {
+  // Settings → Appearance: the footer logo, else the header logo, else the mark.
+  const { footerLogoUrl, logoUrl, logoHeight } = await getSiteSettings();
+  const footerLogo = footerLogoUrl || logoUrl;
 
   return (
-    <footer className="bg-gray-950 text-white">
-
-      {/* ── Top divider accent ── */}
-      <div className="h-1 w-full bg-gradient-to-r from-transparent via-primary to-transparent opacity-60" />
-
-      {/* ══════════════════════════════════════════════════════════════
-          MOBILE FOOTER (sm:hidden) — simplified: name, socials, copyright
-      ══════════════════════════════════════════════════════════════ */}
-      <div className="sm:hidden container mx-auto px-4 pt-6 pb-5 flex flex-col items-center text-center">
-        <Link href="/" className="inline-flex items-center mb-3 group">
-          <span className="text-base font-bold tracking-tight text-white">
-            Property <span className="text-white">Dealer</span>
-          </span>
-        </Link>
-
-        <div className="flex gap-1.5 mb-4">
-          {socials.map(({ icon: Icon, href, label }) => (
-            <a
-              key={label}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={label}
-              className="w-7 h-7 rounded-md bg-white/5 hover:bg-primary hover:scale-110 flex items-center justify-center transition-all duration-200 border border-white/10 hover:border-primary"
-            >
-              <Icon className="w-3 h-3" />
-            </a>
-          ))}
-        </div>
-
-        <div className="border-t border-white/5 w-full pt-3 flex flex-col items-center gap-1 text-[11px] text-gray-500">
-          <p>© 2026 PropertyDealer. All rights reserved.</p>
-          <p className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
-            Trusted since 2007
-          </p>
-        </div>
-      </div>
-
-      {/* ══════════════════════════════════════════════════════════════
-          DESKTOP / TABLET FOOTER (hidden sm:block) — unchanged
-      ══════════════════════════════════════════════════════════════ */}
-      <div className="hidden sm:block container mx-auto px-4 pt-14 pb-8">
-
-        {/* ── Main grid ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
-
-          {/* Brand */}
-          <div className="sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="inline-flex items-center gap-2.5 mb-5 group">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30 group-hover:scale-105 transition-transform">
-                <Home className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold tracking-tight text-white">
-                Property <span className="text-white">Dealer</span>
-              </span>
+    <footer className="bg-navy text-white">
+      <div className="container mx-auto px-4 py-10 md:py-12">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-8 md:grid-cols-4 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div className="col-span-2 md:col-span-4 lg:col-span-1">
+            <Link href="/" aria-label="PropertyDealer home" className="inline-block">
+              {footerLogo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={footerLogo} alt="PropertyDealer" style={{ height: logoHeight }} className="w-auto max-w-[220px] object-contain" />
+              ) : (
+                <BrandLogo
+                  markClassName="text-white"
+                  textClassName="text-white [&>span]:text-white/70"
+                />
+              )}
             </Link>
 
-            <p className="text-gray-400 text-sm leading-relaxed mb-6 max-w-xs">
- Property Dealer is a Pakistani real-estate portal where people can buy, sell, and rent properties such as houses, plots, apartments, commercial buildings, and land. Trusted since 2007.             </p>
+            <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-slate-300">
+              Buy, sell and rent houses, plots, flats and commercial property
+              across Pakistan — with today&apos;s construction material rates
+              alongside.
+            </p>
 
-            {/* Socials */}
-            <div className="flex gap-2">
-              {socials.map(({ icon: Icon, href, label }) => (
+            <ul className="mt-4 space-y-1.5 text-[13px]">
+              <li>
+                <a
+                  href="tel:+923030119992"
+                  className="inline-flex items-center gap-2 text-slate-300 hover:text-white"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  +92 303 011 9992
+                </a>
+              </li>
+              <li>
+                <a
+                  href="mailto:propertydealer.pk01@gmail.com"
+                  className="inline-flex items-center gap-2 break-all text-slate-300 hover:text-white"
+                >
+                  <Mail className="h-3.5 w-3.5 shrink-0" />
+                  propertydealer.pk01@gmail.com
+                </a>
+              </li>
+            </ul>
+
+            <div className="mt-4 flex gap-2">
+              {SOCIALS.map(({ icon: Icon, href, label }) => (
                 <a
                   key={label}
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="w-9 h-9 rounded-lg bg-white/5 hover:bg-primary hover:scale-110 flex items-center justify-center transition-all duration-200 border border-white/10 hover:border-primary"
+                  className="grid h-8 w-8 place-items-center rounded-md border border-white/15 text-slate-300 transition-colors hover:border-white/40 hover:text-white"
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="h-4 w-4" />
                 </a>
               ))}
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-5">Quick Links</h3>
-            <ul className="space-y-3">
-              {quickLinks.map(link => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="group flex items-center gap-1.5 text-gray-300 hover:text-primary transition-colors text-sm"
-                  >
-                    <ArrowUpRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Cities */}
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-5">Popular Cities</h3>
-            <ul className="space-y-3">
-              {cities.map(city => (
-                <li key={city.href}>
-                  <Link
-                    href={city.href}
-                    className="group flex items-center gap-1.5 text-gray-300 hover:text-primary transition-colors text-sm"
-                  >
-                    <ArrowUpRight className="w-3.5 h-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200" />
-                    {city.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h3 className="text-sm font-semibold uppercase tracking-widest text-gray-400 mb-5">Contact Us</h3>
-            <ul className="space-y-4">
-              <li className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <MapPin className="w-4 h-4 text-primary" />
-                </div>
-                <span className="text-gray-300 text-sm leading-snug pt-1">Lahore, Pakistan</span>
-              </li>
-              <li>
-                <a href="tel:+923030119992" className="flex items-center gap-3 group">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                    <Phone className="w-4 h-4 text-primary" />
-                  </div>
-                  <span className="text-gray-300 text-sm group-hover:text-white transition-colors">+92 303 011 9992</span>
-                </a>
-              </li>
-              <li>
-                <a href="mailto:propertydealer.pk01@gmail.com" className="flex items-center gap-3 group">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
-                    <Mail className="w-4 h-4 text-primary" />
-                  </div>
-                  <span className="text-gray-300 text-sm group-hover:text-white transition-colors break-all">propertydealer.pk01@gmail.com</span>
-                </a>
-              </li>
-            </ul>
+          <Column title="Explore" links={EXPLORE} />
+          <Column title="Popular Cities" links={CITIES} />
+          <div className="col-span-2 md:col-span-1">
+            <Column title="Construction Rates" links={RATES} />
           </div>
         </div>
+      </div>
 
-        {/* ── Bottom bar ── */}
-        <div className="border-t border-white/5 mt-12 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-500">
-          <p>© 2026 PropertyDealer. All rights reserved.</p>
-          <p className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block" />
-            Trusted since 2007
-          </p>
+      <div className="border-t border-white/10">
+        <div className="container mx-auto flex flex-col gap-1 px-4 py-4 text-xs text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+          <p>© {new Date().getFullYear()} PropertyDealer. All rights reserved.</p>
+          <p>Serving buyers, renters and dealers across Pakistan since 2007.</p>
         </div>
-
       </div>
     </footer>
   );

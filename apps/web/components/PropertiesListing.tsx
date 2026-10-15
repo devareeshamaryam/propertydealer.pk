@@ -526,7 +526,7 @@ export default function PropertiesListing({
 
   if (loading) return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 pt-32 pb-16 flex items-center justify-center py-20">
+      <div className="container mx-auto px-4 pt-10 pb-16 flex items-center justify-center py-20">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-muted-foreground">Loading properties...</p>
@@ -537,7 +537,7 @@ export default function PropertiesListing({
 
   if (error && !properties.length) return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 pt-32 pb-16">
+      <div className="container mx-auto px-4 pt-10 pb-16">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-bold mb-6">
             Properties for {purpose === 'buy' ? 'Sale' : purpose === 'rent' ? 'Rent' : 'Rent & Sale'}
@@ -641,7 +641,7 @@ export default function PropertiesListing({
         <SheetContent side="bottom" className="h-screen w-full p-0 rounded-none border-0 lg:hidden flex flex-col">
           <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200 bg-white shrink-0">
             <SheetTitle className="text-base font-bold text-black">Filters</SheetTitle>
-            <button onClick={() => setIsFilterSheetOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 hover:bg-gray-100">
+            <button onClick={() => setIsFilterSheetOpen(false)} aria-label="Close" className="w-8 h-8 flex items-center justify-center rounded-md text-slate-500 hover:bg-slate-100">
               <X className="w-4 h-4 text-black" />
             </button>
           </div>
@@ -654,7 +654,7 @@ export default function PropertiesListing({
                   <select
                     value={sheetCity}
                     onChange={e => { setSheetCity(e.target.value); setSheetAreaId(''); setSheetAreaSlug(''); setShowAllAreas(false); }}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-sm font-medium appearance-none focus:border-black focus:outline-none"
+                    className="w-full px-4 py-3 rounded-md border border-slate-300 bg-white text-sm font-medium appearance-none focus:border-primary focus:outline-none"
                   >
                     <option value="">All Cities</option>
                     {cities.map(c => <option key={c} value={c}>{c}</option>)}
@@ -667,13 +667,13 @@ export default function PropertiesListing({
                 <Label className="text-sm font-semibold text-black">Property Type</Label>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => setSheetType('all')}
-                    className={`px-4 py-2 rounded-full text-xs font-semibold border transition-colors ${sheetType === 'all' ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
+                    className={`px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors ${sheetType === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
                     All Types
                   </button>
                   {propertyTypes.map(t => (
                     <button key={t}
                       onClick={() => setSheetType(sheetType.toLowerCase() === t.toLowerCase() ? 'all' : t.toLowerCase())}
-                      className={`px-4 py-2 rounded-full text-xs font-semibold border transition-colors ${sheetType.toLowerCase() === t.toLowerCase() ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
+                      className={`px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors ${sheetType.toLowerCase() === t.toLowerCase() ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
                       {t}
                     </button>
                   ))}
@@ -697,7 +697,7 @@ export default function PropertiesListing({
                       {visibleFilterAreas.map(area => (
                         <button key={area.id}
                           onClick={() => { if (sheetAreaId === area.id) { setSheetAreaId(''); setSheetAreaSlug(''); } else { setSheetAreaId(area.id); setSheetAreaSlug(area.slug || ''); } }}
-                          className={`flex items-center justify-between px-3 py-2.5 rounded-xl border text-xs font-medium transition-colors text-left ${sheetAreaId === area.id ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'}`}>
+                          className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-xs font-medium transition-colors text-left ${sheetAreaId === area.id ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'}`}>
                           <div className="flex items-center gap-1.5 min-w-0">
                             <MapPin className="w-3 h-3 shrink-0 opacity-60" />
                             <span className="truncate">{toTitleCase(area.name)}</span>
@@ -721,16 +721,16 @@ export default function PropertiesListing({
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-black">Price Range (PKR)</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  <Input type="number" placeholder="Min" value={sheetPriceMin} onChange={e => setSheetPriceMin(e.target.value)} className="h-11 text-sm rounded-xl border-gray-200 focus:border-black" />
-                  <Input type="number" placeholder="Max" value={sheetPriceMax} onChange={e => setSheetPriceMax(e.target.value)} className="h-11 text-sm rounded-xl border-gray-200 focus:border-black" />
+                  <Input type="number" placeholder="Min" value={sheetPriceMin} onChange={e => setSheetPriceMin(e.target.value)} className="h-11 text-sm rounded-md border-gray-200 focus:border-primary" />
+                  <Input type="number" placeholder="Max" value={sheetPriceMax} onChange={e => setSheetPriceMax(e.target.value)} className="h-11 text-sm rounded-md border-gray-200 focus:border-primary" />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-black">Area Size (Marla)</Label>
                 <div className="grid grid-cols-2 gap-3">
-                  <Input type="number" placeholder="Min" value={sheetMarlaMin} onChange={e => setSheetMarlaMin(e.target.value)} className="h-11 text-sm rounded-xl border-gray-200 focus:border-black" />
-                  <Input type="number" placeholder="Max" value={sheetMarlaMax} onChange={e => setSheetMarlaMax(e.target.value)} className="h-11 text-sm rounded-xl border-gray-200 focus:border-black" />
+                  <Input type="number" placeholder="Min" value={sheetMarlaMin} onChange={e => setSheetMarlaMin(e.target.value)} className="h-11 text-sm rounded-md border-gray-200 focus:border-primary" />
+                  <Input type="number" placeholder="Max" value={sheetMarlaMax} onChange={e => setSheetMarlaMax(e.target.value)} className="h-11 text-sm rounded-md border-gray-200 focus:border-primary" />
                 </div>
               </div>
 
@@ -739,7 +739,7 @@ export default function PropertiesListing({
                 <div className="flex gap-2 flex-wrap">
                   {[1,2,3,4,5].map(n => (
                     <button key={n} onClick={() => setSheetBeds(sheetBeds === n ? undefined : n)}
-                      className={`w-11 h-11 rounded-full text-sm font-semibold border transition-colors ${sheetBeds === n ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'}`}>
+                      className={`w-11 h-10 rounded-md text-sm font-medium border transition-colors ${sheetBeds === n ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'}`}>
                       {n}{n === 5 ? '+' : ''}
                     </button>
                   ))}
@@ -751,7 +751,7 @@ export default function PropertiesListing({
                 <div className="flex gap-2 flex-wrap">
                   {[1,2,3,4].map(n => (
                     <button key={n} onClick={() => setSheetBaths(sheetBaths === n ? undefined : n)}
-                      className={`w-11 h-11 rounded-full text-sm font-semibold border transition-colors ${sheetBaths === n ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'}`}>
+                      className={`w-11 h-10 rounded-md text-sm font-medium border transition-colors ${sheetBaths === n ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'}`}>
                       {n}{n === 4 ? '+' : ''}
                     </button>
                   ))}
@@ -763,26 +763,26 @@ export default function PropertiesListing({
           </div>
 
           <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 flex gap-3">
-            <button onClick={resetSheetFilters} className="flex-1 py-3 rounded-xl border-2 border-gray-300 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">RESET</button>
-            <button onClick={applySheetFilters} className="flex-[2] py-3 rounded-xl bg-black text-white text-sm font-bold hover:bg-gray-900 transition-colors">APPLY FILTERS</button>
+            <button onClick={resetSheetFilters} className="flex-1 h-11 rounded-md border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">Reset</button>
+            <button onClick={applySheetFilters} className="flex-[2] h-11 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors">Show results</button>
           </div>
         </SheetContent>
       </Sheet>
 
       {/* ── Main listings section ─────────────────────────────────────────── */}
-      <section className="py-8 md:py-10 flex-1">
+      <section className="flex-1 bg-slate-50 py-4 md:py-6">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex flex-col lg:flex-row gap-6">
 
-            <aside className="w-80 shrink-0 hidden lg:block">
-              <div className="sticky top-24">
+            <aside className="w-72 shrink-0 hidden lg:block">
+              <div className="sticky top-[132px]">
                 <SearchSidebar city={matchedCity} purpose={purpose} type={type} useCleanUrls={useCleanUrls} filters={advancedFilters} onFilterChange={handleFilterChange} />
               </div>
             </aside>
 
-            <div className="w-full lg:w-3/4 space-y-5">
+            <div className="min-w-0 flex-1 space-y-4">
 
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-foreground tracking-tight">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
                 {type !== 'all'
                   ? (type.toLowerCase() === 'house' ? 'Property' : `${type.charAt(0).toUpperCase() + type.slice(1)}s`)
                   : 'Properties'}
@@ -790,19 +790,19 @@ export default function PropertiesListing({
                 in {matchedCity || 'Pakistan'}
               </h1>
 
-              <div className="lg:hidden flex rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+              <div className="lg:hidden flex h-10 rounded-md overflow-hidden border border-slate-300">
                 <button onClick={() => updateFilters(matchedCity, type, 'buy')}
-                  className={`flex-1 py-3 text-sm font-bold transition-colors ${purpose === 'buy' ? 'bg-black text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+                  className={`flex-1 text-sm font-semibold transition-colors ${purpose === 'buy' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
                   Buy
                 </button>
                 <button onClick={() => updateFilters(matchedCity, type, 'rent')}
-                  className={`flex-1 py-3 text-sm font-bold transition-colors border-x border-gray-200 ${purpose === 'rent' ? 'bg-black text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>
+                  className={`flex-1 text-sm font-semibold transition-colors border-x border-slate-300 ${purpose === 'rent' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
                   Rent
                 </button>
                 <button onClick={() => setIsFilterSheetOpen(true)}
-                  className="px-5 py-3 bg-black hover:bg-gray-900 text-white text-xs font-bold tracking-widest flex items-center gap-1.5 transition-colors">
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  FILTERS
+                  className="px-4 bg-white hover:bg-slate-50 text-slate-900 text-sm font-semibold flex items-center gap-1.5 transition-colors">
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Filters
                 </button>
               </div>
 
@@ -815,7 +815,7 @@ export default function PropertiesListing({
                         : type.toLowerCase() === tab.key;
                       return (
                         <button key={tab.key} onClick={() => navigateType(tab.key)}
-                          className={`flex flex-col items-start pb-2 pt-0.5 text-left transition-colors border-b-2 ${isActive ? 'border-black text-black' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+                          className={`flex flex-col items-start pb-2 pt-0.5 text-left transition-colors border-b-2 ${isActive ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
                           <span className="text-xs font-bold leading-tight whitespace-nowrap">{tab.label}</span>
                           <span className="text-[10px] text-gray-400 leading-tight">({tab.count})</span>
                         </button>
@@ -823,17 +823,17 @@ export default function PropertiesListing({
                     })}
                   </div>
                   <button onClick={() => setIsLocationPanelOpen(v => !v)}
-                    className={`absolute right-0 top-0.5 text-[10px] font-bold border px-2 py-1 rounded transition-colors whitespace-nowrap ${isLocationPanelOpen ? 'border-black bg-black text-white' : 'border-gray-300 bg-white text-gray-600 hover:border-gray-600'}`}>
-                    {isLocationPanelOpen ? 'CLOSE LIST' : 'LOCATION LIST'}
+                    className={`absolute right-0 top-0.5 text-[11px] font-semibold border px-2 py-1 rounded-md transition-colors whitespace-nowrap ${isLocationPanelOpen ? 'border-primary bg-primary text-white' : 'border-slate-300 bg-white text-slate-600 hover:border-slate-400'}`}>
+                    {isLocationPanelOpen ? 'Close' : 'Locations'}
                   </button>
                 </div>
 
                 {isLocationPanelOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsLocationPanelOpen(false)} />
-                    <div className="absolute right-0 top-8 z-50 w-[260px] bg-white border border-gray-200 shadow-2xl overflow-hidden">
+                    <div className="absolute right-0 top-8 z-50 w-[260px] overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg">
                       <div className="px-4 pt-4 pb-3">
-                        <p className="text-[17px] font-bold text-gray-900 leading-snug">{locationPanelTitle}</p>
+                        <p className="text-[15px] font-semibold text-slate-900 leading-snug">{locationPanelTitle}</p>
                       </div>
                       <div className="overflow-y-auto" style={{ maxHeight: '340px' }}>
                         {locationPanelLoading ? (
@@ -861,10 +861,10 @@ export default function PropertiesListing({
               </div>
 
               {showMarlaChips && (
-                <div className="flex gap-2 flex-wrap">
+                <div className="hide-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
                   {SIZE_OPTIONS.map(opt => (
                     <button key={opt.marlaMin} onClick={() => handleMarlaClick(opt.marlaMin)}
-                      className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-colors ${selectedMarla === opt.marlaMin ? 'bg-black text-white border-black' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
+                      className={`h-8 shrink-0 whitespace-nowrap px-3 rounded-md text-[13px] font-medium border transition-colors ${selectedMarla === opt.marlaMin ? 'border-primary bg-primary/10 text-primary' : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'}`}>
                       {opt.label}
                     </button>
                   ))}
@@ -872,12 +872,11 @@ export default function PropertiesListing({
               )}
 
               {matchedCity && (
-                <div className="hidden lg:block space-y-3">
+                <div className="hidden lg:block space-y-2.5 rounded-lg border border-slate-200 p-4">
                   <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                      Popular Locations in {toTitleCase(matchedCity)}
-                    </h3>
+                    <h2 className="text-[14px] font-semibold text-slate-900">
+                      Popular locations in {toTitleCase(matchedCity)}
+                    </h2>
                   </div>
                   {loadingMainAreas ? (
                     <div className="flex items-center gap-2 text-sm text-gray-400">
@@ -892,16 +891,15 @@ export default function PropertiesListing({
                             <button
                               key={area.id}
                               onClick={() => navigateArea(area)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[13px] border transition-colors ${
                                 isSelected
-                                  ? 'bg-black text-white border-black'
-                                  : 'bg-white text-gray-700 border-gray-300 hover:border-gray-600 hover:bg-gray-50'
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
                               }`}
                             >
-                              <MapPin className="w-3 h-3 opacity-60" />
                               {toTitleCase(area.name)}
                               {area.count > 0 && (
-                                <span className={`text-[10px] ${isSelected ? 'opacity-70' : 'text-gray-400'}`}>
+                                <span className={`text-[12px] ${isSelected ? 'opacity-70' : 'text-slate-400'}`}>
                                   ({area.count})
                                 </span>
                               )}
@@ -916,8 +914,8 @@ export default function PropertiesListing({
                         >
                           <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAllMainAreas ? 'rotate-180' : ''}`} />
                           {showAllMainAreas
-                            ? 'Show Less'
-                            : `View More (${mainAreas.length - AREAS_INITIAL_COUNT} more locations)`}
+                            ? 'Show less'
+                            : `${mainAreas.length - AREAS_INITIAL_COUNT} more locations`}
                         </button>
                       )}
                     </>
@@ -925,37 +923,30 @@ export default function PropertiesListing({
                 </div>
               )}
 
-              <div className="pt-2">
-                <h3 className="text-lg font-semibold mb-6">Property Listings</h3>
+              <div>
 
                 {properties.length > 0 ? (
-                  <div className="space-y-8">
-                    <div className="grid grid-cols-1 gap-2 md:gap-4">
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 gap-2.5 sm:gap-3">
                       {properties.map((property, index) => (
-                        <div key={`${property.id}-${index}`}
-                          className="animate-in fade-in slide-in-from-bottom-4 duration-500"
-                          style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'backwards' }}>
-                          <PropertyCard property={property} />
-                        </div>
+                        <PropertyCard key={`${property.id}-${index}`} property={property} />
                       ))}
                     </div>
 
                     {currentPage < totalPages && (
                       <div className="flex justify-center pt-4">
-                        <Button variant="outline" size="lg" onClick={() => setCurrentPage(p => p + 1)} disabled={isFetchingMore}
-                          className="min-w-[200px] rounded-full border-primary text-primary hover:bg-primary/5">
-                          {isFetchingMore ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading...</> : 'Load More Properties'}
+                        <Button variant="outline" onClick={() => setCurrentPage(p => p + 1)} disabled={isFetchingMore}
+                          className="h-10 min-w-[200px] border-slate-300 font-semibold text-slate-900">
+                          {isFetchingMore ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading…</> : 'Show more properties'}
                         </Button>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-16 bg-secondary/30 rounded-xl">
-                    <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
-                      <SlidersHorizontal className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                    <h3 className="text-xl font-semibold mb-2">No properties found</h3>
-                    <p className="text-muted-foreground mb-6">Try adjusting your filters</p>
+                  <div className="rounded-lg border border-slate-200 px-4 py-12 text-center">
+                    <SlidersHorizontal className="mx-auto mb-3 h-6 w-6 text-slate-400" />
+                    <h2 className="text-[17px] font-semibold text-slate-900">No properties match these filters</h2>
+                    <p className="mt-1 mb-5 text-sm text-slate-500">Try another area, or widen the price or size.</p>
                     <Button variant="outline" onClick={() => {
                       setType('all'); setSelectedMarla(null);
                       updateFilters('', 'all'); setAdvancedFilters({});
@@ -971,7 +962,7 @@ export default function PropertiesListing({
       </section>
 
       {effectiveRichDescription && (
-        <section className="py-12 bg-secondary/50">
+        <section className="border-t border-slate-200 bg-slate-50 py-8">
           <div className="container mx-auto px-4">
             <div
               className="prose prose-sm max-w-4xl text-muted-foreground prose-headings:text-foreground prose-a:text-primary"

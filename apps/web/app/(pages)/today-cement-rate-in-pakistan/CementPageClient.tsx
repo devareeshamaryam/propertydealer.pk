@@ -91,7 +91,7 @@ export default function CementPageClient({
   };
 
   return (
-    <div className="pt-24 bg-gray-50 min-h-screen">
+    <div className="pt-6 bg-slate-50 min-h-screen">
       <CartDrawer />
 
       {/* Mobile sidebar overlay */}

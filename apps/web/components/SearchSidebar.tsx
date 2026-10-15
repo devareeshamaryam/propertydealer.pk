@@ -4,9 +4,6 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
-import { propertyApi } from '@/lib/api';
 
 interface SearchSidebarProps {
   city?: string;
@@ -72,75 +69,73 @@ export default function SearchSidebar({
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Filters Section */}
-      <div className="bg-card border rounded-xl shadow-sm overflow-hidden">
-        <div className="p-4 border-b bg-muted/30 flex justify-between items-center">
-          <h3 className="font-semibold">Filters</h3>
+      <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2.5">
+          <h2 className="text-[15px] font-semibold text-slate-900">Filters</h2>
           <Button
             variant="ghost"
             size="sm"
             onClick={handleClearFilters}
             className="text-muted-foreground h-8 text-xs hover:text-foreground"
           >
-            Clear All
+            Clear all
           </Button>
         </div>
 
-        <div className="p-4 space-y-6">
+        <div className="space-y-5 p-4">
           {/* Price Range */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Price Range (PKR)</Label>
-            <div className="grid grid-cols-1 xs:grid-cols-[1fr,auto,1fr] gap-2 items-center">
+          <div className="space-y-2">
+            <Label className="text-[13px] font-semibold text-slate-700">Price Range (PKR)</Label>
+            <div className="grid grid-cols-2 gap-2">
               <Input
                 type="number"
                 placeholder="Min"
                 value={localFilters.priceMin || ''}
                 onChange={(e) => updateFilter('priceMin', e.target.value ? Number(e.target.value) : undefined)}
-                className="h-10 text-sm"
+                className="h-9 text-sm"
               />
-              <span className="text-muted-foreground hidden xs:inline">-</span>
               <Input
                 type="number"
                 placeholder="Max"
                 value={localFilters.priceMax || ''}
                 onChange={(e) => updateFilter('priceMax', e.target.value ? Number(e.target.value) : undefined)}
-                className="h-10 text-sm"
+                className="h-9 text-sm"
               />
             </div>
           </div>
 
           {/* Area Range */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Area (Marla)</Label>
-            <div className="grid grid-cols-1 xs:grid-cols-[1fr,auto,1fr] gap-2 items-center">
+          <div className="space-y-2">
+            <Label className="text-[13px] font-semibold text-slate-700">Area (Marla)</Label>
+            <div className="grid grid-cols-2 gap-2">
               <Input
                 type="number"
                 placeholder="Min"
                 value={localFilters.marlaMin || ''}
                 onChange={(e) => updateFilter('marlaMin', e.target.value ? Number(e.target.value) : undefined)}
-                className="h-10 text-sm"
+                className="h-9 text-sm"
               />
-              <span className="text-muted-foreground hidden xs:inline">-</span>
               <Input
                 type="number"
                 placeholder="Max"
                 value={localFilters.marlaMax || ''}
                 onChange={(e) => updateFilter('marlaMax', e.target.value ? Number(e.target.value) : undefined)}
-                className="h-10 text-sm"
+                className="h-9 text-sm"
               />
             </div>
           </div>
 
           {/* Bedrooms */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Bedrooms</Label>
+          <div className="space-y-2">
+            <Label className="text-[13px] font-semibold text-slate-700">Bedrooms</Label>
             <div className="flex flex-wrap gap-2">
               {[1, 2, 3, 4, 5].map((bed) => (
                 <button
                   key={bed}
                   onClick={() => updateFilter('beds', localFilters.beds === bed ? undefined : bed)}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm transition-colors border ${localFilters.beds === bed
+                  className={`h-9 w-10 rounded-md flex items-center justify-center text-sm transition-colors border ${localFilters.beds === bed
                     ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background hover:bg-muted border-input'
+                    : 'bg-white text-slate-700 hover:border-slate-400 border-slate-300'
                     }`}
                 >
                   {bed}{bed === 5 ? '+' : ''}
@@ -150,16 +145,16 @@ export default function SearchSidebar({
           </div>
 
           {/* Bathrooms */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">Bathrooms</Label>
+          <div className="space-y-2">
+            <Label className="text-[13px] font-semibold text-slate-700">Bathrooms</Label>
             <div className="flex flex-wrap gap-2">
               {[1, 2, 3, 4].map((bath) => (
                 <button
                   key={bath}
                   onClick={() => updateFilter('baths', localFilters.baths === bath ? undefined : bath)}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm transition-colors border ${localFilters.baths === bath
+                  className={`h-9 w-10 rounded-md flex items-center justify-center text-sm transition-colors border ${localFilters.baths === bath
                     ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background hover:bg-muted border-input'
+                    : 'bg-white text-slate-700 hover:border-slate-400 border-slate-300'
                     }`}
                 >
                   {bath}{bath === 4 ? '+' : ''}
@@ -168,8 +163,8 @@ export default function SearchSidebar({
             </div>
           </div>
 
-          <Button onClick={handleApplyFilters} className="w-full">
-            Apply Filters
+          <Button onClick={handleApplyFilters} className="h-10 w-full font-semibold">
+            Apply filters
           </Button>
         </div>
       </div>

@@ -1,51 +1,60 @@
- 'use client'
-import React from 'react';
-import { ShieldCheck, UserCheck, PhoneCall, Key } from 'lucide-react';
+import { BadgeCheck, Calculator, MessageCircle, Ruler } from 'lucide-react';
+import { SectionHeading } from '@/components/SectionHeading';
 
-const features = [
+/*
+ * Four things the site actually does, said plainly.
+ *
+ * The block this replaces promised "24/7 expert support", "licensed dealers"
+ * giving valuation advice and "encrypted data and transparent transaction
+ * processes" — none of which exist here — in four oversized cards with
+ * hover-scaling icons in four different pastel colours. Generic claims a
+ * visitor cannot check are exactly what makes a page read as generated, and
+ * the false ones are worse than saying nothing.
+ *
+ * Each point below is true of the product as it stands: listings are reviewed
+ * before they go live, contact is direct, units are the local ones, and the
+ * material rates are published every day.
+ */
+
+const POINTS = [
   {
-    title: 'Verified Listings',
-    description: 'Every property on our platform is thoroughly verified to ensure authenticity and peace of mind.',
-    icon: ShieldCheck,
-    color: 'bg-blue-50 text-blue-600'
+    icon: BadgeCheck,
+    title: 'Every listing reviewed',
+    text: 'Listings are checked before they go live, and buyers can report one that looks wrong.',
   },
   {
-    title: 'Expert Support',
-    description: 'Our team of real estate experts is available 24/7 to guide you through every step of your journey.',
-    icon: UserCheck,
-    color: 'bg-indigo-50 text-indigo-600'
+    icon: MessageCircle,
+    title: 'Talk to the dealer directly',
+    text: 'Call or WhatsApp straight from the listing. No sign-up, no middleman.',
   },
   {
-    title: "Expert Consultation",
-    description: "Our licensed dealers provide specialized advice on property valuation, documentation, and market investment trends.",
-    icon: PhoneCall,
-    color: 'bg-purple-50 text-purple-600'
+    icon: Ruler,
+    title: 'Marla, Kanal, Lakh, Crore',
+    text: 'Sizes and prices the way they are spoken in Pakistan, not converted.',
   },
   {
-    title: 'Secure Transactions',
-    description: 'We prioritize your security with encrypted data and transparent transaction processes.',
-    icon: Key,
-    color: 'bg-pink-50 text-pink-600'
-  }
+    icon: Calculator,
+    title: 'Daily construction rates',
+    text: 'Cement, steel, bricks, sand and tiles — today’s prices by city.',
+  },
 ];
 
 const WhyChooseUs = () => {
   return (
-    <section className="py-16 bg-white">
+    <section className="border-t border-slate-100 bg-slate-50 py-10 sm:py-12">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-5xl font-black text-gray-900 mb-4 tracking-tight">Why Choose Property Dealer?</h2>
-          <p className="text-gray-600 max-w-2xl mx-auto font-medium">We provide a seamless and secure property experience tailored to the Pakistani market.</p>
-        </div>
+        <SectionHeading title="Why PropertyDealer" />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-          {features.map((feature, index) => (
-            <div key={index} className="p-4 md:p-8 rounded-2xl md:rounded-3xl border border-gray-100 hover:border-black/5 hover:shadow-2xl hover:shadow-black/5 transition-all duration-500 group">
-              <div className={`w-10 h-10 md:w-14 md:h-14 ${feature.color} rounded-xl md:rounded-2xl flex items-center justify-center mb-3 md:mb-6 group-hover:scale-110 transition-transform duration-500`}>
-                <feature.icon className="w-5 h-5 md:w-7 md:h-7" />
+        <div className="grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4">
+          {POINTS.map(({ icon: Icon, title, text }) => (
+            <div key={title} className="flex gap-3 bg-white p-4 sm:p-5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                <Icon className="h-[18px] w-[18px]" />
+              </span>
+              <div>
+                <h3 className="text-[15px] font-semibold text-slate-900">{title}</h3>
+                <p className="mt-1 text-[13px] leading-relaxed text-slate-500">{text}</p>
               </div>
-              <h3 className="text-sm md:text-xl font-bold text-gray-900 mb-1.5 md:mb-3 leading-snug">{feature.title}</h3>
-              <p className="text-gray-600 text-xs md:text-sm leading-relaxed font-medium">{feature.description}</p>
             </div>
           ))}
         </div>

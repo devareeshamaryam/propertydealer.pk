@@ -24,6 +24,9 @@ export interface Property {
   latitude?: number;
   whatsappNumber?: string;
   contactNumber?: string;
+  /** Real photos on the listing — cover plus gallery. */
+  photoCount?: number;
+  postedAt?: string;
   /** Admin-pinned: shows a badge and sorts above the rest. */
   isFeatured?: boolean;
   /** 'sold' / 'rented' put a badge on the card and hide the phone number. */

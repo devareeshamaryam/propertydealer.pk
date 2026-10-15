@@ -278,7 +278,7 @@ const BlogGrid = ({ initialCategory }: BlogGridProps) => {
             </div>
 
             {displayed.length === 0 ? (
-              <div className="rounded-2xl bg-secondary/20 py-16 text-center">
+              <div className="rounded-lg border border-slate-200 py-12 text-center">
                 <p className="mb-4 text-base text-muted-foreground">
                   No articles in this category yet.
                 </p>
@@ -355,7 +355,7 @@ const BlogGrid = ({ initialCategory }: BlogGridProps) => {
             ))}
 
             {blogs.length === 0 && (
-              <p className="rounded-2xl bg-secondary/20 py-16 text-center text-muted-foreground">
+              <p className="rounded-lg border border-slate-200 py-12 text-center text-muted-foreground">
                 No articles published yet.
               </p>
             )}

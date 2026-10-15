@@ -118,7 +118,7 @@ export default function MaterialPageClient({
 
       {/* ── TILE CATEGORY NAV ───────────────────────────────────────── */}
       {showTileNav && (
-        <div className="bg-white border-b border-gray-200 pt-20">
+        <div className="bg-white border-b border-gray-200">
           {/* Category images row */}
           <div className="max-w-6xl mx-auto px-4 py-4">
             <div className="flex gap-4 overflow-x-auto scrollbar-hide pb-2">
@@ -239,7 +239,7 @@ export default function MaterialPageClient({
       )}
 
       {/* ── PAGE BODY ────────────────────────────────────────────────── */}
-      <div className={`${!showTileNav ? "pt-24" : ""}`}>
+      <div className={`${!showTileNav ? "pt-6" : ""}`}>
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div

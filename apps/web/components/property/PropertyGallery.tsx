@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Maximize2,
@@ -238,6 +240,20 @@ export default function PropertyGallery({
     };
   }, [lightbox, go]);
 
+  const router = useRouter();
+
+  /*
+   * On phones the site header steps aside on a listing so the photos reach
+   * the top of the screen; this is the way back. Back to where they came from
+   * when that was this site, otherwise home.
+   */
+  const goBack = () => {
+    const sameSite =
+      typeof document !== "undefined" && document.referrer.startsWith(window.location.origin);
+    if (sameSite && window.history.length > 1) router.back();
+    else router.push("/");
+  };
+
   const share = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
@@ -259,7 +275,7 @@ export default function PropertyGallery({
     <>
       <div className="flex flex-col gap-2 md:gap-3">
         {/* The stage. 5:4 on phones; a sane fixed band on desktop. */}
-        <div className="group relative aspect-[5/4] select-none overflow-hidden bg-slate-100 md:aspect-auto md:h-[clamp(320px,58vh,560px)] md:rounded-xl md:border md:border-border">
+        <div className="group relative aspect-[5/4] select-none overflow-hidden bg-slate-100 md:aspect-auto md:h-[clamp(320px,58vh,560px)] md:rounded-lg md:border md:border-slate-200">
           <div
             ref={trackRef}
             onScroll={onTrackScroll}
@@ -298,7 +314,7 @@ export default function PropertyGallery({
                         event.stopPropagation();
                         setMuted((previous) => !previous);
                       }}
-                      className="absolute left-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform active:scale-90"
+                      className="absolute bottom-3 left-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform active:scale-90"
                       aria-label={muted ? "Turn sound on" : "Mute"}
                     >
                       {muted ? (
@@ -334,8 +350,20 @@ export default function PropertyGallery({
             ))}
           </div>
 
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              goBack();
+            }}
+            className="absolute left-3 top-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/95 text-slate-800 shadow-md transition-transform active:scale-90 md:hidden"
+            aria-label="Back"
+          >
+            <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
+          </button>
+
           {badge && (
-            <span className="pointer-events-none absolute left-3 top-3 z-10 rounded-md bg-primary px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
+            <span className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 md:left-3 md:top-3 md:translate-x-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
               {badge}
             </span>
           )}
@@ -409,7 +437,7 @@ export default function PropertyGallery({
                   aria-label={
                     item.type === "video" ? "Play the walkthrough video" : `View photo ${index + 1}`
                   }
-                  className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-all md:h-16 ${
+                  className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-md border-2 transition-all md:h-16 ${
                     on ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"
                   }`}
                 >

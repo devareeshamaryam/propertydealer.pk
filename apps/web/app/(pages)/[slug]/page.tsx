@@ -62,7 +62,7 @@ export default async function CustomPage({ params }: PageProps) {
     }
 
     return (
-      <div className="container mx-auto px-4 pt-24 pb-16 min-h-screen bg-background">
+      <div className="container mx-auto px-4 pt-8 pb-16 min-h-screen bg-background">
         <h1 className="text-4xl font-bold text-foreground mb-8">{page.title}</h1>
         <div
           className="prose prose-lg max-w-none text-muted-foreground leading-relaxed"

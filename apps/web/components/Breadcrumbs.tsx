@@ -13,11 +13,11 @@ interface BreadcrumbsProps {
 
 export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps) {
   return (
-    <nav aria-label="Breadcrumb" className={`mb-4 ${className}`}>
+    <nav aria-label="Breadcrumb" className={`mb-3 ${className}`}>
       <ol
         itemScope
         itemType="https://schema.org/BreadcrumbList"
-        className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap"
+        className="flex min-w-0 flex-wrap items-center gap-1.5 text-[13px] text-slate-500"
       >
         {items.map((item, index) => (
           <li
@@ -25,22 +25,22 @@ export default function Breadcrumbs({ items, className = '' }: BreadcrumbsProps)
             itemProp="itemListElement"
             itemScope
             itemType="https://schema.org/ListItem"
-            className="flex items-center gap-2"
+            className="flex min-w-0 items-center gap-1.5"
           >
             {index < items.length - 1 ? (
               <>
                 <Link
                   href={item.url}
                   itemProp="item"
-                  className="hover:text-foreground transition-colors flex items-center gap-1"
+                  className="flex items-center gap-1 transition-colors hover:text-primary"
                 >
                   {index === 0 && <Home className="w-3.5 h-3.5" />}
                   <span itemProp="name">{item.name}</span>
                 </Link>
-                <ChevronRight className="w-4 h-4 text-gray-400" />
+                <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
               </>
             ) : (
-              <span itemProp="name" className="text-foreground font-medium">
+              <span itemProp="name" className="block max-w-[46ch] truncate text-slate-700">
                 {item.name}
               </span>
             )}

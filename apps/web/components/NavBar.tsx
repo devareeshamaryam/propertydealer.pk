@@ -1,12 +1,14 @@
- 'use client'
-import { useState, useEffect } from 'react';
+'use client'
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { Menu, Plus, User, LogOut } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { ChevronDown, LayoutDashboard, LogOut, Menu, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { DialogTitle } from '@/components/ui/dialog';
 import SearchBar from '@/components/SearchBar';
+import { BrandLogo } from '@/components/BrandLogo';
+import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import { useAuth } from '@/context/auth-context';
 import {
   DropdownMenu,
@@ -16,346 +18,255 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
+import { isPropertyDetail } from '@/lib/routes';
 
-const navLinks = [
-  { name: 'Home', path: '/' },
-  { name: 'Properties', path: '/properties' },
-  { name: 'About', path: '/about' },
-  { name: 'Blog', path: '/blog' },
+/*
+ * The header, kept to what a visitor actually uses.
+ *
+ * Logo, three words (Buy, Rent, Rates), and on the right a quiet "Sign in"
+ * next to the one button the business wants pressed. Blog and About live in
+ * the footer; search lives on the homepage and the results bar, where it has
+ * room — a cramped third search box in the header was one more thing to read.
+ *
+ * On a phone it is just the logo and the menu (the tab bar at the bottom does
+ * the rest), and on a listing page it steps aside entirely so the photos run
+ * to the top of the screen; the gallery carries its own back button.
+ *
+ * It is `sticky`, not `fixed`, so pages start where the header ends without
+ * each guessing its height.
+ */
+
+const NAV_LINKS = [
+  { name: 'Buy', path: '/properties/sale' },
+  { name: 'Rent', path: '/properties/rent' },
 ];
 
-// ─── Animated Logo ────────────────────────────────────────────────────────────
-const AnimatedLogo = () => {
-  const text = 'Property Dealer';
+/** The construction-rate pages — the site's other half, and well ranked. */
+const RATE_LINKS = [
+  { name: 'Cement', path: '/today-cement-rate-in-pakistan' },
+  { name: 'Steel (Sarya)', path: '/today-steel-rate-in-pakistan' },
+  { name: 'Bricks', path: '/today-bricks-rate-in-pakistan' },
+  { name: 'Sand', path: '/today-sand-rate-in-pakistan' },
+  { name: 'Bajri (Crush)', path: '/today-bajri-rate-in-pakistan' },
+  { name: 'Tiles', path: '/today-tile-rate-in-pakistan' },
+  { name: 'Wood', path: '/today-wood-rate-in-pakistan' },
+  { name: 'Doors', path: '/today-door-rate-in-pakistan' },
+];
 
-  return (
-    <div className="flex items-center gap-2 select-none">
-      <style>{`
-        @keyframes roofShimmer {
-          0%   { stroke-dashoffset: 300; opacity: 0.5; }
-          50%  { stroke-dashoffset: 0;   opacity: 1;   }
-          100% { stroke-dashoffset: -300; opacity: 0.5; }
-        }
-        @keyframes pinPulse {
-          0%, 100% { transform: scale(1);    }
-          45%, 55% { transform: scale(1.13); }
-        }
-        @keyframes dotBreath {
-          0%, 100% { transform: scale(1);   opacity: 1;   }
-          50%       { transform: scale(0.6); opacity: 0.4; }
-        }
-        @keyframes charWave {
-          0%, 100% { transform: translateY(0px); }
-          50%       { transform: translateY(-4px); }
-        }
-        .logo-roof {
-          stroke-dasharray: 300;
-          animation: roofShimmer 3s ease-in-out infinite;
-        }
-        .logo-pin {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: pinPulse 2.5s ease-in-out infinite;
-        }
-        .logo-dot {
-          transform-box: fill-box;
-          transform-origin: center;
-          animation: dotBreath 2.5s ease-in-out infinite;
-        }
-        .logo-char {
-          display: inline-block;
-          animation: charWave 2.4s ease-in-out infinite;
-        }
-      `}</style>
+const MORE_LINKS = [
+  { name: 'Search on map', path: '/emap' },
+  { name: 'Agent packages', path: '/packages' },
+  { name: 'Blog', path: '/blog' },
+  { name: 'About', path: '/about' },
+];
 
-      <svg
-        width="58"
-        height="56"
-        viewBox="0 0 100 100"
-        xmlns="http://www.w3.org/2000/svg"
-        overflow="visible"
-        aria-hidden="true"
-        className="shrink-0 text-foreground"
-      >
-        {/* Outer roof — sharp miter corners, animated shimmer */}
-        <polyline
-          className="logo-roof"
-          points="4,50 50,8 96,50"
-          stroke="currentColor" strokeWidth="5"
-          strokeLinejoin="miter" strokeLinecap="square" fill="none"
-        />
-        {/* Inner roof — static */}
-        <polyline
-          points="14,50 50,18 86,50"
-          stroke="currentColor" strokeWidth="3"
-          strokeLinejoin="miter" strokeLinecap="square" fill="none"
-        />
-        {/* Left wall — perfectly straight */}
-        <line x1="14" y1="50" x2="14" y2="92"
-          stroke="currentColor" strokeWidth="3" strokeLinecap="square" />
-        {/* Right wall */}
-        <line x1="86" y1="50" x2="86" y2="92"
-          stroke="currentColor" strokeWidth="3" strokeLinecap="square" />
-        {/* Bottom */}
-        <line x1="14" y1="92" x2="86" y2="92"
-          stroke="currentColor" strokeWidth="3" strokeLinecap="square" />
+const ADD_PROPERTY = '/dashboard/property/add-property';
 
-        {/* Location pin — pulsing */}
-        <g className="logo-pin">
-          <path
-            d="M36,59 A14,14 0 1,1 64,59 Q64,73 50,82 Q36,73 36,59 Z"
-            stroke="currentColor" strokeWidth="3"
-            fill="none" strokeLinejoin="round"
-          />
-        </g>
-        {/* Inner dot — breathing */}
-        <g className="logo-dot">
-          <circle cx="50" cy="57" r="6.5"
-            stroke="currentColor" strokeWidth="2.8" fill="none" />
-        </g>
-      </svg>
+function isActive(pathname: string, path: string) {
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
 
-      <span
-        className="text-xl font-bold tracking-tight text-foreground whitespace-nowrap"
-        aria-label="Property Dealer"
-      >
-        {text.split('').map((char, i) => (
-          <span
-            key={i}
-            className="logo-char"
-            style={{ animationDelay: `${i * 0.07}s` }}
-          >
-            {char === ' ' ? '\u00A0' : char}
-          </span>
-        ))}
-      </span>
-    </div>
+/** The admin's logo if one is set (Settings → Appearance), else the built-in mark. */
+export function SiteLogo({ compact = false }: { compact?: boolean }) {
+  const { logoUrl, logoHeight } = useSiteSettings();
+  if (logoUrl) {
+    const height = compact ? Math.min(logoHeight, 30) : logoHeight;
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={logoUrl} alt="PropertyDealer" style={{ height }} className="w-auto max-w-[200px] object-contain" />
+    );
+  }
+  return <BrandLogo markClassName={compact ? 'h-7 w-7' : 'h-7 w-7'} textClassName="text-[18px]" />;
+}
+
+const linkClass = (active: boolean) =>
+  cn(
+    'px-2.5 py-1.5 text-[14px] transition-colors',
+    active ? 'font-medium text-slate-900' : 'text-slate-600 hover:text-slate-900',
   );
-};
-// ─────────────────────────────────────────────────────────────────────────────
 
 const Navbar = () => {
   const pathname = usePathname() || '';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
-  const router = useRouter();
 
+  // Auth state only exists in the browser; rendering the signed-in controls
+  // on the server would flash the wrong ones before hydration.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
+  const addPropertyHref = isAuthenticated ? ADD_PROPERTY : `/register?next=${ADD_PROPERTY}`;
+  const ratesActive = pathname.startsWith('/today-');
+  const initial = (user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase();
+  const immersive = isPropertyDetail(pathname);
+
   return (
-    <>
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50 shadow-lg shadow-black/5">
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+    <header
+      className={cn(
+        'sticky top-0 z-50 border-b border-slate-200/80 bg-white',
+        immersive && 'max-md:hidden',
+      )}
+    >
+      <div className="container mx-auto flex h-14 items-center gap-4 px-4 md:h-[60px]">
+        <Link href="/" aria-label="PropertyDealer home" className="shrink-0">
+          <SiteLogo compact />
+        </Link>
 
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16 md:h-20">
-
-            {/* Logo — left on desktop, centered on mobile */}
-            <Link href="/" className="flex items-center group md:static absolute left-1/2 md:left-auto md:transform-none -translate-x-1/2 md:translate-x-0">
-              <AnimatedLogo />
+        {/* Desktop links */}
+        <nav className="ml-4 hidden items-center md:flex" aria-label="Main">
+          {NAV_LINKS.map((link) => (
+            <Link key={link.path} href={link.path} className={linkClass(isActive(pathname, link.path))}>
+              {link.name}
             </Link>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-4 flex-1 justify-center max-w-3xl">
-              <div className="flex-1 max-w-md">
-                <SearchBar />
-              </div>
-
-              <div className="flex items-center gap-1 bg-secondary/50 rounded-full px-2 py-2 backdrop-blur-sm shrink-0">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.path}
-                    href={link.path}
-                    className="relative group px-5 py-2 rounded-full transition-all duration-300"
-                  >
-                    <div className={`absolute inset-0 rounded-full transition-all duration-300 ${
-                      pathname === link.path
-                        ? 'bg-primary shadow-lg shadow-primary/25'
-                        : 'bg-transparent group-hover:bg-primary/10'
-                    }`}>
-                      <div className="absolute inset-0 rounded-full overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                      </div>
-                    </div>
-                    <span className={`relative z-10 text-sm font-medium transition-all duration-300 ${
-                      pathname === link.path
-                        ? 'text-primary-foreground'
-                        : 'text-foreground group-hover:text-primary'
-                    }`}>
-                      {link.name}
-                    </span>
+          ))}
+          <DropdownMenu>
+            <DropdownMenuTrigger className={cn(linkClass(ratesActive), 'inline-flex items-center gap-1 outline-none')}>
+              Rates
+              <ChevronDown className="h-3.5 w-3.5 opacity-50" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              {RATE_LINKS.map((rate) => (
+                <DropdownMenuItem key={rate.path} asChild>
+                  <Link href={rate.path} className="cursor-pointer">
+                    {rate.name}
                   </Link>
-                ))}
-              </div>
-            </div>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </nav>
 
-            {/* Desktop Auth */}
-            <div className="hidden md:flex items-center gap-2">
-              {mounted && (
-                <>
-                  {!isAuthenticated ? (
-                    <Link href="/login">
-                      <Button
-                        size="icon"
-                        className="ml-2 relative overflow-hidden bg-gradient-to-br from-primary to-primary/90 transition-all duration-300 hover:scale-110 hover:shadow-xl hover:shadow-primary/40 group"
-                      >
-                        <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12" />
-                        <User className="w-5 h-5 relative z-10 transition-transform duration-300 group-hover:scale-110" />
-                      </Button>
-                    </Link>
-                  ) : (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="relative h-8 w-8 rounded-full ml-2">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src="" alt={user?.name || 'User'} />
-                            <AvatarFallback>{user?.name?.[0] || user?.email?.[0] || 'U'}</AvatarFallback>
-                          </Avatar>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-56" align="end" forceMount>
-                        <DropdownMenuLabel className="font-normal">
-                          <div className="flex flex-col space-y-1">
-                            <p className="text-sm font-medium leading-none">{user?.name || user?.email}</p>
-                            <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                          </div>
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href="/dashboard" className="cursor-pointer">
-                            <User className="mr-2 h-4 w-4" />
-                            <span>Dashboard</span>
-                          </Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={logout} className="cursor-pointer">
-                          <LogOut className="mr-2 h-4 w-4" />
-                          <span>Log out</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
-                </>
-              )}
-            </div>
-
-            {/* Mobile Menu */}
-            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-              <SheetTrigger asChild className="md:hidden">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative overflow-hidden transition-all duration-300 hover:scale-110 group"
+        {/* Desktop actions */}
+        <div className="ml-auto hidden items-center gap-1 md:flex">
+          {mounted &&
+            (isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="mr-1 grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-[13px] font-semibold text-slate-700 outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Account menu"
                 >
-                  <div className="absolute inset-0 rounded-lg bg-primary/0 group-hover:bg-primary/10 transition-all duration-300" />
-                  <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-                  <Menu className="w-6 h-6 relative z-10 transition-all duration-500 group-hover:rotate-180" />
-                </Button>
-              </SheetTrigger>
+                  {initial}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end">
+                  <DropdownMenuLabel className="font-normal">
+                    <p className="truncate text-sm font-semibold">{user?.name || 'Your account'}</p>
+                    <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="cursor-pointer">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Link href="/login" className="px-3 py-1.5 text-[14px] text-slate-600 hover:text-slate-900">
+                Sign in
+              </Link>
+            ))}
+          <Button asChild size="sm" className="h-8 gap-1 rounded-md px-3 text-[13px] font-semibold">
+            <Link href={addPropertyHref}>
+              <Plus className="h-3.5 w-3.5" />
+              Add Property
+            </Link>
+          </Button>
+        </div>
 
-              <SheetContent side="right" className="w-80 bg-background/95 backdrop-blur-xl border-l border-border/50">
-                <DialogTitle className="sr-only">Navigation Menu</DialogTitle>
+        {/* Mobile */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+          <SheetTrigger asChild className="ml-auto md:hidden">
+            <Button variant="ghost" size="icon" aria-label="Open menu" className="-mr-2">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
 
-                <div className="flex flex-col gap-6 mt-12">
-                  <div className="px-2">
-                    <SearchBar />
-                  </div>
+          <SheetContent side="right" className="flex w-80 flex-col gap-0 p-0">
+            <DialogTitle className="sr-only">Menu</DialogTitle>
 
-                  <div className="space-y-2">
-                    {navLinks.map((link, index) => (
-                      <Link
-                        key={link.path}
-                        href={link.path}
-                        onClick={() => setMobileOpen(false)}
-                        className="block group"
-                        style={{ animationDelay: `${index * 50}ms` }}
-                      >
-                        <div className={`relative px-4 py-3 rounded-xl transition-all duration-300 ${
-                          pathname === link.path
-                            ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25'
-                            : 'hover:bg-secondary/80 group-hover:translate-x-2'
-                        }`}>
-                          <div className="absolute inset-0 rounded-xl overflow-hidden opacity-0 group-hover:opacity-100">
-                            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
-                          </div>
-                          <span className="relative z-10 text-base font-medium">{link.name}</span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
+            <div className="border-b border-slate-200 px-4 py-3.5">
+              <SiteLogo compact />
+            </div>
 
-                  <div className="h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+            <div className="border-b border-slate-200 p-4">
+              <SearchBar />
+            </div>
 
-                  <div className="space-y-3">
-                    {/*
-                      This used to toggle a state nothing rendered, so the
-                      button did nothing at all. It now opens the real
-                      three-step flow — or agent sign-up when signed out.
-                    */}
-                    <Button
-                      asChild
-                      className="w-full gap-2 relative overflow-hidden bg-gradient-to-r from-primary to-primary/90 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/30 group"
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      <Link
-                        href={
-                          isAuthenticated
-                            ? "/dashboard/property/add-property"
-                            : "/register?next=/dashboard/property/add-property"
-                        }
-                      >
-                      <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                      <Plus className="w-4 h-4 relative z-10 transition-transform duration-500 group-hover:rotate-180" />
-                      <span className="relative z-10">Add Property</span>
+            <nav className="flex-1 overflow-y-auto py-2" aria-label="Mobile">
+              {[...NAV_LINKS, ...MORE_LINKS].map((link) => (
+                <Link
+                  key={link.path}
+                  href={link.path}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    'block px-4 py-2.5 text-[15px]',
+                    isActive(pathname, link.path) ? 'font-medium text-primary' : 'text-slate-800 hover:bg-slate-50',
+                  )}
+                >
+                  {link.name}
+                </Link>
+              ))}
+
+              <p className="mt-3 px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Construction rates
+              </p>
+              {RATE_LINKS.map((rate) => (
+                <Link
+                  key={rate.path}
+                  href={rate.path}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    'block px-4 py-2 text-[14px]',
+                    pathname === rate.path ? 'text-primary' : 'text-slate-600 hover:bg-slate-50',
+                  )}
+                >
+                  {rate.name}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="space-y-2 border-t border-slate-200 p-4">
+              <Button asChild className="w-full gap-1.5 font-semibold">
+                <Link href={addPropertyHref} onClick={() => setMobileOpen(false)}>
+                  <Plus className="h-4 w-4" />
+                  Add Property
+                </Link>
+              </Button>
+
+              {mounted &&
+                (isAuthenticated ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button asChild variant="outline">
+                      <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
+                        Dashboard
                       </Link>
                     </Button>
-
-                    {mounted && (
-                      <>
-                        {!isAuthenticated ? (
-                          <>
-                            <Link href="/register" onClick={() => setMobileOpen(false)}>
-                              <Button variant="outline" className="w-full relative overflow-hidden border-primary/30 hover:border-primary transition-all duration-300 hover:scale-[1.02] group mb-2">
-                                <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-primary/10 to-primary/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                                <span className="relative z-10 font-medium">Sign Up</span>
-                              </Button>
-                            </Link>
-                            <Link href="/login" onClick={() => setMobileOpen(false)}>
-                              <Button variant="default" className="w-full relative overflow-hidden bg-gradient-to-r from-primary to-primary/90 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group">
-                                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-                                <span className="relative z-10 font-medium">Sign In</span>
-                              </Button>
-                            </Link>
-                          </>
-                        ) : (
-                          <div className="flex flex-col gap-2">
-                            <Link href="/dashboard" onClick={() => setMobileOpen(false)}>
-                              <Button variant="outline" className="w-full">
-                                <User className="mr-2 h-4 w-4" />
-                                Dashboard
-                              </Button>
-                            </Link>
-                            <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-500/10" onClick={logout}>
-                              <LogOut className="mr-2 h-4 w-4" />
-                              Log out
-                            </Button>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    <Button variant="outline" onClick={logout}>
+                      Sign out
+                    </Button>
                   </div>
-                </div>
-              </SheetContent>
-            </Sheet>
-
-          </div>
-        </div>
-      </nav>
-    </>
+                ) : (
+                  <Button asChild variant="outline" className="w-full">
+                    <Link href="/login" onClick={() => setMobileOpen(false)}>
+                      Sign in
+                    </Link>
+                  </Button>
+                ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+    </header>
   );
 };
 

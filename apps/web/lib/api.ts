@@ -806,4 +806,18 @@ export const pageApi = {
   },
 };
 
+/** Settings → Appearance: the site's colours, radius, font, logo and hero text. */
+export const siteSettingsApi = {
+  get: async (): Promise<import("./site-settings").SiteSettings> => {
+    const response = await api.get("/site-settings");
+    return response.data?.data;
+  },
+  save: async (
+    data: Partial<import("./site-settings").SiteSettings>,
+  ): Promise<import("./site-settings").SiteSettings> => {
+    const response = await api.put("/site-settings", data);
+    return response.data?.data;
+  },
+};
+
 export default api;

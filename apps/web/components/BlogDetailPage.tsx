@@ -94,7 +94,7 @@ const BlogDetailPage = ({ post, relatedPosts = [] }: BlogDetailPageProps) => {
         }}
       />
       {/* Back Button */}
-      <div className="container mx-auto px-4 pt-24 pb-8">
+      <div className="container mx-auto px-4 pt-8 pb-8">
         <Link href="/blog">
           <Button variant="ghost" className="gap-2">
             <ArrowLeft size={20} />
@@ -136,7 +136,7 @@ const BlogDetailPage = ({ post, relatedPosts = [] }: BlogDetailPageProps) => {
           </div>
 
           {/* Featured Image */}
-          <div className="rounded-2xl overflow-hidden mb-12 shadow-2xl">
+          <div className="rounded-lg overflow-hidden mb-8">
             <img
               src={post.image}
               alt={post.title}
@@ -160,7 +160,7 @@ const BlogDetailPage = ({ post, relatedPosts = [] }: BlogDetailPageProps) => {
 
             {/* Sidebar */}
             <div className="md:col-span-4">
-              <div className="sticky top-24 space-y-6">
+              <div className="sticky top-20 space-y-6">
                 {/* Share Section */}
                 <div className="bg-card border border-border rounded-xl p-6">
                   <h3 className="text-lg font-bold text-foreground mb-4 flex items-center gap-2">

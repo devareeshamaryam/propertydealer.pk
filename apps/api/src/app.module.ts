@@ -36,6 +36,7 @@ import { MediaModule } from './media/media.module';
 import { ReportModule } from './report/report.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { ListingApiModule } from './listing-api/listing-api.module';
+import { SiteSettingsModule } from './site-settings/site-settings.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import * as path from 'path';
 
@@ -146,6 +147,7 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     ReportModule,
     PaymentMethodModule,
     ListingApiModule,
+    SiteSettingsModule,
   ],
   controllers: [AppController],
   providers: [

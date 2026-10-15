@@ -1,263 +1,88 @@
- 'use client'
-import { Heart, MapPin, Bed, Bath, Maximize, Loader2, Play } from 'lucide-react';
-import Image from 'next/image';
-import dynamic from 'next/dynamic';
-import React, { useState, useEffect } from 'react';
+'use client'
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { propertyApi } from '@/lib/api';
 import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/property-utils';
 import { Property } from '@/lib/data';
-import { toTitleCase } from '../lib/utils';
+import PropertyCard from '@/components/PropertyCard';
+import { SectionHeading } from '@/components/SectionHeading';
 
-// ✅ LCP FIX: Carousel (embla) JS is heavy and was being parsed/executed
-// before the heading could paint, delaying LCP by ~2.4s. Loading it
-// dynamically (client-only, no SSR) lets the heading render immediately
-// while the carousel hydrates slightly after.
-const Carousel = dynamic(() => import('@/components/ui/carousel').then(m => m.Carousel), { ssr: false });
-const CarouselContent = dynamic(() => import('@/components/ui/carousel').then(m => m.CarouselContent), { ssr: false });
-const CarouselItem = dynamic(() => import('@/components/ui/carousel').then(m => m.CarouselItem), { ssr: false });
-const CarouselNext = dynamic(() => import('@/components/ui/carousel').then(m => m.CarouselNext), { ssr: false });
-const CarouselPrevious = dynamic(() => import('@/components/ui/carousel').then(m => m.CarouselPrevious), { ssr: false });
-
-const toSlug = (value: string) =>
-  value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-type FeaturedProperty = {
-  id: string | number;
-  image: string;
-  title: string;
-  location: string;
-  price: string;
-  priceLabel?: string;
-  beds: number;
-  baths: number;
-  marla: string;
-  slug?: string;
-  videoUrl?: string | null;
-  videoPosterUrl?: string | null;
-  isVideoThumbnail?: boolean;
-};
-
-const PropertyCard = ({ property }: { property: FeaturedProperty }) => {
-  const isVideo = Boolean(
-    property.isVideoThumbnail ||
-    ((property.videoUrl || property.videoPosterUrl) && (!property.image || property.image.includes('unsplash.com')))
-  );
-  const rawVideo = property.videoUrl || '';
-  const hasPosterOrImage = Boolean(property.image && !property.image.includes('unsplash.com'));
-
-  return (
-    <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col group">
-      <Link href={`/properties/${property.slug || toSlug(property.title)}`}>
-        <div className="relative h-36 sm:h-52 lg:h-64 overflow-hidden cursor-pointer bg-gray-900">
-          {!hasPosterOrImage && isVideo && rawVideo ? (
-            <video
-              src={`${rawVideo}#t=0.5`}
-              preload="metadata"
-              muted
-              playsInline
-              className="w-full h-full object-cover pointer-events-none"
-            />
-          ) : (
-            <Image
-              src={property.image}
-              alt={property.title}
-              fill
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          )}
-          {isVideo && (
-            <>
-              <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors pointer-events-none" />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-xl group-hover:scale-110 group-hover:bg-red-600 transition-all duration-300">
-                  <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-white text-white ml-0.5" />
-                </div>
-              </div>
-              <div className="absolute bottom-2.5 left-2.5 z-10">
-                <span className="flex items-center gap-1 px-2 py-0.5 bg-black/75 backdrop-blur-sm text-white text-[10px] font-bold rounded-full border border-white/10 shadow-sm">
-                  <Play className="w-2.5 h-2.5 fill-current text-red-500" /> Video Tour
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-      </Link>
-
-      <div className="p-3 sm:p-5 flex flex-col flex-1">
-        <Link href={`/properties/${property.slug || toSlug(property.title)}`}>
-          <h3 className="text-sm sm:text-xl font-bold text-gray-900 mb-1 sm:mb-3 hover:text-primary transition-colors cursor-pointer line-clamp-2">
-            {property.title}
-          </h3>
-        </Link>
-
-        <div className="flex items-center text-gray-600 mb-2 sm:mb-4">
-          <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
-          <p className="text-xs sm:text-sm truncate">{property.location}</p>
-        </div>
-
-        <div className="grid grid-cols-3 gap-1 sm:gap-2 mb-3 sm:mb-6 text-gray-600">
-          <div className="flex items-center gap-1">
-            <Bed className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-            <span className="text-[10px] sm:text-xs font-medium">{property.beds} Beds</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Bath className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-            <span className="text-[10px] sm:text-xs font-medium">{property.baths} Baths</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Maximize className="w-3 h-3 sm:w-4 sm:h-4 shrink-0" />
-            <span className="text-[10px] sm:text-xs font-medium whitespace-nowrap">{property.marla}</span>
-          </div>
-        </div>
-
-        <div className="mt-auto flex items-center justify-between pt-2 sm:pt-4 border-t border-gray-100">
-          <div>
-            <p className="text-[8px] sm:text-[10px] uppercase font-bold text-gray-400 mb-0.5 tracking-wider">{property.priceLabel || 'Monthly Rent'}</p>
-            <p className="text-sm sm:text-xl font-extrabold text-gray-900 leading-tight">{property.price}</p>
-          </div>
-
-          <Link href={`/properties/${property.slug || toSlug(property.title)}`}>
-            <button className="px-2.5 py-1.5 sm:px-4 sm:py-2 bg-black text-white rounded-lg text-[10px] sm:text-xs font-bold hover:bg-gray-800 transition-all duration-300 hover:shadow-lg uppercase tracking-wider">
-              Explore
-            </button>
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-};
+/*
+ * The homepage strip of listings.
+ *
+ * It had its own private card — a heavier copy of the real one, with a
+ * shadow that grew on hover, a black "EXPLORE" pill and the full price
+ * spelled out as "Rs. 11,000,000" — and a headline, "Premium Properties
+ * Handpicked for You", over what is in fact the eight newest listings. Now it
+ * uses the same card as everywhere else and says what it is — the same row
+ * as the search results, two columns on a wide screen, one on a phone.
+ */
 
 interface FeaturedSectionProps {
-  initialProperties?: FeaturedProperty[];
+  initialProperties?: Property[];
 }
 
-const FeaturedSection: React.FC<FeaturedSectionProps> = ({ initialProperties }) => {
-  const [featuredProperties, setFeaturedProperties] = useState<FeaturedProperty[]>(initialProperties || []);
-  const [loading, setLoading] = useState(!initialProperties);
-  const [error, setError] = useState<string | null>(null);
+export default function FeaturedSection({ initialProperties }: FeaturedSectionProps) {
+  const [properties, setProperties] = useState<Property[]>(initialProperties ?? []);
+  const [loading, setLoading] = useState(!initialProperties || initialProperties.length === 0);
 
   useEffect(() => {
     if (initialProperties && initialProperties.length > 0) return;
 
-    const fetchProperties = async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        setLoading(true);
-        setError(null);
-        const response = await propertyApi.getAll();
-        const backendProperties: BackendProperty[] = Array.isArray(response)
+        const response = await propertyApi.getAll({ limit: 8 });
+        const rows: BackendProperty[] = Array.isArray(response)
           ? response
-          : (response as any).properties || [];
-
-        const allProperties = backendProperties.map(mapBackendToFrontendProperty);
-
-        const approvedProperties = allProperties
-          .filter((p: Property) => p)
-          .slice(0, 8);
-
-        const mappedProperties: FeaturedProperty[] = approvedProperties.map((property, index) => ({
-          id: property.id || `property-${index}-${Date.now()}`,
-          image: property.image || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80',
-          title: property.name,
-          location: `${property.location}, ${toTitleCase(property.city)}`,
-          price: `Rs. ${property.price.toLocaleString('en-PK')}`,
-          priceLabel: property.purpose === 'buy' ? 'Total Price' : 'Monthly Rent',
-          beds: property.bedrooms,
-          baths: property.bathrooms,
-          marla: property.marla && property.marla > 0 ? `${property.marla} marla` : `${property.marla} `,
-          slug: property.slug,
-          videoUrl: property.videoUrl || null,
-          videoPosterUrl: property.videoPosterUrl || null,
-          isVideoThumbnail: property.isVideoThumbnail,
-        }));
-
-        setFeaturedProperties(mappedProperties);
-      } catch (err) {
-        console.error('Error fetching featured properties:', err);
-        setError('Failed to load properties');
+          : (response as { properties?: BackendProperty[] })?.properties ?? [];
+        if (!cancelled) setProperties(rows.map(mapBackendToFrontendProperty).slice(0, 8));
+      } catch (error) {
+        console.error('Error fetching latest properties:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    };
+    })();
 
-    fetchProperties();
+    return () => {
+      cancelled = true;
+    };
   }, [initialProperties]);
 
+  if (!loading && properties.length === 0) return null;
+
   return (
-    <section className="py-12 sm:py-20 bg-white">
-      <div className="max-w-[1440px] mx-auto px-4 lg:px-8">
-        <div className="max-w-3xl mb-8 sm:mb-12">
-          <Badge text="Featured Listings" />
-          <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 mt-4 mb-4 sm:mb-6 leading-tight">
-            Premium Properties Handpicked for You
-          </h2>
-          <p className="text-base sm:text-lg text-gray-600 max-w-2xl leading-relaxed">
-            Discover our collection of high-end homes and investment opportunities in Pakistan's prime locations.
-          </p>
-        </div>
+    <section className="border-t border-slate-100 bg-slate-50 py-8 sm:py-12">
+      <div className="container mx-auto px-4">
+        <SectionHeading
+          title="Latest properties"
+          description="The newest listings from agents across Pakistan."
+          action={
+            <Link
+              href="/properties"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+            >
+              View all
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        />
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <span className="ml-3 text-gray-600">Loading properties...</span>
-          </div>
-        ) : error ? (
-          <div className="text-center py-20 bg-red-50 rounded-3xl border border-red-100">
-            <p className="text-red-600 mb-4 font-medium">{error}</p>
-            <button
-              onClick={() => typeof window !== 'undefined' && window.location.reload()}
-              className="px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors shadow-lg shadow-red-200"
-            >
-              Retry Connection
-            </button>
-          </div>
-        ) : featuredProperties.length === 0 ? (
-          <div className="text-center py-20 bg-gray-50 rounded-3xl border border-dashed border-gray-300">
-            <p className="text-gray-600">No properties available at the moment.</p>
+          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-3">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="h-[118px] animate-pulse rounded-lg bg-slate-100 sm:h-[172px]" />
+            ))}
           </div>
         ) : (
-          <div className="relative">
-            <Carousel
-              opts={{
-                align: "start",
-                loop: true,
-              }}
-              className="w-full"
-            >
-              {/* Mobile: show 1.6 cards so next card peeks; sm+: 2 cards; lg: 3; xl: 4 */}
-              <CarouselContent className="-ml-3 sm:-ml-4 md:-ml-6">
-                {featuredProperties.map((property, index) => (
-                  <CarouselItem
-                    key={property.slug || property.id || `property-${index}`}
-                    className="pl-3 sm:pl-4 md:pl-6 basis-[62%] sm:basis-1/2 lg:basis-1/3 xl:basis-1/4"
-                  >
-                    <PropertyCard property={property} />
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-
-              {/* All screen nav arrows */}
-              <div className="flex justify-end mt-4 lg:mt-0 lg:absolute lg:-top-20 lg:right-0 gap-3">
-                <CarouselPrevious className="static translate-y-0 h-9 w-9 lg:h-12 lg:w-12 rounded-xl lg:rounded-2xl border-gray-200" />
-                <CarouselNext className="static translate-y-0 h-9 w-9 lg:h-12 lg:w-12 rounded-xl lg:rounded-2xl bg-black text-white hover:bg-gray-800" />
-              </div>
-            </Carousel>
+          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-3">
+            {properties.slice(0, 8).map((property, index) => (
+              <PropertyCard key={property.slug || property.id || `property-${index}`} property={property} />
+            ))}
           </div>
         )}
       </div>
     </section>
   );
-};
-
-const Badge = ({ text }: { text: string }) => (
-  <span className="inline-flex items-center px-4 py-1.5 rounded-full bg-black text-white text-[10px] font-extrabold uppercase tracking-[0.2em] shadow-sm">
-    {text}
-  </span>
-);
-
-export default FeaturedSection;
+}

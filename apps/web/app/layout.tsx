@@ -1,5 +1,5 @@
  import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Geist, Inter, Open_Sans, Poppins, Roboto } from "next/font/google";
 import "./globals.css";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +7,9 @@ import { Providers } from "./providers";
 import { AuthProvider } from "@/context/auth-context";
 import StructuredData from "@/components/StructuredData";
 import ChunkReloadGuard from "@/components/ChunkReloadGuard";
+import { SiteSettingsProvider } from "@/components/SiteSettingsProvider";
+import { getSiteSettings } from "@/lib/site-settings.server";
+import { themeStyle } from "@/lib/site-settings";
 
 // ✅ Sirf Geist Sans — Mono hata diya (FCP improve)
 const geistSans = Geist({
@@ -17,7 +20,18 @@ const geistSans = Geist({
   display: "swap", // ✅ Font load hone tak system font dikhao
 });
 
-export const metadata: Metadata = {
+/*
+ * The other fonts the admin can pick in Settings → Appearance. Declaring them
+ * costs nothing until one is chosen: preload is off, and a browser only
+ * downloads a font file when some text is actually set in it.
+ */
+// next/font needs literal options here, so each one is spelled out.
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", preload: false, variable: "--font-inter" });
+const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", preload: false, variable: "--font-poppins" });
+const roboto = Roboto({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", preload: false, variable: "--font-roboto" });
+const openSans = Open_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], display: "swap", preload: false, variable: "--font-open-sans" });
+
+const metadataBase: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://propertydealer.pk'),
   title: {
     default: "Property Dealer | Buy, Sell & Rent Property",
@@ -64,14 +78,27 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+// The admin's favicon, when one is set.
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  return settings.faviconUrl
+    ? { ...metadataBase, icons: { icon: settings.faviconUrl, apple: settings.faviconUrl } }
+    : metadataBase;
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const settings = await getSiteSettings();
+  const fontVariables = [geistSans, inter, poppins, roboto, openSans].map((f) => f.variable).join(" ");
+
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} antialiased`}>
+    // Colours, radius and font from Settings → Appearance, as CSS variables:
+    // every component reads them through the Tailwind tokens.
+    <html lang="en" className={fontVariables} style={themeStyle(settings)}>
+      <body className="antialiased">
         {/* First, and outside the providers: a stale document that cannot load
             its chunks must still be able to rescue itself. */}
         <ChunkReloadGuard />
@@ -79,7 +106,7 @@ export default function RootLayout({
           <AuthProvider>
             <TooltipProvider>
               <StructuredData />
-              {children}
+              <SiteSettingsProvider value={settings}>{children}</SiteSettingsProvider>
               <Sonner />
             </TooltipProvider>
           </AuthProvider>

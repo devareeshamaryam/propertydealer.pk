@@ -47,7 +47,7 @@ export default async function BlogCategoryPage(props: PageProps) {
   return (
     <div className="min-h-screen">
       {/* Blog Page Header */}
-      <div className="pt-24 pb-12 bg-secondary/20">
+      <div className="pt-8 pb-8 bg-slate-50 border-b border-border">
         <div className="container mx-auto px-4">
           <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-4">
             {category?.name || 'Blog Category'}

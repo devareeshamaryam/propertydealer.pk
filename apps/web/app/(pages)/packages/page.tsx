@@ -40,54 +40,59 @@ export default function PackagesPublicPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-16 px-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Choose Your Package
-          </h1>
-          <p className="text-xl text-gray-600">
-            List your properties with our flexible subscription plans
-          </p>
-        </div>
+  // Cheapest first, the way a price list reads.
+  const sorted = [...packages].sort((a, b) => a.price - b.price);
 
-        {loading ? (
-          <div className="text-center py-12">Loading packages...</div>
-        ) : (
-          <div className="grid md:grid-cols-3 gap-8">
-            {packages.map((pkg) => (
+  return (
+    <div className="container mx-auto px-4 py-8 sm:py-10">
+      <div className="max-w-2xl">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+          Packages for agents
+        </h1>
+        <p className="mt-2 text-[15px] text-slate-600">
+          Every account starts on the free plan. Pick a monthly package when you have more to list.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-80 animate-pulse rounded-lg bg-slate-100" />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {sorted.map((pkg) => {
+            // The seeded plans spell their limits out in `features`; older
+            // ones only have the numbers, so fall back to those.
+            const lines =
+              pkg.features.length > 0
+                ? pkg.features
+                : [
+                    `${pkg.propertyLimit} property listings`,
+                    ...(pkg.featuredListings > 0 ? [`${pkg.featuredListings} featured listings`] : []),
+                  ];
+            return (
               <div
                 key={pkg._id}
-                className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:border-primary transition-all hover:scale-105"
+                className="flex flex-col rounded-lg border border-slate-200 bg-white p-5 transition-colors hover:border-primary/50"
               >
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  {pkg.name}
-                </h3>
-                <p className="text-gray-600 mb-6 min-h-[48px]">
-                  {pkg.description}
-                </p>
-                <div className="mb-6">
-                  <span className="text-4xl font-bold text-primary">
-                    Rs. {pkg.price.toLocaleString('en-PK')}
+                <h2 className="text-lg font-bold text-slate-900">{pkg.name}</h2>
+                {pkg.description && (
+                  <p className="mt-1 text-[14px] text-slate-500">{pkg.description}</p>
+                )}
+                <p className="mt-4 flex items-baseline gap-1 text-slate-900">
+                  <span className="text-[13px] font-semibold text-slate-500">Rs</span>
+                  <span className="text-[28px] font-bold leading-none">
+                    {pkg.price.toLocaleString('en-PK')}
                   </span>
-                  <span className="text-gray-600"> / {pkg.duration} days</span>
-                </div>
-                <ul className="space-y-4 mb-8">
-                  <li className="flex items-start">
-                    <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5" />
-                    <span>{pkg.propertyLimit} property listings</span>
-                  </li>
-                  {pkg.featuredListings > 0 && (
-                    <li className="flex items-start">
-                      <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5" />
-                      <span>{pkg.featuredListings} featured listings</span>
-                    </li>
-                  )}
-                  {pkg.features.map((feature, idx) => (
-                    <li key={idx} className="flex items-start">
-                      <Check className="w-5 h-5 text-green-500 mr-3 mt-0.5" />
-                      <span>{feature}</span>
+                  <span className="text-[13px] text-slate-500">/ {pkg.duration} days</span>
+                </p>
+                <ul className="mt-4 flex-1 space-y-2 border-t border-slate-100 pt-4">
+                  {lines.map((line, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-[14px] text-slate-700">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      {line}
                     </li>
                   ))}
                 </ul>
@@ -99,20 +104,21 @@ export default function PackagesPublicPage() {
                   now rides along in ?next=, so signing in finishes the job.
                 */}
                 <Button
-                  className="w-full"
+                  className="mt-5 h-10 w-full font-semibold"
+                  variant={pkg.price > 0 ? 'default' : 'outline'}
                   disabled={authLoading}
                   onClick={() => {
                     const target = `/dashboard/purchase-package?packageId=${pkg._id}`;
                     router.push(isAuthenticated ? target : loginUrl(target));
                   }}
                 >
-                  Get Started
+                  {pkg.price > 0 ? `Choose ${pkg.name}` : 'Get started'}
                 </Button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

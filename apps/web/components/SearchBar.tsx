@@ -200,13 +200,13 @@ export default function SearchBar() {
   };
 
   return (
-    <div ref={searchRef} className="relative w-full max-w-md">
+    <div ref={searchRef} className="relative w-full">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <Input
           ref={inputRef}
           type="text"
-          placeholder="Search properties, cities, types..."
+          placeholder="Search city, area or property type"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => {
@@ -215,7 +215,7 @@ export default function SearchBar() {
             }
           }}
           onKeyDown={handleKeyDown}
-          className="pl-10 pr-4 w-full"
+          className="h-9 w-full border-slate-200 bg-slate-50 pl-9 pr-8 text-sm shadow-none focus-visible:bg-white"
         />
         {loading && (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
@@ -224,7 +224,7 @@ export default function SearchBar() {
 
       {/* Suggestions Dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-background border border-border rounded-lg shadow-lg z-50 max-h-[400px] overflow-y-auto">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-[400px] overflow-y-auto rounded-lg border border-border bg-white shadow-lg">
           {suggestions.map((suggestion, index) => {
             return (
               <button

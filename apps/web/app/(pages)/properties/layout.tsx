@@ -38,7 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function PropertiesLayout({ children }: { children: React.ReactNode }) {
     return (
         <>
-            <Suspense fallback={<div className="h-20 bg-background border-b animate-pulse" />}>
+            <Suspense fallback={<div className="hidden h-14 border-b border-slate-200 bg-white md:block" />}>
                 <PropertiesFilterBar />
             </Suspense>
             {children}

@@ -134,7 +134,7 @@ export default async function PropertyDetailPage({ params }: PageProps) {
 
       {/* Breadcrumbs: sirf desktop pe show karo, mobile pe hidden */}
       {breadcrumbItems.length > 0 && (
-        <div className="hidden md:block container mx-auto px-4 pt-24 pb-0">
+        <div className="hidden md:block container mx-auto px-4 pt-3 pb-0">
           <Breadcrumbs items={breadcrumbItems} />
         </div>
       )}

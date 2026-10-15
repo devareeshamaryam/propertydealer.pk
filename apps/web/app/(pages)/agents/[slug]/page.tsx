@@ -176,9 +176,9 @@ export default async function AgentProfilePage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-secondary/10">
-      <div className="container mx-auto px-4 pb-10 pt-20 sm:pt-24">
+      <div className="container mx-auto px-4 pb-10 pt-6">
         {/* ─────────────────────────── header card ─────────────────────────── */}
-        <section className="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm">
+        <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
           <div className="h-16 bg-gradient-to-r from-primary/20 via-primary/8 to-transparent sm:h-20" />
 
           <div className="px-4 pb-5 sm:px-7 sm:pb-6">
@@ -283,7 +283,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
 
         {/* ──────────────────────────── about ──────────────────────────── */}
         {(profile.bio || profile.experienceYears || memberSince) && (
-          <section className="mt-5 rounded-2xl border border-border/60 bg-card p-5 shadow-sm sm:p-6">
+          <section className="mt-5 rounded-lg border border-slate-200 bg-white p-5 sm:p-6">
             <h2 className="text-base font-semibold text-foreground">About</h2>
 
             {profile.bio && (
@@ -323,7 +323,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
           </div>
 
           {listings.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-border bg-card/60 py-16 text-center">
+            <div className="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center">
               <p className="text-muted-foreground">
                 {profileMissing
                   ? "Nothing is listed under this profile right now."
@@ -342,7 +342,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
                       {section.title} ({section.rows.length})
                     </h3>
                   )}
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2 lg:gap-3">
                     {section.rows.map((listing) => (
                       <PropertyCard
                         key={listing._id}

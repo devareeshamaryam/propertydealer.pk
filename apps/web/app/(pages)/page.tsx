@@ -1,6 +1,5 @@
  import HeroSection from "@/components/HeroSection";
 import FeaturedSection from "@/components/FeaturedSection";
-import TestimonialSection from "@/components/TestimonialSection";
 import BlogSection from "@/components/BlogSection";
 import ExploreTools from "@/components/ExploreTools";
 import PopularLocations from "@/components/PopularLocations";
@@ -161,11 +160,17 @@ const count = statsResult?.status === "fulfilled" ? (statsResult as PromiseFulfi
         initialTypes={sortedProcessedTypes}
       />
       <PopularLocations initialCities={processedCities} />
-      <FeaturedSection initialProperties={featuredProperties} />
+      <FeaturedSection initialProperties={transformedProperties} />
       <WhyChooseUs />
       <AgentSignupSection />
       <ExploreTools />
-      <TestimonialSection />
+      {/*
+        A testimonials section was removed: its four reviews (all five stars,
+        from a "Marketing Director", a "Legal Consultant", a "Tech
+        Entrepreneur" and a "Design Lead") read as template copy, and
+        reviews a visitor cannot trace to a real customer do more harm than
+        none. Add one back with real reviews — Google reviews, say.
+      */}
       <BlogSection initialPosts={processedBlogs} />
       <FAQSection />
     </>

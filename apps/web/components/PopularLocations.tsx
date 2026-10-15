@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { MapPin, ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
+import { SectionHeading } from '@/components/SectionHeading';
 import { cityApi, propertyApi } from '@/lib/api';
 import { toTitleCase } from '@/lib/utils';
 
@@ -81,94 +82,68 @@ const count = statsResult?.status === 'fulfilled' ? (statsResult as PromiseFulfi
     fetchCitiesWithCounts();
   }, [initialCities]);
 
+  /*
+   * Six cities as six small tiles, not six posters.
+   *
+   * These were 256px-tall photographs with a dark gradient over them, a
+   * shadow that deepened on hover and an image that zoomed to 110% — the
+   * biggest thing on the homepage after the hero, for what is a list of six
+   * links. Portals show cities as a row of compact tiles: a photo, the name,
+   * the count. One row on a desktop, two columns on a phone.
+   */
   return (
-    <section className="py-16 bg-gray-50">
-      <div className="max-w-[1440px] mx-auto px-4 lg:px-8">
-        <div className="flex flex-row justify-between items-start mb-3 gap-3">
-          <h2 className="text-xl sm:text-3xl md:text-4xl font-extrabold text-gray-900">Explore Popular Locations</h2>
-          <Link href="/properties" className="group flex items-center gap-1.5 sm:gap-2 text-black font-bold hover:gap-3 transition-all text-sm sm:text-base shrink-0 pt-1 sm:pt-2">
-            View All Cities <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
-          </Link>
-        </div>
-        <p className="text-gray-600 max-w-xl mb-6 sm:mb-10 text-sm sm:text-base">Find properties in the most sought-after cities across Pakistan. From bustling metros to serene suburbs.</p>
+    <section className="bg-white py-10 sm:py-12">
+      <div className="container mx-auto px-4">
+        <SectionHeading
+          title="Popular cities"
+          description="Browse property for sale and rent by city."
+          action={
+            <Link
+              href="/properties"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+            >
+              All properties
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          }
+        />
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white/50 rounded-3xl border border-dashed border-gray-300">
-            <Loader2 className="w-10 h-10 animate-spin text-gray-400 mb-4" />
-            <p className="text-gray-500 font-medium">Fetching locations...</p>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="aspect-[4/3] animate-pulse rounded-lg bg-slate-100" />
+            ))}
           </div>
         ) : cities.length > 0 ? (
-          <>
-            {/* ══════════════════════════════════════════════════════
-                MOBILE — compact: small round image + text beside it
-            ══════════════════════════════════════════════════════ */}
-            <div className="sm:hidden grid grid-cols-2 gap-x-3 gap-y-4">
-              {cities.map((city, index) => (
-                <Link
-                  key={`mobile-${city._id ?? index}`}
-                  href={`/properties/all/${city.slug}`}
-                  className="flex items-center gap-2.5"
-                >
-                  <div className="w-10 h-10 shrink-0 rounded-full overflow-hidden relative">
-                    <Image
-                      src={city.image}
-                      alt={`${city.name} Real Estate`}
-                      fill
-                      loading="lazy"
-                      className="object-cover"
-                      sizes="40px"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-gray-900 truncate">{toTitleCase(city.name)}</p>
-                    {city.count > 0 && (
-                      <p className="text-[11px] text-gray-400">{city.count} Properties</p>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            {/* ══════════════════════════════════════════════════════
-                DESKTOP / TABLET — original card grid, unchanged
-            ══════════════════════════════════════════════════════ */}
-            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {cities.map((city, index) => (
-                <Link
-                  key={`desktop-${city._id ?? index}`}
-                  href={`/properties/all/${city.slug}`}
-                  className="group relative h-44 sm:h-64 rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-500"
-                >
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-6">
+            {cities.map((city, index) => (
+              <Link
+                key={city._id ?? index}
+                href={`/properties/all/${city.slug}`}
+                className="group block"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-slate-100">
                   <Image
                     src={city.image}
-                    alt={`${city.name} Real Estate`}
+                    alt={`Property in ${toTitleCase(city.name)}`}
                     fill
                     priority={index < 2}
-                    fetchPriority={index < 2 ? 'high' : 'auto'}
-                    className="object-cover transition-transform duration-700 group-hover:scale-110"
-                    sizes="(max-width: 640px) 50vw, (max-width: 1200px) 50vw, 33vw"
+                    className="object-cover transition-opacity group-hover:opacity-90"
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                  <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6">
-                    <div className="flex items-center gap-1 sm:gap-2 text-white/80 text-xs sm:text-sm font-medium mb-0.5 sm:mb-1">
-                      <MapPin className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>Pakistan</span>
-                    </div>
-                    <h3 className="text-lg sm:text-2xl font-bold text-white mb-0.5 sm:mb-1">{toTitleCase(city.name)}</h3>
-                    {/* ✅ Count 0 ho toh hide karo */}
-                    {city.count > 0 && (
-                      <p className="text-white/90 text-xs sm:text-sm font-semibold">{city.count} Properties</p>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="text-center py-20 bg-white/50 rounded-3xl border border-dashed border-gray-300">
-            <p className="text-gray-500 font-medium">No locations found.</p>
+                </div>
+                <p className="mt-2 text-[15px] font-semibold text-slate-900 group-hover:text-primary">
+                  {toTitleCase(city.name)}
+                </p>
+                {city.count > 0 && (
+                  <p className="text-[13px] text-slate-500">
+                    {city.count.toLocaleString('en-PK')} properties
+                  </p>
+                )}
+              </Link>
+            ))}
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   );
