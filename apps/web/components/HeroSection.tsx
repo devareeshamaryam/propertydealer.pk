@@ -8,7 +8,8 @@ import { Property } from '@/lib/data';
 import { cn, toTitleCase } from '@/lib/utils';
 import { amountShort } from '@/lib/pk';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
-import { DEFAULT_HERO_SUBTITLE, DEFAULT_HERO_TITLE } from '@/lib/site-settings';
+import { resolved } from '@/lib/site-settings';
+import Image from 'next/image';
 
 /*
  * The search band at the top of the homepage.
@@ -36,12 +37,17 @@ const selectClass =
 
 const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialProperties, initialTypes }) => {
   const router = useRouter();
-  const { heroTitle, heroSubtitle } = useSiteSettings();
+  const settings = useSiteSettings();
+  const { heroTitle, heroSubtitle, heroImage } = resolved(settings);
+  // 0–95: how much of the dark brand colour sits over the photo.
+  const overlay = Math.min(95, Math.max(0, settings.heroOverlay ?? 50)) / 100;
   const [purpose, setPurpose] = useState<'rent' | 'buy'>('rent');
   // Lahore has the most listings, so it is the better starting point than
   // whichever city sorts first alphabetically.
+  // Settings → General → Default city (Lahore unless changed).
+  const wantedCity = (settings.defaultCity || 'lahore').toLowerCase().replace(/-/g, ' ');
   const defaultCity =
-    initialCities?.find((c: any) => c.name?.toLowerCase() === 'lahore') ?? initialCities?.[0];
+    initialCities?.find((c: any) => c.name?.toLowerCase() === wantedCity) ?? initialCities?.[0];
   const [city, setCity] = useState(defaultCity?.name || '');
   const [cityId, setCityId] = useState(defaultCity?._id || '');
   const [area, setArea] = useState('');
@@ -188,18 +194,43 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
   const clearSearch = () => { setSearchQuery(''); setShowSuggestions(false); };
 
   return (
-    <section className="bg-navy">
-      <div className="container mx-auto px-4 py-8 sm:py-12 lg:py-14">
-        <h1 className="text-center text-2xl font-bold tracking-tight text-white sm:text-3xl lg:text-[34px]">
-          {heroTitle || DEFAULT_HERO_TITLE}
+    <section className="relative isolate overflow-hidden bg-navy">
+      {/*
+        Settings → Appearance → Hero background: a photo under the brand's
+        dark colour, faded so the white text and the search panel stay the
+        thing you read. Off, it is the plain dark band.
+      */}
+      {heroImage && (
+        <>
+          <Image
+            src={heroImage}
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            // Hosts outside next.config's image list are shown as-is.
+            unoptimized={!heroImage.startsWith('/') && !heroImage.includes('images.unsplash.com') && !heroImage.includes('propertydealer.pk')}
+            className="-z-20 object-cover"
+          />
+          <div
+            aria-hidden
+            className="absolute inset-0 -z-10 bg-navy"
+            style={{ opacity: overlay }}
+          />
+          <div aria-hidden className="absolute inset-0 -z-10 bg-gradient-to-b from-black/10 via-transparent to-black/25" />
+        </>
+      )}
+      <div className="container mx-auto px-4 py-9 sm:py-14 lg:py-20">
+        <h1 className="text-center text-2xl font-bold tracking-tight text-white drop-shadow-sm sm:text-3xl lg:text-[38px]">
+          {heroTitle}
         </h1>
-        <p className="mt-2 text-center text-[14px] text-slate-300 sm:text-[15px]">
-          {heroSubtitle || DEFAULT_HERO_SUBTITLE}
+        <p className="mt-2 text-center text-[14px] text-white/80 sm:text-[15.5px]">
+          {heroSubtitle}
         </p>
 
         <form
           onSubmit={(e) => { e.preventDefault(); handleSearch(); }}
-          className="mx-auto mt-6 max-w-5xl overflow-visible rounded-lg bg-white shadow-lg sm:mt-8"
+          className="mx-auto mt-6 max-w-5xl overflow-visible rounded-2xl bg-white shadow-[0_20px_50px_-20px_rgba(0,0,0,0.45)] sm:mt-8"
         >
           {/* Buy / Rent — tabs along the top edge of the panel. */}
           <div role="tablist" aria-label="Purpose" className="flex border-b border-slate-200 px-2">

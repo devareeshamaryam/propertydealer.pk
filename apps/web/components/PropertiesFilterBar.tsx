@@ -219,9 +219,9 @@ export default function PropertiesFilterBar() {
    */
   return (
     // Phones use the Buy / Rent / Filters row inside PropertiesListing.
-    <section className="sticky top-[60px] z-40 hidden border-b border-slate-200 bg-white md:block">
-      <div className="container mx-auto flex h-14 items-center gap-3 px-4">
-        <div role="tablist" aria-label="Purpose" className="flex h-9 shrink-0 overflow-hidden rounded-md border border-slate-300">
+    <section className="sticky top-[66px] z-40 hidden px-3 pt-2 md:block">
+      <div className="container mx-auto flex h-14 items-center gap-3 rounded-2xl border border-slate-200/80 bg-white/90 px-3 shadow-[0_8px_24px_-16px_rgba(15,23,42,0.25)] backdrop-blur-xl">
+        <div role="tablist" aria-label="Purpose" className="flex h-9 shrink-0 overflow-hidden rounded-lg border border-slate-300">
           {PURPOSES.map(({ value, label }, i) => (
             <button
               key={value}
@@ -275,7 +275,7 @@ export default function PropertiesFilterBar() {
           type="button"
           onClick={handleApplyFilters}
           disabled={loading}
-          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-primary px-4 text-[14px] font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-[14px] font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           Search

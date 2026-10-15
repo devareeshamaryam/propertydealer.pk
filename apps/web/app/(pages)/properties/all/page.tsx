@@ -1,5 +1,5 @@
 import PropertiesListing from '@/components/PropertiesListing';
-import { serverApi } from '@/lib/server-api';
+import { serverApi, fetchInitialListings } from '@/lib/server-api';
 import { Metadata } from 'next';
 import { Suspense } from 'react';
 import { toTitleCase } from '@/lib/utils';
@@ -100,15 +100,9 @@ export default async function AllRootPage({ searchParams }: PageProps) {
   const pageUrl = `${BASE_URL}/properties/all${cityName ? `/${cityName.toLowerCase()}` : ''}${type && type !== 'all' ? `/${type.toLowerCase()}` : ''}`;
   const pageTitle = `${typeName} for Rent & Sale${cityName ? ` in ${toTitleCase(cityName)}` : ' in Pakistan'}`;
 
-  let schemaProperties: any[] = [];
-  try {
-    const q = cityName ? `city=${cityName}&limit=20` : 'limit=20';
-    const res = await serverApi.getProperties(q);
-    const rawProps: any[] = Array.isArray(res) ? res : (res as any).properties || [];
-    schemaProperties = rawProps.map((p: any) => ({
-      id: p._id, slug: p.slug, name: p.title
-    }));
-  } catch { /* skip schema failing */ }
+  // Page one of the list, rendered with the HTML (see fetchInitialListings).
+  const initial = await fetchInitialListings({ purpose: 'all', cityName: cityName || undefined });
+  const schemaProperties = initial.raw.map((p: any) => ({ id: p._id, slug: p.slug, name: p.title }));
 
   const collectionSchema = buildCollectionPageSchema({
     url: pageUrl,
@@ -136,6 +130,8 @@ export default async function AllRootPage({ searchParams }: PageProps) {
       }>
         <PropertiesListing
           purpose="all"
+          initialProperties={initial.properties}
+          initialTotalPages={initial.totalPages}
           useCleanUrls={true}
           city={cityName}
           richDescription={cityRichDescription}

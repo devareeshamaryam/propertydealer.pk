@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
-  Maximize2,
   Play,
   Share2,
   Volume2,
@@ -45,6 +44,10 @@ interface PropertyGalleryProps {
   videoPoster?: string | null;
   /** Rendered over the top-left corner, e.g. "For Sale". */
   badge?: string;
+  /** Rendered along the bottom-left edge of the photo — the price strip. */
+  priceTag?: React.ReactNode;
+  /** "Sold out" / "Rented out": stamps the photo and greys it. */
+  closedLabel?: string | null;
 }
 
 export default function PropertyGallery({
@@ -54,6 +57,8 @@ export default function PropertyGallery({
   videoUrl,
   videoPoster,
   badge,
+  priceTag,
+  closedLabel,
 }: PropertyGalleryProps) {
   /*
    * Memoised because the autoplay effect below depends on it — rebuilt every
@@ -275,7 +280,11 @@ export default function PropertyGallery({
     <>
       <div className="flex flex-col gap-2 md:gap-3">
         {/* The stage. 5:4 on phones; a sane fixed band on desktop. */}
-        <div className="group relative aspect-[5/4] select-none overflow-hidden bg-slate-100 md:aspect-auto md:h-[clamp(320px,58vh,560px)] md:rounded-lg md:border md:border-slate-200">
+        <div
+          className={`group relative aspect-[5/4] select-none overflow-hidden bg-slate-100 md:aspect-auto md:h-[clamp(340px,60vh,580px)] md:rounded-2xl md:border md:border-slate-200 ${
+            closedLabel ? "[&_img]:grayscale-[0.7] [&_video]:grayscale-[0.7]" : ""
+          }`}
+        >
           <div
             ref={trackRef}
             onScroll={onTrackScroll}
@@ -314,7 +323,7 @@ export default function PropertyGallery({
                         event.stopPropagation();
                         setMuted((previous) => !previous);
                       }}
-                      className="absolute bottom-3 left-3 z-10 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform active:scale-90"
+                      className="absolute right-3 top-16 z-10 grid h-10 w-10 place-items-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform active:scale-90"
                       aria-label={muted ? "Turn sound on" : "Mute"}
                     >
                       {muted ? (
@@ -379,15 +388,20 @@ export default function PropertyGallery({
             </button>
           </div>
 
-          {current?.type !== "video" && (
-            <div className="pointer-events-none absolute bottom-3 left-3 z-10 hidden items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white opacity-0 backdrop-blur-md transition-opacity group-hover:opacity-100 md:flex">
-              <Maximize2 className="h-3.5 w-3.5" />
-              <span>Click to enlarge</span>
+          {priceTag && (
+            <div className="pointer-events-none absolute bottom-0 left-0 z-10 max-w-[85%]">{priceTag}</div>
+          )}
+
+          {closedLabel && (
+            <div aria-hidden className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
+              <span className="-rotate-12 rounded-lg border-[3px] border-white/90 bg-red-600/85 px-5 py-2 text-xl font-black uppercase tracking-[0.2em] text-white shadow-2xl sm:text-2xl">
+                {closedLabel}
+              </span>
             </div>
           )}
 
           {total > 1 && (
-            <span className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-full bg-black/65 px-2.5 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-md">
+            <span className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-md">
               {active + 1} / {total}
             </span>
           )}
@@ -437,7 +451,7 @@ export default function PropertyGallery({
                   aria-label={
                     item.type === "video" ? "Play the walkthrough video" : `View photo ${index + 1}`
                   }
-                  className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-md border-2 transition-all md:h-16 ${
+                  className={`relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-all md:h-16 ${
                     on ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"
                   }`}
                 >

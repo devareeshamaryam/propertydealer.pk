@@ -3,10 +3,10 @@ import FeaturedSection from "@/components/FeaturedSection";
 import BlogSection from "@/components/BlogSection";
 import ExploreTools from "@/components/ExploreTools";
 import PopularLocations from "@/components/PopularLocations";
-import WhyChooseUs from "@/components/WhyChooseUs";
 import AgentSignupSection from "@/components/AgentSignupSection";
 import FAQSection from "@/components/FAQSection";
 import { serverApi } from "@/lib/server-api";
+import { getSiteSettings } from "@/lib/site-settings.server";
 import { mapBackendToFrontendProperty, sortPropertyTypes } from "@/lib/types/property-utils";
 import { transformBlogsToPosts } from "@/lib/utils/blog-utils";
 import { Metadata } from "next";
@@ -20,11 +20,13 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
+  // Settings → General → Homepage sections.
+  const settings = await getSiteSettings();
   // ✅ Sab kuch ek saath fetch — parallel requests
   const [citiesResult, propertiesResult, typesResult, blogsResult] =
     await Promise.allSettled([
       serverApi.getCities(),
-      serverApi.getProperties("limit=8"),
+      serverApi.getProperties(`limit=${settings.homeLatestCount || 8}`),
       serverApi.getTypes(),
       serverApi.getPublishedBlogs(),
     ]);
@@ -159,11 +161,12 @@ const count = statsResult?.status === "fulfilled" ? (statsResult as PromiseFulfi
         initialProperties={transformedProperties}
         initialTypes={sortedProcessedTypes}
       />
-      <PopularLocations initialCities={processedCities} />
-      <FeaturedSection initialProperties={transformedProperties} />
-      <WhyChooseUs />
-      <AgentSignupSection />
-      <ExploreTools />
+      {settings.homeShowCities && <PopularLocations initialCities={processedCities} />}
+      {settings.homeShowLatest && (
+        <FeaturedSection initialProperties={transformedProperties} count={settings.homeLatestCount} />
+      )}
+      {settings.homeShowAgentBand && <AgentSignupSection />}
+      {settings.homeShowExplore && <ExploreTools />}
       {/*
         A testimonials section was removed: its four reviews (all five stars,
         from a "Marketing Director", a "Legal Consultant", a "Tech
@@ -171,8 +174,8 @@ const count = statsResult?.status === "fulfilled" ? (statsResult as PromiseFulfi
         reviews a visitor cannot trace to a real customer do more harm than
         none. Add one back with real reviews — Google reviews, say.
       */}
-      <BlogSection initialPosts={processedBlogs} />
-      <FAQSection />
+      {settings.homeShowBlog && <BlogSection initialPosts={processedBlogs} />}
+      {settings.homeShowFaq && <FAQSection />}
     </>
   );
 }

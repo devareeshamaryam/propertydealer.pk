@@ -19,7 +19,7 @@ function apiBase(): string {
 export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
   try {
     const response = await fetch(`${apiBase()}/site-settings`, {
-      next: { revalidate: 3600, tags: ['site-settings'] },
+      next: { revalidate: 300, tags: ['site-settings'] },
       signal: AbortSignal.timeout(3000),
     });
     if (!response.ok) return DEFAULT_SITE_SETTINGS;

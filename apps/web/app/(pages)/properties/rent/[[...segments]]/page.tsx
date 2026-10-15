@@ -1,7 +1,7 @@
  import PropertiesListing from '@/components/PropertiesListing';
 import { Suspense } from 'react';
 import { Metadata } from 'next';
-import { serverApi } from '@/lib/server-api';
+import { serverApi, fetchInitialListings } from '@/lib/server-api';
 import { toTitleCase } from '@/lib/utils';
 import { buildCollectionPageSchema } from '@/lib/schema/listing-schema';
 
@@ -205,17 +205,16 @@ export default async function RentPage({ params }: PageProps) {
     areaName ? `in ${areaName}, ${cityName}` : cityName ? `in ${cityName}` : 'in Pakistan',
   ].join(' ');
 
-  let schemaProperties: any[] = [];
-  try {
-    const p: Record<string, string> = { limit: '20', page: '1', purpose: 'rent' };
-    if (citySlug)              p.city     = citySlug;
-    if (areaId)                p.areaId   = areaId;
-    if (listingType !== 'all') p.type     = listingType;
-    if (marla)               { p.marlaMin = String(marla); p.marlaMax = String(marla); }
-    const res      = await serverApi.getProperties(new URLSearchParams(p).toString());
-    const rawProps = Array.isArray(res) ? res : (res as any).properties || [];
-    schemaProperties = rawProps.map((p: any) => ({ id: p._id, slug: p.slug, name: p.title }));
-  } catch { /* non-critical */ }
+  // Page one of the list, rendered with the HTML (see fetchInitialListings).
+  const initial = await fetchInitialListings({
+    purpose: 'rent',
+    cityId: cityData?._id,
+    cityName: citySlug || undefined,
+    areaId,
+    type: listingType,
+    marla,
+  });
+  const schemaProperties = initial.raw.map((p: any) => ({ id: p._id, slug: p.slug, name: p.title }));
 
   const nonSizeSegs = segments.filter(s => !isSizeSegment(s));
   const crumbs = [
@@ -244,6 +243,9 @@ export default async function RentPage({ params }: PageProps) {
       }>
         <PropertiesListing
           purpose="rent"
+          initialProperties={initial.properties}
+          initialTotalPages={initial.totalPages}
+          cityId={cityData?._id}
           city={citySlug}
           type={listingType}
           areaId={areaId}

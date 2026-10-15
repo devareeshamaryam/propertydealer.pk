@@ -228,3 +228,40 @@ export const serverApi = {
     return this.get(`/bricks-rate/slug/${slug}`, { next: { revalidate: 60, tags: ['material-rates'] } });
   },
 };
+/**
+ * Page one of a results list, fetched on the server with the same filters
+ * PropertiesListing would use in the browser, so the list arrives with the
+ * HTML instead of after a spinner and a second round trip. Never throws: an
+ * empty result just lets the client fetch as it always did.
+ */
+export async function fetchInitialListings(filters: {
+  purpose: 'rent' | 'buy' | 'all';
+  cityId?: string;
+  cityName?: string;
+  areaId?: string;
+  type?: string;
+  marla?: number | null;
+}): Promise<{ properties: import('./data').Property[]; totalPages: number; raw: BackendProperty[] }> {
+  const { mapBackendToFrontendProperty } = await import('./types/property-utils');
+  const p = new URLSearchParams({ page: '1', limit: '12' });
+  if (filters.cityId) p.set('cityId', filters.cityId);
+  if (filters.cityName) p.set('city', filters.cityName);
+  if (filters.areaId) p.set('areaId', filters.areaId);
+  if (filters.type && filters.type !== 'all') p.set('type', filters.type);
+  if (filters.purpose !== 'all') p.set('purpose', filters.purpose);
+  if (filters.marla) {
+    p.set('marlaMin', String(filters.marla));
+    p.set('marlaMax', String(filters.marla));
+  }
+  try {
+    const res: any = await serverApi.getProperties(p.toString());
+    const raw: BackendProperty[] = Array.isArray(res) ? res : res?.properties ?? [];
+    return {
+      properties: raw.map(mapBackendToFrontendProperty),
+      totalPages: Array.isArray(res) ? 1 : Number(res?.totalPages) || 1,
+      raw,
+    };
+  } catch {
+    return { properties: [], totalPages: 1, raw: [] };
+  }
+}

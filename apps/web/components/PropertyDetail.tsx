@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef, type ComponentType } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, MapPin, BedDouble, Bath, Ruler, Phone, Check, Loader2, ChevronRight, ImageOff, Clock } from 'lucide-react';
+import {
+  ArrowLeft, Bath, BedDouble, Building2, CalendarClock, Check, ChevronRight, Clock, Compass, DoorOpen,
+  Eye, FileCheck, Grid3x3, Hash, Home, ImageOff, KeyRound, Layers, Loader2, MapPin, MapPinned,
+  Paintbrush, Phone, Plug, Ruler, Share2, ShieldAlert, Sparkles, Star, Store, Tag, Trees, Wallet, Zap,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { propertyApi } from '@/lib/api';
 import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/property-utils';
@@ -14,6 +18,9 @@ import { amountShort, amountWithSeparators, propertySizeLabel } from '@/lib/pk';
 import { agentDisplayName, agentProfilePath } from '@/lib/agent';
 import { trackContact, trackView } from '@/lib/analytics';
 import { maskPhone } from '@/lib/auth-intent';
+import { FEATURE_GROUPS } from '@/lib/property-features';
+import { resolved, waDigits } from '@/lib/site-settings';
+import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import dynamic from 'next/dynamic';
 import PropertyGallery from '@/components/property/PropertyGallery';
 import PropertyCard from '@/components/PropertyCard';
@@ -22,27 +29,31 @@ import { ReportButton } from '@/components/property/ReportButton';
 const PropertyMap = dynamic(() => import('@/components/PropertyMap'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[320px] w-full animate-pulse items-center justify-center rounded-lg bg-slate-100 text-sm text-slate-400">
+    <div className="flex h-[300px] w-full animate-pulse items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-400">
       Loading map…
     </div>
   ),
 });
 
 /*
- * The listing page, laid out the way property portals do it.
+ * The listing page.
  *
- * Gallery first, then the facts a buyer scans for — price, place, size, rooms —
- * then a plain two-column details table, the description, features and the
- * map. The contact card sits to the right on desktop and stays in view; on a
- * phone the same two buttons come straight after the price and follow the
- * reader down in a bar once they scroll past.
+ * Built like a property app: the photos open the page edge to edge with the
+ * price on a strip across their bottom corner (no separate price block to
+ * scroll past), then the title, where it is and four fact tiles. Details,
+ * description, features grouped the way the add-listing form groups them,
+ * and the map follow; the dealer card and the call / WhatsApp buttons stay in
+ * view — a sticky card on desktop, a bar along the bottom on a phone.
  *
- * What went: a black translucent section bar, every block wrapped in its own
- * card with a 20px heading, an icon tile in front of every fact, the details
- * repeated a second time in a sidebar card (with the database id as
- * "Property ID"), stock Unsplash photos shown as if they were the property
- * when a listing had none, and a "Contact agent" form whose submit button did
- * nothing but alert().
+ * A visitor who lands here straight from Google has no history to go back
+ * to, so the page carries its own ways on: a back button that falls back to
+ * the home page, a slim bar with back / title / share once the photos scroll
+ * away, breadcrumbs, "more in this area / city / type" links, and the
+ * similar listings at the end.
+ *
+ * Sold and rented listings keep their page (it is ranked) but are stamped
+ * across the photo, lose their phone number and WhatsApp button, and point
+ * the visitor at what is still available.
  */
 
 const SECTIONS = [
@@ -52,6 +63,24 @@ const SECTIONS = [
   { id: 'location-section', label: 'Location' },
 ];
 
+const GROUP_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  'Main features': Star,
+  'Condition & handover': KeyRound,
+  'Floors & layout': Layers,
+  Rooms: DoorOpen,
+  Utilities: Zap,
+  Finishing: Paintbrush,
+  Outside: Trees,
+  'Building facilities': Building2,
+  'Society & nearby': MapPinned,
+  'Utilities at site': Plug,
+  'Plot details': Grid3x3,
+  'Ownership & papers': FileCheck,
+  'Payment & terms': Wallet,
+  'Rental terms': CalendarClock,
+  Commercial: Store,
+};
+
 /** A YouTube id from any of the link shapes people paste, or null. */
 function youTubeId(url?: string | null): string | null {
   if (!url || !/youtu\.?be/.test(url)) return null;
@@ -59,9 +88,31 @@ function youTubeId(url?: string | null): string | null {
   return match?.[1] ?? null;
 }
 
+const slugify = (value: string) =>
+  value.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+/** The listing's features, sorted into the add-listing form's groups. */
+function groupFeatures(features: string[]): { title: string; items: string[] }[] {
+  const left = new Set(features);
+  const groups: { title: string; items: string[] }[] = [];
+  for (const group of FEATURE_GROUPS) {
+    const items = group.features.filter((f) => left.has(f));
+    if (items.length) {
+      items.forEach((f) => left.delete(f));
+      const existing = groups.find((g) => g.title === group.title);
+      if (existing) existing.items.push(...items);
+      else groups.push({ title: group.title, items });
+    }
+  }
+  if (left.size) groups.push({ title: 'Other features', items: [...left] });
+  return groups;
+}
+
 const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialProperty?: BackendProperty | null }) => {
   const router = useRouter();
   const params = useParams();
+  const settings = useSiteSettings();
+  const site = resolved(settings);
   const resolvedSlug = (slug || (params?.slug as string) || (params?.id as string))?.trim();
 
   const [property, setProperty] = useState<Property | null>(
@@ -77,63 +128,40 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [descriptionOverflows, setDescriptionOverflows] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [showStickyContact, setShowStickyContact] = useState(false);
-  const contactButtonsRef = useRef<HTMLDivElement>(null);
+  const [showTopBar, setShowTopBar] = useState(false);
+  const galleryEndRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<HTMLDivElement>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
 
   /*
-   * Contact: three hooks, declared up here on purpose.
-   *
-   * They used to sit further down, below the `if (loading)` and
-   * `if (error || !property)` early returns — so a first render that bailed
-   * out ran fewer hooks than the render after the fetch resolved, which is
-   * exactly the "Rendered more hooks than during the previous render" crash.
-   * Pages that pass `initialProperty` never hit it; /listing-detail/[id],
-   * which fetches on the client, did.
+   * Contact hooks, declared above the early returns on purpose: a first render
+   * that bailed out ran fewer hooks than the render after the fetch resolved,
+   * which is the "Rendered more hooks than during the previous render" crash.
    */
   const [numberShown, setNumberShown] = useState(false);
 
   const waLink = useCallback(() => {
     const message = encodeURIComponent(`I want to know more about this property: ${property?.name ?? ''}\nLink: ${window.location.href}`);
-    const raw = property?.whatsappNumber || property?.contactNumber || '923123456789';
-    const clean = raw.replace(/\D/g, '');
-    const num = clean.startsWith('92') ? clean : '92' + clean.replace(/^0/, '');
-    return `https://wa.me/${num}?text=${message}`;
-  }, [property?.name, property?.whatsappNumber, property?.contactNumber]);
+    // The listing's own number; the site's WhatsApp (Settings → General) only if it has none.
+    const raw = property?.whatsappNumber || property?.contactNumber || site.whatsapp;
+    return `https://wa.me/${waDigits(raw)}?text=${message}`;
+  }, [property?.name, property?.whatsappNumber, property?.contactNumber, site.whatsapp]);
 
   /*
-   * One tap for the number, no account.
-   *
-   * Tapping Call used to send a buyer to a login form and bring them back to
-   * resume the call. That wall cost the agent enquiries without protecting
-   * anything: the number travels inside the page's own data either way, so
-   * the only people it stopped were real buyers. Keeping it out of the
-   * rendered markup until somebody asks is the part that actually helps — a
-   * scraper reading the HTML finds a bullet mask — and the tap is a far
-   * better enquiry signal than a page view.
+   * One tap for the number, no account. Keeping it out of the rendered markup
+   * until somebody asks is what protects it from scrapers, and the tap is a
+   * far better enquiry signal than a page view.
    */
   const revealOrDial = useCallback(() => {
     if (!numberShown) {
       setNumberShown(true);
-      // Counted on the reveal, not the dial: on a desktop there is no dial.
       trackContact(backendProperty?._id, 'phone');
       return;
     }
     window.location.href = `tel:${property?.contactNumber ?? ''}`;
   }, [numberShown, backendProperty?._id, property?.contactNumber]);
 
-  /*
-   * Sold and rented listings keep their page but lose their phone number.
-   *
-   * The URL stays alive on purpose — these pages are ranked, and a 404 would
-   * throw that away — so the page has to say plainly that the house has gone
-   * rather than leave a Call button that wastes everyone's time. The listing
-   * also drops out of search fifteen days after it was marked (the API does
-   * that part); until then it stays, badged.
-   */
-  const closed =
-    property?.availability === 'sold' || property?.availability === 'rented';
+  const closed = property?.availability === 'sold' || property?.availability === 'rented';
   const closedLabel = property?.availability === 'rented' ? 'Rented out' : 'Sold out';
 
   const openWhatsApp = useCallback(() => {
@@ -141,12 +169,30 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     window.open(waLink(), '_blank');
   }, [backendProperty?._id, waLink]);
 
+  const share = useCallback(async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: property?.name, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied');
+      }
+    } catch {
+      // Share sheet dismissed.
+    }
+  }, [property?.name]);
+
+  /** Back to where they came from on this site, else home — never off the site. */
+  const goBack = useCallback(() => {
+    const sameSite = document.referrer.startsWith(window.location.origin);
+    if (sameSite && window.history.length > 1) router.back();
+    else router.push('/');
+  }, [router]);
+
   const getTimeAgo = (dateString?: string) => {
     if (!dateString) return 'Recently';
     try {
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+      const diffInHours = Math.floor((Date.now() - new Date(dateString).getTime()) / 3_600_000);
       if (diffInHours < 1) return 'Just now';
       if (diffInHours < 24) return `${diffInHours} hours ago`;
       const diffInDays = Math.floor(diffInHours / 24);
@@ -154,17 +200,15 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       if (diffInDays < 30) return `${diffInDays} days ago`;
       const diffInMonths = Math.floor(diffInDays / 30);
       if (diffInMonths === 1) return '1 month ago';
-      return `${diffInMonths} months ago`;
+      if (diffInMonths < 12) return `${diffInMonths} months ago`;
+      return 'Over a year ago';
     } catch {
       return 'Recently';
     }
   };
 
-  // Resolve lat/lng from backendProperty directly (most reliable source)
-  const resolvedLat: number | undefined =
-    backendProperty?.latitude ?? (property?.latitude as number | undefined);
-  const resolvedLng: number | undefined =
-    backendProperty?.longitude ?? (property?.longitude as number | undefined);
+  const resolvedLat: number | undefined = backendProperty?.latitude ?? (property?.latitude as number | undefined);
+  const resolvedLng: number | undefined = backendProperty?.longitude ?? (property?.longitude as number | undefined);
   const hasCoords = !!(resolvedLat && resolvedLng);
 
   useEffect(() => { setIsMounted(true); }, []);
@@ -172,89 +216,80 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   // Only offer "Read more" when there is more to read.
   useEffect(() => {
     const el = descriptionRef.current;
-    if (el) setDescriptionOverflows(el.scrollHeight > 220);
+    if (el) setDescriptionOverflows(el.scrollHeight > 240);
   }, [property?.description]);
 
   useEffect(() => {
-    if (tabsRef.current) {
-      const activeTab = tabsRef.current.querySelector(`[data-section="${activeSection}"]`) as HTMLElement;
-      if (activeTab) activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
+    if (!tabsRef.current) return;
+    const activeTab = tabsRef.current.querySelector(`[data-section="${activeSection}"]`) as HTMLElement | null;
+    activeTab?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }, [activeSection]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => entries.forEach((entry) => { if (entry.isIntersecting) setActiveSection(entry.target.id); }),
-      { rootMargin: '-120px 0px -50% 0px' }
+      { rootMargin: '-140px 0px -50% 0px' }
     );
-
     const timeout = setTimeout(() => {
       SECTIONS.forEach(({ id }) => { const el = document.getElementById(id); if (el) observer.observe(el); });
     }, 100);
 
-    const contactObserver = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry) return;
-        setShowStickyContact(!entry.isIntersecting && entry.boundingClientRect.top < 0);
-      },
+    // The slim top bar (phones) appears once the photos have scrolled away.
+    const topBarObserver = new IntersectionObserver(
+      ([entry]) => setShowTopBar(!!entry && !entry.isIntersecting && entry.boundingClientRect.top < 0),
       { threshold: 0 }
     );
-    if (contactButtonsRef.current) contactObserver.observe(contactButtonsRef.current);
+    if (galleryEndRef.current) topBarObserver.observe(galleryEndRef.current);
 
     return () => {
       clearTimeout(timeout);
       observer.disconnect();
-      contactObserver.disconnect();
+      topBarObserver.disconnect();
     };
   }, [property]);
 
   useEffect(() => {
-    const fetchRelatedProperties = async () => {
-      if (!property) return;
-      try {
-        const areaData = await propertyApi.getAll({
-          cityName: property.city, search: property.location,
-          type: backendProperty?.propertyType, purpose: backendProperty?.listingType, limit: 12,
-        });
-        const areaProperties = Array.isArray(areaData) ? areaData : areaData.properties;
-        setRelatedByArea(areaProperties.map(p => mapBackendToFrontendProperty(p)).filter(p => p.slug !== resolvedSlug));
-
-        const cityData = await propertyApi.getAll({
-          cityName: property.city, type: backendProperty?.propertyType,
-          purpose: backendProperty?.listingType, limit: 15,
-        });
-        const cityProperties = Array.isArray(cityData) ? cityData : cityData.properties;
-        setRelatedByCity(
-          cityProperties.map(p => mapBackendToFrontendProperty(p))
-            .filter(p => p.slug !== resolvedSlug && !areaProperties.some((ap: any) => ap.slug === p.slug))
-        );
-
-        if (backendProperty?.owner?._id) {
-          const ownerData = await propertyApi.getAll({ ownerId: backendProperty.owner._id, limit: 12 } as any);
-          const ownerProperties = Array.isArray(ownerData) ? ownerData : ownerData.properties;
-          setRelatedByOwner(ownerProperties.map(p => mapBackendToFrontendProperty(p)).filter(p => p.slug !== resolvedSlug));
-        }
-      } catch (err) {
-        console.error('Error fetching related properties:', err);
-      }
-    };
-    fetchRelatedProperties();
+    if (!property) return;
+    let cancelled = false;
+    const rows = (data: any): BackendProperty[] => (Array.isArray(data) ? data : data?.properties ?? []);
+    // Three independent lists — fetched together, not one after another.
+    Promise.allSettled([
+      propertyApi.getAll({
+        cityName: property.city, search: property.location,
+        type: backendProperty?.propertyType, purpose: backendProperty?.listingType, limit: 8,
+      }),
+      propertyApi.getAll({
+        cityName: property.city, type: backendProperty?.propertyType,
+        purpose: backendProperty?.listingType, limit: 10,
+      }),
+      backendProperty?.owner?._id
+        ? propertyApi.getAll({ ownerId: backendProperty.owner._id, limit: 8 } as any)
+        : Promise.resolve([]),
+    ]).then(([areaRes, cityRes, ownerRes]) => {
+      if (cancelled) return;
+      const areaRows = areaRes.status === 'fulfilled' ? rows(areaRes.value) : [];
+      const cityRows = cityRes.status === 'fulfilled' ? rows(cityRes.value) : [];
+      const ownerRows = ownerRes.status === 'fulfilled' ? rows(ownerRes.value) : [];
+      const notThis = (p: Property) => p.slug !== resolvedSlug;
+      setRelatedByArea(areaRows.map(mapBackendToFrontendProperty).filter(notThis));
+      setRelatedByCity(
+        cityRows.map(mapBackendToFrontendProperty)
+          .filter((p) => notThis(p) && !areaRows.some((a: any) => a.slug === p.slug)),
+      );
+      setRelatedByOwner(ownerRows.map(mapBackendToFrontendProperty).filter(notThis));
+    });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property, resolvedSlug]);
 
-  /*
-   * One view per visitor per session, counted as soon as the listing is
-   * known. This is the number the agent checks first, so it has to come from
-   * the page actually opening — not from a card being rendered in a feed.
-   */
+  // One view per visitor per session, counted when the listing is known.
   useEffect(() => {
     trackView(backendProperty?._id);
   }, [backendProperty?._id]);
 
-  // Who posted this listing. The API sends a name-and-logo projection only.
   const agentPath = agentProfilePath(backendProperty?.owner);
   const agentName = agentDisplayName(backendProperty?.owner);
+  const agentAvatar: string | undefined = backendProperty?.owner?.avatarUrl;
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -305,12 +340,15 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       <div className="container mx-auto px-4 py-20 text-center">
         <h1 className="mb-2 text-xl font-bold text-slate-900">Property not found</h1>
         <p className="mb-5 text-sm text-slate-500">{error || 'The property you are looking for does not exist.'}</p>
-        <Button onClick={() => router.push('/properties')}>Browse properties</Button>
+        <div className="flex justify-center gap-2">
+          <Button variant="outline" onClick={() => router.push('/')}>Home</Button>
+          <Button onClick={() => router.push('/properties')}>Browse properties</Button>
+        </div>
       </div>
     );
   }
 
-  // Real photos only. A listing without any shows that it has none.
+  // Real photos only. A listing without any says so.
   const images: string[] = (() => {
     const usable = (url?: string) =>
       url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/uploads/')) ? url : null;
@@ -326,26 +364,61 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const youTube = youTubeId(property.videoUrl);
 
   const isRent = property.purpose === 'rent';
+  const purposeSlug = isRent ? 'rent' : 'sale';
   const purposeLabel = isRent ? 'For Rent' : 'For Sale';
   const priceShort = amountShort(property.price) || amountWithSeparators(property.price) || '—';
   const size = propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) });
-  const place = [property.areaName || property.location, property.city]
+  const areaLabel = toTitleCase(property.areaName || property.location || '');
+  const cityLabel = toTitleCase(property.city || '');
+  const place = [areaLabel, cityLabel]
     .filter(Boolean)
-    .map((part) => toTitleCase(String(part)))
     .filter((part, i, all) => all.findIndex((p) => p.toLowerCase() === part.toLowerCase()) === i)
     .join(', ');
-  const features: string[] = backendProperty?.features ?? [];
+  const citySlug = property.citySlug || slugify(property.city || '');
+  const typeSlug = (property.type || '').toLowerCase();
+  const typePlural = toTitleCase(property.type || 'Propert') + (property.type ? 's' : 'ies');
+  const featureGroups = groupFeatures(backendProperty?.features ?? []);
+  const listingRef = backendProperty?._id ? String(backendProperty._id).slice(-6).toUpperCase() : '';
+  const views = Number(backendProperty?.views) || 0;
+
+  const facts = [
+    ...(property.bedrooms > 0 ? [{ icon: BedDouble, value: String(property.bedrooms), label: property.bedrooms === 1 ? 'Bedroom' : 'Bedrooms' }] : []),
+    ...(property.bathrooms > 0 ? [{ icon: Bath, value: String(property.bathrooms), label: property.bathrooms === 1 ? 'Bathroom' : 'Bathrooms' }] : []),
+    ...(size !== '—' ? [{ icon: Ruler, value: size, label: 'Area' }] : []),
+    { icon: Home, value: toTitleCase(property.type), label: 'Type' },
+    { icon: Tag, value: isRent ? 'Rent' : 'Sale', label: 'Purpose' },
+  ].slice(0, 4);
 
   const details: { label: string; value: string }[] = [
-    { label: 'Type', value: toTitleCase(property.type) },
     { label: 'Price', value: `PKR ${amountWithSeparators(property.price) || property.price}${isRent ? ' / month' : ''}` },
-    { label: 'Area', value: size },
+    { label: 'Type', value: toTitleCase(property.type) },
     { label: 'Purpose', value: purposeLabel },
-    { label: 'Location', value: toTitleCase(property.location) },
-    { label: 'City', value: toTitleCase(property.city) },
+    { label: 'Area', value: size },
     ...(property.bedrooms > 0 ? [{ label: 'Bedrooms', value: String(property.bedrooms) }] : []),
     ...(property.bathrooms > 0 ? [{ label: 'Bathrooms', value: String(property.bathrooms) }] : []),
+    { label: 'Location', value: toTitleCase(property.location) },
+    { label: 'City', value: cityLabel },
     { label: 'Added', value: getTimeAgo(backendProperty?.createdAt) },
+    ...(listingRef ? [{ label: 'Listing ref', value: `#${listingRef}` }] : []),
+  ];
+
+  // Ways on for a visitor who arrived straight from search.
+  const explore = [
+    ...(property.areaSlug && citySlug
+      ? [{ href: `/properties/${purposeSlug}/${citySlug}/${property.areaSlug}`, label: `${purposeLabel} in ${areaLabel}` }]
+      : []),
+    ...(citySlug && typeSlug
+      ? [{ href: `/properties/${purposeSlug}/${citySlug}/${typeSlug}`, label: `${typePlural} ${purposeLabel.toLowerCase()} in ${cityLabel}` }]
+      : []),
+    ...(citySlug ? [{ href: `/properties/${purposeSlug}/${citySlug}`, label: `All properties ${purposeLabel.toLowerCase()} in ${cityLabel}` }] : []),
+    ...(citySlug ? [{ href: `/properties/all/${citySlug}`, label: `Rent & sale in ${cityLabel}` }] : []),
+  ];
+
+  const crumbs = [
+    { href: '/', label: 'Home' },
+    { href: `/properties/${purposeSlug}`, label: purposeLabel },
+    ...(citySlug ? [{ href: `/properties/${purposeSlug}/${citySlug}`, label: cityLabel }] : []),
+    ...(property.areaSlug && citySlug ? [{ href: `/properties/${purposeSlug}/${citySlug}/${property.areaSlug}`, label: areaLabel }] : []),
   ];
 
   const getSchemaType = (type: string) => {
@@ -368,16 +441,16 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     name: property.name,
     description: property.description
       ? property.description.replace(/<[^>]*>?/gm, '').substring(0, 300).trim() + '...'
-      : `${property.name} in ${toTitleCase(property.location)}, ${toTitleCase(property.city)}`,
+      : `${property.name} in ${toTitleCase(property.location)}, ${cityLabel}`,
     image: images,
-    address: { '@type': 'PostalAddress', addressLocality: toTitleCase(property.city), addressRegion: toTitleCase(property.location), addressCountry: 'PK' },
+    address: { '@type': 'PostalAddress', addressLocality: cityLabel, addressRegion: toTitleCase(property.location), addressCountry: 'PK' },
     ...(property.bedrooms > 0 ? { numberOfBedrooms: property.bedrooms } : {}),
     ...(property.bathrooms > 0 ? { numberOfBathrooms: property.bathrooms } : {}),
     floorSize: { '@type': 'QuantitativeValue', value: property.area, unitCode: 'SQF' },
     offers: {
       '@type': 'Offer', price: property.price, priceCurrency: 'PKR',
       businessFunction: property.purpose === 'buy' ? 'http://purl.org/goodrelations/v1#Sell' : 'http://purl.org/goodrelations/v1#LeaseOut',
-      availability: 'https://schema.org/InStock',
+      availability: closed ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
       url: typeof window !== 'undefined' ? window.location.href : '',
     },
   } : null;
@@ -388,71 +461,150 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     </svg>
   );
 
-  /** The two contact buttons, used in the sidebar, under the price on phones, and in the sticky bar. */
-  const ContactButtons = ({ stacked = false, masked = true }: { stacked?: boolean; masked?: boolean }) => (
-    <div className={cn('grid gap-2', stacked ? 'grid-cols-1' : 'grid-cols-2')}>
-      <button
-        type="button"
-        onClick={revealOrDial}
-        className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-md border border-primary bg-white px-3 text-[14px] font-semibold text-primary transition-colors hover:bg-primary/5"
-      >
-        <Phone className="h-4 w-4 shrink-0" />
-        <span className="truncate">
-          {numberShown
-            ? property.contactNumber
-            : masked && property.contactNumber
-              ? `Call ${maskPhone(property.contactNumber)}`
+  const CallButton = ({ full = false, compact = false }: { full?: boolean; compact?: boolean }) => (
+    <button
+      type="button"
+      onClick={revealOrDial}
+      className={cn(
+        'inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-primary bg-white px-3 font-semibold text-primary transition-colors hover:bg-primary/5',
+        compact ? 'h-11 text-[14px]' : 'h-12 text-[15px]',
+        full && 'w-full',
+      )}
+    >
+      <Phone className="h-4 w-4 shrink-0" />
+      <span className="truncate">
+        {numberShown
+          ? property.contactNumber
+          : compact
+            ? 'Call'
+            : property.contactNumber
+              ? `Show ${maskPhone(property.contactNumber)}`
               : 'Show number'}
-        </span>
-      </button>
-      <button
-        type="button"
-        onClick={openWhatsApp}
-        className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-[#25D366] px-3 text-[14px] font-semibold text-white transition-colors hover:bg-[#1ebe5b]"
-      >
-        <WaIcon />
-        WhatsApp
-      </button>
-    </div>
+      </span>
+    </button>
+  );
+
+  const WhatsAppButton = ({ full = false, compact = false }: { full?: boolean; compact?: boolean }) => (
+    <button
+      type="button"
+      onClick={openWhatsApp}
+      className={cn(
+        'inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-3 font-semibold text-white transition-colors hover:bg-[#1ebe5b]',
+        compact ? 'h-11 text-[14px]' : 'h-12 text-[15px]',
+        full && 'w-full',
+      )}
+    >
+      <WaIcon />
+      WhatsApp
+    </button>
   );
 
   const ClosedNotice = () => (
-    <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-[14px] text-amber-900">
-      <span className="font-semibold">{closedLabel}.</span>{' '}
-      This property is no longer available, so the contact details are hidden.
+    <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-[14px] text-red-900">
+      <p className="font-semibold">{closedLabel}</p>
+      <p className="mt-0.5 text-red-800/80">
+        This property is no longer available, so its contact details are hidden.
+      </p>
+      {citySlug && (
+        <Link
+          href={`/properties/${purposeSlug}/${citySlug}`}
+          className="mt-2 inline-flex items-center gap-1 font-semibold text-red-700 hover:underline"
+        >
+          See available properties in {cityLabel}
+          <ChevronRight className="h-4 w-4" />
+        </Link>
+      )}
+    </div>
+  );
+
+  const AgentCard = () =>
+    agentPath ? (
+      // Who is behind the listing, and a way through to the rest of their stock.
+      <Link href={agentPath} className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300">
+        {agentAvatar ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={agentAvatar} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-[16px] font-semibold text-primary">
+            {agentName.slice(0, 1).toUpperCase()}
+          </span>
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Listed by</span>
+          <span className="block truncate text-[14.5px] font-semibold text-slate-900 group-hover:text-primary">{agentName}</span>
+        </span>
+        <span className="hidden shrink-0 text-[12.5px] font-medium text-primary sm:inline">View profile</span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+      </Link>
+    ) : null;
+
+  const SafetyTips = () => (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5">
+      <p className="flex items-center gap-1.5 text-[13.5px] font-semibold text-amber-900">
+        <ShieldAlert className="h-4 w-4" /> Stay safe
+      </p>
+      <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-[12.5px] leading-relaxed text-amber-900/80">
+        <li>See the property in person before paying anything.</li>
+        <li>Check the owner’s CNIC and the ownership papers.</li>
+        <li>Never send an advance to an unverified account.</li>
+      </ul>
+    </div>
+  );
+
+  const priceStrip = (
+    <div className={cn('flex items-baseline gap-1.5 rounded-tr-2xl px-4 py-2.5 text-white shadow-lg', closed ? 'bg-slate-900/90' : 'bg-price-tag')}>
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-white/80">PKR</span>
+      <span className="text-[22px] font-extrabold leading-none tracking-tight sm:text-[26px]">{priceShort}</span>
+      {isRent && <span className="text-[12px] font-medium text-white/85">/ month</span>}
     </div>
   );
 
   const related = [
     {
       list: relatedByArea,
-      title: `Similar ${toTitleCase(property.type)}s in ${toTitleCase(property.location)}`,
-      href: property.areaSlug
-        ? `/properties/${isRent ? 'rent' : 'sale'}/${property.citySlug || property.city.toLowerCase()}/${property.areaSlug}`
-        : null,
+      title: `Similar ${typePlural.toLowerCase()} in ${toTitleCase(property.location)}`,
+      href: property.areaSlug && citySlug ? `/properties/${purposeSlug}/${citySlug}/${property.areaSlug}` : null,
     },
-    {
-      list: relatedByOwner,
-      title: `More from ${agentName}`,
-      href: agentPath || null,
-    },
+    { list: relatedByOwner, title: `More from ${agentName}`, href: agentPath || null },
     {
       list: relatedByCity,
-      title: `Similar ${toTitleCase(property.type)}s in ${toTitleCase(property.city)}`,
-      href: backendProperty?.listingType
-        ? `/properties/${backendProperty.listingType}/${property.citySlug || property.city.toLowerCase()}`
-        : null,
+      title: `Similar ${typePlural.toLowerCase()} in ${cityLabel}`,
+      href: citySlug ? `/properties/${purposeSlug}/${citySlug}` : null,
     },
   ];
 
   return (
-    <div className="max-w-full pb-6 md:pb-10">
+    <div className="max-w-full pb-28 lg:pb-12">
       {isMounted && jsonLd && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       )}
 
+      {/* Phones: slim bar once the photos have scrolled away (the site header is hidden here). */}
+      <div
+        className={cn(
+          'fixed inset-x-0 top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-md transition-transform duration-200 md:hidden',
+          showTopBar ? 'translate-y-0' : '-translate-y-full',
+        )}
+      >
+        <div className="flex h-12 items-center gap-2 px-2">
+          <button type="button" onClick={goBack} aria-label="Back" className="grid h-9 w-9 place-items-center rounded-full text-slate-700 hover:bg-slate-100">
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13.5px] font-semibold text-slate-900">{property.name}</p>
+            <p className="truncate text-[11.5px] font-medium text-price-tag">PKR {priceShort}{isRent ? ' / month' : ''}</p>
+          </div>
+          <Link href="/" aria-label="Home" className="grid h-9 w-9 place-items-center rounded-full text-slate-700 hover:bg-slate-100">
+            <Home className="h-[18px] w-[18px]" />
+          </Link>
+          <button type="button" onClick={share} aria-label="Share" className="grid h-9 w-9 place-items-center rounded-full text-slate-700 hover:bg-slate-100">
+            <Share2 className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+      </div>
+
       <div className="container mx-auto md:px-4">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_350px] lg:gap-8">
 
           {/* ── Main column ─────────────────────────────────────────── */}
           <div className="min-w-0">
@@ -462,14 +614,15 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 title={property.name}
                 videoUrl={uploadedVideo}
                 videoPoster={backendProperty?.videoPosterUrl ?? null}
-                badge={closed ? closedLabel : purposeLabel}
+                badge={closed ? undefined : purposeLabel}
+                priceTag={priceStrip}
+                closedLabel={closed ? closedLabel : null}
               />
             ) : (
-              <div className="relative flex aspect-[5/3] flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400 md:aspect-auto md:h-[320px] md:rounded-lg md:border md:border-slate-200">
-                {/* Phones have no header on a listing; this is the way back. */}
+              <div className="relative flex aspect-[5/3] flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400 md:aspect-auto md:h-[340px] md:rounded-2xl md:border md:border-slate-200">
                 <button
                   type="button"
-                  onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+                  onClick={goBack}
                   className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-slate-800 shadow-md md:hidden"
                   aria-label="Back"
                 >
@@ -477,68 +630,83 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 </button>
                 <ImageOff className="h-8 w-8" />
                 <span className="text-sm">No photos uploaded for this property</span>
+                {closed && (
+                  <span className="mt-1 rounded-lg bg-red-600 px-3 py-1 text-sm font-bold uppercase tracking-widest text-white">{closedLabel}</span>
+                )}
+                <div className="absolute bottom-0 left-0">{priceStrip}</div>
               </div>
             )}
+            <div ref={galleryEndRef} aria-hidden />
 
-            {/* Price, title, place, key facts */}
+            {/* Title, place, quick facts */}
             <header className="px-4 pt-4 md:px-0 md:pt-5">
-              <p className="flex items-baseline gap-1.5 text-slate-900">
-                <span className="text-[13px] font-semibold text-slate-500">PKR</span>
-                <span className="text-[26px] font-bold leading-none tracking-tight sm:text-[30px]">{priceShort}</span>
-                {isRent && <span className="text-sm text-slate-500">/ month</span>}
-              </p>
-              <h1 className="mt-2 text-[17px] font-semibold leading-snug text-slate-900 sm:text-xl">
+              {/* Phones: where this sits, as links — the only navigation a visitor from Google has. */}
+              <nav aria-label="Breadcrumb" className="hide-scrollbar -mx-4 mb-2 flex items-center gap-1 overflow-x-auto px-4 text-[12px] text-slate-500 md:hidden">
+                {crumbs.map((c, i) => (
+                  <span key={c.href} className="flex shrink-0 items-center gap-1">
+                    {i > 0 && <ChevronRight className="h-3 w-3 text-slate-300" />}
+                    <Link href={c.href} className="hover:text-primary">{c.label}</Link>
+                  </span>
+                ))}
+              </nav>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide', closed ? 'bg-red-600 text-white' : 'bg-primary/10 text-primary')}>
+                  {closed ? closedLabel : purposeLabel}
+                </span>
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                  {toTitleCase(property.type)}
+                </span>
+                {property.isFeatured && !closed && (
+                  <span className="rounded-md bg-amber-400 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-900">Featured</span>
+                )}
+              </div>
+
+              <h1 className="mt-2 text-[19px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[24px]">
                 {property.name}
               </h1>
-              <p className="mt-1.5 flex items-center gap-1.5 text-[14px] text-slate-500">
-                <MapPin className="h-4 w-4 shrink-0 text-slate-400" />
+              <p className="mt-1.5 flex items-center gap-1.5 text-[14px] text-slate-600">
+                <MapPin className="h-4 w-4 shrink-0 text-primary" />
                 <span className="min-w-0 truncate">{place}</span>
                 {hasCoords && (
-                  <button
-                    type="button"
-                    onClick={() => scrollToSection('location-section')}
-                    className="shrink-0 font-medium text-primary hover:underline"
-                  >
-                    View on map
+                  <button type="button" onClick={() => scrollToSection('location-section')} className="shrink-0 text-[13px] font-semibold text-primary hover:underline">
+                    Map
                   </button>
                 )}
               </p>
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-slate-500">
+                <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {getTimeAgo(backendProperty?.createdAt)}</span>
+                {views > 0 && <span className="inline-flex items-center gap-1"><Eye className="h-3.5 w-3.5" /> {views.toLocaleString('en-PK')} views</span>}
+                {listingRef && <span className="inline-flex items-center gap-1"><Hash className="h-3.5 w-3.5" /> {listingRef}</span>}
+                <button type="button" onClick={share} className="hidden items-center gap-1 font-medium text-slate-600 hover:text-primary md:inline-flex">
+                  <Share2 className="h-3.5 w-3.5" /> Share
+                </button>
+              </p>
 
-              <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-slate-200 py-3 text-[14px] text-slate-700">
-                {property.bedrooms > 0 && (
-                  <li className="flex items-center gap-1.5">
-                    <BedDouble className="h-[18px] w-[18px] text-slate-400" />
-                    <span className="font-semibold text-slate-900">{property.bedrooms}</span> Beds
+              {/* Quick facts, as tiles. */}
+              <ul className="mt-4 grid grid-cols-4 gap-2">
+                {facts.map(({ icon: Icon, value, label }) => (
+                  <li key={label} className="flex flex-col items-center rounded-xl border border-slate-200 bg-slate-50/60 px-1 py-2.5 text-center">
+                    <span className="grid h-8 w-8 place-items-center rounded-full bg-white text-primary shadow-sm ring-1 ring-slate-200">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="mt-1.5 max-w-full truncate text-[13.5px] font-bold text-slate-900">{value}</span>
+                    <span className="text-[10.5px] font-medium uppercase tracking-wide text-slate-400">{label}</span>
                   </li>
-                )}
-                {property.bathrooms > 0 && (
-                  <li className="flex items-center gap-1.5">
-                    <Bath className="h-[18px] w-[18px] text-slate-400" />
-                    <span className="font-semibold text-slate-900">{property.bathrooms}</span> Baths
-                  </li>
-                )}
-                {size !== '—' && (
-                  <li className="flex items-center gap-1.5">
-                    <Ruler className="h-[18px] w-[18px] text-slate-400" />
-                    <span className="font-semibold text-slate-900">{size}</span>
-                  </li>
-                )}
-                <li className="flex items-center gap-1.5 text-slate-500">
-                  <Clock className="h-[18px] w-[18px] text-slate-400" />
-                  Added {getTimeAgo(backendProperty?.createdAt).toLowerCase()}
-                </li>
+                ))}
               </ul>
             </header>
 
-            {/* Phones: contact right under the facts. */}
-            <div ref={contactButtonsRef} className="px-4 pt-4 lg:hidden">
-              {closed ? <ClosedNotice /> : <ContactButtons masked={false} />}
+            {/* Phones: who listed it (desktop has it in the side card). */}
+            <div className="space-y-3 px-4 pt-4 lg:hidden">
+              <AgentCard />
+              {closed && <ClosedNotice />}
             </div>
 
             {/* Section nav */}
             <nav
               aria-label="Sections"
-              className="sticky top-0 z-30 mt-5 border-b border-slate-200 bg-white md:top-[60px]"
+              className="sticky top-12 z-30 mt-5 border-b border-slate-200 bg-white/95 backdrop-blur md:top-[72px]"
             >
               <div ref={tabsRef} className="hide-scrollbar flex gap-6 overflow-x-auto px-4 md:px-0">
                 {SECTIONS.map((tab) => (
@@ -549,9 +717,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                     onClick={() => scrollToSection(tab.id)}
                     className={cn(
                       '-mb-px whitespace-nowrap border-b-2 py-3 text-[14px] font-medium transition-colors',
-                      activeSection === tab.id
-                        ? 'border-primary text-primary'
-                        : 'border-transparent text-slate-500 hover:text-slate-900',
+                      activeSection === tab.id ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-900',
                     )}
                   >
                     {tab.label}
@@ -560,56 +726,67 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               </div>
             </nav>
 
-            <div className="divide-y divide-slate-200 px-4 md:px-0">
+            <div className="space-y-4 px-4 pt-4 md:px-0">
               {/* Overview */}
-              <section id="overview-section" className="scroll-mt-32 py-6">
-                <h2 className="mb-3 text-lg font-bold text-slate-900">Overview</h2>
+              <section id="overview-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <h2 className="mb-2 text-[17px] font-bold text-slate-900">Property details</h2>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 sm:gap-x-8">
                   {details.map(({ label, value }) => (
-                    <div key={label} className="flex justify-between gap-4 border-b border-slate-100 py-2.5 text-[14px]">
+                    <div key={label} className="flex justify-between gap-4 border-b border-dashed border-slate-200 py-2.5 text-[14px] last:border-0 sm:[&:nth-last-child(2)]:border-0">
                       <dt className="text-slate-500">{label}</dt>
-                      <dd className="min-w-0 truncate text-right font-medium text-slate-900">{value}</dd>
+                      <dd className="min-w-0 truncate text-right font-semibold text-slate-900">{value}</dd>
                     </div>
                   ))}
                 </dl>
               </section>
 
               {/* Description */}
-              <section id="description-section" className="scroll-mt-32 py-6">
-                <h2 className="mb-3 text-lg font-bold text-slate-900">Description</h2>
-                <div className={cn('relative', !isDescriptionExpanded && descriptionOverflows && 'max-h-[220px] overflow-hidden')}>
+              <section id="description-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <h2 className="mb-2 text-[17px] font-bold text-slate-900">Description</h2>
+                <div className={cn('relative', !isDescriptionExpanded && descriptionOverflows && 'max-h-[240px] overflow-hidden')}>
                   <div
                     ref={descriptionRef}
-                    className="prose prose-sm max-w-none text-[15px] leading-relaxed text-slate-700 prose-headings:text-slate-900 prose-a:text-primary"
-                    dangerouslySetInnerHTML={{ __html: property.description || `This ${property.type.toLowerCase()} is located in ${toTitleCase(property.location)}, ${toTitleCase(property.city)}.` }}
+                    className="prose prose-sm max-w-none text-[14.5px] leading-relaxed text-slate-700 prose-headings:text-slate-900 prose-a:text-primary"
+                    dangerouslySetInnerHTML={{ __html: property.description || `This ${property.type.toLowerCase()} is located in ${toTitleCase(property.location)}, ${cityLabel}.` }}
                   />
                   {!isDescriptionExpanded && descriptionOverflows && (
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent" />
                   )}
                 </div>
                 {descriptionOverflows && (
-                  <button
-                    type="button"
-                    className="mt-2 text-[14px] font-semibold text-primary hover:underline"
-                    onClick={() => setIsDescriptionExpanded((v) => !v)}
-                  >
+                  <button type="button" className="mt-2 text-[14px] font-semibold text-primary hover:underline" onClick={() => setIsDescriptionExpanded((v) => !v)}>
                     {isDescriptionExpanded ? 'Show less' : 'Read more'}
                   </button>
                 )}
               </section>
 
-              {/* Features */}
-              <section id="features-section" className="scroll-mt-32 py-6">
-                <h2 className="mb-3 text-lg font-bold text-slate-900">Features &amp; amenities</h2>
-                {features.length > 0 ? (
-                  <ul className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                    {features.map((feature, idx) => (
-                      <li key={`${feature}-${idx}`} className="flex items-start gap-2 text-[14px] text-slate-700">
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
+              {/* Features, grouped */}
+              <section id="features-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <h2 className="mb-3 text-[17px] font-bold text-slate-900">Features &amp; amenities</h2>
+                {featureGroups.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {featureGroups.map(({ title, items }) => {
+                      const Icon = GROUP_ICONS[title] ?? Sparkles;
+                      return (
+                        <div key={title} className="rounded-xl bg-slate-50 p-3">
+                          <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold text-slate-900">
+                            <span className="grid h-7 w-7 place-items-center rounded-lg bg-white text-primary ring-1 ring-slate-200">
+                              <Icon className="h-3.5 w-3.5" />
+                            </span>
+                            {title}
+                          </p>
+                          <ul className="flex flex-wrap gap-1.5">
+                            {items.map((item) => (
+                              <li key={item} className="inline-flex items-center gap-1 rounded-lg bg-white px-2 py-1 text-[12.5px] text-slate-700 ring-1 ring-slate-200">
+                                <Check className="h-3 w-3 text-emerald-600" />
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
                 ) : (
                   <p className="text-[14px] text-slate-500">The dealer has not listed any features for this property.</p>
                 )}
@@ -617,9 +794,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
               {/* A YouTube link (uploaded videos play in the gallery above). */}
               {youTube && (
-                <section id="video-section" className="scroll-mt-32 py-6">
-                  <h2 className="mb-3 text-lg font-bold text-slate-900">Video</h2>
-                  <div className="relative aspect-video overflow-hidden rounded-lg bg-slate-100">
+                <section id="video-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                  <h2 className="mb-3 text-[17px] font-bold text-slate-900">Video</h2>
+                  <div className="relative aspect-video overflow-hidden rounded-xl bg-slate-100">
                     <iframe
                       src={`https://www.youtube.com/embed/${youTube}`}
                       title={`${property.name} — video`}
@@ -632,99 +809,101 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 </section>
               )}
 
-              {/* ── Location ─────────────────────────────────────────────
-                  resolvedLat / resolvedLng are taken from backendProperty
-                  first (most reliable) then fall back to mapped property.
-                  This ensures the map shows even when the mapping utility
-                  does not copy lat/lng to the frontend Property type.
-              ────────────────────────────────────────────────────────── */}
-              <section id="location-section" className="scroll-mt-32 py-6">
-                <h2 className="mb-1 text-lg font-bold text-slate-900">Location</h2>
+              {/* Location */}
+              <section id="location-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <h2 className="mb-1 text-[17px] font-bold text-slate-900">Location</h2>
                 <p className="mb-3 flex items-center gap-1.5 text-[14px] text-slate-500">
                   <MapPin className="h-4 w-4 text-slate-400" />
                   {place}, Pakistan
                 </p>
                 {hasCoords ? (
-                  <div className="overflow-hidden rounded-lg border border-slate-200">
+                  <div className="overflow-hidden rounded-xl border border-slate-200">
                     <PropertyMap latitude={resolvedLat!} longitude={resolvedLng!} title={property.name} />
                   </div>
                 ) : (
                   <p className="text-[14px] text-slate-500">The exact location has not been pinned on the map.</p>
                 )}
               </section>
+
+              {/* Phones: safety + report sit at the end of the listing. */}
+              <div className="space-y-3 lg:hidden">
+                <SafetyTips />
+                <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
+              </div>
+
+              {/* Ways on */}
+              {explore.length > 0 && (
+                <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                  <h2 className="mb-3 flex items-center gap-2 text-[17px] font-bold text-slate-900">
+                    <Compass className="h-4 w-4 text-primary" /> Explore more
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {explore.map(({ href, label }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[13px] font-medium text-slate-700 transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
+                      >
+                        {label}
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
           </div>
 
           {/* ── Sidebar (desktop) ───────────────────────────────────── */}
           <aside className="hidden lg:block">
-            <div className="sticky top-20 space-y-3">
-              <div className="rounded-lg border border-slate-200 bg-white p-4">
-                <p className="flex items-baseline gap-1.5 text-slate-900">
-                  <span className="text-[12px] font-semibold text-slate-500">PKR</span>
-                  <span className="text-[22px] font-bold leading-none">{priceShort}</span>
-                  {isRent && <span className="text-[13px] text-slate-500">/ month</span>}
-                </p>
-                <p className="mt-1 text-[13px] text-slate-500">
-                  {toTitleCase(property.type)} {purposeLabel.toLowerCase()} · {size}
-                </p>
-
-                {agentPath && (
-                  /*
-                    Who is behind the listing, and a way through to the rest
-                    of their stock. Buyers here shop by dealer as much as by
-                    house, and a bare phone number gave them nowhere to look.
-                  */
-                  <Link
-                    href={agentPath}
-                    className="mt-4 flex items-center gap-3 border-t border-slate-200 pt-4 group"
-                  >
-                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary/10 text-[15px] font-semibold text-primary">
-                      {agentName.slice(0, 1).toUpperCase()}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14px] font-semibold text-slate-900 group-hover:text-primary">
-                        {agentName}
-                      </span>
-                      <span className="text-[12px] text-slate-500">View profile and all listings</span>
-                    </span>
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
-                  </Link>
-                )}
-
-                <div className="mt-4">
-                  {closed ? <ClosedNotice /> : <ContactButtons stacked />}
+            <div className="sticky top-[84px] space-y-3">
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_10px_30px_-18px_rgba(15,23,42,0.25)]">
+                <div className={cn('px-5 py-4 text-white', closed ? 'bg-slate-900' : 'bg-price-tag')}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-white/75">
+                    {closed ? closedLabel : isRent ? 'Monthly rent' : 'Asking price'}
+                  </p>
+                  <p className="mt-0.5 flex items-baseline gap-1.5">
+                    <span className="text-[13px] font-semibold text-white/80">PKR</span>
+                    <span className="text-[28px] font-extrabold leading-none tracking-tight">{priceShort}</span>
+                    {isRent && <span className="text-[13px] text-white/80">/ month</span>}
+                  </p>
+                  <p className="mt-1 text-[12.5px] text-white/80">
+                    {toTitleCase(property.type)} · {size} · {cityLabel}
+                  </p>
+                </div>
+                <div className="space-y-3 p-4">
+                  <AgentCard />
+                  {closed ? (
+                    <ClosedNotice />
+                  ) : (
+                    <div className="space-y-2">
+                      <CallButton full />
+                      <WhatsAppButton full />
+                    </div>
+                  )}
                 </div>
               </div>
-
+              <SafetyTips />
               <div className="px-1">
-                {/*
-                  Somewhere to say "this is a scam" — the buyer who
-                  called is the only person who finds out.
-                */}
                 <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
               </div>
             </div>
           </aside>
         </div>
 
-        {/* Phones: report link at the end of the listing. */}
-        <div className="px-4 pt-2 lg:hidden">
-          <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
-        </div>
-
         {/* ── Similar properties ─────────────────────────────────── */}
         {related.map(({ list, title, href }) =>
           list.length > 0 ? (
-            <section key={title} className="mt-8 border-t border-slate-200 pt-6">
-              <div className="mb-4 flex items-end justify-between gap-4 px-4 md:px-0">
-                <h2 className="text-lg font-bold text-slate-900">{title}</h2>
+            <section key={title} className="mt-8 px-4 md:px-0">
+              <div className="mb-3 flex items-end justify-between gap-4">
+                <h2 className="text-[17px] font-bold text-slate-900 sm:text-lg">{title}</h2>
                 {href && (
-                  <Link href={href} className="shrink-0 text-[14px] font-semibold text-primary hover:underline">
+                  <Link href={href} className="shrink-0 text-[13.5px] font-semibold text-primary hover:underline">
                     View all
                   </Link>
                 )}
               </div>
-              <div className="grid grid-cols-1 gap-2.5 px-4 md:px-0 lg:grid-cols-2 lg:gap-3">
+              <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2 lg:gap-3">
                 {list.slice(0, 6).map((item) => (
                   <PropertyCard key={item.id} property={item} />
                 ))}
@@ -734,17 +913,26 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
         )}
       </div>
 
-      {/* Sticky contact bar on phones — nothing to offer once it has gone. */}
-      {!closed && (
-        <div
-          className={cn(
-            'fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 transition-transform duration-200 lg:hidden',
-            showStickyContact ? 'translate-y-0' : 'translate-y-full',
-          )}
-        >
-          <ContactButtons masked={false} />
-        </div>
-      )}
+      {/* Phones: contact always in reach. Gone once the property has gone. */}
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md lg:hidden">
+        {closed ? (
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[13px] text-slate-600">
+              <span className="font-semibold text-red-700">{closedLabel}.</span> Contact details hidden.
+            </p>
+            {citySlug && (
+              <Link href={`/properties/${purposeSlug}/${citySlug}`} className="shrink-0 rounded-xl bg-primary px-3.5 py-2.5 text-[13px] font-semibold text-white">
+                See similar
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <CallButton compact />
+            <WhatsAppButton compact />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

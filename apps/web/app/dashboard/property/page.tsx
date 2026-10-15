@@ -1,5 +1,6 @@
 "use client";
 
+import { refreshListing } from "@/app/actions/refresh-cache";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -49,7 +50,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { propertyApi } from "@/lib/api";
+import { propertyApi, getAccessToken } from "@/lib/api";
 import type { BackendProperty } from "@/lib/types/property-utils";
 import { PROPERTY_TYPE_ORDER } from "@/lib/types/property-utils";
 import { useAuth } from "@/context/auth-context";
@@ -445,6 +446,8 @@ export default function PropertiesPage() {
     try {
       setBusyId(property._id);
       await propertyApi.setAvailability(property._id, availability);
+      // The listing page drops its phone number now, not when its cache runs out.
+      void refreshListing(property.slug, getAccessToken());
       table.patchRow((item) => item._id === property._id, {
         availability,
         availabilityChangedAt:
@@ -485,6 +488,7 @@ export default function PropertiesPage() {
     try {
       setBusyId(property._id);
       await propertyApi.setFeatured(property._id, next);
+      void refreshListing(property.slug, getAccessToken());
       table.patchRow((item) => item._id === property._id, { isFeatured: next });
       toast.success(next ? "Featured" : "No longer featured", {
         description: next
@@ -509,6 +513,7 @@ export default function PropertiesPage() {
       onConfirm: async () => {
         try {
           await propertyApi.delete(property._id);
+          void refreshListing(property.slug, getAccessToken());
           table.removeRow((item) => item._id === property._id);
           void loadStats();
           toast.success("Property deleted");

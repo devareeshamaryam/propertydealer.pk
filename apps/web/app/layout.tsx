@@ -78,12 +78,32 @@ const metadataBase: Metadata = {
   },
 };
 
-// The admin's favicon, when one is set.
+/*
+ * The defaults above, with whatever the admin has set in Settings → General
+ * (default title and description, share image, Search Console verification)
+ * and Settings → Appearance (favicon). Empty settings leave the built-in
+ * values alone — these pages are ranked, so nothing changes unless someone
+ * changes it on purpose.
+ */
 export async function generateMetadata(): Promise<Metadata> {
-  const settings = await getSiteSettings();
-  return settings.faviconUrl
-    ? { ...metadataBase, icons: { icon: settings.faviconUrl, apple: settings.faviconUrl } }
-    : metadataBase;
+  const s = await getSiteSettings();
+  const meta: Metadata = { ...metadataBase };
+  if (s.seoTitle) {
+    meta.title = { default: s.seoTitle, template: "%s" };
+    meta.openGraph = { ...meta.openGraph, title: s.seoTitle };
+  }
+  if (s.seoDescription) {
+    meta.description = s.seoDescription;
+    meta.openGraph = { ...meta.openGraph, description: s.seoDescription };
+  }
+  if (s.ogImageUrl) {
+    meta.openGraph = { ...meta.openGraph, images: [{ url: s.ogImageUrl, width: 1200, height: 630 }] };
+    meta.twitter = { ...meta.twitter, images: [s.ogImageUrl] };
+  }
+  if (s.siteName) meta.openGraph = { ...meta.openGraph, siteName: s.siteName };
+  if (s.googleVerification) meta.verification = { google: s.googleVerification };
+  if (s.faviconUrl) meta.icons = { icon: s.faviconUrl, apple: s.faviconUrl };
+  return meta;
 }
 
 export default async function RootLayout({
@@ -105,8 +125,10 @@ export default async function RootLayout({
         <Providers>
           <AuthProvider>
             <TooltipProvider>
-              <StructuredData />
-              <SiteSettingsProvider value={settings}>{children}</SiteSettingsProvider>
+              <SiteSettingsProvider value={settings}>
+                <StructuredData />
+                {children}
+              </SiteSettingsProvider>
               <Sonner />
             </TooltipProvider>
           </AuthProvider>

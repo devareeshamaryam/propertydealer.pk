@@ -1,7 +1,6 @@
  import { Metadata } from "next";
 import { serverApi } from "@/lib/server-api";
 import CementPageClient from "./CementPageClient";
-import { CartProvider } from "@/contexts/CartContext";
 
 export const revalidate = 60; // Revalidate every 60 seconds
 
@@ -60,12 +59,10 @@ export default async function TodayCementRatePage() {
   }
 
   return (
-    <CartProvider>
-      <CementPageClient
+    <CementPageClient
         initialBrands={liveBrands}
         pageContent={pageContent}
         pageTitle={pageTitle}
       />
-    </CartProvider>
   );
 }

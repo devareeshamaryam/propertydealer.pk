@@ -2,14 +2,18 @@
 
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
-
-const GA_MEASUREMENT_ID = 'G-GFGWSFNVDS';
+import { useSiteSettings } from '@/components/SiteSettingsProvider';
+import { resolved } from '@/lib/site-settings';
 
 /**
  * Component for injecting JSON-LD Structured Data for SEO
  */
 export default function StructuredData() {
   const pathname = usePathname();
+  // Contact details, socials and the Analytics id come from Settings → General.
+  const r = resolved(useSiteSettings());
+  const GA_MEASUREMENT_ID = r.gaId;
+  const phone = r.phone.replace(/[^\d+]/g, '');
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://propertydealer.pk';
   const siteUrlWithSlash = siteUrl.endsWith('/') ? siteUrl : `${siteUrl}/`;
 
@@ -26,9 +30,9 @@ export default function StructuredData() {
           '@type': 'ImageObject',
           'url': `${siteUrlWithSlash}logo.png`
         },
-        'email': 'info@propertydealer.pk',
-        'telephone': '+923030119992',
-        'sameAs': [],
+        'email': r.email,
+        'telephone': phone,
+        'sameAs': r.socials.map(([, url]) => url),
         'description': 'Property Dealer is a property buying and selling marketplace across Pakistan, connecting buyers and sellers for residential and commercial real estate.'
       },
       {
@@ -51,8 +55,8 @@ export default function StructuredData() {
         'name': 'Property Dealer',
         'url': siteUrlWithSlash,
         'image': `${siteUrlWithSlash}logo.png`,
-        'telephone': '+92 3030119992',
-        'email': 'info@propertydealer.pk',
+        'telephone': phone,
+        'email': r.email,
         'address': {
           '@type': 'PostalAddress',
           'addressLocality': 'Multan',
@@ -89,7 +93,7 @@ export default function StructuredData() {
     },
     contactPoint: {
       '@type': 'ContactPoint',
-      telephone: '+923030119992',
+      telephone: phone,
       contactType: 'customer service',
     },
   };

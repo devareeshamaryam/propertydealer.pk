@@ -21,9 +21,11 @@ import { SectionHeading } from '@/components/SectionHeading';
 
 interface FeaturedSectionProps {
   initialProperties?: Property[];
+  /** How many to show (Settings → General → Homepage). */
+  count?: number;
 }
 
-export default function FeaturedSection({ initialProperties }: FeaturedSectionProps) {
+export default function FeaturedSection({ initialProperties, count = 8 }: FeaturedSectionProps) {
   const [properties, setProperties] = useState<Property[]>(initialProperties ?? []);
   const [loading, setLoading] = useState(!initialProperties || initialProperties.length === 0);
 
@@ -77,7 +79,7 @@ export default function FeaturedSection({ initialProperties }: FeaturedSectionPr
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-3">
-            {properties.slice(0, 8).map((property, index) => (
+            {properties.slice(0, count).map((property, index) => (
               <PropertyCard key={property.slug || property.id || `property-${index}`} property={property} />
             ))}
           </div>

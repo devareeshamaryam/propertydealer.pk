@@ -120,6 +120,14 @@ export class PropertyService {
      */
     static readonly AVAILABILITY_GRACE_DAYS = 15;
 
+    /** Fields a results card never shows — left out of list responses. */
+    static readonly LIST_EXCLUDE =
+      '-description -moderationScore -moderationReasons -moderationSource -autoPublished -subscriptionId -__v';
+
+    static escapeRegex(value: string): string {
+      return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     constructor(
         @InjectModel(Property.name) private propertyModel: Model<Property>,
         @InjectModel(Area.name) private areaModel: Model<Area>,
@@ -142,7 +150,9 @@ export class PropertyService {
         const paths = ['/', '/properties'];
         if (affectedSlug) {
             tags.push(`property:slug:${affectedSlug}`);
-            paths.push(`/p/${affectedSlug}`);
+            // The listing's real address is /properties/<slug>; /p/ is the
+            // short alias. Both, or a "Sold" mark waits for the cache to expire.
+            paths.push(`/properties/${affectedSlug}`, `/p/${affectedSlug}`);
         }
         await this.revalidate.revalidate({ tags, paths });
     }
@@ -429,7 +439,8 @@ export class PropertyService {
           const query: any = { status: 'approved' };
           
           if (filters?.search) {
-            const searchRegex = new RegExp(`${filters.search.trim()}`, 'i');
+            // Escaped: typed text is a phrase to find, not a pattern to run.
+            const searchRegex = new RegExp(PropertyService.escapeRegex(filters.search.trim()), 'i');
             query.$or = [
               { title: searchRegex },
               { location: searchRegex }
@@ -527,7 +538,7 @@ export class PropertyService {
             // 2. String match via cityName
             if (filters.cityName) {
                  // Case-insensitive match for city string field
-                 const cityRegex = new RegExp(`${filters.cityName}`, 'i');
+                 const cityRegex = new RegExp(PropertyService.escapeRegex(String(filters.cityName).replace(/-/g, ' ')).replace(/ /g, '[ -]'), 'i');
                  cityOrConditions.push({ city: cityRegex });
                  cityOrConditions.push({ location: cityRegex });
                  cityOrConditions.push({ title: cityRegex });
@@ -637,8 +648,10 @@ export class PropertyService {
           // search, area and city filters above may already have taken.
           query.$and = [...(query.$and ?? []), stillListed];
 
-          const page = filters?.page || 1;
-          const limit = filters?.limit || 12;
+          const page = Math.max(1, Number(filters?.page) || 1);
+          // Capped: a list never needs more than a screenful or two, and an
+          // unbounded ?limit= is a way to make the server do a lot of work.
+          const limit = Math.min(50, Math.max(1, Number(filters?.limit) || 12));
           const skip = (page - 1) * limit;
 
           const [properties, total] = await Promise.all([
@@ -648,6 +661,14 @@ export class PropertyService {
               .sort({ isFeatured: -1, createdAt: -1 })
               .skip(skip)
               .limit(limit)
+              /*
+               * Lists only draw cards. The description (often several KB of
+               * HTML per listing) and the moderation fields were going out
+               * with every row of every results page; the listing page
+               * fetches its own full document.
+               */
+              .select(PropertyService.LIST_EXCLUDE)
+              .lean()
               .exec(),
             this.propertyModel.countDocuments(query)
           ]);

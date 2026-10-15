@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, LayoutDashboard, LogOut, Menu, Plus } from 'lucide-react';
+import { ArrowRight, ChevronDown, LayoutDashboard, LogOut, Menu, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { DialogTitle } from '@/components/ui/dialog';
@@ -19,6 +19,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { resolved } from '@/lib/site-settings';
+import { CartButton } from '@/components/shop/CartSheet';
 import { isPropertyDetail } from '@/lib/routes';
 
 /*
@@ -67,17 +69,30 @@ function isActive(pathname: string, path: string) {
   return pathname === path || pathname.startsWith(`${path}/`);
 }
 
-/** The admin's logo if one is set (Settings → Appearance), else the built-in mark. */
-export function SiteLogo({ compact = false }: { compact?: boolean }) {
-  const { logoUrl, logoHeight } = useSiteSettings();
-  if (logoUrl) {
-    const height = compact ? Math.min(logoHeight, 30) : logoHeight;
+/**
+ * The admin's logo if one is set (Settings → Appearance), else the built-in
+ * mark. Its height follows the two logo-size settings — one for phones, one
+ * for desktop — through the --logo-h / --logo-h-lg variables on <html>.
+ */
+export function SiteLogo() {
+  const settings = useSiteSettings();
+  const { siteName } = resolved(settings);
+  if (settings.logoUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={logoUrl} alt="PropertyDealer" style={{ height }} className="w-auto max-w-[200px] object-contain" />
+      <img
+        src={settings.logoUrl}
+        alt={siteName}
+        className="h-[var(--logo-h)] w-auto max-w-[220px] object-contain md:h-[var(--logo-h-lg)]"
+      />
     );
   }
-  return <BrandLogo markClassName={compact ? 'h-7 w-7' : 'h-7 w-7'} textClassName="text-[18px]" />;
+  return (
+    <BrandLogo
+      markClassName="h-[var(--logo-h)] w-[var(--logo-h)] md:h-[var(--logo-h-lg)] md:w-[var(--logo-h-lg)]"
+      textClassName="text-[calc(var(--logo-h)*0.64)] md:text-[calc(var(--logo-h-lg)*0.6)]"
+    />
+  );
 }
 
 const linkClass = (active: boolean) =>
@@ -103,17 +118,43 @@ const Navbar = () => {
   const ratesActive = pathname.startsWith('/today-');
   const initial = (user?.name?.[0] || user?.email?.[0] || 'U').toUpperCase();
   const immersive = isPropertyDetail(pathname);
+  const settings = useSiteSettings();
+  const showAnnouncement = settings.announcementEnabled && settings.announcementText;
 
   return (
-    <header
+    <>
+      {/* Settings → General → Announcement bar. Scrolls away with the page. */}
+      {showAnnouncement && (
+        <div className={cn('bg-navy text-white', immersive && 'max-md:hidden')}>
+          <div className="container mx-auto flex min-h-9 items-center justify-center gap-2 px-4 py-1.5 text-center text-[13px]">
+            {settings.announcementLink ? (
+              <Link href={settings.announcementLink} className="inline-flex items-center gap-1.5 hover:underline">
+                {settings.announcementText}
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            ) : (
+              <span>{settings.announcementText}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+    {/*
+      A floating bar with rounded ends, the way most current product sites do
+      it: it sits 8px off the top and the sides, glass-white over whatever
+      scrolls beneath. 64px from the top of the window to its bottom edge —
+      the sticky bars below it line up on that.
+    */}
+    <div
       className={cn(
-        'sticky top-0 z-50 border-b border-slate-200/80 bg-white',
+        'sticky top-0 z-50 px-2 pt-2 sm:px-3',
         immersive && 'max-md:hidden',
       )}
     >
-      <div className="container mx-auto flex h-14 items-center gap-4 px-4 md:h-[60px]">
+    <header className="container mx-auto rounded-2xl border border-slate-200/80 bg-white/85 px-0 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_10px_30px_-14px_rgba(15,23,42,0.18)] backdrop-blur-xl backdrop-saturate-150">
+      <div className="flex min-h-14 items-center gap-4 px-3 py-1.5 sm:px-4">
         <Link href="/" aria-label="PropertyDealer home" className="shrink-0">
-          <SiteLogo compact />
+          <SiteLogo />
         </Link>
 
         {/* Desktop links */}
@@ -142,6 +183,7 @@ const Navbar = () => {
 
         {/* Desktop actions */}
         <div className="ml-auto hidden items-center gap-1 md:flex">
+          <CartButton />
           {mounted &&
             (isAuthenticated ? (
               <DropdownMenu>
@@ -175,7 +217,7 @@ const Navbar = () => {
                 Sign in
               </Link>
             ))}
-          <Button asChild size="sm" className="h-8 gap-1 rounded-md px-3 text-[13px] font-semibold">
+          <Button asChild size="sm" className="h-9 gap-1 rounded-xl px-3.5 text-[13px] font-semibold">
             <Link href={addPropertyHref}>
               <Plus className="h-3.5 w-3.5" />
               Add Property
@@ -183,9 +225,11 @@ const Navbar = () => {
           </Button>
         </div>
 
-        {/* Mobile */}
+        {/* Mobile: the cart (once something is in it) and the menu. */}
+        <div className="ml-auto flex items-center gap-0.5 md:hidden">
+        <CartButton />
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild className="ml-auto md:hidden">
+          <SheetTrigger asChild className="md:hidden">
             <Button variant="ghost" size="icon" aria-label="Open menu" className="-mr-2">
               <Menu className="h-5 w-5" />
             </Button>
@@ -195,7 +239,7 @@ const Navbar = () => {
             <DialogTitle className="sr-only">Menu</DialogTitle>
 
             <div className="border-b border-slate-200 px-4 py-3.5">
-              <SiteLogo compact />
+              <SiteLogo />
             </div>
 
             <div className="border-b border-slate-200 p-4">
@@ -265,8 +309,11 @@ const Navbar = () => {
             </div>
           </SheetContent>
         </Sheet>
+        </div>
       </div>
     </header>
+    </div>
+    </>
   );
 };
 

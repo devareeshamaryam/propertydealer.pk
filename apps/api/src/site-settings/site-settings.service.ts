@@ -5,75 +5,147 @@ import {
   SiteSetting,
   SiteSettingDocument,
   SITE_FONTS,
-  type SiteFont,
 } from '@rent-ghar/db/schemas/site-setting.schema';
 import { RevalidateService } from '../revalidate/revalidate.service';
 
-export interface SiteSettingsInput {
-  primaryColor?: string;
-  darkColor?: string;
-  radius?: number | string;
-  font?: string;
-  logoUrl?: string;
-  logoHeight?: number | string;
-  footerLogoUrl?: string;
-  faviconUrl?: string;
-  heroTitle?: string;
-  heroSubtitle?: string;
-}
+/*
+ * Every setting the admin can change, with its type and limits.
+ *
+ * Reading fills in the default for anything never saved; writing accepts only
+ * these keys and coerces each value to its type, so a typo can never break a
+ * page (a bad colour becomes "use the default", a script tag in a text field
+ * loses its brackets). The web app mirrors this list in lib/site-settings.ts.
+ */
+type Field =
+  | { kind: 'color'; def: string }
+  | { kind: 'url'; def: string }
+  | { kind: 'link'; def: string }
+  | { kind: 'text'; def: string; max: number }
+  | { kind: 'int'; def: number; min: number; max: number }
+  | { kind: 'bool'; def: boolean }
+  | { kind: 'enum'; def: string; options: readonly string[] }
+  | { kind: 'email'; def: string }
+  | { kind: 'ga'; def: string };
 
-export interface SiteSettings {
-  primaryColor: string;
-  darkColor: string;
-  radius: number;
-  font: SiteFont;
-  logoUrl: string;
-  logoHeight: number;
-  footerLogoUrl: string;
-  faviconUrl: string;
-  heroTitle: string;
-  heroSubtitle: string;
-}
+const FIELDS = {
+  // ── Appearance ──
+  primaryColor: { kind: 'color', def: '' },
+  darkColor: { kind: 'color', def: '' },
+  priceTagColor: { kind: 'color', def: '' },
+  radius: { kind: 'int', def: 8, min: 0, max: 16 },
+  font: { kind: 'enum', def: 'geist', options: SITE_FONTS },
+  logoUrl: { kind: 'url', def: '' },
+  logoHeight: { kind: 'int', def: 32, min: 16, max: 72 },
+  logoHeightMobile: { kind: 'int', def: 28, min: 16, max: 56 },
+  footerLogoUrl: { kind: 'url', def: '' },
+  faviconUrl: { kind: 'url', def: '' },
+  heroTitle: { kind: 'text', def: '', max: 120 },
+  heroSubtitle: { kind: 'text', def: '', max: 200 },
+  heroImageEnabled: { kind: 'bool', def: true },
+  heroImageUrl: { kind: 'url', def: '' },
+  heroOverlay: { kind: 'int', def: 50, min: 0, max: 95 },
 
-const DEFAULTS: SiteSettings = {
-  primaryColor: '',
-  darkColor: '',
-  radius: 8,
-  font: 'geist',
-  logoUrl: '',
-  logoHeight: 32,
-  footerLogoUrl: '',
-  faviconUrl: '',
-  heroTitle: '',
-  heroSubtitle: '',
-};
+  // ── General: identity & contact ──
+  siteName: { kind: 'text', def: '', max: 60 },
+  tagline: { kind: 'text', def: '', max: 140 },
+  contactPhone: { kind: 'text', def: '', max: 30 },
+  contactWhatsapp: { kind: 'text', def: '', max: 30 },
+  contactEmail: { kind: 'email', def: '' },
+  address: { kind: 'text', def: '', max: 200 },
+  officeHours: { kind: 'text', def: '', max: 100 },
+
+  // ── Social ──
+  socialFacebook: { kind: 'url', def: '' },
+  socialInstagram: { kind: 'url', def: '' },
+  socialYoutube: { kind: 'url', def: '' },
+  socialLinkedin: { kind: 'url', def: '' },
+  socialTiktok: { kind: 'url', def: '' },
+  socialX: { kind: 'url', def: '' },
+
+  // ── Footer ──
+  footerAbout: { kind: 'text', def: '', max: 400 },
+  copyrightText: { kind: 'text', def: '', max: 150 },
+
+  // ── SEO & tracking ──
+  seoTitle: { kind: 'text', def: '', max: 70 },
+  seoDescription: { kind: 'text', def: '', max: 200 },
+  ogImageUrl: { kind: 'url', def: '' },
+  gaMeasurementId: { kind: 'ga', def: '' },
+  googleVerification: { kind: 'text', def: '', max: 100 },
+
+  // ── Announcement bar ──
+  announcementEnabled: { kind: 'bool', def: false },
+  announcementText: { kind: 'text', def: '', max: 160 },
+  announcementLink: { kind: 'link', def: '' },
+
+  // ── Homepage sections ──
+  homeShowCities: { kind: 'bool', def: true },
+  homeShowLatest: { kind: 'bool', def: true },
+  homeLatestCount: { kind: 'int', def: 8, min: 4, max: 16 },
+  homeShowAgentBand: { kind: 'bool', def: true },
+  homeShowExplore: { kind: 'bool', def: true },
+  homeShowBlog: { kind: 'bool', def: true },
+  homeShowFaq: { kind: 'bool', def: true },
+  defaultCity: { kind: 'text', def: 'lahore', max: 60 },
+
+  // ── Shop (construction materials) ──
+  shopEnabled: { kind: 'bool', def: true },
+  shopDeliveryFee: { kind: 'int', def: 0, min: 0, max: 1_000_000 },
+  shopFreeDeliveryOver: { kind: 'int', def: 0, min: 0, max: 100_000_000 },
+  shopMinOrder: { kind: 'int', def: 0, min: 0, max: 100_000_000 },
+  shopCodEnabled: { kind: 'bool', def: true },
+  shopOrderNote: { kind: 'text', def: '', max: 300 },
+  shopWhatsapp: { kind: 'text', def: '', max: 30 },
+} as const satisfies Record<string, Field>;
+
+type FieldKey = keyof typeof FIELDS;
+export type SiteSettings = { [K in FieldKey]: (typeof FIELDS)[K]['def'] extends boolean ? boolean : (typeof FIELDS)[K]['def'] extends number ? number : string };
+export type SiteSettingsInput = Partial<Record<FieldKey, unknown>>;
 
 const KEY = 'site';
 
-/** "#rrggbb" (or "#rgb", expanded), otherwise "" — so a typo can never break the CSS. */
-function hex(value: unknown): string {
-  const v = String(value ?? '').trim();
-  if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase();
-  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(v);
-  if (short) return `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`.toLowerCase();
-  return '';
-}
-
-function clampInt(value: unknown, min: number, max: number, fallback: number): number {
-  const n = Math.round(Number(value));
-  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
-}
-
-/** Only our own uploads or a full https URL — nothing that could inject markup. */
-function url(value: unknown): string {
-  const v = String(value ?? '').trim();
-  if (!v) return '';
-  if (v.startsWith('/uploads/') || /^https?:\/\/[^\s"'<>]+$/i.test(v)) return v.slice(0, 500);
-  return '';
-}
-
-function text(value: unknown, max: number): string {
-  return String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max);
+function coerce(field: Field, value: unknown): string | number | boolean {
+  const raw = typeof value === 'string' ? value.trim() : value;
+  switch (field.kind) {
+    case 'color': {
+      const v = String(raw ?? '');
+      if (/^#[0-9a-f]{6}$/i.test(v)) return v.toLowerCase();
+      const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(v);
+      return short
+        ? `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`.toLowerCase()
+        : field.def;
+    }
+    case 'url': {
+      // Our own uploads or a full http(s) URL — nothing that could inject markup.
+      const v = String(raw ?? '');
+      if (!v) return '';
+      return v.startsWith('/uploads/') || /^https?:\/\/[^\s"'<>]+$/i.test(v) ? v.slice(0, 500) : field.def;
+    }
+    case 'link': {
+      // A path on this site or a full URL.
+      const v = String(raw ?? '');
+      if (!v) return '';
+      return /^\/[^\s"'<>]*$/.test(v) || /^https?:\/\/[^\s"'<>]+$/i.test(v) ? v.slice(0, 300) : field.def;
+    }
+    case 'text':
+      return String(raw ?? '').replace(/[<>]/g, '').slice(0, field.max);
+    case 'int': {
+      const n = Math.round(Number(raw));
+      return Number.isFinite(n) ? Math.min(field.max, Math.max(field.min, n)) : field.def;
+    }
+    case 'bool':
+      return raw === true || raw === 'true' || raw === 1 || raw === '1';
+    case 'enum':
+      return field.options.includes(String(raw)) ? String(raw) : field.def;
+    case 'email': {
+      const v = String(raw ?? '');
+      return !v || /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v) ? v.slice(0, 120) : field.def;
+    }
+    case 'ga': {
+      const v = String(raw ?? '').toUpperCase();
+      return !v || /^G-[A-Z0-9]{4,15}$/.test(v) ? v : field.def;
+    }
+  }
 }
 
 @Injectable()
@@ -85,42 +157,29 @@ export class SiteSettingsService {
   ) {}
 
   async get(): Promise<SiteSettings> {
-    const doc = await this.model.findOne({ key: KEY }).lean().exec();
-    if (!doc) return { ...DEFAULTS };
-    return {
-      primaryColor: hex(doc.primaryColor),
-      darkColor: hex(doc.darkColor),
-      radius: clampInt(doc.radius, 0, 16, DEFAULTS.radius),
-      font: SITE_FONTS.includes(doc.font) ? doc.font : DEFAULTS.font,
-      logoUrl: url(doc.logoUrl),
-      logoHeight: clampInt(doc.logoHeight, 20, 64, DEFAULTS.logoHeight),
-      footerLogoUrl: url(doc.footerLogoUrl),
-      faviconUrl: url(doc.faviconUrl),
-      heroTitle: text(doc.heroTitle, 120),
-      heroSubtitle: text(doc.heroSubtitle, 200),
-    };
+    const doc = (await this.model.findOne({ key: KEY }).lean().exec()) as Record<string, unknown> | null;
+    const out: Record<string, unknown> = {};
+    for (const [key, field] of Object.entries(FIELDS) as [FieldKey, Field][]) {
+      out[key] = doc && doc[key] !== undefined && doc[key] !== null ? coerce(field, doc[key]) : field.def;
+    }
+    return out as SiteSettings;
   }
 
   async update(input: SiteSettingsInput): Promise<SiteSettings> {
-    const set: Partial<SiteSettings> = {};
-    if (input.primaryColor !== undefined) set.primaryColor = hex(input.primaryColor);
-    if (input.darkColor !== undefined) set.darkColor = hex(input.darkColor);
-    if (input.radius !== undefined) set.radius = clampInt(input.radius, 0, 16, DEFAULTS.radius);
-    if (input.font !== undefined) {
-      set.font = SITE_FONTS.includes(input.font as SiteFont) ? (input.font as SiteFont) : DEFAULTS.font;
+    const set: Record<string, unknown> = {};
+    for (const [key, field] of Object.entries(FIELDS) as [FieldKey, Field][]) {
+      if (input && Object.prototype.hasOwnProperty.call(input, key)) {
+        set[key] = coerce(field, input[key]);
+      }
     }
-    if (input.logoUrl !== undefined) set.logoUrl = url(input.logoUrl);
-    if (input.logoHeight !== undefined) set.logoHeight = clampInt(input.logoHeight, 20, 64, DEFAULTS.logoHeight);
-    if (input.footerLogoUrl !== undefined) set.footerLogoUrl = url(input.footerLogoUrl);
-    if (input.faviconUrl !== undefined) set.faviconUrl = url(input.faviconUrl);
-    if (input.heroTitle !== undefined) set.heroTitle = text(input.heroTitle, 120);
-    if (input.heroSubtitle !== undefined) set.heroSubtitle = text(input.heroSubtitle, 200);
 
-    await this.model
-      .updateOne({ key: KEY }, { $set: set, $setOnInsert: { key: KEY } }, { upsert: true })
-      .exec();
+    if (Object.keys(set).length > 0) {
+      await this.model
+        .updateOne({ key: KEY }, { $set: set, $setOnInsert: { key: KEY } }, { upsert: true, strict: false })
+        .exec();
+    }
 
-    // Every page carries these variables, so the whole site is refreshed.
+    // Every page carries these values, so the whole site is refreshed.
     await this.revalidate.revalidate({ tags: ['site-settings'], paths: ['/'] });
 
     return this.get();

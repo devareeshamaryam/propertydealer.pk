@@ -1,7 +1,7 @@
  import PropertiesListing from '@/components/PropertiesListing';
 import { Suspense } from 'react';
 import { Metadata, ResolvingMetadata } from 'next';
-import { serverApi } from '@/lib/server-api';
+import { serverApi, fetchInitialListings } from '@/lib/server-api';
 import { toTitleCase } from '@/lib/utils';
 import { buildCollectionPageSchema } from '@/lib/schema/listing-schema';
 
@@ -218,17 +218,16 @@ export default async function AllCitySegmentsPage(props: PageProps) {
     areaName ? `in ${areaName}, ${cityName}` : `in ${cityName}`,
   ].join(' ');
 
-  let schemaProperties: any[] = [];
-  try {
-    const params: Record<string, string> = { city, limit: '20', page: '1' };
-    if (areaId)                params.areaId   = areaId;
-    if (listingType !== 'all') params.type     = listingType;
-    if (marla)               { params.marlaMin = String(marla); params.marlaMax = String(marla); }
-    const qs  = new URLSearchParams(params).toString();
-    const res = await serverApi.getProperties(qs);
-    const rawProps: any[] = Array.isArray(res) ? res : (res as any).properties || [];
-    schemaProperties = rawProps.map((p: any) => ({ id: p._id, slug: p.slug, name: p.title }));
-  } catch { /* non-critical */ }
+  // Page one of the list, rendered with the HTML (see fetchInitialListings).
+  const initial = await fetchInitialListings({
+    purpose: 'all',
+    cityId: cityData?._id,
+    cityName: city,
+    areaId,
+    type: listingType,
+    marla,
+  });
+  const schemaProperties = initial.raw.map((p: any) => ({ id: p._id, slug: p.slug, name: p.title }));
 
   const breadcrumbs = [
     { name: 'Home', url: `${BASE_URL}/` },
@@ -264,6 +263,9 @@ export default async function AllCitySegmentsPage(props: PageProps) {
       }>
         <PropertiesListing
           purpose="all"
+          initialProperties={initial.properties}
+          initialTotalPages={initial.totalPages}
+          cityId={cityData?._id}
           city={city}
           type={listingType}
           areaId={areaId}

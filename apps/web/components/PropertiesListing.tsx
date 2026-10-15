@@ -1,6 +1,6 @@
  'use client'
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SlidersHorizontal, Loader2, X, MapPin, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,11 @@ interface PropertiesListingProps {
   areaId?: string;
   areaSlug?: string;
   initialMarla?: number;
+  /** Page one, fetched on the server with the same filters (fetchInitialListings). */
   initialProperties?: Property[];
+  initialTotalPages?: number;
+  /** The city's id, when the server already resolved it — saves waiting for the city list. */
+  cityId?: string;
 }
 
 interface AreaOption {
@@ -35,7 +39,6 @@ interface AreaOption {
   count: number;
 }
 
-const MARLA_OPTIONS = [2, 3, 5, 10];
 const SIZE_OPTIONS: { label: string; marlaMin: number; marlaMax: number }[] = [
   { label: '2 Marla',  marlaMin: 2,  marlaMax: 2  },
   { label: '3 Marla',  marlaMin: 3,  marlaMax: 3  },
@@ -54,6 +57,8 @@ export default function PropertiesListing({
   areaSlug: initialAreaSlug,
   initialMarla,
   initialProperties,
+  initialTotalPages,
+  cityId: initialCityId,
 }: PropertiesListingProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -61,14 +66,12 @@ export default function PropertiesListing({
   const [properties, setProperties]             = useState<Property[]>(initialProperties ?? []);
   const [allCities, setAllCities]               = useState<any[]>([]);
   const [allPropertyTypes, setAllPropertyTypes] = useState<string[]>([]);
-  const [loading, setLoading]                   = useState(!initialProperties);
+  const [loading, setLoading]                   = useState(!initialProperties?.length);
   const [error, setError]                       = useState<string | null>(null);
   const [city, setCity]                         = useState(initialCity);
   const [type, setType]                         = useState(initialType);
-  const [tempCity, setTempCity]                 = useState(initialCity);
-  const [tempType, setTempType]                 = useState(initialType);
   const [currentPage, setCurrentPage]           = useState(1);
-  const [totalPages, setTotalPages]             = useState(1);
+  const [totalPages, setTotalPages]             = useState(initialTotalPages ?? 1);
   const [isFetchingMore, setIsFetchingMore]     = useState(false);
   const [selectedMarla, setSelectedMarla]       = useState<number | null>(initialMarla ?? null);
 
@@ -221,7 +224,16 @@ export default function PropertiesListing({
     );
   }, [initialMarla]);
 
+  /*
+   * Every area in the country is only needed by the location panel and the
+   * filter sheet when no city is chosen — so it is fetched when one of those
+   * opens, not on every results page.
+   */
+  const needAllAreas = !matchedCity && (isLocationPanelOpen || (isFilterSheetOpen && !sheetCity));
+  const allAreasRequested = useRef(false);
   useEffect(() => {
+    if (!needAllAreas || allAreasRequested.current) return;
+    allAreasRequested.current = true;
     (async () => {
       setLoadingAllAreas(true);
       try {
@@ -231,10 +243,10 @@ export default function PropertiesListing({
             id: a._id, name: a.name, slug: a.slug || '', count: a.count || 0,
           })));
         }
-      } catch { setAllAreas([]); }
+      } catch { setAllAreas([]); allAreasRequested.current = false; }
       finally { setLoadingAllAreas(false); }
     })();
-  }, []);
+  }, [needAllAreas]);
 
   // 🆕 Fetch full Area document (so we get rentContent/saleContent/description/sizeContents)
   useEffect(() => {
@@ -353,21 +365,58 @@ export default function PropertiesListing({
     setSheetBeds(undefined); setSheetBaths(undefined);
   };
 
+  /*
+   * Cities and types fill the dropdowns and the SEO text. They used to be
+   * fetched in front of every properties request — and the city list arriving
+   * changed `matchedCity`, which fired the properties request a second time.
+   * Now they load once, alongside, and never hold the list up.
+   */
   useEffect(() => {
+    let cancelled = false;
+    Promise.all([cityApi.getAll(), propertyApi.getTypes()])
+      .then(([citiesRes, typesRes]) => {
+        if (cancelled) return;
+        setAllCities(citiesRes);
+        setAllPropertyTypes(typesRes);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  /*
+   * Everything the list request depends on, as one string. Effects keyed on
+   * objects re-ran whenever a parent re-created them; a string only changes
+   * when a filter really does.
+   */
+  const searchTerm = searchParams.get('search') || '';
+  const queryAreaId = searchParams.get('areaId') || initialAreaId || '';
+  const fetchKey = JSON.stringify({
+    cityId: initialCityId || '', city, queryAreaId, searchTerm, purpose, type,
+    f: advancedFilters, page: currentPage,
+  });
+
+  /*
+   * The server already rendered page one for the URL's own filters. Skip that
+   * one request; anything the visitor changes afterwards fetches as normal.
+   */
+  const serverKey = useRef<string | null>(
+    initialProperties?.length && !searchTerm && !searchParams.get('areaId') ? fetchKey : null,
+  );
+
+  useEffect(() => {
+    if (serverKey.current === fetchKey) return;
+    serverKey.current = null;
+
+    let cancelled = false;
     (async () => {
       try {
         if (currentPage === 1) setLoading(true); else setIsFetchingMore(true);
         setError(null);
-        const [citiesRes, typesRes] = await Promise.all([cityApi.getAll(), propertyApi.getTypes()]);
-        setAllCities(citiesRes);
-        setAllPropertyTypes(typesRes);
-        const cityToMatch  = matchedCity || city;
-        const currentCity  = citiesRes.find((c: any) => c.name.toLowerCase() === cityToMatch.toLowerCase());
         const response = await propertyApi.getAll({
-          cityId:   currentCity?._id,
-          cityName: cityToMatch,
-          areaId:   searchParams.get('areaId') || initialAreaId || undefined,
-          search:   searchParams.get('search') || undefined,
+          cityId:   initialCityId || undefined,
+          cityName: city || undefined,
+          areaId:   queryAreaId || undefined,
+          search:   searchTerm || undefined,
           priceMin: advancedFilters.priceMin,
           priceMax: advancedFilters.priceMax,
           marlaMin: advancedFilters.marlaMin,
@@ -379,6 +428,7 @@ export default function PropertiesListing({
           page:     currentPage,
           limit:    12,
         });
+        if (cancelled) return;
         let props: BackendProperty[] = [];
         let pages = 1;
         if (Array.isArray(response))   { props = response; }
@@ -388,15 +438,20 @@ export default function PropertiesListing({
         else setProperties(prev => [...prev, ...transformed]);
         setTotalPages(pages);
       } catch (err: any) {
+        if (cancelled) return;
         const msg = err.response?.data?.message || err.message || 'Failed to load data';
         setError(msg);
         toast.error('Error', { description: msg });
       } finally {
-        setLoading(false);
-        setIsFetchingMore(false);
+        if (!cancelled) {
+          setLoading(false);
+          setIsFetchingMore(false);
+        }
       }
     })();
-  }, [matchedCity, purpose, type, advancedFilters, searchParams, currentPage, initialAreaId]);
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchKey]);
 
   // 🆕 SEO content now checks Area first (sizeContents → rent/saleContent → description),
   // then falls back to City-level content if no area match is found.
@@ -454,13 +509,18 @@ export default function PropertiesListing({
     return cityData.description || undefined;
   }, [richDescription, matchedCity, allCities, purpose, type, initialAreaId, initialAreaSlug, initialMarla, areaData]);
 
+  // A new URL means new filters: start again from page one. Skipped on the
+  // first render, where it used to throw away the list the server sent.
+  const routeKey = `${initialCity}|${initialType}|${purpose}|${searchParams.toString()}|${initialAreaId}|${initialAreaSlug}`;
+  const lastRouteKey = useRef(routeKey);
   useEffect(() => {
-    setProperties([]);
+    if (lastRouteKey.current === routeKey) return;
+    lastRouteKey.current = routeKey;
     setCity(initialCity); setType(initialType);
-    setTempCity(initialCity); setTempType(initialType);
     setCurrentPage(1);
     setIsLocationPanelOpen(false);
-  }, [initialCity, initialType, purpose, searchParams, initialAreaId, initialAreaSlug]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeKey]);
 
   const currentAreaId = useMemo(
     () => searchParams.get('areaId') || initialAreaId || '',
@@ -523,17 +583,6 @@ export default function PropertiesListing({
     const qs = params.toString();
     router.push(`${window.location.pathname}${qs ? `?${qs}` : ''}`);
   };
-
-  if (loading) return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 pt-10 pb-16 flex items-center justify-center py-20">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading properties...</p>
-        </div>
-      </div>
-    </div>
-  );
 
   if (error && !properties.length) return (
     <div className="min-h-screen bg-background">
@@ -775,7 +824,7 @@ export default function PropertiesListing({
           <div className="flex flex-col lg:flex-row gap-6">
 
             <aside className="w-72 shrink-0 hidden lg:block">
-              <div className="sticky top-[132px]">
+              <div className="sticky top-[148px]">
                 <SearchSidebar city={matchedCity} purpose={purpose} type={type} useCleanUrls={useCleanUrls} filters={advancedFilters} onFilterChange={handleFilterChange} />
               </div>
             </aside>
@@ -924,8 +973,20 @@ export default function PropertiesListing({
               )}
 
               <div>
-
-                {properties.length > 0 ? (
+                {loading && properties.length === 0 ? (
+                  <div className="grid grid-cols-1 gap-2.5 sm:gap-3" aria-busy="true" aria-label="Loading properties">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="flex gap-3 rounded-lg border border-slate-200 bg-white p-2 sm:gap-4 sm:p-2.5">
+                        <div className="h-[100px] w-[112px] shrink-0 animate-pulse rounded-md bg-slate-100 sm:h-[150px] sm:w-[210px]" />
+                        <div className="flex-1 space-y-2 py-1">
+                          <div className="h-5 w-24 animate-pulse rounded bg-slate-100" />
+                          <div className="h-4 w-4/5 animate-pulse rounded bg-slate-100" />
+                          <div className="h-3 w-1/2 animate-pulse rounded bg-slate-100" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : properties.length > 0 ? (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 gap-2.5 sm:gap-3">
                       {properties.map((property, index) => (

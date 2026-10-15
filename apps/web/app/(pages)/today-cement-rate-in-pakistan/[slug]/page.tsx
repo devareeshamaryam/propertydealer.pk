@@ -2,7 +2,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import CementDetailClient from "./CementDetailClient";
-import { CartProvider } from "@/contexts/CartContext";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -55,8 +54,6 @@ export default async function CementDetailPage({ params }: Props) {
   }
 
   return (
-    <CartProvider>
-      <CementDetailClient rate={rate} />
-    </CartProvider>
+    <CementDetailClient rate={rate} />
   );
 }

@@ -146,7 +146,9 @@ export class PropertyController {
   }
 
   @Get()
-  @Header('Cache-Control', 'public, max-age=300, s-maxage=600, stale-while-revalidate=86400')
+  // Short: a listing marked sold, or a new one, should show within a minute
+  // rather than sit in browser and CDN caches for five to ten.
+  @Header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300')
   async findAll(
     @Query('ownerId') ownerId?: string,
     @Query('cityId') cityId?: string, 
@@ -328,7 +330,7 @@ export class PropertyController {
 
   // get property by slug (must be before :id route)
   @Get('slug/:slug')
-  @Header('Cache-Control', 'public, max-age=600, s-maxage=1800, stale-while-revalidate=86400')
+  @Header('Cache-Control', 'public, max-age=30, s-maxage=60, stale-while-revalidate=300')
   async findPropertyBySlug(@Param('slug') slug: string) {
     return await this.propertyService.findPropertyBySlug(slug)
   }

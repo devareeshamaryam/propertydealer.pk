@@ -13,6 +13,10 @@ import {
   MapPin,
   Package2,
   Palette,
+  ShoppingBag,
+  Store,
+  Tags,
+  Settings,
   Users,
   Wallet,
 } from "lucide-react";
@@ -247,8 +251,26 @@ export const NAV_SECTIONS: NavSection[] = [
     ],
   },
   {
-    label: "Construction Rates",
+    label: "Shop",
     entries: [
+      {
+        title: "Orders",
+        href: "/dashboard/cement-order",
+        adminOnly: true,
+        keywords: ["orders", "cement orders", "shop", "delivery", "customers"],
+      },
+      {
+        title: "Rates Board",
+        href: "/dashboard/shop-products",
+        adminOnly: true,
+        keywords: ["prices", "rates", "products", "update rate", "today rate"],
+      },
+      {
+        title: "Shop Settings",
+        href: "/dashboard/shop-settings",
+        adminOnly: true,
+        keywords: ["delivery", "cod", "minimum order", "checkout"],
+      },
       {
         id: "material-rates",
         title: "Material Rates",
@@ -261,22 +283,17 @@ export const NAV_SECTIONS: NavSection[] = [
       },
       {
         id: "rate-taxonomy",
-        title: "Rate Settings",
+        title: "Tile Categories",
         icon: FolderTree,
         adminOnly: true,
-        matches: ["/dashboard/tile-category", "/dashboard/cement-order"],
+        matches: ["/dashboard/tile-category"],
         items: [
           {
-            title: "Tile Categories",
+            title: "All Tile Categories",
             href: "/dashboard/tile-category",
             exact: true,
           },
           { title: "Add Tile Category", href: "/dashboard/tile-category/add" },
-          {
-            title: "Cement Orders",
-            href: "/dashboard/cement-order",
-            keywords: ["leads", "enquiries"],
-          },
         ],
       },
     ],
@@ -349,10 +366,16 @@ export const NAV_SECTIONS: NavSection[] = [
         keywords: ["accounts", "agents", "roles", "permissions"],
       },
       {
+        title: "General Settings",
+        href: "/dashboard/settings",
+        adminOnly: true,
+        keywords: ["settings", "contact", "phone", "whatsapp", "email", "social", "footer", "seo", "analytics", "announcement", "homepage"],
+      },
+      {
         title: "Appearance",
         href: "/dashboard/appearance",
         adminOnly: true,
-        keywords: ["theme", "colour", "color", "brand", "logo", "font", "favicon", "design", "settings"],
+        keywords: ["theme", "colour", "color", "brand", "logo", "font", "favicon", "design", "hero", "background"],
       },
     ],
   },
@@ -373,6 +396,10 @@ export const LEAF_ICONS: Record<
   "/dashboard/purchase-package": Package2,
   "/dashboard/users": Users,
   "/dashboard/appearance": Palette,
+  "/dashboard/cement-order": ShoppingBag,
+  "/dashboard/shop-products": Tags,
+  "/dashboard/shop-settings": Store,
+  "/dashboard/settings": Settings,
 };
 
 /**
@@ -421,7 +448,9 @@ export const SEGMENT_LABELS: Record<string, string> = {
   "add-page": "Add Page",
   "images-gallery": "Media Library",
   "cement-rate": "Cement Rates",
-  "cement-order": "Cement Orders",
+  "cement-order": "Orders",
+  "shop-products": "Rates Board",
+  "shop-settings": "Shop Settings",
   "bricks-rate": "Bricks Rates",
   "sand-rate": "Sand Rates",
   "bajri-rate": "Bajri Rates",
@@ -438,6 +467,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   "purchase-package": "Purchase Package",
   users: "Users",
   appearance: "Appearance",
+  settings: "General Settings",
   account: "My Account",
   add: "Add",
   edit: "Edit",

@@ -1,5 +1,6 @@
 "use client";
 
+import { refreshListing } from "@/app/actions/refresh-cache";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
@@ -13,7 +14,7 @@ import { Loader2, Plus } from "lucide-react";
 import { toTitleCase } from "@/lib/utils";
 import { marlaKanalFor } from "@/lib/pk";
 import { useAuth } from "@/context/auth-context";
-import { propertyApi } from "@/lib/api";
+import { propertyApi, getAccessToken } from "@/lib/api";
 import cityApi from "@/lib/api/city/city.api";
 import areaApi from "@/lib/api/area/area.api";
 
@@ -592,6 +593,7 @@ export default function EditProperty() {
 
       // Update property using the property ID
       const response = await propertyApi.update(propertyId, formData);
+      void refreshListing((response as any)?.slug ?? (response as any)?.data?.slug ?? (response as any)?.property?.slug, getAccessToken());
 
       const successMsg = isDraftSave
         ? "Saved as draft"
