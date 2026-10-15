@@ -1,14 +1,8 @@
- "use client";
-
-import dynamic from "next/dynamic";
+import MapExplorerClient from "@/components/map/MapExplorerClient";
 import { CITIES } from "./cities-data";
 
-const EMap = dynamic(() => import("./EMap"), { ssr: false });
-
+/* The property map: every live listing, pinned. */
 export default function EmapPage() {
-  return (
-    <div style={{ width: "100%", height: "600px" }}>
-      <EMap cities={CITIES} focusedSlug={null} />
-    </div>
-  );
+  const places = CITIES.map(({ slug, name, lat, lng, zoom }) => ({ slug, name, lat, lng, zoom }));
+  return <MapExplorerClient places={places} />;
 }

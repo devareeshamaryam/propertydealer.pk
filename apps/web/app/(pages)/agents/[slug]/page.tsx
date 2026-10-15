@@ -202,7 +202,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
                 {phone ? (
                   <a
                     href={`tel:${phone.replace(/\s/g, "")}`}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-primary text-[15px] font-semibold text-primary hover:bg-primary/5"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-primary text-[15px] font-semibold text-primary hover:bg-primary/5 btn-shape"
                   >
                     <Phone className="h-4 w-4" /> Call
                   </a>
@@ -212,7 +212,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
                     href={`https://wa.me/${waDigits(whatsapp)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#25D366] text-[15px] font-semibold text-white hover:bg-[#1ebe5b]"
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#25D366] text-[15px] font-semibold text-white hover:bg-[#1ebe5b] btn-shape"
                   >
                     <MessageCircle className="h-4 w-4" /> WhatsApp
                   </a>

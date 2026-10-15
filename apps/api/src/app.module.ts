@@ -1,7 +1,8 @@
  import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { RealIpThrottlerGuard } from './common/real-ip-throttler.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -51,6 +52,18 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     ServeStaticModule.forRoot({
       rootPath: uploadsPath,
       serveRoot: '/uploads',
+      /*
+       * Uploads were served with max-age=0, so every photo on every page view
+       * went past Cloudflare to this process. Upload names are unique, so a
+       * month in browsers and at the edge is safe, and it takes image traffic
+       * off the server almost entirely.
+       */
+      serveStaticOptions: {
+        maxAge: '30d',
+        setHeaders: (res: { setHeader: (k: string, v: string) => void }) => {
+          res.setHeader('Cache-Control', 'public, max-age=2592000, s-maxage=2592000, stale-while-revalidate=86400');
+        },
+      },
     }),
     ConfigModule.forRoot({
       isGlobal: true,
@@ -158,7 +171,8 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     // on auth endpoints (and any future endpoint) are actually enforced.
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      // Keyed on the visitor behind Cloudflare; site-internal calls exempt.
+      useClass: RealIpThrottlerGuard,
     },
   ],
 })

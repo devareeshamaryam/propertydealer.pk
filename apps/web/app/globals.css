@@ -438,3 +438,69 @@ a[class*="footerAction"] {
   --color-gray-700: #1f242b;
   --muted-foreground: #3f4a5a;
 }
+
+/* Buttons that follow Settings → Appearance → Button shape. */
+:root {
+  --btn-radius: 12px;
+  --tabbar-radius: 22px;
+}
+.btn-shape {
+  border-radius: var(--btn-radius) !important;
+}
+
+/* Map explorer pins (components/map/MapExplorer.tsx). */
+.pd-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+  padding: 4px 9px;
+  border-radius: 9999px;
+  background: #fff;
+  color: #0f172a;
+  font: 700 12.5px/1 var(--site-font, var(--font-geist-sans)), system-ui, sans-serif;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.25);
+  border: 1.5px solid var(--primary);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.pd-pin::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  border-right: inherit;
+  border-bottom: inherit;
+  transform: translateX(-50%) rotate(45deg);
+}
+.pd-pin--rent { border-color: #0ea5e9; }
+.pd-pin--approx { border-style: dashed; opacity: 0.85; }
+.pd-pin--active,
+.pd-pin:hover {
+  background: var(--primary);
+  color: #fff;
+  transform: translate(-50%, -100%) scale(1.08);
+  z-index: 1000;
+}
+.pd-cluster {
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: var(--primary);
+  color: #fff;
+  font: 700 13px/1 var(--site-font, var(--font-geist-sans)), system-ui, sans-serif;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 25%, transparent), 0 4px 12px rgba(15, 23, 42, 0.25);
+  cursor: pointer;
+}
+
+/*
+ * Leaflet gives its panes z-index 400–1000. Without a stacking context of
+ * their own, every map on the site (listing location, map picker, /emap)
+ * painted over the sticky header, tab bars and the phone contact bar.
+ */
+.leaflet-container {
+  isolation: isolate;
+  z-index: 0;
+}

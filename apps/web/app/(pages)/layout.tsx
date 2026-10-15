@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import MobileNav from "@/components/MobileNav";
 import { CartProvider } from "@/components/shop/CartProvider";
 import CartSheet from "@/components/shop/CartSheet";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 export default function PagesLayout({
   children,
@@ -26,6 +27,7 @@ export default function PagesLayout({
       <div aria-hidden className="h-[calc(5.5rem+env(safe-area-inset-bottom))] bg-navy md:hidden" />
       <MobileNav />
       <CartSheet />
+      <FloatingWhatsApp />
       </div>
     </CartProvider>
   );

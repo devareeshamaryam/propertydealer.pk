@@ -7,6 +7,7 @@ import { Model, Types } from 'mongoose';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { Area } from '@rent-ghar/db/schemas/area.schema';
 import { City } from '@rent-ghar/db/schemas/city.schema';
+import { SiteSettingsService } from '../site-settings/site-settings.service';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { IndexNowService } from '../indexnow/indexnow.service';
 import { ConfigService } from '@nestjs/config';
@@ -121,6 +122,17 @@ export class PropertyService {
      */
     static readonly AVAILABILITY_GRACE_DAYS = 15;
 
+    /** Settings → General → Listings: days a sold/rented listing stays in the lists. */
+    private async graceCutoff(): Promise<Date> {
+        let days = PropertyService.AVAILABILITY_GRACE_DAYS;
+        try {
+            days = (await this.siteSettings.get()).soldGraceDays;
+        } catch {
+            // settings unreachable: keep the default
+        }
+        return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    }
+
     /** Fields a results card never shows — left out of list responses. */
     static readonly LIST_EXCLUDE =
       '-description -moderationScore -moderationReasons -moderationSource -autoPublished -subscriptionId -__v';
@@ -140,6 +152,7 @@ export class PropertyService {
         private configService: ConfigService,
         private readonly cache: RedisCacheService,
         private readonly revalidate: RevalidateService,
+        private readonly siteSettings: SiteSettingsService,
     ) {}
 
     /**
@@ -408,9 +421,127 @@ export class PropertyService {
        * areas joined to their city, then summed. Sold/rented listings past
        * their fifteen days are not counted, matching what the lists show.
        */
+      /**
+       * The map explorer (/emap): listings inside the visible box, lightest
+       * possible fields. Listings the dealer never pinned are placed at their
+       * area's centre — the average of the area's pinned listings — and
+       * flagged `approx`, so the map is full without anyone re-editing old
+       * listings; a small, stable offset keeps them from stacking exactly.
+       */
+      async mapListings(q: {
+        minLat: number; maxLat: number; minLng: number; maxLng: number;
+        purpose?: string; type?: string; priceMin?: number; priceMax?: number;
+      }) {
+        const r2 = (n: number) => Math.round(n * 100) / 100;
+        const key = this.cache.buildKey('properties:map', [
+          r2(q.minLat), r2(q.maxLat), r2(q.minLng), r2(q.maxLng), q.purpose ?? '', q.type ?? '', q.priceMin ?? '', q.priceMax ?? '',
+        ]);
+        return this.cache.wrap(key, async () => {
+          const LIMIT = 600;
+          const base: Record<string, any> = { status: 'approved' };
+          if (q.purpose === 'rent' || q.purpose === 'sale' || q.purpose === 'buy') {
+            base.listingType = q.purpose === 'rent' ? 'rent' : 'sale';
+          }
+          if (q.type && q.type !== 'all') base.propertyType = new RegExp(`^${PropertyService.escapeRegex(q.type)}$`, 'i');
+          if (q.priceMin || q.priceMax) {
+            base.price = {};
+            if (q.priceMin) base.price.$gte = q.priceMin;
+            if (q.priceMax) base.price.$lte = q.priceMax;
+          }
+          const graceCutoff = await this.graceCutoff();
+          base.$and = [{ $or: [{ availability: { $nin: ['sold', 'rented'] } }, { availabilityChangedAt: { $gt: graceCutoff } }] }];
+
+          const FIELDS = 'title slug price listingType propertyType latitude longitude mainPhotoUrl videoPosterUrl marla kanal areaSize bedrooms bathrooms isFeatured availability area location';
+
+          // 1. Pinned listings inside the box.
+          const pinned = await this.propertyModel
+            .find({
+              ...base,
+              latitude: { $gte: q.minLat, $lte: q.maxLat },
+              longitude: { $gte: q.minLng, $lte: q.maxLng },
+            })
+            .select(FIELDS)
+            .sort({ isFeatured: -1, createdAt: -1 })
+            .limit(LIMIT)
+            .lean()
+            .exec();
+
+          // 2. Unpinned listings whose area centre is inside the box.
+          const centres = await this.areaCentres();
+          const inBox = [...centres.entries()].filter(
+            ([, c]) => c.lat >= q.minLat && c.lat <= q.maxLat && c.lng >= q.minLng && c.lng <= q.maxLng,
+          );
+          let approx: any[] = [];
+          if (inBox.length && pinned.length < LIMIT) {
+            const ids = inBox.map(([id]) => id);
+            approx = await this.propertyModel
+              .find({
+                ...base,
+                $or: [{ latitude: { $exists: false } }, { latitude: null }, { longitude: null }],
+                area: { $in: [...ids.map((id) => new Types.ObjectId(id)), ...ids] },
+              } as any)
+              .select(FIELDS)
+              .sort({ isFeatured: -1, createdAt: -1 })
+              .limit(LIMIT - pinned.length)
+              .lean()
+              .exec();
+          }
+
+          const jitter = (id: string, salt: number) => {
+            let h = salt;
+            for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+            return ((h % 1000) / 1000 - 0.5) * 0.004; // about ±200 m
+          };
+
+          const shape = (p: any, lat: number, lng: number, isApprox: boolean) => ({
+            id: String(p._id),
+            slug: p.slug,
+            title: p.title,
+            price: p.price,
+            purpose: p.listingType === 'rent' ? 'rent' : 'sale',
+            type: p.propertyType,
+            lat,
+            lng,
+            approx: isApprox,
+            image: p.mainPhotoUrl || p.videoPosterUrl || '',
+            marla: p.marla,
+            kanal: p.kanal,
+            areaSize: p.areaSize,
+            beds: p.bedrooms,
+            baths: p.bathrooms,
+            featured: !!p.isFeatured,
+            closed: p.availability === 'sold' || p.availability === 'rented',
+            location: p.location,
+          });
+
+          const out = pinned.map((p: any) => shape(p, p.latitude, p.longitude, false));
+          for (const p of approx) {
+            const c = centres.get(String(p.area));
+            if (!c) continue;
+            out.push(shape(p, c.lat + jitter(String(p._id), 7), c.lng + jitter(String(p._id), 13), true));
+          }
+          return { listings: out, truncated: out.length >= LIMIT };
+        }, { ttl: 300, tags: [TAG_PROPERTIES] });
+      }
+
+      /** Each area's centre: the average position of its pinned listings. Cached for an hour. */
+      private async areaCentres(): Promise<Map<string, { lat: number; lng: number }>> {
+        const rows = await this.cache.wrap(this.cache.buildKey('properties:area-centres', []), async () => {
+          return this.propertyModel
+            .aggregate([
+              { $match: { status: 'approved', latitude: { $type: 'number' }, longitude: { $type: 'number' } } },
+              { $project: { area: { $toString: '$area' }, latitude: 1, longitude: 1 } },
+              { $match: { area: { $nin: [null, ''] } } },
+              { $group: { _id: '$area', lat: { $avg: '$latitude' }, lng: { $avg: '$longitude' } } },
+            ])
+            .exec();
+        }, { ttl: 3600, tags: [TAG_PROPERTIES] });
+        return new Map((rows as any[]).map((r) => [String(r._id), { lat: r.lat, lng: r.lng }]));
+      }
+
       async cityPopularity(): Promise<Array<{ _id: string; name: string; slug: string; thumbnail?: string; count: number }>> {
         return this.cache.wrap(this.cache.buildKey('properties:city-popularity', []), async () => {
-          const graceCutoff = new Date(Date.now() - PropertyService.AVAILABILITY_GRACE_DAYS * 24 * 60 * 60 * 1000);
+          const graceCutoff = await this.graceCutoff();
           const [counts, cities] = await Promise.all([
             this.propertyModel
               .aggregate([
@@ -686,9 +817,7 @@ export class PropertyService {
            * every listing that existed before this was added — they stay
            * exactly as they are.
            */
-          const graceCutoff = new Date(
-            Date.now() - PropertyService.AVAILABILITY_GRACE_DAYS * 24 * 60 * 60 * 1000,
-          );
+          const graceCutoff = await this.graceCutoff();
           const stillListed = {
             $or: [
               { availability: { $nin: ['sold', 'rented'] } },

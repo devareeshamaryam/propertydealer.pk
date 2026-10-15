@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import SearchSidebar from '@/components/SearchSidebar';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn, toTitleCase } from '@/lib/utils';
+import { useSiteSettings } from '@/components/SiteSettingsProvider';
 
 interface PropertiesListingProps {
   purpose: 'rent' | 'buy' | 'all';
@@ -62,6 +63,7 @@ export default function PropertiesListing({
 }: PropertiesListingProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { listingsPerPage } = useSiteSettings();
 
   const [properties, setProperties]             = useState<Property[]>(initialProperties ?? []);
   const [allCities, setAllCities]               = useState<any[]>([]);
@@ -423,7 +425,7 @@ export default function PropertiesListing({
           type:     type !== 'all' ? type : undefined,
           purpose:  purpose !== 'all' ? purpose : undefined,
           page:     currentPage,
-          limit:    12,
+          limit:    listingsPerPage || 12,
         });
         if (cancelled) return;
         let props: BackendProperty[] = [];
@@ -810,7 +812,7 @@ export default function PropertiesListing({
 
           <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 flex gap-3">
             <button onClick={resetSheetFilters} className="flex-1 h-11 rounded-md border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">Reset</button>
-            <button onClick={applySheetFilters} className="flex-[2] h-11 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors">Show results</button>
+            <button onClick={applySheetFilters} className="flex-[2] h-11 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors btn-shape">Show results</button>
           </div>
         </SheetContent>
       </Sheet>
@@ -999,7 +1001,7 @@ export default function PropertiesListing({
                     {currentPage < totalPages && (
                       <div className="flex justify-center pt-4">
                         <Button variant="outline" onClick={() => setCurrentPage(p => p + 1)} disabled={isFetchingMore}
-                          className="h-10 min-w-[200px] border-slate-300 font-semibold text-slate-900">
+                          className="btn-shape h-10 min-w-[200px] border-slate-300 font-semibold text-slate-900">
                           {isFetchingMore ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading…</> : 'Show more properties'}
                         </Button>
                       </div>

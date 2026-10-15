@@ -120,7 +120,7 @@ export default function ProductDetailClient({
                 href={`https://wa.me/${waDigits(whatsapp)}?text=${waText}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#25D366] font-semibold text-[#128C7E] hover:bg-[#25D366]/5"
+                className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#25D366] font-semibold text-[#128C7E] hover:bg-[#25D366]/5 btn-shape"
               >
                 <MessageCircle className="h-4 w-4" /> Order on WhatsApp
               </a>

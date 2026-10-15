@@ -227,3 +227,6 @@ PropertySchema.index({ availability: 1, availabilityChangedAt: -1 });
 
 // The public list sorts featured first, then newest.
 PropertySchema.index({ status: 1, isFeatured: -1, createdAt: -1 });
+
+// The map explorer: listings inside a box.
+PropertySchema.index({ latitude: 1, longitude: 1 });

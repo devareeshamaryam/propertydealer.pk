@@ -275,7 +275,7 @@ export default function PropertiesFilterBar() {
           type="button"
           onClick={handleApplyFilters}
           disabled={loading}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-[14px] font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-4 text-[14px] font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60 btn-shape"
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           Search

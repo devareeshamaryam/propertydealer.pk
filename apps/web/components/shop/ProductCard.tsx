@@ -50,7 +50,7 @@ export function AddToCart({ product, size = 'sm', className }: { product: ShopPr
   if (qty > 0) {
     return (
       <div className={cn('flex items-center gap-2', className)}>
-        <div className={cn('flex flex-1 items-center justify-between rounded-xl bg-primary/10 text-primary', h)}>
+        <div className={cn('btn-shape flex flex-1 items-center justify-between rounded-xl bg-primary/10 text-primary', h)}>
           <button type="button" aria-label="Less" onClick={() => setQuantity(key, qty - 1)} className="grid h-full w-9 place-items-center">
             <Minus className="h-4 w-4" />
           </button>
@@ -78,7 +78,7 @@ export function AddToCart({ product, size = 'sm', className }: { product: ShopPr
           action: { label: 'View cart', onClick: () => setOpen(true) },
         });
       }}
-      className={cn('inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-semibold text-white transition-colors hover:bg-primary/90', h, className)}
+      className={cn('btn-shape inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary font-semibold text-white transition-colors hover:bg-primary/90', h, className)}
     >
       <ShoppingBag className="h-4 w-4" />
       Add to cart

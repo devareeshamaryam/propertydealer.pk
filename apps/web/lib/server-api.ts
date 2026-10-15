@@ -12,6 +12,25 @@ const BASE_URL = RAW_API_URL.trim().endsWith('/')
 
 console.log('🚀 Server API Base URL:', BASE_URL);
 
+/**
+ * For endpoints that may not exist yet: while a deploy builds, the old API
+ * is still the one answering, and it reads /cities/names or
+ * /properties/city-popularity as an id and returns 500. The caller has a
+ * fallback, so this returns null instead of logging an error.
+ */
+async function optionalGet<T>(path: string, revalidate: number, tags: string[]): Promise<T | null> {
+  try {
+    const response = await fetch(`${BASE_URL}${path}`, {
+      next: { revalidate, tags },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 export const serverApi = {
   async get<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = path.startsWith('/') ? `${BASE_URL}${path}` : `${BASE_URL}/${path}`;
@@ -46,7 +65,7 @@ export const serverApi = {
   /** [{ _id, name, thumbnail }] — falls back to the full list on an older API. */
   async getCityNames(): Promise<any[]> {
     try {
-      const rows = await this.get<any[]>('/cities/names', { next: { revalidate: 600, tags: ['cities'] } });
+      const rows = await optionalGet<any[]>('/cities/names', 600, ['cities']);
       if (Array.isArray(rows)) return rows;
     } catch {
       // older API
@@ -255,7 +274,10 @@ export async function fetchInitialListings(filters: {
   marla?: number | null;
 }): Promise<{ properties: import('./data').Property[]; totalPages: number; raw: BackendProperty[] }> {
   const { mapBackendToFrontendProperty } = await import('./types/property-utils');
-  const p = new URLSearchParams({ page: '1', limit: '12' });
+  // Settings → General → Listings per page.
+  const { getSiteSettings } = await import('./site-settings.server');
+  const perPage = (await getSiteSettings()).listingsPerPage || 12;
+  const p = new URLSearchParams({ page: '1', limit: String(perPage) });
   if (filters.cityId) p.set('cityId', filters.cityId);
   if (filters.cityName) p.set('city', filters.cityName);
   if (filters.areaId) p.set('areaId', filters.areaId);
@@ -287,9 +309,7 @@ export async function fetchInitialListings(filters: {
 export async function getCityStories(): Promise<import('@/components/CityStories').CityStory[]> {
   const slug = (n: string) => n.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   try {
-    const rows: any[] = await serverApi.get('/properties/city-popularity', {
-      next: { revalidate: 600, tags: ['properties', 'cities'] },
-    });
+    const rows = await optionalGet<any[]>('/properties/city-popularity', 600, ['properties', 'cities']);
     if (Array.isArray(rows) && rows.length) return rows;
   } catch {
     // Older API — fall through.

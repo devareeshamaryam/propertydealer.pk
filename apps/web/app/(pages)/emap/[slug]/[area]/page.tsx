@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { CITIES, getCityBySlug } from "../../cities-data";
-import AreaMapClient from "./AreaMapClient";
+import MapExplorerClient from "@/components/map/MapExplorerClient";
 
 // area name → URL slug (same function as in EMap.tsx)
 function toSlug(name: string) {
@@ -49,9 +49,7 @@ export default async function AreaPage({
   const areaData = city.areas.find((a) => toSlug(a.name) === area);
   if (!areaData) notFound();
 
-  return (
-    <main style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
-      <AreaMapClient city={city} area={areaData} />
-    </main>
-  );
+  // /emap/<city>/<area>: the property map, opened close on that area.
+  const places = CITIES.map(({ slug, name, lat, lng, zoom }) => ({ slug, name, lat, lng, zoom }));
+  return <MapExplorerClient places={places} focus={{ lat: areaData.lat, lng: areaData.lng, zoom: 15 }} />;
 }

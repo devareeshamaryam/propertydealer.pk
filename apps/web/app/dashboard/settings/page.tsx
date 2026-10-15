@@ -41,7 +41,7 @@ const KEYS: (keyof SiteSettings)[] = [
   "seoTitle", "seoDescription", "ogImageUrl", "gaMeasurementId", "googleVerification",
   "announcementEnabled", "announcementText", "announcementLink",
   "homeShowCities", "homeShowLatest", "homeLatestCount", "homeShowAgentBand", "homeShowExplore", "homeShowBlog", "homeShowFaq",
-  "defaultCity",
+  "defaultCity", "listingsPerPage", "soldGraceDays", "floatingWhatsapp",
 ];
 
 export default function GeneralSettingsPage() {
@@ -120,6 +120,12 @@ export default function GeneralSettingsPage() {
               <ToggleRow label="Show announcement" checked={settings.announcementEnabled} onChange={(v) => set("announcementEnabled", v)} />
               <TextField id="announcementText" label="Message" value={settings.announcementText} placeholder="e.g. Post your first property free this month" maxLength={160} onChange={(v) => set("announcementText", v)} />
               <TextField id="announcementLink" label="Link (optional)" value={settings.announcementLink} placeholder="/packages or https://…" onChange={(v) => set("announcementLink", v)} />
+            </SettingsCard>
+
+            <SettingsCard title="Listings">
+              <SliderField id="listingsPerPage" label="Listings per page" unit="" value={settings.listingsPerPage} min={6} max={48} onChange={(v) => set("listingsPerPage", v)} hint="On the search results pages, before “Show more”." />
+              <SliderField id="soldGraceDays" label="Days a sold / rented listing stays in search" unit=" days" value={settings.soldGraceDays} min={0} max={90} onChange={(v) => set("soldGraceDays", v)} hint="It stays marked “Sold out” with contact hidden; after this it leaves the lists. Its own page always stays up." />
+              <ToggleRow label="Floating WhatsApp button" hint="A WhatsApp chat button in the corner of every public page, to your WhatsApp number above." checked={settings.floatingWhatsapp} onChange={(v) => set("floatingWhatsapp", v)} />
             </SettingsCard>
 
             <SettingsCard title="Homepage" description="Turn sections on or off.">

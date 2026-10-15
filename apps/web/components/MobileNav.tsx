@@ -90,7 +90,7 @@ export default function MobileNav() {
       aria-label="Main"
       className={cn(
         "fixed inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-40 flex h-16 items-stretch md:hidden",
-        "rounded-[22px] border border-white/60 bg-white/75 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.28),0_2px_6px_rgba(15,23,42,0.06)] backdrop-blur-xl backdrop-saturate-150",
+        "rounded-[var(--tabbar-radius)] border border-white/60 bg-white/75 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.28),0_2px_6px_rgba(15,23,42,0.06)] backdrop-blur-xl backdrop-saturate-150",
       )}
     >
       {tabs.map((tab) => {
@@ -107,7 +107,7 @@ export default function MobileNav() {
               aria-label="Add a property"
               className="flex flex-1 flex-col items-center justify-center"
             >
-              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-primary text-white shadow-[0_6px_16px_-4px_var(--primary)] transition-transform active:scale-95">
+              <span className="btn-shape grid h-11 w-11 place-items-center rounded-2xl bg-primary text-white shadow-[0_6px_16px_-4px_var(--primary)] transition-transform active:scale-95">
                 <Plus className="h-6 w-6" strokeWidth={2.6} />
               </span>
             </Link>

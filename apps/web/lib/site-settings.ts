@@ -23,6 +23,8 @@ export interface SiteSettings {
   darkColor: string;
   priceTagColor: string;
   radius: number;
+  buttonShape: 'rounded' | 'pill';
+  tabBarShape: 'rounded' | 'pill';
   font: SiteFont;
   logoUrl: string;
   logoHeight: number;
@@ -66,6 +68,9 @@ export interface SiteSettings {
   homeShowBlog: boolean;
   homeShowFaq: boolean;
   defaultCity: string;
+  listingsPerPage: number;
+  soldGraceDays: number;
+  floatingWhatsapp: boolean;
   // Shop
   shopEnabled: boolean;
   shopDeliveryFee: number;
@@ -98,6 +103,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   darkColor: '',
   priceTagColor: '',
   radius: 8,
+  buttonShape: 'rounded',
+  tabBarShape: 'rounded',
   font: 'geist',
   logoUrl: '',
   logoHeight: 32,
@@ -140,6 +147,9 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   homeShowBlog: true,
   homeShowFaq: true,
   defaultCity: 'lahore',
+  listingsPerPage: 12,
+  soldGraceDays: 15,
+  floatingWhatsapp: false,
   shopEnabled: true,
   shopDeliveryFee: 0,
   shopFreeDeliveryOver: 0,
@@ -202,9 +212,12 @@ export function themeStyle(s: SiteSettings): Record<string, string> {
   }
   if (isHex(s.darkColor)) vars['--brand-navy'] = s.darkColor;
   if (isHex(s.priceTagColor)) vars['--price-tag'] = s.priceTagColor;
-  if (Number.isFinite(s.radius) && s.radius !== 8) {
-    vars['--radius'] = `${Math.min(16, Math.max(0, s.radius))}px`;
-  }
+  const radius = Number.isFinite(s.radius) ? Math.min(24, Math.max(0, s.radius)) : 8;
+  if (radius !== 8) vars['--radius'] = `${radius}px`;
+  // Buttons and the phone tab bar can be fully round on their own, whatever
+  // the corner size of cards and inputs.
+  vars['--btn-radius'] = s.buttonShape === 'pill' ? '9999px' : `${radius + 4}px`;
+  vars['--tabbar-radius'] = s.tabBarShape === 'pill' ? '9999px' : `${Math.max(14, radius + 14)}px`;
   if (s.font && s.font !== 'geist') vars['--site-font'] = `var(--font-${s.font})`;
   vars['--logo-h'] = `${s.logoHeightMobile || 28}px`;
   vars['--logo-h-lg'] = `${s.logoHeight || 32}px`;

@@ -32,7 +32,9 @@ const FIELDS = {
   primaryColor: { kind: 'color', def: '' },
   darkColor: { kind: 'color', def: '' },
   priceTagColor: { kind: 'color', def: '' },
-  radius: { kind: 'int', def: 8, min: 0, max: 16 },
+  radius: { kind: 'int', def: 8, min: 0, max: 24 },
+  buttonShape: { kind: 'enum', def: 'rounded', options: ['rounded', 'pill'] },
+  tabBarShape: { kind: 'enum', def: 'rounded', options: ['rounded', 'pill'] },
   font: { kind: 'enum', def: 'geist', options: SITE_FONTS },
   logoUrl: { kind: 'url', def: '' },
   logoHeight: { kind: 'int', def: 32, min: 16, max: 72 },
@@ -87,6 +89,11 @@ const FIELDS = {
   homeShowBlog: { kind: 'bool', def: true },
   homeShowFaq: { kind: 'bool', def: true },
   defaultCity: { kind: 'text', def: 'lahore', max: 60 },
+
+  // ── Listings ──
+  listingsPerPage: { kind: 'int', def: 12, min: 6, max: 48 },
+  soldGraceDays: { kind: 'int', def: 15, min: 0, max: 90 },
+  floatingWhatsapp: { kind: 'bool', def: false },
 
   // ── Shop (construction materials) ──
   shopEnabled: { kind: 'bool', def: true },
@@ -156,7 +163,20 @@ export class SiteSettingsService {
     private readonly revalidate: RevalidateService,
   ) {}
 
+  /*
+   * Read on every listing query (sold/rented grace days), so it is kept in
+   * memory for a minute; a save clears it at once.
+   */
+  private memo: { at: number; value: SiteSettings } | null = null;
+
   async get(): Promise<SiteSettings> {
+    if (this.memo && Date.now() - this.memo.at < 60_000) return this.memo.value;
+    const value = await this.read();
+    this.memo = { at: Date.now(), value };
+    return value;
+  }
+
+  private async read(): Promise<SiteSettings> {
     const doc = (await this.model.findOne({ key: KEY }).lean().exec()) as Record<string, unknown> | null;
     const out: Record<string, unknown> = {};
     for (const [key, field] of Object.entries(FIELDS) as [FieldKey, Field][]) {
@@ -179,8 +199,10 @@ export class SiteSettingsService {
         .exec();
     }
 
-    // Every page carries these values, so the whole site is refreshed.
-    await this.revalidate.revalidate({ tags: ['site-settings'], paths: ['/'] });
+    this.memo = null;
+    // Every page carries these values, so the whole site is refreshed — and
+    // the listing caches, since the sold/rented grace period is one of them.
+    await this.revalidate.revalidate({ tags: ['site-settings', 'properties'], paths: ['/'] });
 
     return this.get();
   }

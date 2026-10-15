@@ -214,7 +214,7 @@ const Navbar = () => {
                 Sign in
               </Link>
             ))}
-          <Button asChild size="sm" className="h-9 gap-1 rounded-lg px-3.5 text-[13px] font-semibold">
+          <Button asChild size="sm" className="btn-shape h-9 gap-1 rounded-lg px-3.5 text-[13px] font-semibold">
             <Link href={addPropertyHref}>
               <Plus className="h-3.5 w-3.5" />
               Add Property

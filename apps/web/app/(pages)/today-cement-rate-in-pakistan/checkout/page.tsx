@@ -114,7 +114,7 @@ export default function CheckoutPage() {
               <li className="flex justify-between py-2 text-[16px] font-bold"><span>Total</span><span>{rs(order.total)}</span></li>
             </ul>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              <a href={`https://wa.me/${waDigits(whatsapp)}?text=${text}`} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] font-semibold text-white">
+              <a href={`https://wa.me/${waDigits(whatsapp)}?text=${text}`} target="_blank" rel="noopener noreferrer" className="flex h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] font-semibold text-white btn-shape">
                 <MessageCircle className="h-4 w-4" /> Confirm on WhatsApp
               </a>
               <Link href={`/track-order?number=${order.orderNumber}`} className="flex h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 font-semibold text-slate-800 hover:bg-slate-50">
@@ -135,7 +135,7 @@ export default function CheckoutPage() {
         <div className="container mx-auto max-w-md px-4 text-center">
           <h1 className="text-xl font-bold text-slate-900">Your cart is empty</h1>
           <p className="mt-1 text-slate-600">Add materials from today&apos;s rates to place an order.</p>
-          <Link href="/today-cement-rate-in-pakistan" className="mt-5 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-white">Browse materials</Link>
+          <Link href="/today-cement-rate-in-pakistan" className="mt-5 inline-flex h-11 items-center rounded-xl bg-primary px-5 font-semibold text-white btn-shape">Browse materials</Link>
           <p className="mt-4 text-sm text-slate-500">Already ordered? <Link href="/track-order" className="font-medium text-primary hover:underline">Track your order</Link></p>
         </div>
       </div>
@@ -256,7 +256,7 @@ export default function CheckoutPage() {
               <button
                 type="submit"
                 disabled={placing || belowMin || !ready}
-                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60"
+                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60 btn-shape"
               >
                 {placing && <Loader2 className="h-4 w-4 animate-spin" />}
                 Place order · {rs(total)}

@@ -440,7 +440,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       type="button"
       onClick={revealOrDial}
       className={cn(
-        'inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-primary bg-white px-3 font-semibold text-primary transition-colors hover:bg-primary/5',
+        'btn-shape inline-flex min-w-0 items-center justify-center gap-2 rounded-xl border border-primary bg-white px-3 font-semibold text-primary transition-colors hover:bg-primary/5',
         compact ? 'h-11 text-[14px]' : 'h-12 text-[15px]',
         full && 'w-full',
       )}
@@ -463,7 +463,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       type="button"
       onClick={openWhatsApp}
       className={cn(
-        'inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-3 font-semibold text-white transition-colors hover:bg-[#1ebe5b]',
+        'btn-shape inline-flex items-center justify-center gap-2 rounded-xl bg-[#25D366] px-3 font-semibold text-white transition-colors hover:bg-[#1ebe5b]',
         compact ? 'h-11 text-[14px]' : 'h-12 text-[15px]',
         full && 'w-full',
       )}
@@ -886,7 +886,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               <span className="font-semibold text-red-700">{closedLabel}.</span> Contact details hidden.
             </p>
             {citySlug && (
-              <Link href={`/properties/${purposeSlug}/${citySlug}`} className="shrink-0 rounded-xl bg-primary px-3.5 py-2.5 text-[13px] font-semibold text-white">
+              <Link href={`/properties/${purposeSlug}/${citySlug}`} className="btn-shape shrink-0 rounded-xl bg-primary px-3.5 py-2.5 text-[13px] font-semibold text-white">
                 See similar
               </Link>
             )}

@@ -201,6 +201,36 @@ export class PropertyController {
   }
 
   /** All cities with their live listing count, most popular first. */
+  /** Listings inside a map box, for /emap. */
+  @Get('map')
+  @Header('Cache-Control', 'public, max-age=60, s-maxage=120')
+  async map(
+    @Query('minLat') minLat: string,
+    @Query('maxLat') maxLat: string,
+    @Query('minLng') minLng: string,
+    @Query('maxLng') maxLng: string,
+    @Query('purpose') purpose?: string,
+    @Query('type') type?: string,
+    @Query('priceMin') priceMin?: string,
+    @Query('priceMax') priceMax?: string,
+  ) {
+    const n = (v: string) => Number(v);
+    const box = { minLat: n(minLat), maxLat: n(maxLat), minLng: n(minLng), maxLng: n(maxLng) };
+    if (Object.values(box).some((v) => !Number.isFinite(v))) {
+      throw new BadRequestException('minLat, maxLat, minLng and maxLng are required');
+    }
+    // A box bigger than the country is clamped rather than refused.
+    box.minLat = Math.max(box.minLat, 20); box.maxLat = Math.min(box.maxLat, 40);
+    box.minLng = Math.max(box.minLng, 58); box.maxLng = Math.min(box.maxLng, 80);
+    return this.propertyService.mapListings({
+      ...box,
+      purpose,
+      type,
+      priceMin: priceMin ? Number(priceMin) : undefined,
+      priceMax: priceMax ? Number(priceMax) : undefined,
+    });
+  }
+
   @Get('city-popularity')
   @Header('Cache-Control', 'public, max-age=300, s-maxage=600')
   async cityPopularity() {

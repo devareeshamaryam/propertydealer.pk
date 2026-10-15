@@ -40,10 +40,17 @@ const RADII = [
   { value: 4, label: "Small" },
   { value: 8, label: "Medium" },
   { value: 12, label: "Large" },
+  { value: 16, label: "Extra large" },
+  { value: 22, label: "Round" },
+];
+
+const SHAPES: { value: SiteSettings["buttonShape"]; label: string }[] = [
+  { value: "rounded", label: "Rounded" },
+  { value: "pill", label: "Fully round" },
 ];
 
 const KEYS: (keyof SiteSettings)[] = [
-  "primaryColor", "darkColor", "priceTagColor", "radius", "font",
+  "primaryColor", "darkColor", "priceTagColor", "radius", "buttonShape", "tabBarShape", "font",
   "logoUrl", "logoHeight", "logoHeightMobile", "footerLogoUrl", "faviconUrl",
   "heroTitle", "heroSubtitle", "heroImageEnabled", "heroImageUrl", "heroOverlay",
 ];
@@ -107,7 +114,7 @@ export default function AppearancePage() {
             </SettingsCard>
 
             <SettingsCard title="Shape & type">
-              <Field label="Corners" hint="Cards, buttons, inputs and images.">
+              <Field label="Corners" hint="Cards, inputs, images and panels.">
                 <div className="flex flex-wrap gap-2">
                   {RADII.map(({ value, label }) => (
                     <button
@@ -126,6 +133,33 @@ export default function AppearancePage() {
                   ))}
                 </div>
               </Field>
+              {(
+                [
+                  ["buttonShape", "Buttons", "Add to cart, Call, WhatsApp, Find, Add Property and the other main buttons."],
+                  ["tabBarShape", "Phone tab bar", "The floating bar at the bottom of the screen on phones."],
+                ] as const
+              ).map(([key, label, hint]) => (
+                <Field key={key} label={label} hint={hint}>
+                  <div className="flex flex-wrap gap-2">
+                    {SHAPES.map((shape) => (
+                      <button
+                        key={shape.value}
+                        type="button"
+                        onClick={() => set(key, shape.value)}
+                        className={cn(
+                          "flex items-center gap-2 border px-3 py-2 text-sm transition-colors",
+                          settings[key] === shape.value ? "border-primary bg-primary/5 text-primary" : "border-slate-200 hover:border-slate-400",
+                        )}
+                        style={{ borderRadius: shape.value === "pill" ? 9999 : settings.radius + 4 }}
+                      >
+                        <span className="h-4 w-7 border-2 border-current" style={{ borderRadius: shape.value === "pill" ? 9999 : 4 }} />
+                        {shape.label}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+              ))}
+
               <Field label="Font" htmlFor="font">
                 <select
                   id="font"

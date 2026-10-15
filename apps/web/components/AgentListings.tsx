@@ -111,7 +111,7 @@ export default function AgentListings({
             type="button"
             disabled={loading}
             onClick={() => void load(tab, current.page + 1)}
-            className="inline-flex h-11 min-w-[220px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-[14.5px] font-semibold text-slate-900 transition-colors hover:border-slate-400 disabled:opacity-60"
+            className="inline-flex h-11 min-w-[220px] items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-[14.5px] font-semibold text-slate-900 transition-colors hover:border-slate-400 disabled:opacity-60 btn-shape"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             Show more

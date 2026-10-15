@@ -356,7 +356,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
 
             <button
               type="submit"
-              className="col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-6 text-[15px] font-semibold text-white transition-colors hover:bg-primary/90 lg:col-span-1"
+              className="col-span-2 inline-flex h-11 items-center justify-center gap-2 rounded-md bg-primary px-6 text-[15px] font-semibold text-white transition-colors hover:bg-primary/90 lg:col-span-1 btn-shape"
             >
               <Search className="h-4 w-4" />
               Find

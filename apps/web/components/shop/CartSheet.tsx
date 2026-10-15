@@ -112,7 +112,7 @@ export default function CartSheet() {
             <Link
               href="/today-cement-rate-in-pakistan/checkout"
               onClick={() => setOpen(false)}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-[15px] font-semibold text-white hover:bg-primary/90"
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-primary text-[15px] font-semibold text-white hover:bg-primary/90 btn-shape"
             >
               Checkout
             </Link>

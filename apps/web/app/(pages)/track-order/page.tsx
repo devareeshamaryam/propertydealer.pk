@@ -54,7 +54,7 @@ function TrackOrder() {
           <form onSubmit={lookUp} className="mt-4 grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
             <input value={number} onChange={(e) => setNumber(e.target.value.toUpperCase())} placeholder="PD-261015-1234" required className="h-11 rounded-xl border border-slate-200 px-3.5 text-[14.5px] outline-none focus:border-primary" />
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="03XX XXXXXXX" inputMode="tel" required className="h-11 rounded-xl border border-slate-200 px-3.5 text-[14.5px] outline-none focus:border-primary" />
-            <button type="submit" disabled={loading} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-semibold text-white disabled:opacity-60">
+            <button type="submit" disabled={loading} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 font-semibold text-white disabled:opacity-60 btn-shape">
               {loading && <Loader2 className="h-4 w-4 animate-spin" />} Track
             </button>
           </form>
