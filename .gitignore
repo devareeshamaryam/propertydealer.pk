@@ -62,6 +62,9 @@ cleanup-*.js
 
 # WordPress imports
 *.xml
+# …except the /sitemap.xml route folder (an app route named like a file).
+!/apps/web/app/sitemap.xml/
+!/apps/web/app/sitemap.xml/**
 
 # Binaries
 nest
