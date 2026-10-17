@@ -212,7 +212,7 @@ export default function AddProperty() {
     const fetchCitiesData = async () => {
       try {
         setLoadingCities(true);
-        const data = await cityApi.getAll();
+        const data = await cityApi.getNames();
         setCities(data);
       } catch (error: any) {
         console.error("Error fetching cities:", error);
@@ -237,7 +237,7 @@ export default function AddProperty() {
 
       try {
         setLoadingAreas(true);
-        const data = await areaApi.getAll(cityId);
+        const data = (await areaApi.getNames(cityId)) as unknown as Area[];
         setAreas(data);
         setAreaId(""); // Reset area selection when city changes
       } catch (error: any) {
@@ -267,7 +267,7 @@ export default function AddProperty() {
         name: toTitleCase(newCityName.trim()),
       });
       toast.success("City added successfully");
-      const allCities = await cityApi.getAll();
+      const allCities = await cityApi.getNames();
       setCities(allCities);
       setCityId(String(data._id));
       setShowAddCityModal(false);
@@ -290,7 +290,7 @@ export default function AddProperty() {
         areaSlug: slug,
       });
       toast.success("Area added successfully");
-      const allAreas = await areaApi.getAll(cityId);
+      const allAreas = (await areaApi.getNames(cityId)) as unknown as Area[];
       setAreas(allAreas);
       setAreaId(String(data._id));
       setShowAddAreaModal(false);

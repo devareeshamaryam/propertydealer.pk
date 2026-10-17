@@ -189,6 +189,8 @@ export interface DashboardPropertyFilters {
   areaId?: string;
   sortBy?: string;
   sortDir?: "asc" | "desc";
+  /** One agent's listings (an agency owner's team member; anyone for an admin). */
+  ownerId?: string;
 }
 
 export interface DashboardPropertyPage {
@@ -346,6 +348,7 @@ export const propertyApi = {
     if (filters?.areaId) params.append("areaId", filters.areaId);
     if (filters?.sortBy) params.append("sortBy", filters.sortBy);
     if (filters?.sortDir) params.append("sortDir", filters.sortDir);
+    if (filters?.ownerId) params.append("ownerId", filters.ownerId);
 
     const query = params.toString();
     const response = await api.get(
@@ -514,6 +517,84 @@ export const blogApi = {
 };
 
 // Package API functions
+export interface PlanPerks {
+  verifiedBadge: boolean;
+  teamMembers: number;
+  socialLinks: boolean;
+  brandedProfile: boolean;
+  autoPublish: boolean;
+  spotlight: boolean;
+}
+
+/** The plan in force for the signed-in account (an agency's agent: the agency's plan). */
+export interface MyPlan {
+  tier: "free" | "paid";
+  name: string;
+  propertyLimit: number;
+  used: number;
+  remaining: number;
+  canCreate: boolean;
+  featuredLimit: number;
+  perks: PlanPerks;
+  endDate: string | null;
+  team: { role: "owner" | "agent" | null; agencyId: string | null; members: number };
+}
+
+export interface AccountRow {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  role: string;
+  companyName: string;
+  avatarUrl: string;
+  verified: boolean;
+  isActive: boolean;
+  createdAt: string;
+  plan: { name: string; endDate: string | null; paid: boolean; granted: boolean; subscriptionId: string | null };
+  pendingInvoice: { status: string; planName: string; amount: number } | null;
+  listings: { total: number; live: number };
+  teamSize: number;
+  agency: { _id: string; name: string } | null;
+}
+
+export interface AccountsPage {
+  total: number;
+  page: number;
+  totalPages: number;
+  rows: AccountRow[];
+}
+
+export interface TeamMember {
+  _id: string;
+  name: string;
+  email: string;
+  phone: string;
+  isActive: boolean;
+  createdAt?: string;
+  listings: { total: number; live: number };
+}
+
+/** An agency owner's agent accounts (Agency Plus). */
+export const teamApi = {
+  list: async (): Promise<{ limit: number; planName: string; members: TeamMember[] }> => {
+    const response = await api.get("/team");
+    return response.data.data;
+  },
+  create: async (data: { name: string; email: string; password: string; phone?: string }): Promise<TeamMember> => {
+    const response = await api.post("/team", data);
+    return response.data.data;
+  },
+  update: async (id: string, data: { name?: string; phone?: string; isActive?: boolean; password?: string }) => {
+    const response = await api.patch(`/team/${id}`, data);
+    return response.data.data;
+  },
+  remove: async (id: string): Promise<{ removed: boolean; listingsMoved: number }> => {
+    const response = await api.delete(`/team/${id}`);
+    return response.data.data;
+  },
+};
+
 export const packageApi = {
   getAll: async () => {
     const response = await api.get("/packages");
@@ -637,14 +718,7 @@ export const subscriptionApi = {
    * without buying anything. Use this to describe what someone has;
    * `getActiveSubscription` only knows about paid rows.
    */
-  getMyPlan: async (): Promise<{
-    tier: "free" | "paid";
-    name: string;
-    propertyLimit: number;
-    used: number;
-    remaining: number;
-    canCreate: boolean;
-  }> => {
+  getMyPlan: async (): Promise<MyPlan> => {
     const response = await api.get("/subscriptions/my-plan");
     return response.data;
   },
@@ -656,6 +730,12 @@ export const subscriptionApi = {
 
   getAll: async () => {
     const response = await api.get("/subscriptions");
+    return response.data;
+  },
+
+  /** Admin: every account with its plan — Free ones included. Paged. */
+  getAccounts: async (params: { search?: string; plan?: string; page?: number; limit?: number }): Promise<AccountsPage> => {
+    const response = await api.get("/subscriptions/accounts", { params });
     return response.data;
   },
 
@@ -797,6 +877,8 @@ export const userApi = {
     experienceYears?: number;
     address?: string;
     avatarUrl?: string;
+    coverUrl?: string;
+    socialLinks?: { facebook?: string; instagram?: string; youtube?: string; tiktok?: string; linkedin?: string; website?: string };
   }) => {
     const response = await api.patch("/users/me", data);
     return response.data;

@@ -211,9 +211,10 @@ export class ImportService {
   }
 
   private async resolveArea(nicename: string, name: string, cityId: Types.ObjectId): Promise<Types.ObjectId> {
+    // `city` is stored as ObjectId or string on existing areas; matching one form only made duplicates.
     let area = await this.areaModel.findOne({
-      city: cityId,
-      $or: [{ slug: nicename }, { name: new RegExp(`^${name}$`, 'i') }]
+      city: { $in: [cityId, String(cityId)] },
+      $or: [{ slug: nicename }, { areaSlug: nicename }, { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }]
     });
 
     if (!area) {

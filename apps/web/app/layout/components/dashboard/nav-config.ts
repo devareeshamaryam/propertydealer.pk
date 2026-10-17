@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Layers,
   MapPin,
+  Map as MapIcon,
   Package2,
   Palette,
   ShoppingBag,
@@ -30,6 +31,8 @@ export interface NavLeaf {
   /** Match the href exactly. Use for index routes whose children are separate entries. */
   exact?: boolean;
   adminOnly?: boolean;
+  /** Hidden from admins — for agent-side screens. */
+  agentOnly?: boolean;
   /** Extra words the sidebar filter should match against. */
   keywords?: string[];
 }
@@ -130,6 +133,13 @@ export const NAV_SECTIONS: NavSection[] = [
         keywords: ["analytics", "views", "performance", "stats", "enquiries"],
       },
       {
+        // An agency owner's agent accounts (Agency Plus); explains the plan to everyone else.
+        title: "My Team",
+        href: "/dashboard/team",
+        agentOnly: true,
+        keywords: ["agents", "team", "agency", "staff"],
+      },
+      {
         // Top level, the way WordPress puts Media — and deliberately NOT
         // admin-only: agents upload property photos, and the API scopes the
         // library so each one only ever sees their own uploads.
@@ -193,6 +203,23 @@ export const NAV_SECTIONS: NavSection[] = [
             keywords: ["society", "sector", "phase"],
           },
           { title: "Add Area", href: "/dashboard/area/add-area" },
+        ],
+      },
+      {
+        // Society master plans on the map: /emap/<city>/<society>.
+        id: "society-maps",
+        title: "Society Maps",
+        icon: MapIcon,
+        adminOnly: true,
+        matches: ["/dashboard/society-maps"],
+        items: [
+          {
+            title: "All Maps",
+            href: "/dashboard/society-maps",
+            exact: true,
+            keywords: ["emap", "master plan", "blocks", "society", "phase"],
+          },
+          { title: "Add Map", href: "/dashboard/society-maps/new", keywords: ["upload", "master plan"] },
         ],
       },
     ],

@@ -8,6 +8,7 @@ import { Area, AreaSchema } from '@rent-ghar/db/schemas/area.schema';
 import { City, CitySchema } from '@rent-ghar/db/schemas/city.schema';
 import { MongooseModule } from '@nestjs/mongoose';
 import { SiteSettingsModule } from '../site-settings/site-settings.module';
+import { AgencyModule } from '../agency/agency.module';
 import { StorageModule } from '@rent-ghar/storage';
 import { SubscriptionModule } from '../subscription/subscription.module';
 import { UserModule } from '../user/user.module';
@@ -25,6 +26,8 @@ import { UserModule } from '../user/user.module';
     UserModule,
     // Sold/rented grace period comes from the site settings.
     SiteSettingsModule,
+    // Agency teams and the verified badge.
+    AgencyModule,
   ],
   controllers: [PropertyController],
   providers: [PropertyService, PropertyCountersService, ListingBrainService],

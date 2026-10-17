@@ -38,6 +38,9 @@ import { ReportModule } from './report/report.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { ListingApiModule } from './listing-api/listing-api.module';
 import { SiteSettingsModule } from './site-settings/site-settings.module';
+import { SocietyMapModule } from './society-map/society-map.module';
+import { TeamModule } from './team/team.module';
+import { SetupModule } from './setup/setup.module';
 import { ShopModule } from './shop/shop.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import * as path from 'path';
@@ -162,6 +165,9 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     PaymentMethodModule,
     ListingApiModule,
     SiteSettingsModule,
+    SocietyMapModule,
+    TeamModule,
+    SetupModule,
     ShopModule,
   ],
   controllers: [AppController],

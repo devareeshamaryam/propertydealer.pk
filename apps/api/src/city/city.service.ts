@@ -81,12 +81,13 @@ export class CityService {
      * carries every city's SEO content and is about a megabyte; a dropdown
      * needs a few kilobytes.
      */
-    async findCityNames(): Promise<Array<{ _id: string; name: string; thumbnail?: string }>> {
+    async findCityNames(): Promise<Array<{ _id: string; name: string; thumbnail?: string; state?: string; country?: string; createdAt?: Date }>> {
         return this.cache.wrap(
-            this.cache.buildKey('cities:names', []),
+            this.cache.buildKey('cities:names:v2', []),
             async () => {
-                const rows = await this.cityModel.find().select('name thumbnail').sort({ name: 1 }).lean().exec();
-                return rows.map((c: any) => ({ _id: String(c._id), name: c.name, thumbnail: c.thumbnail || undefined }));
+                // Everything a list or dropdown shows — and none of the SEO text.
+                const rows = await this.cityModel.find().select('name thumbnail state country createdAt').sort({ name: 1 }).lean().exec();
+                return rows.map((c: any) => ({ _id: String(c._id), name: c.name, thumbnail: c.thumbnail || undefined, state: c.state, country: c.country, createdAt: c.createdAt }));
             },
             { ttl: 3600, tags: [TAG_CITIES] },
         );

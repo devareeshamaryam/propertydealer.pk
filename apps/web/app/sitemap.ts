@@ -5,7 +5,7 @@
 
 import { MetadataRoute } from 'next';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealers.pk';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -19,5 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE_URL}/sitemap-areas.xml`,      lastModified: new Date() },
     // Cement, steel, bajri etc rates
     { url: `${BASE_URL}/sitemap-rates.xml`,      lastModified: new Date() },
+    // Society maps (/emap/<city>/<society>)
+    { url: `${BASE_URL}/sitemap-maps.xml`,       lastModified: new Date() },
    ];
 }

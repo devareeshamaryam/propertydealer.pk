@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { serverApi } from '@/lib/server-api';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealers.pk';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 
 const PAGE_SIZE = 100;
 

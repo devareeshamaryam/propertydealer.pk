@@ -42,12 +42,11 @@ export class Page {
 export type PageDocument = Page & Document;
 export const PageSchema = SchemaFactory.createForClass(Page);
 
-// Auto-generate slug from title (before save)
+// Auto-generate slug from title (before save) — only when none was given.
+// It used to run whenever the title changed, which replaced a slug chosen in
+// the admin ("contact" became "contact-us") and would move a live page's URL.
 PageSchema.pre('save', async function () {
-  // Generate slug if:
-  // 1. Title is modified, OR
-  // 2. Slug is not set (for new documents)
-  if (this.isModified('title') || !this.slug) {
+  if (!this.slug) {
     if (this.title) {
       const generatedSlug = slugify(this.title, { lower: true });
       // Ensure slug is not empty

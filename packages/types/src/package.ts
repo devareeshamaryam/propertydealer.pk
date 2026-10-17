@@ -7,6 +7,13 @@ export interface CreatePackageDto {
   featuredListings?: number;
   photosPerProperty?: number;
   features?: string[];
+  verifiedBadge?: boolean;
+  teamMembers?: number;
+  socialLinks?: boolean;
+  brandedProfile?: boolean;
+  autoPublish?: boolean;
+  spotlight?: boolean;
+  highlight?: boolean;
 }
 
 export interface UpdatePackageDto {
@@ -19,6 +26,13 @@ export interface UpdatePackageDto {
   photosPerProperty?: number;
   isActive?: boolean;
   features?: string[];
+  verifiedBadge?: boolean;
+  teamMembers?: number;
+  socialLinks?: boolean;
+  brandedProfile?: boolean;
+  autoPublish?: boolean;
+  spotlight?: boolean;
+  highlight?: boolean;
 }
 
 export interface PackageResponse {
@@ -32,6 +46,13 @@ export interface PackageResponse {
   photosPerProperty: number;
   isActive: boolean;
   features: string[];
+  verifiedBadge?: boolean;
+  teamMembers?: number;
+  socialLinks?: boolean;
+  brandedProfile?: boolean;
+  autoPublish?: boolean;
+  spotlight?: boolean;
+  highlight?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

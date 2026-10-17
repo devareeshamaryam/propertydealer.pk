@@ -17,13 +17,17 @@ export default function robots(): MetadataRoute.Robots {
           '/assets/',
           '/css/',
           '/js/',
+          '/_next/static/',
+          '/_next/image',
+          '/uploads/',
         ],
         disallow: [
           '/dashboard',
           '/login',
           '/register',
           '/api',
-          '/_next',
+          // Page data only; the CSS, JS and images under /_next are needed to render pages.
+          '/_next/data/',
         ],
         crawlDelay: 1,
       },

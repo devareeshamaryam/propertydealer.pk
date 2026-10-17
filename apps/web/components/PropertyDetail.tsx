@@ -4,10 +4,10 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import {
-  ArrowLeft, Bath, BedDouble, Check, ChevronRight, Clock, Compass, Hash, Home, ImageOff, Loader2, MapPin, Phone, Ruler, Share2, ShieldAlert, Tag,
+  ArrowLeft, Bath, BedDouble, Check, ChevronRight, Compass, Home, ImageOff, Loader2, MapPin, Phone, Ruler, Share2, ShieldAlert, Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { propertyApi } from '@/lib/api';
+import api, { propertyApi } from '@/lib/api';
 import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/property-utils';
 import { Property } from '@/lib/data';
 import { toast } from 'sonner';
@@ -21,7 +21,8 @@ import { resolved, waDigits } from '@/lib/site-settings';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import dynamic from 'next/dynamic';
 import PropertyGallery from '@/components/property/PropertyGallery';
-import PropertyCard from '@/components/PropertyCard';
+import RelatedCarousel from '@/components/property/RelatedCarousel';
+import VerifiedBadge from '@/components/VerifiedBadge';
 import { ReportButton } from '@/components/property/ReportButton';
 
 const PropertyMap = dynamic(() => import('@/components/PropertyMap'), {
@@ -104,6 +105,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const [error, setError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState('overview-section');
   const [relatedByArea, setRelatedByArea] = useState<Property[]>([]);
+  // The society's map page, when this area has one published.
+  const [societyMap, setSocietyMap] = useState<{ name: string; url: string } | null>(null);
   const [relatedByCity, setRelatedByCity] = useState<Property[]>([]);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [descriptionOverflows, setDescriptionOverflows] = useState(false);
@@ -491,6 +494,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     </div>
   );
 
+  // Posted by an agency on a plan with the verified badge (or one of its agents).
+  const ownerVerified = Boolean((backendProperty as { ownerVerified?: boolean } | null | undefined)?.ownerVerified);
+
   const AgentCard = () =>
     agentPath ? (
       // Who is behind the listing, and a way through to the rest of their stock.
@@ -505,7 +511,11 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
         )}
         <span className="min-w-0 flex-1">
           <span className="block text-[11px] font-medium uppercase tracking-wide text-slate-400">Listed by</span>
-          <span className="block truncate text-[14.5px] font-semibold text-slate-900 group-hover:text-primary">{agentName}</span>
+          <span className="flex min-w-0 items-center gap-1">
+            <span className="truncate text-[14.5px] font-semibold text-slate-900 group-hover:text-primary">{agentName}</span>
+            {ownerVerified && <VerifiedBadge icon />}
+          </span>
+          {ownerVerified && <span className="block text-[11.5px] font-medium text-sky-700">Verified agency</span>}
         </span>
         <span className="hidden shrink-0 text-[12.5px] font-medium text-primary sm:inline">View profile</span>
         <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
@@ -524,6 +534,18 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       </ul>
     </div>
   );
+
+  useEffect(() => {
+    if (!property.areaSlug || !citySlug) return;
+    let live = true;
+    api
+      .get('/society-maps/lookup', { params: { city: citySlug, area: property.areaSlug } })
+      .then((r) => live && r.data?.data?.url && setSocietyMap({ name: r.data.data.name, url: r.data.data.url }))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [property.areaSlug, citySlug]);
 
   const priceStrip = (
     <div className={cn('flex items-baseline gap-1.5 rounded-tr-2xl px-4 py-2.5 text-white shadow-lg', closed ? 'bg-slate-900/90' : 'bg-price-tag')}>
@@ -590,6 +612,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 badge={closed ? undefined : purposeLabel}
                 priceTag={priceStrip}
                 closedLabel={closed ? closedLabel : null}
+                featured={!closed && Boolean(property.isFeatured)}
               />
             ) : (
               <div className="relative flex aspect-[5/3] flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400 md:aspect-auto md:h-[340px] md:rounded-2xl md:border md:border-slate-200">
@@ -623,19 +646,12 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 ))}
               </nav>
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className={cn('rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide', closed ? 'bg-red-600 text-white' : 'bg-primary/10 text-primary')}>
-                  {closed ? closedLabel : purposeLabel}
-                </span>
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                  {toTitleCase(property.type)}
-                </span>
-                {property.isFeatured && !closed && (
-                  <span className="rounded-md bg-amber-400 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-900">Featured</span>
-                )}
-              </div>
-
-              <h1 className="mt-2 text-[21px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[28px]">
+              {ownerVerified && (
+                <div className="mb-1.5">
+                  <VerifiedBadge />
+                </div>
+              )}
+              <h1 className="text-[21px] font-bold leading-snug tracking-tight text-slate-900 sm:text-[28px]">
                 {property.name}
               </h1>
               <p className="mt-1.5 flex items-center gap-1.5 text-[14px] text-slate-600">
@@ -646,13 +662,6 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                     Map
                   </button>
                 )}
-              </p>
-              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-slate-500">
-                <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {getTimeAgo(backendProperty?.createdAt)}</span>
-                {listingRef && <span className="inline-flex items-center gap-1"><Hash className="h-3.5 w-3.5" /> {listingRef}</span>}
-                <button type="button" onClick={share} className="hidden items-center gap-1 font-medium text-slate-600 hover:text-primary md:inline-flex">
-                  <Share2 className="h-3.5 w-3.5" /> Share
-                </button>
               </p>
 
               {/* Quick facts — one plain line, the way portals show them. */}
@@ -780,6 +789,15 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                   <MapPin className="h-4 w-4 text-slate-400" />
                   {place}, Pakistan
                 </p>
+                {societyMap && (
+                  <Link
+                    href={societyMap.url}
+                    className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-[14px] font-semibold text-primary hover:bg-primary/10"
+                  >
+                    <span>View on the {societyMap.name} map — blocks, plots &amp; landmarks</span>
+                    <ChevronRight className="h-4 w-4 shrink-0" />
+                  </Link>
+                )}
                 {hasCoords ? (
                   <div className="overflow-hidden rounded-xl border border-slate-200">
                     <PropertyMap latitude={resolvedLat!} longitude={resolvedLng!} title={property.name} />
@@ -868,11 +886,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                   </Link>
                 )}
               </div>
-              <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2 lg:gap-3">
-                {list.slice(0, 6).map((item) => (
-                  <PropertyCard key={item.id} property={item} />
-                ))}
-              </div>
+              <RelatedCarousel items={list.slice(0, 10)} />
             </section>
           ) : null
         )}
@@ -881,9 +895,16 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
       {/* Phones: contact always in reach. Gone once the property has gone. */}
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-4px_16px_-8px_rgba(15,23,42,0.15)] lg:hidden">
         {closed ? (
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-[13px] text-slate-600">
-              <span className="font-semibold text-red-700">{closedLabel}.</span> Contact details hidden.
+          <div className="flex items-stretch gap-2">
+            <Link href="/" aria-label="Home" className="btn-shape grid w-12 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-800 hover:bg-slate-50">
+            <span className="flex flex-col items-center gap-0.5">
+              <Home className="h-5 w-5" />
+              <span className="text-[10px] font-semibold leading-none">Home</span>
+            </span>
+          </Link>
+            <p className="flex min-w-0 flex-1 items-center text-[13px] text-slate-600">
+              <span>
+              <span className="font-semibold text-red-700">{closedLabel}.</span> Contact details hidden.</span>
             </p>
             {citySlug && (
               <Link href={`/properties/${purposeSlug}/${citySlug}`} className="btn-shape shrink-0 rounded-xl bg-primary px-3.5 py-2.5 text-[13px] font-semibold text-white">
@@ -892,9 +913,17 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <CallButton compact />
-            <WhatsAppButton compact />
+          <div className="flex items-stretch gap-2">
+            <Link href="/" aria-label="Home" className="btn-shape grid w-12 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-800 hover:bg-slate-50">
+            <span className="flex flex-col items-center gap-0.5">
+              <Home className="h-5 w-5" />
+              <span className="text-[10px] font-semibold leading-none">Home</span>
+            </span>
+          </Link>
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2">
+              <CallButton compact />
+              <WhatsAppButton compact />
+            </div>
           </div>
         )}
       </div>

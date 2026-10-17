@@ -1,6 +1,14 @@
- import { serverApi } from '@/lib/server-api';
+ import { serverApi, isNotFoundError } from '@/lib/server-api';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+
+
+/* CMS pages: rendered on first visit, then cached; the API revalidates them on edit. */
+export const revalidate = 600;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
 
 type PageProps = {
   params: Promise<{ slug: string }>
@@ -71,7 +79,9 @@ export default async function CustomPage({ params }: PageProps) {
       </div>
     );
   } catch (error) {
-    console.error('Error loading custom page:', error);
-    notFound();
+    // notFound() above lands here too: let it through. A real 404 from the
+    // API is a 404; anything else (API down) is thrown so the cached page stays.
+    if (isNotFoundError(error)) notFound();
+    throw error;
   }
 }

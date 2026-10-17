@@ -6,6 +6,7 @@ import { Property } from '@/lib/data';
 import { cn, toTitleCase } from '@/lib/utils';
 import { amountShort, propertySizeLabel } from '@/lib/pk';
 import { useImpression } from '@/components/analytics/impression';
+import VerifiedBadge from '@/components/VerifiedBadge';
 
 /*
  * The one listing card, used everywhere a listing is shown — search results,
@@ -145,11 +146,14 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
 
       {/* ── Details ── */}
       <div className="flex min-w-0 flex-1 flex-col py-0.5 sm:py-1">
-        <p className="flex items-baseline gap-1 text-slate-900">
-          <span className="text-[10px] font-semibold text-slate-500 sm:text-[11px]">PKR</span>
-          <span className="text-[17px] font-bold leading-none tracking-tight sm:text-[20px]">{price}</span>
-          {isRent && <span className="text-[11px] text-slate-500 sm:text-[12px]">/month</span>}
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="flex items-baseline gap-1 text-slate-900">
+            <span className="text-[10px] font-semibold text-slate-500 sm:text-[11px]">PKR</span>
+            <span className="text-[17px] font-bold leading-none tracking-tight sm:text-[20px]">{price}</span>
+            {isRent && <span className="text-[11px] text-slate-500 sm:text-[12px]">/month</span>}
+          </p>
+          {property.ownerVerified && <VerifiedBadge className="shrink-0 px-1.5 text-[10.5px] sm:px-2 sm:text-[11.5px]" />}
+        </div>
 
         <h3 className="mt-1 line-clamp-2 text-[14px] font-medium leading-snug text-slate-900 group-hover:text-primary sm:mt-1.5 sm:text-[16px]">
           {property.name}

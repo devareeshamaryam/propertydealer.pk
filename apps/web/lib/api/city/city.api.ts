@@ -56,6 +56,21 @@ export const cityApi = {
     const response = await api.get('/cities');
     return response.data;
   },
+
+  /**
+   * Names only, for dropdowns. The full list carries every city's SEO text
+   * (~1 MB) and took 10+ seconds whenever the API's cache was cold.
+   */
+  getNames: async (): Promise<any[]> => {
+    try {
+      const response = await api.get('/cities/names');
+      if (Array.isArray(response.data)) return response.data;
+    } catch {
+      // older API
+    }
+    const response = await api.get('/cities');
+    return response.data;
+  },
   
   getById: async (id: string) => {
     const response = await api.get(`/cities/${id}`);

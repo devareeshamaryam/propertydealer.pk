@@ -78,3 +78,10 @@ api@*
 .vscode/
 .idea/
 *.sublime-*
+
+# Society map tiles and original scans (generated on the server, never committed)
+/uploads/society-maps/
+/private-uploads/
+/scripts/areas/.nominatim-cache.json
+/scripts/areas/backup-*.json
+

@@ -50,7 +50,7 @@ export class UserController {
     if (!userId) throw new ForbiddenException('Authentication required');
 
     // Trim the text fields; the DTO has already rejected anything else.
-    const patch: Record<string, string | number> = {};
+    const patch: Record<string, unknown> = {};
     const text: (keyof UpdateProfileDto)[] = [
       'name',
       'phone',
@@ -59,6 +59,7 @@ export class UserController {
       'bio',
       'address',
       'avatarUrl',
+      'coverUrl',
     ];
 
     for (const field of text) {
@@ -68,6 +69,13 @@ export class UserController {
 
     if (dto.experienceYears !== undefined) {
       patch.experienceYears = dto.experienceYears;
+    }
+
+    if (dto.socialLinks) {
+      const keys = ['facebook', 'instagram', 'youtube', 'tiktok', 'linkedin', 'website'] as const;
+      (patch as Record<string, unknown>).socialLinks = Object.fromEntries(
+        keys.map((k) => [k, String(dto.socialLinks?.[k] ?? '').trim()]),
+      );
     }
 
     // An empty body would otherwise issue a pointless write.

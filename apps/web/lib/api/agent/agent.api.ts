@@ -12,6 +12,16 @@ export interface AgentProfile {
   whatsappNumber?: string;
   address?: string;
   createdAt?: string;
+  /** On a plan with the verified badge (or an agent of such an agency). */
+  verified?: boolean;
+  /** Present when the plan includes social links. */
+  socialLinks?: { facebook?: string; instagram?: string; youtube?: string; tiktok?: string; linkedin?: string; website?: string };
+  /** Present when the plan includes a branded profile. */
+  coverUrl?: string;
+  /** For an agency's agent: the agency. */
+  agency?: { _id: string; name: string; avatarUrl?: string } | null;
+  /** For an agency: its agents. */
+  team?: { _id: string; name: string; avatarUrl?: string }[];
 }
 
 export const agentApi = {

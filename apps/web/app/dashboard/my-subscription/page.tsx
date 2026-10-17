@@ -3,13 +3,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
+  BadgeCheck,
   CalendarClock,
+  Check,
   CreditCard,
   Layers,
   Loader2,
   PlusCircle,
   RefreshCcw,
   TriangleAlert,
+  Users,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -18,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { subscriptionApi } from "@/lib/api";
+import { subscriptionApi, type MyPlan } from "@/lib/api";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
 import {
@@ -41,14 +45,7 @@ interface PackageRef {
 }
 
 /** What GET /subscriptions/my-plan returns — the Free tier included. */
-interface EffectivePlan {
-  tier: "free" | "paid";
-  name: string;
-  propertyLimit: number;
-  used: number;
-  remaining: number;
-  canCreate: boolean;
-}
+type EffectivePlan = MyPlan;
 
 interface SubscriptionRecord {
   _id: string;
@@ -434,6 +431,34 @@ export default function MySubscriptionPage() {
            * entitlement check, so what this says and what a save is allowed to
            * do cannot drift apart.
            */
+          freePlan?.team.role === "agent" ? (
+            /* An agency's agent: the agency's plan is the one in force. */
+            <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 p-6 text-primary-foreground shadow-sm">
+              <p className="text-sm text-primary-foreground/80">Your agency&apos;s plan</p>
+              <h2 className="mt-1 text-2xl font-bold">{freePlan.name}</h2>
+              <p className="mt-1 text-sm text-primary-foreground/80">
+                Managed by your agency — your listings count towards the agency&apos;s limit.
+              </p>
+              <div className="mt-6 flex items-center justify-between text-sm">
+                <span className="text-primary-foreground/80">Agency listings used</span>
+                <span className="font-semibold tabular-nums">
+                  {freePlan.used} / {freePlan.propertyLimit}
+                </span>
+              </div>
+              <Progress
+                value={freePlan.propertyLimit ? Math.min(100, Math.round((freePlan.used / freePlan.propertyLimit) * 100)) : 0}
+                className="mt-2 h-2 bg-primary-foreground/20 [&>div]:bg-primary-foreground"
+              />
+              {freePlan.canCreate && (
+                <Button asChild variant="secondary" className="mt-5">
+                  <Link href="/dashboard/property/add-property">
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    List New Property
+                  </Link>
+                </Button>
+              )}
+            </div>
+          ) : (
           <>
             <div className="rounded-xl border bg-muted/40 p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
@@ -497,8 +522,11 @@ export default function MySubscriptionPage() {
               </div>
             </div>
           </>
+          )
         )
       )}
+
+      {freePlan && <PlanBenefitsCard plan={freePlan} />}
 
       {/* History */}
       <DataCard>
@@ -558,5 +586,57 @@ export default function MySubscriptionPage() {
         onSubmitted={() => void load()}
       />
     </div>
+  );
+}
+
+/** What the plan in force includes — the same switches the site enforces. */
+function PlanBenefitsCard({ plan }: { plan: EffectivePlan }) {
+  const perks = plan.perks;
+  if (!perks) return null;
+  const rows: [boolean, string, string][] = [
+    [true, `${plan.propertyLimit} live ${plan.propertyLimit === 1 ? "listing" : "listings"}`, plan.team.role ? "Shared across your agency" : "At any one time"],
+    [plan.featuredLimit > 0, plan.featuredLimit > 0 ? `${plan.featuredLimit} featured ${plan.featuredLimit === 1 ? "listing" : "listings"}` : "Featured listings", "Shown first in search, with a Featured tag"],
+    [perks.verifiedBadge, "Verified badge", "On your profile, listings and listing cards"],
+    [perks.autoPublish, "Instant publishing", "New listings go live without waiting for review"],
+    [perks.spotlight, "Spotlight", "Shown in Verified agencies on the homepage"],
+    [perks.brandedProfile, "Branded profile", "Cover photo on your profile page"],
+    [perks.socialLinks, "Social links", "Facebook, Instagram, YouTube and more on your profile"],
+    [perks.teamMembers > 0, perks.teamMembers > 0 ? `${perks.teamMembers} agent accounts` : "Agent accounts", "Your agents log in and list under your agency"],
+  ];
+  return (
+    <DataCard>
+      <DataCardTitle hint={plan.tier === "free" ? "Upgrade for more" : "Included in your plan"}>
+        What your plan includes
+      </DataCardTitle>
+      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+        {rows.map(([on, label, hint]) => (
+          <li key={label} className={cn("flex items-start gap-2.5 rounded-lg border p-3", !on && "opacity-55")}>
+            <span className={cn("mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full", on ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400")}>
+              {on ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+            </span>
+            <span>
+              <span className="flex items-center gap-1 text-sm font-medium">
+                {label}
+                {on && label === "Verified badge" && <BadgeCheck className="h-4 w-4 text-sky-500" />}
+              </span>
+              <span className="block text-xs text-muted-foreground">{hint}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {plan.team.role !== "agent" && perks.teamMembers > 0 && (
+        <Button variant="outline" asChild className="mt-4">
+          <Link href="/dashboard/team">
+            <Users className="mr-2 h-4 w-4" />
+            Manage my agents ({plan.team.members}/{perks.teamMembers})
+          </Link>
+        </Button>
+      )}
+      {plan.tier === "free" && (
+        <Button asChild className="mt-4">
+          <Link href="/dashboard/purchase-package">See plans</Link>
+        </Button>
+      )}
+    </DataCard>
   );
 }

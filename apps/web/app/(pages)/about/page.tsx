@@ -1,36 +1,18 @@
 import Link from 'next/link';
-import { ArrowRight, Mail, Phone } from 'lucide-react';
+import StaticPageView from '@/components/StaticPageView';
 
 /*
- * About, as a plain page of text.
- *
- * The old one was a client component that rendered nothing until it had
- * mounted, so the HTML search engines received for /about was empty. What it
- * showed once it did was a developer's brochure — "Ownership Verification",
- * "Legal Approvals", "Timely Delivery" of projects — none of which is what
- * this site does, under glowing orbs, rotating icons and pulsing dots, with
- * "5000+ properties" and "2000+ happy customers" counters nobody could check.
- *
- * This says what the site is and how it works, and it is in the HTML.
+ * About. The text is edited in Dashboard → Static Pages (slug "about"); the
+ * copy below is shown only until that page exists, so /about is never empty.
  */
-
-const LINKS = [
-  { href: '/properties/sale', label: 'Property for sale' },
-  { href: '/properties/rent', label: 'Property for rent' },
-  { href: '/emap', label: 'Search on the map' },
-  { href: '/today-cement-rate-in-pakistan', label: 'Today’s construction rates' },
-  { href: '/packages', label: 'Packages for agents' },
-  { href: '/blog', label: 'Property guides' },
-];
 
 export default function AboutPage() {
   return (
-    <div className="container mx-auto px-4 py-8 sm:py-10">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12">
-        <article className="max-w-2xl">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            About PropertyDealer
-          </h1>
+    <StaticPageView
+      slug="about"
+      title="About PropertyDealer"
+      fallback={
+        <>
           <p className="mt-3 text-[17px] leading-relaxed text-slate-600">
             PropertyDealer is a Pakistani property portal. Owners and dealers list houses, flats,
             plots and shops for sale or rent, and buyers and tenants contact them directly — by
@@ -88,50 +70,8 @@ export default function AboutPage() {
               </p>
             </section>
           </div>
-        </article>
-
-        <aside className="space-y-4 lg:pt-1">
-          <div className="rounded-lg border border-slate-200 p-4">
-            <h2 className="text-[15px] font-semibold text-slate-900">Contact us</h2>
-            <ul className="mt-3 space-y-2 text-[14px]">
-              <li>
-                <a href="tel:+923030119992" className="inline-flex items-center gap-2 text-slate-700 hover:text-primary">
-                  <Phone className="h-4 w-4 text-slate-400" />
-                  +92 303 011 9992
-                </a>
-              </li>
-              <li>
-                <a
-                  href="mailto:propertydealer.pk01@gmail.com"
-                  className="inline-flex items-center gap-2 break-all text-slate-700 hover:text-primary"
-                >
-                  <Mail className="h-4 w-4 shrink-0 text-slate-400" />
-                  propertydealer.pk01@gmail.com
-                </a>
-              </li>
-            </ul>
-          </div>
-
-          <nav aria-label="Explore" className="rounded-lg border border-slate-200">
-            <h2 className="border-b border-slate-200 px-4 py-3 text-[15px] font-semibold text-slate-900">
-              Explore
-            </h2>
-            <ul className="divide-y divide-slate-100">
-              {LINKS.map(({ href, label }) => (
-                <li key={href}>
-                  <Link
-                    href={href}
-                    className="flex items-center justify-between px-4 py-2.5 text-[14px] text-slate-700 hover:bg-slate-50 hover:text-primary"
-                  >
-                    {label}
-                    <ArrowRight className="h-3.5 w-3.5 text-slate-300" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </aside>
-      </div>
-    </div>
+        </>
+      }
+    />
   );
 }

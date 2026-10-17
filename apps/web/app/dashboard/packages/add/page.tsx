@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
+import { EMPTY_BENEFITS, PlanBenefitsFields, benefitsDto, benefitsFrom, type PlanBenefits } from "@/components/dashboard/plan-benefits-fields";
 
 export default function AddPackagePage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function AddPackagePage() {
     features: "",
     isActive: true,
   });
+  const [benefits, setBenefits] = useState<PlanBenefits>(EMPTY_BENEFITS);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,10 +46,12 @@ export default function AddPackagePage() {
         propertyLimit: toNumber(formData.propertyLimit),
         featuredListings: toNumber(formData.featuredListings),
         photosPerProperty: toNumber(formData.photosPerProperty),
+        // One feature per line — features themselves contain commas.
         features: formData.features
-          .split(",")
+          .split("\n")
           .map((f) => f.trim())
           .filter(Boolean),
+        ...benefitsDto(benefits),
       };
 
       await packageApi.create(dto);
@@ -185,17 +189,19 @@ export default function AddPackagePage() {
 
         <div>
           <label className="block text-sm font-medium mb-2">
-            Features (comma-separated)
+            Features shown on the card (one per line)
           </label>
           <Textarea
             value={formData.features}
             onChange={(e) =>
               setFormData({ ...formData, features: e.target.value })
             }
-            placeholder="e.g., Priority support, Featured badge, Premium placement"
-            rows={3}
+            placeholder={"5 live listings\n1 featured listing\nSocial links on your profile"}
+            rows={8}
           />
         </div>
+
+        <PlanBenefitsFields value={benefits} onChange={setBenefits} />
 
         <div className="flex items-center space-x-2">
           <Checkbox

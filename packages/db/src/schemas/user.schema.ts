@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { Document } from "mongoose";
+import { Document, Types } from "mongoose";
 import * as bcrypt from "bcrypt";
 
 export interface UserDocument extends User, Document {
@@ -61,6 +61,24 @@ export class User {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  /* ── Agency & profile ── */
+
+  /**
+   * Set on an agent account created by an agency owner (Agency Plus): the
+   * owner's user id. The agent lists under the owner's plan and sees only
+   * their own listings; the owner sees and manages the whole team's.
+   */
+  @Prop({ type: Types.ObjectId, ref: 'User', index: true, default: undefined })
+  agencyId?: Types.ObjectId;
+
+  /** Profile links — shown when the plan includes social links. */
+  @Prop({ type: Object, default: undefined })
+  socialLinks?: { facebook?: string; instagram?: string; youtube?: string; tiktok?: string; linkedin?: string; website?: string };
+
+  /** Profile cover image — shown when the plan includes a branded profile. */
+  @Prop()
+  coverUrl?: string;
 
   // 🔒 SECURITY: Account lockout mechanism (HIGH PRIORITY)
   @Prop({ default: 0, select: false })

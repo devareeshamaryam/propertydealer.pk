@@ -1,7 +1,15 @@
- import { serverApi } from "@/lib/server-api";
+ import { serverApi, isNotFoundError } from "@/lib/server-api";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import CementDetailClient from "./CementDetailClient";
+
+
+/* Rendered on first visit, then cached; refreshed every 10 minutes and when rates change. */
+export const revalidate = 600;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -49,8 +57,10 @@ export default async function CementDetailPage({ params }: Props) {
   let rate: any;
   try {
     rate = await serverApi.getCementRateBySlug(slug);
-  } catch {
-    notFound();
+  } catch (e) {
+    // 404 only when the rate really is gone; an API that is down keeps the cached page.
+    if (isNotFoundError(e)) notFound();
+    throw e;
   }
 
   return (

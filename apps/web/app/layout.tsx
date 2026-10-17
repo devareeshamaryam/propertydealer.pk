@@ -1,4 +1,4 @@
- import type { Metadata } from "next";
+ import type { Metadata, Viewport } from "next";
 import { Geist, Inter, Open_Sans, Poppins, Roboto } from "next/font/google";
 import "./globals.css";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -10,7 +10,7 @@ import ChunkReloadGuard from "@/components/ChunkReloadGuard";
 import ScrollRestorer from "@/components/ScrollRestorer";
 import { SiteSettingsProvider } from "@/components/SiteSettingsProvider";
 import { getSiteSettings } from "@/lib/site-settings.server";
-import { themeStyle } from "@/lib/site-settings";
+import { isHex, themeStyle } from "@/lib/site-settings";
 
 // ✅ Sirf Geist Sans — Mono hata diya (FCP improve)
 const geistSans = Geist({
@@ -105,6 +105,15 @@ export async function generateMetadata(): Promise<Metadata> {
   if (s.googleVerification) meta.verification = { google: s.googleVerification };
   if (s.faviconUrl) meta.icons = { icon: s.faviconUrl, apple: s.faviconUrl };
   return meta;
+}
+
+/*
+ * The address-bar colour phone browsers (Chrome on Android, Safari on iPhone)
+ * paint around the page — Settings → Appearance. White matches the header.
+ */
+export async function generateViewport(): Promise<Viewport> {
+  const s = await getSiteSettings();
+  return { themeColor: isHex(s.browserBarColor) ? s.browserBarColor : "#ffffff" };
 }
 
 export default async function RootLayout({

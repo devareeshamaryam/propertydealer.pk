@@ -1,7 +1,8 @@
  import PropertyDetail from '@/components/PropertyDetail';
 import Breadcrumbs from '@/components/Breadcrumbs';
-import { serverApi } from '@/lib/server-api';
+import { serverApi, isNotFoundError } from '@/lib/server-api';
 import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { toTitleCase } from '@/lib/utils';
 import { buildPropertySchema, buildBreadcrumbSchema } from '@/lib/schema/listing-schema';
 
@@ -11,59 +12,68 @@ type PageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
+/*
+ * Rendered once, then served from cache and refreshed every 5 minutes — or at
+ * once when the listing changes (the API revalidates its tags). Listings are
+ * not pre-built at deploy; each one is made on its first visit.
+ */
+export const revalidate = 300;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
+
+const slugify = (s: string) => String(s ?? '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+/** The listing, or a 404 for a slug that does not exist. An API that is down throws (the cached page stays). */
+async function getProperty(slug: string) {
   try {
     const property = await serverApi.getPropertyBySlug(slug);
+    if (!property) notFound();
+    return property;
+  } catch (error) {
+    if (isNotFoundError(error)) notFound();
+    throw error;
+  }
+}
 
-    if (!property) {
-      return {
-        title: 'Property Not Found',
-        description: 'The requested property could not be found.',
-      };
-    }
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const property = await getProperty(slug);
 
-    const title = property.title;
-    const description = property.description?.substring(0, 160) || `View details for property: ${property.title}`;
-    const imageUrl = property.mainPhotoUrl || '/og-image.jpg';
+  const title = property.title;
+  // Plain text for the snippet: descriptions can carry HTML and line breaks.
+  const description =
+    String(property.description ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) ||
+    `View details for property: ${property.title}`;
+  const imageUrl = property.mainPhotoUrl || '/og-image.jpg';
 
-    return {
+  return {
+    title,
+    description,
+    openGraph: {
       title,
       description,
-      openGraph: {
-        title,
-        description,
-        images: [{ url: imageUrl }],
-        type: 'website',
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title,
-        description,
-        images: [imageUrl],
-      },
-      alternates: {
-        canonical: `/properties/${slug}`,
-      },
-    };
-  } catch (error) {
-    console.error('Error generating metadata for property:', error);
-    return {
-      title: 'Property Details',
-      description: 'View property details on Property Dealer',
-    };
-  }
+      url: `${BASE_URL}/properties/${property.slug || slug}`,
+      images: [{ url: imageUrl }],
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [imageUrl],
+    },
+    alternates: {
+      canonical: `/properties/${property.slug || slug}`,
+    },
+  };
 }
 
 export default async function PropertyDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
-  let property: any = null;
-  try {
-    property = await serverApi.getPropertyBySlug(slug);
-  } catch (error) {
-    console.error('Error fetching property for page:', error);
-  }
+  const property: any = await getProperty(slug);
 
   let propertySchema = null;
   let breadcrumbSchema = null;
@@ -74,7 +84,8 @@ export default async function PropertyDetailPage({ params }: PageProps) {
     const areaName = areaObj?.name;
     const areaSlug = areaObj?.areaSlug;
     const cityName = areaObj?.city?.name || property.city;
-    const citySlug = areaObj?.city?.areaSlug;
+    // Cities have no slug field: the archive URLs use the name, lower-cased and hyphenated.
+    const citySlug = cityName ? slugify(cityName) : '';
     const isSale = property.listingType === 'sale';
     const purposePath = isSale ? 'sale' : 'rent';
 

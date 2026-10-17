@@ -4,21 +4,23 @@
 import { NextResponse } from 'next/server';
 import { serverApi } from '@/lib/server-api';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealers.pk';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 
+// Only pages that exist: /map, /hotels, /random, /listing-detail and /p answered 404 and were dropped.
 const STATIC_PAGES = [
   { url: '/',                                      priority: '1.0', changefreq: 'daily'   },
   { url: '/about',                                 priority: '0.6', changefreq: 'monthly' },
   { url: '/blog',                                  priority: '0.8', changefreq: 'daily'   },
+  { url: '/contact',                               priority: '0.5', changefreq: 'monthly' },
+  { url: '/privacy-policy',                        priority: '0.3', changefreq: 'yearly'  },
+  { url: '/terms',                                 priority: '0.3', changefreq: 'yearly'  },
+  { url: '/agents',                                priority: '0.6', changefreq: 'weekly'  },
   { url: '/properties',                            priority: '0.9', changefreq: 'daily'   },
   { url: '/properties/sale',                       priority: '0.9', changefreq: 'daily'   },
   { url: '/properties/rent',                       priority: '0.9', changefreq: 'daily'   },
   { url: '/properties/all',                        priority: '0.9', changefreq: 'daily'   },
   { url: '/packages',                              priority: '0.7', changefreq: 'weekly'  },
-  { url: '/map',                                   priority: '0.6', changefreq: 'weekly'  },
   { url: '/emap',                                  priority: '0.5', changefreq: 'weekly'  },
-  { url: '/hotels',                                priority: '0.6', changefreq: 'weekly'  },
-  { url: '/random',                                priority: '0.4', changefreq: 'weekly'  },
   { url: '/today-cement-rate-in-pakistan',         priority: '0.8', changefreq: 'daily'   },
   { url: '/today-steel-rate-in-pakistan',          priority: '0.8', changefreq: 'daily'   },
   { url: '/today-bajri-rate-in-pakistan',          priority: '0.8', changefreq: 'daily'   },
@@ -27,8 +29,6 @@ const STATIC_PAGES = [
   { url: '/today-door-rate-in-pakistan',           priority: '0.8', changefreq: 'daily'   },
   { url: '/today-tile-rate-in-pakistan',           priority: '0.8', changefreq: 'daily'   },
   { url: '/today-wood-rate-in-pakistan',           priority: '0.8', changefreq: 'daily'   },
-  { url: '/listing-detail',                        priority: '0.5', changefreq: 'weekly'  },
-  { url: '/p',                                     priority: '0.5', changefreq: 'daily'   },
 ];
 
 const PROPERTY_TYPES = [

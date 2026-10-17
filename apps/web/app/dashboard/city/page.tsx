@@ -83,7 +83,7 @@ export default function CitiesPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await cityApi.getAll();
+      const data = await cityApi.getNames();
       setCities(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching cities:", err);

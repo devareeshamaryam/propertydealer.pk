@@ -46,53 +46,7 @@ const BlogDetailPage = ({ post, relatedPosts = [] }: BlogDetailPageProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Structured Data (JSON-LD) for SEO */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            '@context': 'https://schema.org',
-            '@type': 'BlogPosting',
-            headline: post.title,
-            description: post.excerpt || post.title.substring(0, 160),
-            image: {
-              '@type': 'ImageObject',
-              url: fullImageUrl,
-              width: 1200,
-              height: 630,
-            },
-            datePublished: publishedDate,
-            dateModified: publishedDate,
-            author: {
-              '@type': 'Person',
-              name: post.author,
-            },
-            publisher: {
-              '@type': 'Organization',
-              name: 'RentGhar',
-              logo: {
-                '@type': 'ImageObject',
-                url: `${baseUrl}/logo.png`,
-                width: 200,
-                height: 200,
-              },
-            },
-            mainEntityOfPage: {
-              '@type': 'WebPage',
-              '@id': pageUrl,
-            },
-            url: pageUrl,
-            articleSection: post.category || 'General',
-            keywords: post.category || '',
-            wordCount: post.content?.replace(/<[^>]*>/g, '').split(/\s+/).length || 0,
-            inLanguage: 'en-US',
-            isAccessibleForFree: true,
-            ...(post.readTime && {
-              timeRequired: post.readTime,
-            }),
-          }),
-        }}
-      />
+      {/* Structured data is in the page's server HTML (app/(pages)/blog/[slug]/page.tsx). */}
       {/* Back Button */}
       <div className="container mx-auto px-4 pt-8 pb-8">
         <Link href="/blog">

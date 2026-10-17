@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import {
   Subscription,
   SubscriptionDocument,
@@ -14,6 +14,38 @@ import { Package, PackageDocument } from '@rent-ghar/db/schemas/package.schema';
 import { Property } from '@rent-ghar/db/schemas/property.schema';
 import { CreateSubscriptionDto } from '@rent-ghar/types/subscription';
 import { DiscordService, DISCORD_COLORS } from '../notify/discord.service';
+import { AgencyService } from '../agency/agency.service';
+
+/** What a plan unlocks, beyond its listing numbers. */
+export interface PlanPerks {
+  verifiedBadge: boolean;
+  teamMembers: number;
+  socialLinks: boolean;
+  brandedProfile: boolean;
+  autoPublish: boolean;
+  spotlight: boolean;
+}
+
+export const NO_PERKS: PlanPerks = {
+  verifiedBadge: false,
+  teamMembers: 0,
+  socialLinks: false,
+  brandedProfile: false,
+  autoPublish: false,
+  spotlight: false,
+};
+
+export function perksOf(pkg: any): PlanPerks {
+  if (!pkg) return NO_PERKS;
+  return {
+    verifiedBadge: !!pkg.verifiedBadge,
+    teamMembers: Math.max(0, Number(pkg.teamMembers) || 0),
+    socialLinks: !!pkg.socialLinks,
+    brandedProfile: !!pkg.brandedProfile,
+    autoPublish: !!pkg.autoPublish,
+    spotlight: !!pkg.spotlight,
+  };
+}
 
 @Injectable()
 export class SubscriptionService {
@@ -26,7 +58,17 @@ export class SubscriptionService {
     // Needed to count a free user's live listings against the free allowance.
     @InjectModel(Property.name)
     private propertyModel: Model<any>,
+    private readonly agency: AgencyService,
   ) {}
+
+  /** Live listings (pending or approved) of a whole team — the number the plan limit is about. */
+  private async countTeamListings(ownerId: string): Promise<number> {
+    const team = await this.agency.teamOf(ownerId);
+    return this.propertyModel.collection.countDocuments({
+      owner: { $in: AgencyService.anyIds(team) },
+      status: { $in: ['pending', 'approved'] },
+    });
+  }
 
   /**
    * Live listings allowed without a paid package.
@@ -48,6 +90,11 @@ export class SubscriptionService {
     }
     if (!packageDoc.isActive) {
       throw new BadRequestException('This package is not available for purchase');
+    }
+
+    // An agency's agents list under the agency's plan; only the owner buys.
+    if (await this.agency.agencyOf(userId)) {
+      throw new ForbiddenException('Your agency manages the plan for your account. Ask your agency owner to upgrade.');
     }
 
     /*
@@ -81,6 +128,23 @@ export class SubscriptionService {
       throw new BadRequestException(
         `You are on the ${activePlan.planName ?? 'paid'} plan. Switching to Free would end it straight away — ask an admin to cancel it if that is what you want.`,
       );
+    }
+
+    /*
+     * Free is where every account already is — there is nothing to buy, so no
+     * invoice and no checkout. (Choosing Free used to open the payment screen
+     * for a zero-rupee invoice.) The answer says the plan is in effect.
+     */
+    if ((packageDoc.price ?? 0) <= 0) {
+      return {
+        free: true,
+        status: 'active',
+        paymentStatus: 'completed',
+        planName: packageDoc.name,
+        amount: 0,
+        planPropertyLimit: packageDoc.propertyLimit,
+        planDurationDays: packageDoc.duration,
+      } as any;
     }
 
     /*
@@ -178,10 +242,12 @@ export class SubscriptionService {
   ): Promise<SubscriptionDocument | null> {
     return this.subscriptionModel
       .findOne({
-        userId,
+        // Stored as a string on some rows and an ObjectId on others.
+        userId: { $in: AgencyService.anyIds([String(userId)]) },
         status: 'active',
         endDate: { $gt: new Date() },
       })
+      .sort({ endDate: -1 })
       .populate('packageId')
       .exec();
   }
@@ -261,6 +327,7 @@ export class SubscriptionService {
     });
 
     const saved = await subscription.save();
+    void this.agency.refreshVerified();
 
     this.discord.send({
       title: '🎁 Plan granted by admin',
@@ -325,6 +392,7 @@ export class SubscriptionService {
       .exec();
 
     const saved = await subscription.save();
+    void this.agency.refreshVerified();
 
     this.discord.send({
       title: '✅ Payment verified — plan active',
@@ -374,6 +442,7 @@ export class SubscriptionService {
 
     subscription.status = 'cancelled';
     const saved = await subscription.save();
+    void this.agency.refreshVerified();
 
     if (userRole === 'ADMIN') {
       this.discord.send({
@@ -522,11 +591,9 @@ export class SubscriptionService {
   /**
    * The plan this account is actually on, paid or not.
    *
-   * canCreateProperty() answers "may I add one more?"; this answers "what do I
-   * have?", which is what the My Subscription screen needs. Without it that
-   * screen said "No active subscription — buy a package to start publishing"
-   * to every new agent, while the API was perfectly willing to publish their
-   * first listing. Same free-tier rule in both places, read from one method.
+   * An agency's agent is on the agency's plan: the numbers are the whole
+   * team's (one shared allowance), and `team.role` says which side of the
+   * agency this account is. `perks` is what the plan unlocks beyond numbers.
    */
   async getEffectivePlan(userId: string): Promise<{
     tier: 'free' | 'paid';
@@ -535,19 +602,26 @@ export class SubscriptionService {
     used: number;
     remaining: number;
     canCreate: boolean;
-    /** How many of their own listings this account may pin. Free gets none. */
+    /** How many listings the team may pin. Free gets none. */
     featuredLimit: number;
+    perks: PlanPerks;
+    endDate: Date | null;
+    team: { role: 'owner' | 'agent' | null; agencyId: string | null; members: number };
     subscription: SubscriptionDocument | null;
   }> {
-    const subscription = await this.findActiveSubscription(userId);
+    const owner = await this.agency.planOwnerOf(userId);
+    const isAgent = owner !== String(userId);
+    const subscription = await this.findActiveSubscription(owner);
+    const used = await this.countTeamListings(owner);
+    const members = (await this.agency.teamOf(owner)).length - 1;
+    const team = {
+      role: isAgent ? ('agent' as const) : members > 0 ? ('owner' as const) : null,
+      agencyId: isAgent ? owner : null,
+      members,
+    };
 
     if (!subscription) {
       const propertyLimit = SubscriptionService.FREE_PROPERTY_LIMIT;
-      const used = await this.propertyModel.countDocuments({
-        owner: userId,
-        status: { $in: ['pending', 'approved'] },
-      });
-
       return {
         tier: 'free',
         name: 'Free',
@@ -556,85 +630,52 @@ export class SubscriptionService {
         remaining: Math.max(0, propertyLimit - used),
         canCreate: used < propertyLimit,
         featuredLimit: 0,
+        perks: NO_PERKS,
+        endDate: null,
+        team,
         subscription: null,
       };
     }
 
     const packageDoc = subscription.packageId as any;
-    const propertyLimit = Number(packageDoc?.propertyLimit ?? 0);
-    const used = Number(subscription.propertiesUsed ?? 0);
+    const propertyLimit = Number(packageDoc?.propertyLimit ?? subscription.planPropertyLimit ?? 0);
+    const free = Number(subscription.amount ?? 0) <= 0 && Number(packageDoc?.price ?? 0) <= 0;
 
     return {
-      tier: 'paid',
-      name: packageDoc?.name ?? 'Subscription',
+      tier: free ? 'free' : 'paid',
+      name: packageDoc?.name ?? subscription.planName ?? 'Subscription',
       propertyLimit,
       used,
       remaining: Math.max(0, propertyLimit - used),
       canCreate: used < propertyLimit,
       featuredLimit: Number(packageDoc?.featuredListings ?? 0),
+      perks: perksOf(packageDoc),
+      endDate: subscription.endDate ?? null,
+      team,
       subscription,
     };
   }
 
+  /** "May I add one more listing?" — answered for the whole team, on the plan owner's subscription. */
   async canCreateProperty(userId: string): Promise<{
     canCreate: boolean;
     subscription?: SubscriptionDocument;
     message?: string;
   }> {
-    console.log('Checking subscription for userId:', userId);
-    const subscription = await this.findActiveSubscription(userId);
-    console.log('Subscription found:', subscription ? subscription._id : 'null');
-
-    if (!subscription) {
-      /*
-       * Everyone starts on the Free plan.
-       *
-       * This used to refuse outright — a brand-new agent signed up, went to
-       * add their first property and was told to buy a package before they had
-       * seen the dashboard do anything. Rather than writing a subscription row
-       * at sign-up (which would need a migration for every existing account,
-       * and would go stale), the entitlement simply falls back to a free tier
-       * when there is no paid one. Existing users get it too, with no backfill.
-       */
-      const freeLimit = SubscriptionService.FREE_PROPERTY_LIMIT;
-      const used = await this.propertyModel.countDocuments({
-        owner: userId,
-        status: { $in: ['pending', 'approved'] },
-      });
-
-      if (used >= freeLimit) {
-        return {
-          canCreate: false,
-          message:
-            `The Free plan allows ${freeLimit} live ${freeLimit === 1 ? 'listing' : 'listings'} at a time. ` +
-            'Choose a package to list more, or remove one of your current listings.',
-        };
-      }
-
-      return { canCreate: true };
+    const plan = await this.getEffectivePlan(userId);
+    if (plan.canCreate) {
+      return { canCreate: true, ...(plan.subscription ? { subscription: plan.subscription } : {}) };
     }
-
-    const packageDoc = subscription.packageId as any;
-
-    if (!packageDoc) {
-      return {
-        canCreate: false,
-        subscription,
-        message: 'Associated package not found.',
-      };
-    }
-
-    if (subscription.propertiesUsed >= packageDoc.propertyLimit) {
-      return {
-        canCreate: false,
-        subscription,
-        message: `Property limit (${packageDoc.propertyLimit}) reached for your current package.`,
-      };
-    }
-
+    const who = plan.team.role === 'agent' ? 'Your agency' : 'Your';
     return {
-      canCreate: true,
-      subscription,
+      canCreate: false,
+      ...(plan.subscription ? { subscription: plan.subscription } : {}),
+      message:
+        plan.tier === 'free' && !plan.subscription
+          ? `The Free plan allows ${plan.propertyLimit} live ${plan.propertyLimit === 1 ? 'listing' : 'listings'} at a time. ` +
+            (plan.team.role === 'agent' ? 'Ask your agency owner to choose a package.' : 'Choose a package to list more, or remove one of your current listings.')
+          : `${who} ${plan.name} plan's limit of ${plan.propertyLimit} listings is reached.` +
+            (plan.team.role === 'agent' ? ' Ask your agency owner to upgrade.' : ' Move up a plan to list more.'),
     };
   }
 
@@ -655,14 +696,129 @@ export class SubscriptionService {
     return subscription;
   }
 
-  async syncPropertyUsage(userId: string, actualCount: number): Promise<void> {
-    const subscription = await this.findActiveSubscription(userId);
-    if (subscription) {
-      if (subscription.propertiesUsed !== actualCount) {
-        console.log(`Syncing property usage for user ${userId}. correct: ${actualCount}, current: ${subscription.propertiesUsed}`);
-        subscription.propertiesUsed = actualCount;
-        await subscription.save();
-      }
+  /** Keep the subscription's counter equal to the team's real listing count. `actualCount` is ignored (kept for callers). */
+  async syncPropertyUsage(userId: string, _actualCount?: number): Promise<void> {
+    const owner = await this.agency.planOwnerOf(userId);
+    const subscription = await this.findActiveSubscription(owner);
+    if (!subscription) return;
+    const team = await this.agency.teamOf(owner);
+    const count = await this.propertyModel.collection.countDocuments({ owner: { $in: AgencyService.anyIds(team) } });
+    if (subscription.propertiesUsed !== count) {
+      subscription.propertiesUsed = count;
+      await subscription.save();
     }
+  }
+
+  /**
+   * Every account with the plan it is on — for the admin's Subscriptions
+   * screen. Accounts on Free have no subscription row (Free is simply "no
+   * paid plan"), so a list of subscriptions alone never showed them.
+   * Paged and searched in the database, not in the browser.
+   */
+  async listAccounts(q: { search?: string; plan?: string; page?: number; limit?: number }) {
+    const users = this.subscriptionModel.db.collection('users');
+    const limit = Math.min(100, Math.max(5, Number(q.limit) || 25));
+    const page = Math.max(1, Number(q.page) || 1);
+    const filter: Record<string, any> = { role: { $ne: 'ADMIN' } };
+
+    const search = String(q.search ?? '').trim();
+    if (search) {
+      const rx = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [{ name: rx }, { email: rx }, { phone: rx }, { companyName: rx }];
+    }
+
+    const now = new Date();
+    if (q.plan === 'paid' || q.plan === 'free') {
+      const paid = await this.subscriptionModel
+        .find({ status: 'active', endDate: { $gt: now }, amount: { $gt: 0 } })
+        .distinct('userId');
+      const granted = await this.subscriptionModel
+        .find({ status: 'active', endDate: { $gt: now }, paymentMethod: 'Granted by admin' })
+        .distinct('userId');
+      // userId is stored as a string on some rows and an ObjectId on others.
+      const ids = AgencyService.anyIds([...paid, ...granted].map(String));
+      filter._id = q.plan === 'paid' ? { $in: ids } : { $nin: ids };
+    } else if (q.plan === 'pending') {
+      const ids = await this.subscriptionModel
+        .find({ status: 'pending', paymentStatus: { $in: ['pending', 'submitted'] } })
+        .distinct('userId');
+      filter._id = { $in: AgencyService.anyIds(ids.map(String)) };
+    }
+
+    const [total, rows] = await Promise.all([
+      users.countDocuments(filter),
+      users
+        .find(filter, { projection: { name: 1, email: 1, phone: 1, role: 1, companyName: 1, avatarUrl: 1, isActive: 1, createdAt: 1, agencyId: 1 } })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray(),
+    ]);
+
+    const ids = rows.map((u) => u._id as Types.ObjectId);
+    const idStrings = ids.map(String);
+    const [active, pending, listings, teams] = await Promise.all([
+      this.subscriptionModel
+        .find({ userId: { $in: [...ids, ...idStrings] }, status: 'active', endDate: { $gt: now } })
+        .populate('packageId', 'name price')
+        .lean()
+        .exec(),
+      this.subscriptionModel
+        .find({ userId: { $in: [...ids, ...idStrings] }, status: 'pending', paymentStatus: { $in: ['pending', 'submitted'] } })
+        .select('userId paymentStatus planName amount')
+        .lean()
+        .exec(),
+      this.propertyModel.collection
+        .aggregate([
+          { $match: { owner: { $in: [...ids, ...idStrings] } } },
+          { $group: { _id: { $toString: '$owner' }, total: { $sum: 1 }, live: { $sum: { $cond: [{ $eq: ['$status', 'approved'] }, 1, 0] } } } },
+        ])
+        .toArray(),
+      users
+        .aggregate([
+          { $match: { agencyId: { $in: [...ids, ...idStrings] } } },
+          { $group: { _id: { $toString: '$agencyId' }, n: { $sum: 1 } } },
+        ])
+        .toArray(),
+    ]);
+    const verified = await this.agency.verifiedIds().catch(() => new Set<string>());
+    const agencyIds = [...new Set(rows.map((u: any) => (u.agencyId ? String(u.agencyId) : '')).filter(Boolean))];
+    const agencies = agencyIds.length
+      ? await users.find({ _id: { $in: agencyIds.map((i) => new Types.ObjectId(i)) } }, { projection: { name: 1, companyName: 1, email: 1 } }).toArray()
+      : [];
+
+    return {
+      total,
+      page,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      rows: rows.map((u: any) => {
+        const id = String(u._id);
+        const sub: any = active.find((a: any) => String(a.userId) === id);
+        const inv: any = pending.find((p: any) => String(p.userId) === id);
+        const l: any = listings.find((x: any) => x._id === id);
+        const agency: any = u.agencyId ? agencies.find((a: any) => String(a._id) === String(u.agencyId)) : null;
+        return {
+          _id: id,
+          name: u.name ?? '',
+          email: u.email,
+          phone: u.phone ?? '',
+          role: u.role,
+          companyName: u.companyName ?? '',
+          avatarUrl: u.avatarUrl ?? '',
+          verified: verified.has(id),
+          isActive: u.isActive !== false,
+          createdAt: u.createdAt,
+          plan: sub
+            ? { name: sub.packageId?.name ?? sub.planName ?? 'Plan', endDate: sub.endDate, paid: Number(sub.amount ?? 0) > 0, granted: sub.paymentMethod === 'Granted by admin', subscriptionId: String(sub._id) }
+            : agency
+              ? { name: 'Agency plan', endDate: null, paid: false, granted: false, subscriptionId: null }
+              : { name: 'Free', endDate: null, paid: false, granted: false, subscriptionId: null },
+          pendingInvoice: inv ? { status: inv.paymentStatus, planName: inv.planName, amount: inv.amount } : null,
+          listings: { total: l?.total ?? 0, live: l?.live ?? 0 },
+          teamSize: teams.find((t: any) => t._id === id)?.n ?? 0,
+          agency: agency ? { _id: String(agency._id), name: agency.companyName || agency.name || agency.email || 'an agency' } : null,
+        };
+      }),
+    };
   }
 }

@@ -10,6 +10,14 @@ import { RevalidateService } from '../revalidate/revalidate.service';
 
 const TAG_AREAS = 'areas';
 
+/**
+ * `city` is stored as an ObjectId on some areas and as a plain string on
+ * others, and the schema path is Mixed (nothing is cast) — so a lookup by
+ * city must name both forms, or it silently misses part of the city.
+ */
+const cityMatch = (cityId: string) => (isValidObjectId(cityId) ? { $in: [new Types.ObjectId(cityId), String(cityId)] } : String(cityId));
+const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 @Injectable()
 export class AreaService {
   constructor(
@@ -63,7 +71,8 @@ export class AreaService {
     return this.cache.wrap(
       this.cache.buildKey('areas:names', [cityId ?? 'all']),
       async () => {
-        const query: Record<string, unknown> = {};
+        // Merged duplicates and hidden junk entries are not offered for new listings.
+        const query: Record<string, unknown> = { mergedInto: { $in: [null] }, hidden: { $ne: true } };
         if (cityId && Types.ObjectId.isValid(cityId)) {
           query.city = { $in: [new Types.ObjectId(cityId), cityId] };
         }
@@ -106,9 +115,9 @@ export class AreaService {
 
   async findAreaByName(name: string, cityId?: string): Promise<AreaDocument> {
     const query: any = { 
-      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') } 
+      name: { $regex: new RegExp(`^${escapeRe(name.trim())}$`, 'i') } 
     };
-    if (cityId) query.city = cityId;
+    if (cityId) query.city = cityMatch(cityId);
 
     const area = await this.areaModel
       .findOne(query)
@@ -147,6 +156,9 @@ export class AreaService {
         const matches = await this.areaModel.collection
           .find({
             city: { $in: [new Types.ObjectId(cityId), cityId] },
+            // Merged duplicates' listings were moved to the area they joined.
+            // Hidden ones stay listed here, so a listing saved with one can still be edited.
+            mergedInto: { $in: [null] },
           })
           .project({ _id: 1 })
           .toArray();
@@ -166,9 +178,9 @@ export class AreaService {
 
   async findAreaBySlug(slug: string, cityId?: string): Promise<AreaDocument> {
     const query: any = { 
-      areaSlug: { $regex: new RegExp(`^${slug.trim()}$`, 'i') } 
+      areaSlug: { $regex: new RegExp(`^${escapeRe(slug.trim())}$`, 'i') } 
     };
-    if (cityId) query.city = cityId;
+    if (cityId) query.city = cityMatch(cityId);
 
     let area = await this.areaModel
       .findOne(query)
@@ -177,7 +189,7 @@ export class AreaService {
 
     // Fallback: If areaSlug is missing in historical DB entries, find dynamically
     if (!area) {
-      const fallbackQuery = cityId ? { city: cityId } : {};
+      const fallbackQuery = cityId ? { city: cityMatch(cityId) } : {};
       const allAreas = await this.areaModel.find(fallbackQuery).populate('city', 'name state country').exec();
       const targetSlug = slug.trim().toLowerCase();
       
@@ -211,8 +223,8 @@ export class AreaService {
 
     const existing = await this.areaModel
       .findOne({
-        name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
-        city: cityId,
+        name: { $regex: new RegExp(`^${escapeRe(name.trim())}$`, 'i') },
+        city: cityMatch(cityId),
       })
       .exec();
 

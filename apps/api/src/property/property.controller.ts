@@ -213,6 +213,7 @@ export class PropertyController {
     @Query('type') type?: string,
     @Query('priceMin') priceMin?: string,
     @Query('priceMax') priceMax?: string,
+    @Query('approx') approx?: string,
   ) {
     const n = (v: string) => Number(v);
     const box = { minLat: n(minLat), maxLat: n(maxLat), minLng: n(minLng), maxLng: n(maxLng) };
@@ -228,6 +229,7 @@ export class PropertyController {
       type,
       priceMin: priceMin ? Number(priceMin) : undefined,
       priceMax: priceMax ? Number(priceMax) : undefined,
+      approx: approx === '1',
     });
   }
 
@@ -269,8 +271,10 @@ export class PropertyController {
     @Query('limit') limit?: string,
     @Query('sortBy') sortBy?: string,
     @Query('sortDir') sortDir?: string,
+    @Query('ownerId') ownerId?: string,
   ) {
     const filters: DashboardPropertyFilters = {};
+    if (ownerId) filters.ownerId = ownerId;
     if (cityId) filters.cityId = cityId;
     if (areaId) filters.areaId = areaId;
     if (status && status !== 'all') filters.status = status;

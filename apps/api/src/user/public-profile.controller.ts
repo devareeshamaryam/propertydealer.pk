@@ -13,6 +13,13 @@ import { UserService } from './user.service';
 export class PublicProfileController {
   constructor(private readonly userService: UserService) {}
 
+  /** Agencies with the spotlight benefit. Before ':id'. */
+  @Get('spotlight')
+  @Header('Cache-Control', 'public, max-age=300, s-maxage=600')
+  async spotlight() {
+    return this.userService.spotlight();
+  }
+
   @Get(':id')
   // A profile changes rarely; let the CDN and the browser hold it briefly.
   @Header('Cache-Control', 'public, max-age=300, s-maxage=900, stale-while-revalidate=86400')

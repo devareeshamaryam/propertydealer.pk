@@ -1,5 +1,7 @@
 import {
   IsInt,
+  IsObject,
+  ValidateNested,
   IsOptional,
   IsString,
   Length,
@@ -8,6 +10,17 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+const LINK = /^(https?:\/\/[^\s]{3,300})?$/;
+
+export class SocialLinksDto {
+  @IsOptional() @IsString() @Matches(LINK, { message: 'Facebook link must start with https://' }) facebook?: string;
+  @IsOptional() @IsString() @Matches(LINK, { message: 'Instagram link must start with https://' }) instagram?: string;
+  @IsOptional() @IsString() @Matches(LINK, { message: 'YouTube link must start with https://' }) youtube?: string;
+  @IsOptional() @IsString() @Matches(LINK, { message: 'TikTok link must start with https://' }) tiktok?: string;
+  @IsOptional() @IsString() @Matches(LINK, { message: 'LinkedIn link must start with https://' }) linkedin?: string;
+  @IsOptional() @IsString() @Matches(LINK, { message: 'Website must start with https://' }) website?: string;
+}
 
 /**
  * The only fields a user may change on their own account.
@@ -74,4 +87,17 @@ export class UpdateProfileDto {
   @IsString()
   @Length(0, 500)
   avatarUrl?: string;
+
+  /** Profile cover image (media library URL). Shown when the plan includes a branded profile. */
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  coverUrl?: string;
+
+  /** Social links. Shown when the plan includes them; each must be a full https link. */
+  @IsOptional()
+  @IsObject()
+  @ValidateNested()
+  @Type(() => SocialLinksDto)
+  socialLinks?: SocialLinksDto;
 }

@@ -22,6 +22,8 @@ export interface SiteSettings {
   primaryColor: string;
   darkColor: string;
   priceTagColor: string;
+  /** The phone browser's address-bar colour (meta theme-color). Empty = white, like the header. */
+  browserBarColor: string;
   radius: number;
   buttonShape: 'rounded' | 'pill';
   tabBarShape: 'rounded' | 'pill';
@@ -64,6 +66,8 @@ export interface SiteSettings {
   homeShowLatest: boolean;
   homeLatestCount: number;
   homeShowAgentBand: boolean;
+  homeShowPlans: boolean;
+  homeShowAgencies: boolean;
   homeShowExplore: boolean;
   homeShowBlog: boolean;
   homeShowFaq: boolean;
@@ -102,6 +106,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   primaryColor: '',
   darkColor: '',
   priceTagColor: '',
+  browserBarColor: '',
   radius: 8,
   buttonShape: 'rounded',
   tabBarShape: 'rounded',
@@ -143,6 +148,8 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   homeShowLatest: true,
   homeLatestCount: 8,
   homeShowAgentBand: true,
+  homeShowPlans: true,
+  homeShowAgencies: true,
   homeShowExplore: true,
   homeShowBlog: true,
   homeShowFaq: true,
@@ -159,7 +166,55 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   shopWhatsapp: '',
 };
 
-const isHex = (v?: string) => !!v && /^#[0-9a-f]{6}$/i.test(v);
+/** Social links the footer shows until the admin enters their own. */
+export const DEFAULT_SOCIALS: [string, string][] = [
+  ['Facebook', 'https://www.facebook.com/pkpropertydealer'],
+  ['YouTube', 'https://www.youtube.com/@Propertydealer-y9r'],
+  ['LinkedIn', 'https://www.linkedin.com/company/propertydealer-pk/about/'],
+];
+export const DEFAULT_SEO_TITLE = 'Property Dealer | Buy, Sell & Rent Property';
+export const DEFAULT_SEO_DESCRIPTION =
+  'Property Dealer is a property buying and selling marketplace across Pakistan, connecting buyers and sellers for residential and commercial real estate.';
+export const DEFAULT_TAGLINE = 'Serving buyers, renters and dealers across Pakistan since 2007.';
+export const DEFAULT_COPYRIGHT = '© {year} PropertyDealer. All rights reserved.';
+
+/**
+ * What the live site shows for each setting left empty — so the settings
+ * screens can show the real values in their fields rather than blanks.
+ * Saving one of these unchanged stores the same value, so nothing on the
+ * site moves.
+ */
+export const LIVE_DEFAULTS: Partial<SiteSettings> = {
+  siteName: DEFAULT_SITE_NAME,
+  tagline: DEFAULT_TAGLINE,
+  contactPhone: DEFAULT_PHONE,
+  contactWhatsapp: DEFAULT_PHONE,
+  contactEmail: DEFAULT_EMAIL,
+  footerAbout: DEFAULT_FOOTER_ABOUT,
+  copyrightText: DEFAULT_COPYRIGHT,
+  seoTitle: DEFAULT_SEO_TITLE,
+  seoDescription: DEFAULT_SEO_DESCRIPTION,
+  gaMeasurementId: DEFAULT_GA_ID,
+  socialFacebook: DEFAULT_SOCIALS[0]![1],
+  socialYoutube: DEFAULT_SOCIALS[1]![1],
+  socialLinkedin: DEFAULT_SOCIALS[2]![1],
+  heroTitle: DEFAULT_HERO_TITLE,
+  heroSubtitle: DEFAULT_HERO_SUBTITLE,
+};
+
+/** The settings with every empty field showing its live value. */
+export function withLiveDefaults(s: SiteSettings): SiteSettings {
+  const out = { ...s };
+  // The footer's fallback social links apply only while none are set.
+  const anySocial = [s.socialFacebook, s.socialInstagram, s.socialYoutube, s.socialLinkedin, s.socialTiktok, s.socialX].some(Boolean);
+  for (const [k, v] of Object.entries(LIVE_DEFAULTS) as [keyof SiteSettings, never][]) {
+    if (String(k).startsWith('social') && anySocial) continue;
+    if (out[k] === '' || out[k] === undefined || out[k] === null) (out as Record<string, unknown>)[k] = v;
+  }
+  return out;
+}
+
+export const isHex = (v?: string) => !!v && /^#[0-9a-f]{6}$/i.test(v);
 
 /** Values with their defaults applied, for rendering. */
 export function resolved(s: SiteSettings) {

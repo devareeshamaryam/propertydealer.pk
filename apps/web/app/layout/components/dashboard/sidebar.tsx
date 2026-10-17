@@ -141,7 +141,7 @@ export default function DashboardSidebar() {
     const sections: NavSection[] = [];
     for (const section of NAV_SECTIONS) {
       const entries = section.entries
-        .filter((entry) => isAdmin || !entry.adminOnly)
+        .filter((entry) => (isAdmin || !entry.adminOnly) && !(isAdmin && !isGroup(entry) && entry.agentOnly))
         .map((entry) => {
           if (!isGroup(entry)) return entry;
           const items = entry.items

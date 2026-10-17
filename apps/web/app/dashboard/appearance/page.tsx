@@ -50,7 +50,7 @@ const SHAPES: { value: SiteSettings["buttonShape"]; label: string }[] = [
 ];
 
 const KEYS: (keyof SiteSettings)[] = [
-  "primaryColor", "darkColor", "priceTagColor", "radius", "buttonShape", "tabBarShape", "font",
+  "primaryColor", "darkColor", "priceTagColor", "browserBarColor", "radius", "buttonShape", "tabBarShape", "font",
   "logoUrl", "logoHeight", "logoHeightMobile", "footerLogoUrl", "faviconUrl",
   "heroTitle", "heroSubtitle", "heroImageEnabled", "heroImageUrl", "heroOverlay",
 ];
@@ -64,6 +64,12 @@ export default function AppearancePage() {
   const primary = isHex(settings.primaryColor) ? settings.primaryColor : DEFAULT_PRIMARY;
   const dark = isHex(settings.darkColor) ? settings.darkColor : DEFAULT_DARK;
   const tag = isHex(settings.priceTagColor) ? settings.priceTagColor : DEFAULT_PRICE_TAG;
+  const barColor = isHex(settings.browserBarColor) ? settings.browserBarColor : "#ffffff";
+  // Light text on a dark bar, the way the phone does it.
+  const barIsDark = (() => {
+    const n = parseInt(barColor.slice(1), 16);
+    return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000 < 150;
+  })();
   const heroImage = settings.heroImageEnabled ? settings.heroImageUrl || DEFAULT_HERO_IMAGE : "";
 
   if (user && user.role !== "ADMIN") {
@@ -110,6 +116,14 @@ export default function AppearancePage() {
                 fallback={DEFAULT_PRICE_TAG}
                 presets={TAG_PRESETS}
                 onChange={(v) => set("priceTagColor", v)}
+              />
+              <ColorField
+                label="Phone browser bar"
+                hint="The address-bar colour in Chrome on Android and Safari on iPhone, around the top of the site. White matches the header; empty keeps white."
+                value={settings.browserBarColor}
+                fallback="#ffffff"
+                presets={["#ffffff", primary, dark, "#000000"]}
+                onChange={(v) => set("browserBarColor", v)}
               />
             </SettingsCard>
 
@@ -274,6 +288,15 @@ export default function AppearancePage() {
                 className="bg-slate-100 text-slate-900"
                 style={{ fontFamily: settings.font === "geist" ? undefined : `var(--font-${settings.font})` }}
               >
+                <div
+                  className="flex items-center gap-2 px-3 py-1.5"
+                  style={{ background: barColor, color: barIsDark ? "#fff" : "#0f172a" }}
+                >
+                  <span className="text-[10px] font-semibold">9:41</span>
+                  <span className="h-4 flex-1 truncate rounded-full px-2 text-[9px] leading-4" style={{ background: barIsDark ? "rgba(255,255,255,.18)" : "rgba(15,23,42,.08)" }}>
+                    propertydealer.pk
+                  </span>
+                </div>
                 <div className="p-2">
                   <div className="flex items-center justify-between rounded-xl border bg-white px-3 py-2 shadow-sm">
                     {settings.logoUrl ? (

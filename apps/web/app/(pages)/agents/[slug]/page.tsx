@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BadgeCheck, MapPin, MessageCircle, Phone } from "lucide-react";
+import { MapPin, MessageCircle, Phone, Users } from "lucide-react";
+import VerifiedBadge from "@/components/VerifiedBadge";
+import ShareProfile from "@/components/agent/ShareProfile";
+import SocialLinks from "@/components/agent/SocialLinks";
 import { waDigits } from "@/lib/site-settings";
 
 import AgentListings from "@/components/AgentListings";
@@ -9,7 +12,7 @@ import { ReportButton } from "@/components/property/ReportButton";
 import { Button } from "@/components/ui/button";
 import agentApi, { type AgentProfile } from "@/lib/api/agent/agent.api";
 import { propertyApi } from "@/lib/api";
-import { agentDisplayName, agentIdFromSlug } from "@/lib/agent";
+import { agentDisplayName, agentIdFromSlug, agentProfilePath } from "@/lib/agent";
 import {
   mapBackendToFrontendProperty,
   type BackendProperty,
@@ -25,14 +28,20 @@ import {
  * every listing. The listing card links here, and this page links back.
  *
  * Laid out like a social profile: one card holding the photo, the name, the
- * numbers and the two contact buttons, then everything else beneath it. There
- * is deliberately no cover image — agents do not have one to upload, and an
- * empty grey band at the top of every profile looks broken rather than
- * unfinished. The slim tinted strip behind the avatar does the same job of
- * separating the header from the page without asking anyone for a photo.
+ * numbers and the contact buttons, then everything else beneath it. A cover
+ * photo shows only when the agent's plan includes a branded profile and they
+ * have uploaded one — never an empty grey band. The Verified badge is for
+ * plans that include it (Agency, Agency Plus), not for every active dealer.
  */
 
 const LISTINGS_LIMIT = 24;
+
+/* Rendered on first visit, then cached; refreshed every 10 minutes and when a listing changes. */
+export const revalidate = 600;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -68,6 +77,11 @@ async function getAgent(slug: string): Promise<AgentPageData | null> {
     propertyApi.getAll({ ownerId: id, limit: 1, purpose: "buy" }),
     propertyApi.getAll({ ownerId: id, limit: 1, purpose: "rent" }),
   ]);
+  // Both lookups failing for a reason other than "not found" means the API is
+  // down: throw, so a cached profile is not replaced by a 404 or an empty page.
+  const down = (r: PromiseSettledResult<any>) => r.status === 'rejected' && Number(r.reason?.response?.status ?? 0) !== 404;
+  if (down(profileResult) && down(listingsResult)) throw (profileResult as PromiseRejectedResult).reason;
+
   const totalOf = (r: PromiseSettledResult<any>) =>
     r.status === "fulfilled" ? Number(r.value?.total ?? 0) || 0 : 0;
 
@@ -84,7 +98,7 @@ async function getAgent(slug: string): Promise<AgentPageData | null> {
   }
 
   // Nothing to say about them and nothing to show: that is a genuine 404.
-  if (!profile && listings.length === 0) return null;
+  if (!profile && listings.length === 0 && totalOf(saleResult) + totalOf(rentResult) === 0) return null;
 
   return {
     profile: profile ?? { _id: id },
@@ -162,7 +176,13 @@ export default async function AgentProfilePage({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-slate-50 pb-10">
       <section className="border-b border-slate-200 bg-white">
-        <div className="container mx-auto px-4 pb-5 pt-6 sm:pb-7 sm:pt-8">
+        {profile.coverUrl && (
+          <div className="relative h-36 w-full overflow-hidden bg-slate-200 sm:h-56">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={profile.coverUrl} alt="" className="h-full w-full object-cover" />
+          </div>
+        )}
+        <div className={`container mx-auto px-4 pb-5 sm:pb-7 ${profile.coverUrl ? "-mt-12 sm:-mt-14" : "pt-6 sm:pt-8"}`}>
           <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
             <span className="rounded-full bg-primary p-[3px]">
               <span className="block rounded-full bg-white p-[3px]">
@@ -182,12 +202,22 @@ export default async function AgentProfilePage({ params }: PageProps) {
             <div className="mt-3 min-w-0 flex-1 sm:mt-0">
               <h1 className="inline-flex items-center gap-1.5 text-[24px] font-bold leading-tight tracking-tight text-slate-900 sm:text-[30px]">
                 {name}
-                {total > 0 && (
-                  <BadgeCheck className="h-6 w-6 shrink-0 fill-primary text-white" aria-label="Active dealer" />
-                )}
               </h1>
+              {profile.verified && (
+                <div className="mt-1">
+                  <VerifiedBadge />
+                </div>
+              )}
               {profile.companyName && profile.name && (
                 <p className="mt-0.5 text-[15px] text-slate-600">{profile.name}</p>
+              )}
+              {profile.agency && (
+                <p className="mt-1 text-[14px] text-slate-600">
+                  Agent at{" "}
+                  <Link href={agentProfilePath({ _id: profile.agency._id, name: profile.agency.name }) ?? "#"} className="font-semibold text-primary hover:underline">
+                    {profile.agency.name}
+                  </Link>
+                </p>
               )}
               {profile.address && (
                 <p className="mt-1 inline-flex items-center gap-1.5 text-[14px] text-slate-600">
@@ -198,7 +228,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
             </div>
 
             {(phone || whatsapp) && (
-              <div className="mt-4 grid w-full grid-cols-2 gap-2 sm:mt-0 sm:w-auto sm:min-w-[260px]">
+              <div className="mt-4 grid w-full grid-cols-2 gap-2 sm:mt-0 sm:w-auto sm:min-w-[260px] sm:self-end">
                 {phone ? (
                   <a
                     href={`tel:${phone.replace(/\s/g, "")}`}
@@ -235,11 +265,44 @@ export default async function AgentProfilePage({ params }: PageProps) {
           {profile.bio && (
             <p className="mt-4 max-w-3xl whitespace-pre-line text-[15px] leading-relaxed text-slate-700">{profile.bio}</p>
           )}
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <ShareProfile name={name} />
+            <SocialLinks links={profile.socialLinks} />
+          </div>
+
+          {(profile.team?.length ?? 0) > 0 && (
+            <div className="mt-6">
+              <h2 className="flex items-center gap-2 text-[16px] font-bold text-slate-900">
+                <Users className="h-4 w-4 text-primary" /> Our agents
+              </h2>
+              <div className="hide-scrollbar mt-3 flex gap-3 overflow-x-auto pb-1">
+                {profile.team!.map((m) => (
+                  <Link
+                    key={m._id}
+                    href={agentProfilePath({ _id: m._id, name: m.name }) ?? "#"}
+                    className="flex w-24 shrink-0 flex-col items-center text-center"
+                  >
+                    <span className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-primary/10 text-lg font-bold text-primary ring-2 ring-white">
+                      {m.avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={m.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        m.name.slice(0, 1).toUpperCase()
+                      )}
+                    </span>
+                    <span className="mt-1.5 line-clamp-2 text-[12.5px] font-medium text-slate-800">{m.name}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
       <div className="container mx-auto px-4 pt-5">
-        {listings.length === 0 ? (
+        {/* The counts say there are listings even when the first page failed to load: the list fetches it then. */}
+        {listings.length === 0 && saleTotal + rentTotal === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-14 text-center">
             <p className="text-slate-600">
               {profileMissing
@@ -254,7 +317,7 @@ export default async function AgentProfilePage({ params }: PageProps) {
           <AgentListings
             agentId={profile._id}
             initial={listings.map((row) => ({ ...mapBackendToFrontendProperty(row), description: undefined }))}
-            totals={{ all: total, sale: saleTotal || forSale.length, rent: rentTotal || forRent.length }}
+            totals={{ all: Math.max(total, saleTotal + rentTotal), sale: saleTotal || forSale.length, rent: rentTotal || forRent.length }}
           />
         )}
 

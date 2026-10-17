@@ -82,6 +82,7 @@ const nextConfig: NextConfig = {
         { source: '/sitemap-blogs.xml',      destination: '/sitemap-blogs'      },
         { source: '/sitemap-properties.xml', destination: '/sitemap-properties' },
         { source: '/sitemap-rates.xml',      destination: '/sitemap-rates'      },
+        { source: '/sitemap-maps.xml',       destination: '/sitemap-maps'       },
         { source: '/sitemap-cities.xml',     destination: '/sitemap-cities'     },
         { source: '/sitemap-city-:slug.xml', destination: '/sitemap-city-:slug' },
       ],

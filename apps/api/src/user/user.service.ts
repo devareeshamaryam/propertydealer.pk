@@ -1,11 +1,59 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '@rent-ghar/db/schemas/user.schema';
+import { SubscriptionService } from '../subscription/subscription.service';
+import { AgencyService } from '../agency/agency.service';
+import { RedisCacheService } from '../redis-cache/redis-cache.service';
 
 @Injectable()
 export class UserService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private readonly subscriptions: SubscriptionService,
+    private readonly agency: AgencyService,
+    private readonly cache: RedisCacheService,
+  ) {}
+
+  /**
+   * Agencies on a plan with the spotlight benefit — for "Verified agencies" on
+   * the homepage and the top of the agents page. Most live listings first.
+   */
+  async spotlight(limit = 12) {
+    return this.cache.wrap(this.cache.buildKey('agents:spotlight', [limit]), async () => {
+      const db = this.userModel.db;
+      const plans = await db.collection('packages').find({ spotlight: true }, { projection: { _id: 1 } }).toArray();
+      if (!plans.length) return [];
+      const owners = await db
+        .collection('subscriptions')
+        .distinct('userId', { status: 'active', endDate: { $gt: new Date() }, packageId: { $in: AgencyService.anyIds(plans.map((p) => String(p._id))) } });
+      if (!owners.length) return [];
+      const users = await this.userModel
+        .find({ _id: { $in: owners.map(String).filter((i) => Types.ObjectId.isValid(i)) }, isActive: { $ne: false } })
+        .select('name companyName avatarUrl address')
+        .lean();
+      const ids = users.map((u: any) => u._id);
+      const counts = await db
+        .collection('properties')
+        .aggregate([
+          { $match: { owner: { $in: [...ids, ...ids.map(String)] }, status: 'approved' } },
+          { $group: { _id: { $toString: '$owner' }, n: { $sum: 1 } } },
+        ])
+        .toArray();
+      return users
+        .map((u: any) => ({
+          _id: String(u._id),
+          name: u.companyName || u.name || 'Agency',
+          person: u.companyName ? u.name ?? '' : '',
+          avatarUrl: u.avatarUrl ?? '',
+          address: u.address ?? '',
+          listings: counts.find((c: any) => c._id === String(u._id))?.n ?? 0,
+          verified: true,
+        }))
+        .sort((a, b) => b.listings - a.listings)
+        .slice(0, limit);
+    }, { ttl: 600, tags: ['subscriptions', 'properties'] });
+  }
 
   async findAll() {
     // 🚀 PERF: .lean() — the users table renders plain fields, so there is no
@@ -66,17 +114,54 @@ export class UserService {
    * and the lockout counters. Only what an agent would print on a business card
    * goes out, and only for an account that is still active.
    */
+  /**
+   * An agent's public profile, with what their plan unlocks: the verified
+   * badge, social links, cover photo — and for an agency, its team; for an
+   * agency's agent, the agency.
+   */
   async findPublicProfile(id: string) {
-    const user = await this.userModel
+    const user: any = await this.userModel
       .findOne({ _id: id, isActive: { $ne: false } })
-      .select('name companyName bio avatarUrl experienceYears phone whatsappNumber address createdAt')
+      .select('name companyName bio avatarUrl coverUrl socialLinks experienceYears phone whatsappNumber address createdAt agencyId')
       .lean();
 
     if (!user) {
       throw new NotFoundException('Agent not found');
     }
 
-    return user;
+    const [plan, verified] = await Promise.all([
+      this.subscriptions.getEffectivePlan(String(user._id)).catch(() => null),
+      this.agency.isVerified(user._id).catch(() => false),
+    ]);
+    const perks = plan?.perks;
+
+    let agency: Record<string, unknown> | null = null;
+    if (user.agencyId) {
+      const a: any = await this.userModel.findById(user.agencyId).select('name companyName avatarUrl').lean();
+      if (a) agency = { _id: String(a._id), name: a.companyName || a.name || 'Agency', avatarUrl: a.avatarUrl ?? '' };
+    }
+
+    let team: Record<string, unknown>[] = [];
+    if (!user.agencyId && (perks?.teamMembers ?? 0) > 0) {
+      const members = await this.userModel
+        .find({ agencyId: { $in: [user._id, String(user._id)] }, isActive: { $ne: false } })
+        .select('name avatarUrl')
+        .sort({ name: 1 })
+        .limit(50)
+        .lean();
+      team = members.map((m: any) => ({ _id: String(m._id), name: m.name ?? 'Agent', avatarUrl: m.avatarUrl ?? '' }));
+    }
+
+    const { agencyId: _agencyId, socialLinks, coverUrl, ...rest } = user;
+    return {
+      ...rest,
+      verified,
+      // An agency's agents carry its branding and links.
+      socialLinks: perks?.socialLinks ? socialLinks ?? {} : undefined,
+      coverUrl: perks?.brandedProfile ? coverUrl || undefined : undefined,
+      agency,
+      team,
+    };
   }
 
   /**

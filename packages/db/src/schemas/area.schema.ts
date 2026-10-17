@@ -71,6 +71,24 @@ export class Area {
     content?: string;
   }[];
 
+  // ── Map & housekeeping (all optional; existing areas are unchanged without them) ──
+
+  /** Where the area is — its centre — for the map's labels. */
+  @Prop() lat?: number;
+  @Prop() lng?: number;
+
+  /** A duplicate folded into another area: its URL stays, showing that area. */
+  @Prop({ type: Types.ObjectId, ref: 'Area', default: undefined })
+  mergedInto?: Types.ObjectId;
+  @Prop({ trim: true, lowercase: true }) mergedIntoSlug?: string;
+
+  /** Kept (its URL works) but not offered in dropdowns or on the map — e.g. "7.5 marla" saved as an area. */
+  @Prop() hidden?: boolean;
+
+  /** Where an added area came from ("osm" = OpenStreetMap import) and its id there. */
+  @Prop({ trim: true }) source?: string;
+  @Prop({ trim: true }) sourceId?: string;
+
   // Properties are optional - an area can exist without properties initially
   // Properties will reference the area, not the other way around
 }

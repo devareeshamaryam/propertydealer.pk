@@ -102,7 +102,7 @@ export default function AreasPage() {
       // a failure there must not hide the areas themselves.
       const [areasResult, citiesResult] = await Promise.allSettled([
         areaApi.getAll(),
-        cityApi.getAll(),
+        cityApi.getNames(),
       ]);
 
       if (areasResult.status === "rejected") throw areasResult.reason;

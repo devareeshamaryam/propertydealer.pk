@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { Fragment, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -150,23 +150,28 @@ export default function DashboardLayout({
                 {crumbs.map((crumb, index) => {
                   const isLast = index === crumbs.length - 1;
                   return (
-                    <BreadcrumbItem key={crumb.href}>
-                      {isLast || crumb.navigable === false ? (
-                        <BreadcrumbPage className="font-medium">
-                          {crumb.label}
-                        </BreadcrumbPage>
-                      ) : (
-                        <>
+                    // The separator is an <li> of its own: inside the item
+                    // it was an <li> in an <li>, a hydration error on every
+                    // dashboard page.
+                    <Fragment key={crumb.href}>
+                      <BreadcrumbItem>
+                        {isLast || crumb.navigable === false ? (
+                          <BreadcrumbPage className="font-medium">
+                            {crumb.label}
+                          </BreadcrumbPage>
+                        ) : (
                           <BreadcrumbLink
                             asChild
                             className="hidden sm:inline-flex"
                           >
                             <Link href={crumb.href}>{crumb.label}</Link>
                           </BreadcrumbLink>
-                          <BreadcrumbSeparator className="hidden sm:block" />
-                        </>
+                        )}
+                      </BreadcrumbItem>
+                      {!isLast && crumb.navigable !== false && (
+                        <BreadcrumbSeparator className="hidden sm:block" />
                       )}
-                    </BreadcrumbItem>
+                    </Fragment>
                   );
                 })}
               </BreadcrumbList>

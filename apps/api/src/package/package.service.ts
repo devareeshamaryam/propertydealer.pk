@@ -3,16 +3,27 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Package, PackageDocument } from '@rent-ghar/db/schemas/package.schema';
 import { CreatePackageDto, UpdatePackageDto } from '@rent-ghar/types/package';
+import { RevalidateService } from '../revalidate/revalidate.service';
+import { AgencyService } from '../agency/agency.service';
 
 @Injectable()
 export class PackageService {
   constructor(
     @InjectModel(Package.name) private packageModel: Model<PackageDocument>,
+    private readonly revalidate: RevalidateService,
+    private readonly agency: AgencyService,
   ) {}
 
+  /** Plans show on the homepage and /packages, and decide who is verified. */
+  private changed() {
+    void this.revalidate.revalidate({ tags: ['packages'], paths: ['/', '/packages'] });
+    void this.agency.refreshVerified();
+  }
+
   async create(dto: CreatePackageDto): Promise<PackageDocument> {
-    const packageDoc = new this.packageModel(dto);
-    return packageDoc.save();
+    const packageDoc = await new this.packageModel(dto).save();
+    this.changed();
+    return packageDoc;
   }
 
   async findAll(): Promise<PackageDocument[]> {
@@ -38,6 +49,7 @@ export class PackageService {
     if (!packageDoc) {
       throw new NotFoundException(`Package with ID ${id} not found`);
     }
+    this.changed();
     return packageDoc;
   }
 
@@ -46,6 +58,7 @@ export class PackageService {
     if (!result) {
       throw new NotFoundException(`Package with ID ${id} not found`);
     }
+    this.changed();
     return {
       success: true,
       message: 'Package deleted successfully',

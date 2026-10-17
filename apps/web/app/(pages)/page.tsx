@@ -5,7 +5,9 @@ import ExploreTools from "@/components/ExploreTools";
 import CityStories from "@/components/CityStories";
 import AgentSignupSection from "@/components/AgentSignupSection";
 import FAQSection from "@/components/FAQSection";
-import { serverApi, getCityStories } from "@/lib/server-api";
+import { serverApi, getCityStories, getPlans, getSpotlightAgencies } from "@/lib/server-api";
+import HomePlans from "@/components/home/HomePlans";
+import VerifiedAgencies from "@/components/home/VerifiedAgencies";
 import { getSiteSettings } from "@/lib/site-settings.server";
 import { mapBackendToFrontendProperty, sortPropertyTypes } from "@/lib/types/property-utils";
 import { transformBlogsToPosts } from "@/lib/utils/blog-utils";
@@ -23,15 +25,19 @@ export default async function Home() {
   // Settings → General → Homepage sections.
   const settings = await getSiteSettings();
   // ✅ Sab kuch ek saath fetch — parallel requests
-  const [citiesResult, propertiesResult, typesResult, blogsResult, cityStoriesResult] =
+  const [citiesResult, propertiesResult, typesResult, blogsResult, cityStoriesResult, plansResult, agenciesResult] =
     await Promise.allSettled([
       serverApi.getCityNames(),
       serverApi.getProperties(`limit=${settings.homeLatestCount || 8}`),
       serverApi.getTypes(),
       serverApi.getPublishedBlogs(),
       getCityStories(),
+      settings.homeShowPlans ? getPlans() : Promise.resolve([]),
+      settings.homeShowAgencies ? getSpotlightAgencies() : Promise.resolve([]),
     ]);
   const cityStories = cityStoriesResult.status === "fulfilled" ? cityStoriesResult.value : [];
+  const plans = plansResult.status === "fulfilled" ? plansResult.value : [];
+  const agencies = agenciesResult.status === "fulfilled" ? agenciesResult.value : [];
 
   if (citiesResult.status === "rejected")
     console.error("❌ Cities fetch failed:", citiesResult.reason?.message || citiesResult.reason);
@@ -133,7 +139,9 @@ export default async function Home() {
       {settings.homeShowLatest && (
         <FeaturedSection initialProperties={transformedProperties} count={settings.homeLatestCount} />
       )}
+      {settings.homeShowAgencies && <VerifiedAgencies agencies={agencies} />}
       {settings.homeShowAgentBand && <AgentSignupSection />}
+      {settings.homeShowPlans && <HomePlans plans={plans} />}
       {settings.homeShowExplore && <ExploreTools />}
       {/*
         A testimonials section was removed: its four reviews (all five stars,

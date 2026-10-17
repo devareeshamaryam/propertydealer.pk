@@ -53,6 +53,19 @@ export const MAP_TILES: Record<MapStyle, TileSource> = {
   },
 };
 
+/**
+ * The explorer's plain map: Google's street map with every label switched off
+ * (`apistyle` s.e:l|p.v:off), so the only names on it are ours — cities,
+ * societies and prices — instead of hundreds of shop and lane names.
+ */
+export const CLEAN_TILES: TileSource = {
+  url: "https://{s}.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&apistyle=s.e%3Al%7Cp.v%3Aoff",
+  attribution: "&copy; Google",
+  label: "Map",
+  maxZoom: 20,
+  subdomains: ["mt0", "mt1", "mt2", "mt3"],
+};
+
 /** Centre of Pakistan — the fallback when a listing has no coordinates. */
 export const PAKISTAN_CENTER: [number, number] = [30.3753, 69.3451];
 

@@ -31,6 +31,36 @@ export class Package {
 
   @Prop({ type: [String], default: [] })
   features: string[]; // Additional features list
+
+  /* ── Benefits the site actually enforces (all off unless set) ── */
+
+  /** "Verified" badge on the agent's profile, listings and listing cards. */
+  @Prop({ default: false })
+  verifiedBadge: boolean;
+
+  /** Agent accounts the owner can create under their agency (0 = none). */
+  @Prop({ default: 0 })
+  teamMembers: number;
+
+  /** Facebook, Instagram, YouTube, TikTok, LinkedIn and website links on the profile. */
+  @Prop({ default: false })
+  socialLinks: boolean;
+
+  /** Cover photo and agency branding on the profile page. */
+  @Prop({ default: false })
+  brandedProfile: boolean;
+
+  /** New listings go live at once instead of waiting for review. */
+  @Prop({ default: false })
+  autoPublish: boolean;
+
+  /** Shown in "Verified agencies" on the homepage and at the top of the agents list. */
+  @Prop({ default: false })
+  spotlight: boolean;
+
+  /** Marked "Most popular" on the pricing cards. */
+  @Prop({ default: false })
+  highlight: boolean;
 }
 
 export const PackageSchema = SchemaFactory.createForClass(Package);

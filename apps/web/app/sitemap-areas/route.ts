@@ -4,7 +4,7 @@
 import { NextResponse } from 'next/server';
 import { serverApi } from '@/lib/server-api';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealers.pk';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 
 const PROPERTY_TYPES = [
   'house', 'apartment', 'flat', 'plot',
@@ -88,6 +88,10 @@ export async function GET() {
         for (const area of areas) {
           const areaSlug = area.areaSlug || area.slug || area.name?.toLowerCase().replace(/\s+/g, '-');
           if (!areaSlug) continue;
+          // Not listed: duplicates merged into another area (canonical to it), entries
+          // hidden as junk, and areas added from the map import — those have no
+          // listings yet and would crowd the 50,000-URL limit with empty pages.
+          if (area.mergedInto || area.hidden || area.source === 'osm' || area.source === 'checklist') continue;
 
           const areaLastmod = area.updatedAt
             ? new Date(area.updatedAt).toISOString().split('T')[0]!

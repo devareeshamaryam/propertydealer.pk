@@ -7,6 +7,8 @@ import {
   Param,
   UseGuards,
   Request,
+  Query,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SubscriptionService } from './subscription.service';
 import { CreateSubscriptionDto } from '@rent-ghar/types/subscription';
@@ -110,10 +112,28 @@ export class SubscriptionController {
     return this.subscriptionService.findAll();
   }
 
+  /** Every account with its plan — Free ones included. Admin only. Before ':id'. */
+  @Get('accounts')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async accounts(
+    @Query('search') search?: string,
+    @Query('plan') plan?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.subscriptionService.listAccounts({ search, plan, page: Number(page) || 1, limit: Number(limit) || 25 });
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  async findOne(@Param('id') id: string) {
-    return this.subscriptionService.findOne(id);
+  async findOne(@Param('id') id: string, @Request() req) {
+    const sub: any = await this.subscriptionService.findOne(id);
+    // An invoice is its owner's and the admin's — not any signed-in user's.
+    const owner = String(sub?.userId?._id ?? sub?.userId ?? '');
+    if (req.user?.role !== 'ADMIN' && owner !== String(req.user?.userId)) {
+      throw new ForbiddenException('This invoice belongs to another account');
+    }
+    return sub;
   }
 
   /**

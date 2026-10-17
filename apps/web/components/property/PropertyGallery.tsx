@@ -48,6 +48,8 @@ interface PropertyGalleryProps {
   priceTag?: React.ReactNode;
   /** "Sold out" / "Rented out": stamps the photo and greys it. */
   closedLabel?: string | null;
+  /** A featured listing: a "Featured" tag beside the badge. */
+  featured?: boolean;
 }
 
 export default function PropertyGallery({
@@ -59,6 +61,7 @@ export default function PropertyGallery({
   badge,
   priceTag,
   closedLabel,
+  featured = false,
 }: PropertyGalleryProps) {
   /*
    * Memoised because the autoplay effect below depends on it — rebuilt every
@@ -342,7 +345,8 @@ export default function PropertyGallery({
                       alt=""
                       aria-hidden
                       draggable={false}
-                      loading={index === 0 ? "eager" : "lazy"}
+                      loading="lazy"
+                      decoding="async"
                       className="pointer-events-none absolute inset-0 h-full w-full scale-110 object-cover opacity-60 blur-2xl"
                     />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -351,6 +355,9 @@ export default function PropertyGallery({
                       alt={item.alt}
                       draggable={false}
                       loading={index === 0 ? "eager" : "lazy"}
+                      // The first photo is the page's largest element: fetch it before anything else.
+                      fetchPriority={index === 0 ? "high" : "auto"}
+                      decoding={index === 0 ? "sync" : "async"}
                       className="pointer-events-none relative h-full w-full object-contain"
                     />
                   </>
@@ -371,10 +378,19 @@ export default function PropertyGallery({
             <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
           </button>
 
-          {badge && (
-            <span className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 md:left-3 md:top-3 md:translate-x-0 rounded-md bg-primary px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
-              {badge}
-            </span>
+          {(badge || featured) && (
+            <div className="pointer-events-none absolute left-1/2 top-4 z-10 flex -translate-x-1/2 gap-1.5 md:left-3 md:top-3 md:translate-x-0">
+              {badge && (
+                <span className="rounded-md bg-primary px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
+                  {badge}
+                </span>
+              )}
+              {featured && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-amber-400 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-900 shadow-sm">
+                  ★ Featured
+                </span>
+              )}
+            </div>
           )}
 
           <div className="absolute right-3 top-3 z-10 flex gap-2">

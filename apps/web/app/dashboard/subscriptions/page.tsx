@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { subscriptionApi } from "@/lib/api";
+import AccountsPanel from "@/components/dashboard/accounts-panel";
 import { cn } from "@/lib/utils";
 import {
   ConfirmDialog,
@@ -307,12 +308,14 @@ export default function SubscriptionsPage() {
   };
 
   const pendingCount = statusCounts.pending ?? 0;
+  // Accounts (everyone, with their plan) or Invoices (purchases and payments).
+  const [view, setView] = useState<"accounts" | "invoices">("accounts");
 
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
       <PageHeader
         title="Subscriptions"
-        description="Approve subscription requests and track plan usage."
+        description="Every account and its plan, and the purchases waiting for payment approval."
         meta={
           !loading &&
           pendingCount > 0 && (
@@ -340,6 +343,22 @@ export default function SubscriptionsPage() {
         }
       />
 
+      <div className="flex gap-1 rounded-xl border bg-white p-1 sm:w-fit">
+        {(["accounts", "invoices"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => setView(v)}
+            className={cn("rounded-lg px-4 py-2 text-sm font-semibold transition-colors", view === v ? "bg-primary text-white" : "text-slate-600 hover:bg-slate-50")}
+          >
+            {v === "accounts" ? "Accounts & plans" : `Invoices${pendingCount ? ` (${pendingCount})` : ""}`}
+          </button>
+        ))}
+      </div>
+
+      {view === "accounts" && <AccountsPanel />}
+
+      {view === "invoices" && (
       <DataCard flush>
         <div className="space-y-4 border-b p-5">
           <TableToolbar
@@ -579,6 +598,7 @@ export default function SubscriptionsPage() {
           </div>
         )}
       </DataCard>
+      )}
 
       <ConfirmDialog {...dialogProps} />
     </div>

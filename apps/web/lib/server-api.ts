@@ -296,7 +296,10 @@ export async function fetchInitialListings(filters: {
       totalPages: Array.isArray(res) ? 1 : Number(res?.totalPages) || 1,
       raw: raw.map((r: any) => ({ _id: r._id, slug: r.slug, title: r.title })) as BackendProperty[],
     };
-  } catch {
+  } catch (error) {
+    // A slow or failing API must not be cached as "no listings": throw, and
+    // the page keeps its last good version (the list then loads in the browser).
+    if (!isNotFoundError(error)) throw error;
     return { properties: [], totalPages: 1, raw: [] };
   }
 }
@@ -327,4 +330,35 @@ export async function getCityStories(): Promise<import('@/components/CityStories
   } catch {
     return [];
   }
+}
+
+/** Active agent plans, cheapest first — for the homepage. */
+export async function getPlans(): Promise<import('./plans').Plan[]> {
+  const rows = await optionalGet<import('./plans').Plan[]>('/packages', 600, ['packages']);
+  return Array.isArray(rows) ? rows : [];
+}
+
+export interface SpotlightAgency {
+  _id: string;
+  name: string;
+  person: string;
+  avatarUrl: string;
+  address: string;
+  listings: number;
+  verified: boolean;
+}
+
+/** Verified agencies with the spotlight benefit. Empty on an API without the endpoint. */
+export async function getSpotlightAgencies(): Promise<SpotlightAgency[]> {
+  const rows = await optionalGet<SpotlightAgency[]>('/agents/spotlight', 600, ['subscriptions']);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * True when the API answered "not found" — a page should 404. Anything else
+ * (timeout, 5xx, API restarting) is not the page's fault: throw it, and Next
+ * keeps serving the last good version instead of caching an empty or 404 page.
+ */
+export function isNotFoundError(error: unknown): boolean {
+  return /API Error: 404\b/.test(String((error as Error)?.message ?? ''));
 }

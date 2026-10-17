@@ -22,7 +22,8 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { propertyApi, userApi } from "@/lib/api";
+import { propertyApi, subscriptionApi, userApi, type MyPlan } from "@/lib/api";
+import { BadgeCheck, Copy, Lock } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { DataCard, DataCardTitle, PageHeader } from "@/components/dashboard";
 import { ImageField } from "@/components/media";
@@ -39,7 +40,19 @@ interface PublicProfileFields {
   experienceYears?: number | null;
   address?: string;
   avatarUrl?: string;
+  coverUrl?: string;
+  socialLinks?: SocialLinks;
 }
+
+type SocialLinks = { facebook?: string; instagram?: string; youtube?: string; tiktok?: string; linkedin?: string; website?: string };
+const SOCIAL_FIELDS: { key: keyof SocialLinks; label: string; placeholder: string }[] = [
+  { key: "facebook", label: "Facebook", placeholder: "https://facebook.com/your-page" },
+  { key: "instagram", label: "Instagram", placeholder: "https://instagram.com/your-account" },
+  { key: "youtube", label: "YouTube", placeholder: "https://youtube.com/@your-channel" },
+  { key: "tiktok", label: "TikTok", placeholder: "https://tiktok.com/@your-account" },
+  { key: "linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/company/…" },
+  { key: "website", label: "Website", placeholder: "https://your-agency.pk" },
+];
 
 interface PropertyStats {
   total: number;
@@ -60,7 +73,15 @@ export default function AccountPage() {
   const [experienceYears, setExperienceYears] = useState("");
   const [address, setAddress] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [coverUrl, setCoverUrl] = useState("");
+  const [social, setSocial] = useState<SocialLinks>({});
+  const [plan, setPlan] = useState<MyPlan | null>(null);
+  const [copied, setCopied] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) subscriptionApi.getMyPlan().then(setPlan).catch(() => undefined);
+  }, [user]);
   const [stats, setStats] = useState<PropertyStats | null>(null);
 
   /*
@@ -106,6 +127,8 @@ export default function AccountPage() {
     );
     setAddress(profile.address ?? "");
     setAvatarUrl(profile.avatarUrl ?? "");
+    setCoverUrl(profile.coverUrl ?? "");
+    setSocial(profile.socialLinks ?? {});
   }, [record]);
 
   // Real listing counts, from the stats aggregation. This used to download
@@ -147,7 +170,10 @@ export default function AccountPage() {
           ? ""
           : String(profile.experienceYears)) ||
       address !== (profile.address ?? "") ||
-      avatarUrl !== (profile.avatarUrl ?? "")
+      avatarUrl !== (profile.avatarUrl ?? "") ||
+      coverUrl !== (profile.coverUrl ?? "") ||
+      JSON.stringify(SOCIAL_FIELDS.map(({ key }) => social[key] ?? "")) !==
+        JSON.stringify(SOCIAL_FIELDS.map(({ key }) => profile.socialLinks?.[key] ?? ""))
     : false;
 
   // Where buyers see this account. Only meaningful once it has an id.
@@ -175,6 +201,8 @@ export default function AccountPage() {
         bio: bio.trim(),
         address: address.trim(),
         avatarUrl: avatarUrl.trim(),
+        coverUrl: coverUrl.trim(),
+        socialLinks: Object.fromEntries(SOCIAL_FIELDS.map(({ key }) => [key, (social[key] ?? "").trim()])),
         ...(experienceYears.trim() === ""
           ? {}
           : { experienceYears: Number(experienceYears) }),
@@ -373,12 +401,26 @@ export default function AccountPage() {
             Public profile
           </DataCardTitle>
           {publicPath && (
-            <Button variant="outline" size="sm" asChild>
-              <Link href={publicPath} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                View as buyer
-              </Link>
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(`${window.location.origin}${publicPath}`);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1800);
+                }}
+              >
+                <Copy className="mr-1.5 h-3.5 w-3.5" />
+                {copied ? "Link copied" : "Copy profile link"}
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href={publicPath} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                  View as buyer
+                </Link>
+              </Button>
+            </div>
           )}
         </div>
 
@@ -477,6 +519,70 @@ export default function AccountPage() {
           )}
         </div>
       </DataCard>
+
+      {/* What the plan adds to the profile */}
+      {!isAdmin && (
+        <DataCard>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <DataCardTitle hint="Cover photo and social links on your public profile">Branding &amp; social links</DataCardTitle>
+            {plan?.perks.verifiedBadge && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-semibold text-sky-700">
+                <BadgeCheck className="h-3.5 w-3.5" /> Verified on {plan.name}
+              </span>
+            )}
+          </div>
+          <Separator className="my-5" />
+
+          {plan?.perks.brandedProfile ? (
+            <ImageField
+              label="Cover photo"
+              value={coverUrl}
+              onChange={setCoverUrl}
+              folder="general"
+              context={`${companyName || name} cover`}
+              aspect="banner"
+              hint="A wide photo of your office, team or a project — 1600×500 works best."
+            />
+          ) : (
+            <p className="flex items-center gap-2 rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground">
+              <Lock className="h-4 w-4 shrink-0" /> A cover photo comes with the Dealer, Agency and Agency Plus plans.{" "}
+              <Link href="/dashboard/purchase-package" className="font-semibold text-primary underline">See plans</Link>
+            </p>
+          )}
+
+          <div className="mt-5">
+            {plan?.perks.socialLinks ? (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {SOCIAL_FIELDS.map(({ key, label, placeholder }) => (
+                  <div key={key} className="space-y-2">
+                    <Label htmlFor={`social-${key}`}>{label}</Label>
+                    <Input
+                      id={`social-${key}`}
+                      value={social[key] ?? ""}
+                      onChange={(e) => setSocial((s) => ({ ...s, [key]: e.target.value }))}
+                      placeholder={placeholder}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="flex items-center gap-2 rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground">
+                <Lock className="h-4 w-4 shrink-0" /> Social links on your profile come with every paid plan.{" "}
+                <Link href="/dashboard/purchase-package" className="font-semibold text-primary underline">See plans</Link>
+              </p>
+            )}
+          </div>
+
+          {(plan?.perks.brandedProfile || plan?.perks.socialLinks) && (
+            <div className="mt-6 flex items-center gap-3">
+              <Button onClick={() => void save()} disabled={saving || !dirty}>
+                {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save changes
+              </Button>
+            </div>
+          )}
+        </DataCard>
+      )}
 
       {/* Where to go next */}
       <DataCard>

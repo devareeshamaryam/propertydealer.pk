@@ -1,11 +1,22 @@
  import PropertiesListing from '@/components/PropertiesListing';
+import SocietyMapBanner from '@/components/society-map/SocietyMapBanner';
 import { Suspense } from 'react';
 import { Metadata } from 'next';
-import { serverApi, fetchInitialListings } from '@/lib/server-api';
+import { serverApi, fetchInitialListings, isNotFoundError } from '@/lib/server-api';
 import { toTitleCase } from '@/lib/utils';
 import { buildCollectionPageSchema } from '@/lib/schema/listing-schema';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
+
+/*
+ * Rendered on first visit, then served from cache; refreshed every 5 minutes
+ * and as soon as a listing changes (tag "properties"). Nothing is pre-built.
+ */
+export const revalidate = 300;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
 
 interface PageProps {
   params: Promise<{ segments?: string[] }>;
@@ -24,6 +35,13 @@ const KNOWN_TYPES = [
   'land','commercial','factory','hotel','restaurant','other'
 ];
 
+/** Canonical path; a merged duplicate's pages point at the area it was merged into. */
+function canonicalPath(segments: string[], areaData: any) {
+  const rest = segments.filter(s => !isSizeSegment(s));
+  if (areaData?.__mergedFrom && areaData.areaSlug && rest[1]) rest[1] = areaData.areaSlug;
+  return rest.join('/');
+}
+
 async function resolve(segments: string[]) {
   if (!segments.length) {
     return { cityData: null, citySlug: '', areaData: null, areaSlug: null, propertyType: null, marla: null };
@@ -39,7 +57,8 @@ async function resolve(segments: string[]) {
 
   const citySlug = rest[0] || '';
   let cityData: any = null;
-  try { cityData = await serverApi.getCityByName(citySlug); } catch { /* not found */ }
+  // Null for a city that does not exist; an API that is down throws (the cached page stays).
+  cityData = await serverApi.getCityByName(citySlug);
 
   if (!cityData) {
     return { cityData: null, citySlug, areaData: null, areaSlug: null, propertyType: null, marla };
@@ -54,7 +73,14 @@ async function resolve(segments: string[]) {
   }
 
   let areaData: any = null;
-  try { areaData = await serverApi.getAreaBySlug(rest[1]!, cityData._id); } catch { /* not found */ }
+  try { areaData = await serverApi.getAreaBySlug(rest[1]!, cityData._id); } catch (e) { if (!isNotFoundError(e)) throw e; }
+  // A duplicate merged into another area keeps its URL, and shows that area's listings and content.
+  if (areaData?.mergedIntoSlug) {
+    try {
+      const primary = await serverApi.getAreaBySlug(areaData.mergedIntoSlug, cityData._id);
+      if (primary) areaData = { ...primary, __mergedFrom: rest[1] };
+    } catch (e) { if (!isNotFoundError(e)) throw e; /* keep the duplicate */ }
+  }
 
   const propertyType = rest[2] && KNOWN_TYPES.includes(rest[2].toLowerCase()) ? rest[2]! : null;
   return { cityData, citySlug, areaData, areaSlug: rest[1]!, propertyType, marla };
@@ -108,14 +134,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         return {
           title: areaSizeEntry.metaTitle,
           description: areaSizeEntry.metaDescription || undefined,
-          alternates: { canonical: `/properties/sale/${segments.filter(s => !isSizeSegment(s)).join('/')}` },
+          alternates: { canonical: `/properties/sale/${canonicalPath(segments, areaData)}` },
         };
       }
     }
     return {
       title: areaData.saleMetaTitle?.trim() || `${typeName} for ${purpose} in ${locationStr}${marlaStr}`,
       description: areaData.saleMetaDescription?.trim() || `Find ${typeName.toLowerCase()} for ${purpose.toLowerCase()} in ${locationStr}. Browse verified listings on Property Dealer.`,
-      alternates: { canonical: `/properties/sale/${segments.filter(s => !isSizeSegment(s)).join('/')}` },
+      alternates: { canonical: `/properties/sale/${canonicalPath(segments, areaData)}` },
     };
   }
 
@@ -236,6 +262,7 @@ export default async function SalePage({ params }: PageProps) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }} />
+      <SocietyMapBanner city={citySlug} area={areaSlug} />
       <Suspense fallback={
         <div className="min-h-screen bg-background flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

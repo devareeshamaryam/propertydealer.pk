@@ -12,7 +12,7 @@ import { ImagePickerDialog } from "@/components/ImagePickerDialog";
 import { DataCard, DataCardTitle } from "@/components/dashboard/data-card";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { getAccessToken, siteSettingsApi } from "@/lib/api";
-import { DEFAULT_SITE_SETTINGS, type SiteSettings } from "@/lib/site-settings";
+import { DEFAULT_SITE_SETTINGS, withLiveDefaults, type SiteSettings } from "@/lib/site-settings";
 import { refreshSiteSettings } from "@/app/actions/refresh-cache";
 import { cn } from "@/lib/utils";
 
@@ -36,7 +36,8 @@ export function useSettingsForm() {
     siteSettingsApi
       .get()
       .then((data) => {
-        const merged = { ...DEFAULT_SITE_SETTINGS, ...(data ?? {}) };
+        // Empty fields show what the live site actually uses for them.
+        const merged = withLiveDefaults({ ...DEFAULT_SITE_SETTINGS, ...(data ?? {}) });
         setSettings(merged);
         setSaved(merged);
       })
@@ -55,7 +56,7 @@ export function useSettingsForm() {
     try {
       const patch = Object.fromEntries(keys.map((k) => [k, settings[k]])) as Partial<SiteSettings>;
       const data = await siteSettingsApi.save(patch);
-      const merged = { ...DEFAULT_SITE_SETTINGS, ...(data ?? {}) };
+      const merged = withLiveDefaults({ ...DEFAULT_SITE_SETTINGS, ...(data ?? {}) });
       setSettings(merged);
       setSaved(merged);
       const refreshed = await refreshSiteSettings(getAccessToken()).catch(() => false);

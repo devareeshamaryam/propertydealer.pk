@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import PropertyCard from '@/components/PropertyCard';
 import { propertyApi } from '@/lib/api';
@@ -70,6 +70,14 @@ export default function AgentListings({
     [totals],
   );
 
+  // The server's first page can come back empty when the API was slow while
+  // the counts still arrived — the list then sat empty until a tab was tapped.
+  // Fetch it here instead.
+  useEffect(() => {
+    if (!initial.length) void load('all', 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const switchTo = (key: Tab) => {
     setTab(key);
     if (pages[key].page === 0) void load(key, 1);
@@ -103,6 +111,10 @@ export default function AgentListings({
             <PropertyCard key={p.id} property={p} />
           ))}
         </div>
+      )}
+
+      {!loading && rows.length === 0 && (
+        <p className="py-10 text-center text-[14px] text-slate-500">No listings here right now.</p>
       )}
 
       {hasMore && rows.length > 0 && (

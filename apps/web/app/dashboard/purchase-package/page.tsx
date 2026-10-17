@@ -10,7 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { packageApi, subscriptionApi } from "@/lib/api";
+import { packageApi, subscriptionApi, type MyPlan } from "@/lib/api";
+import PlanCards from "@/components/plans/PlanCards";
+import type { Plan } from "@/lib/plans";
 import {
   DataCard,
   DataCardTitle,
@@ -64,6 +66,12 @@ function PurchaseContent() {
    */
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CheckoutInvoice | null>(null);
+  const [myPlan, setMyPlan] = useState<MyPlan | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    subscriptionApi.getMyPlan().then(setMyPlan).catch(() => undefined);
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -115,9 +123,19 @@ function PurchaseContent() {
   const startCheckout = async (pkg: PackageRecord) => {
     try {
       setPurchasing(true);
+      setBusyId(pkg._id);
       setPurchaseError(null);
 
       const invoice = await subscriptionApi.purchase(pkg._id);
+
+      // Free (or anything already settled) needs no checkout.
+      if (invoice?.free || invoice?.paymentStatus === "completed") {
+        toast.success(`${invoice?.planName ?? pkg.name} is your plan`, {
+          description: "Nothing to pay — you can start listing now.",
+        });
+        router.push("/dashboard/my-subscription");
+        return;
+      }
 
       setCheckout({
         _id: String(invoice?._id ?? ""),
@@ -135,6 +153,7 @@ function PurchaseContent() {
       toast.error("Could not open the checkout", { description: reason });
     } finally {
       setPurchasing(false);
+      setBusyId(null);
     }
   };
 
@@ -286,18 +305,36 @@ function PurchaseContent() {
             </>
           )}
 
-          <Button
-            className="mt-6 w-full"
-            size="lg"
-            disabled={purchasing}
-            onClick={() => void startCheckout(selected)}
-          >
-            {purchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Confirm purchase
-          </Button>
-          <p className="mt-3 text-center text-sm text-muted-foreground">
-            Your request is sent to an administrator for approval.
-          </p>
+          {myPlan?.team.role === "agent" ? (
+            <p className="mt-6 rounded-lg bg-slate-50 p-3 text-center text-sm text-muted-foreground">
+              Your agency manages the plan for your account. Ask your agency owner to upgrade.
+            </p>
+          ) : !selected.price ? (
+            <p className="mt-6 rounded-lg bg-emerald-50 p-3 text-center text-sm text-emerald-800">
+              Free is included with every account — there is nothing to buy.{" "}
+              <Link href="/dashboard/property/add-property" className="font-semibold underline">Post a property</Link>
+            </p>
+          ) : myPlan?.name?.toLowerCase() === selected.name.toLowerCase() ? (
+            <Button className="mt-6 w-full" size="lg" disabled={purchasing} onClick={() => void startCheckout(selected)}>
+              {purchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Renew {selected.name}
+            </Button>
+          ) : (
+            <>
+              <Button
+                className="mt-6 w-full"
+                size="lg"
+                disabled={purchasing}
+                onClick={() => void startCheckout(selected)}
+              >
+                {purchasing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Confirm purchase
+              </Button>
+              <p className="mt-3 text-center text-sm text-muted-foreground">
+                You pay by bank transfer at the next step; the plan starts once the payment is verified.
+              </p>
+            </>
+          )}
         </DataCard>
 
       </div>
@@ -306,7 +343,7 @@ function PurchaseContent() {
 
   // No packageId: let the user pick.
   return (
-    <div className="mx-auto w-full max-w-5xl space-y-5">
+    <div className="mx-auto w-full max-w-7xl space-y-5">
       <PageHeader
         title="Purchase a Package"
         description="Pick a plan to start publishing property listings."
@@ -321,6 +358,12 @@ function PurchaseContent() {
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
           <span className="font-semibold">Could not start the checkout.</span>{" "}
           {purchaseError}
+        </div>
+      )}
+
+      {myPlan?.team.role === "agent" && (
+        <div className="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          You are an agent of an agency — your listings use your agency&apos;s plan ({myPlan.name}). Only the agency owner can change it.
         </div>
       )}
 
@@ -339,66 +382,12 @@ function PurchaseContent() {
           </div>
         </DataCard>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {options.map((pkg) => (
-            <DataCard key={pkg._id} className="flex flex-col">
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="text-lg font-semibold">{pkg.name}</h3>
-                {pkg.isActive === false && (
-                  <Badge variant="secondary">Inactive</Badge>
-                )}
-              </div>
-              {pkg.description && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {pkg.description}
-                </p>
-              )}
-
-              <p className="mt-4 text-3xl font-bold tabular-nums text-primary">
-                Rs {pkg.price?.toLocaleString("en-PK")}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                for {pkg.duration} days
-              </p>
-
-              <Separator className="my-4" />
-
-              <ul className="flex-1 space-y-2 text-sm">
-                <li className="flex items-start gap-2">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                  {pkg.propertyLimit ?? "—"} property listings
-                </li>
-                {typeof pkg.featuredListings === "number" &&
-                  pkg.featuredListings > 0 && (
-                    <li className="flex items-start gap-2">
-                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                      {pkg.featuredListings} featured listings
-                    </li>
-                  )}
-                {pkg.features?.slice(0, 3).map((feature, index) => (
-                  <li
-                    key={`${feature}-${index}`}
-                    className="flex items-start gap-2"
-                  >
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-
-              <Button
-                className="mt-5 w-full"
-                disabled={purchasing}
-                onClick={() => void startCheckout(pkg)}
-              >
-                {purchasing && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Choose {pkg.name}
-              </Button>
-            </DataCard>
-          ))}
-        </div>
+        <PlanCards
+          plans={options as Plan[]}
+          current={myPlan?.name ?? null}
+          busyId={busyId}
+          onChoose={myPlan?.team.role === "agent" ? undefined : (p) => void startCheckout(p as PackageRecord)}
+        />
       )}
 
     </div>

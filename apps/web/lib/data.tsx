@@ -29,6 +29,8 @@ export interface Property {
   postedAt?: string;
   /** Admin-pinned: shows a badge and sorts above the rest. */
   isFeatured?: boolean;
+  /** Posted by a verified agency or one of its agents. */
+  ownerVerified?: boolean;
   /** 'sold' / 'rented' put a badge on the card and hide the phone number. */
   availability?: 'available' | 'sold' | 'rented';
   videoUrl?: string | null;

@@ -74,6 +74,12 @@ export default function EditProperty() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
+  // On the market: sold / rented / available, and featured — saved at once, apart from the form.
+  const [availability, setAvailabilityState] = useState<"available" | "sold" | "rented">("available");
+  const [featured, setFeatured] = useState(false);
+  const [listingSlug, setListingSlug] = useState("");
+  const [marketBusy, setMarketBusy] = useState(false);
+
   // Form state
   const [listingType, setListingType] = useState<"rent" | "sale">("rent");
   const [propertyType, setPropertyType] = useState("");
@@ -169,7 +175,7 @@ export default function EditProperty() {
   useEffect(() => {
     const fetchCities = async () => {
       try {
-        const data = await cityApi.getAll();
+        const data = await cityApi.getNames();
         setCities((prev) => {
           // Merge fetched cities with existing (which might have our seeded city)
           const newCities = [...prev];
@@ -297,6 +303,9 @@ export default function EditProperty() {
         await restoreLocation(property.area);
 
         setTitle(property.title);
+        setAvailabilityState((property.availability as "available" | "sold" | "rented") || "available");
+        setFeatured(Boolean(property.isFeatured));
+        setListingSlug(property.status === "approved" ? property.slug ?? "" : "");
         setLocation(property.location);
         setBedrooms(property.bedrooms?.toString() || "0");
         setBathrooms(property.bathrooms?.toString() || "0");
@@ -354,7 +363,7 @@ export default function EditProperty() {
 
       try {
         setLoadingAreas(true);
-        const data = await areaApi.getAll(cityId);
+        const data = (await areaApi.getNames(cityId)) as unknown as Area[];
 
         setAreas((prev) => {
           // Merge fetched areas with existing (which might have our seeded area)
@@ -417,7 +426,7 @@ export default function EditProperty() {
         name: toTitleCase(newCityName.trim()),
       });
       toast.success("City added successfully");
-      const allCities = await cityApi.getAll();
+      const allCities = await cityApi.getNames();
       setCities(allCities);
       setCityId(String(data._id));
       setAreaId("");
@@ -448,7 +457,7 @@ export default function EditProperty() {
         areaSlug,
       });
       toast.success("Area added successfully");
-      const allAreas = await areaApi.getAll(cityId);
+      const allAreas = (await areaApi.getNames(cityId)) as unknown as Area[];
       setAreas(allAreas);
       setAreaId(String(data._id));
       setShowAddAreaModal(false);
@@ -632,9 +641,79 @@ export default function EditProperty() {
           <h1 className="text-2xl font-semibold text-gray-800 mb-2">
             Update Property
           </h1>
-          <p className="text-gray-600 mb-8">
+          <p className="text-gray-600 mb-6">
             Fill in the details to update your property
           </p>
+
+          {/* On the market — the same controls as the listings table, here too. */}
+          {propertyId && (
+            <div className="mb-8 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">On the market</p>
+                  <p className="text-xs text-gray-500">Saved straight away. A sold or rented listing hides its contact details.</p>
+                </div>
+                {listingSlug && (
+                  <a href={`/properties/${listingSlug}`} target="_blank" rel="noopener" className="text-sm font-medium text-primary hover:underline">
+                    View on site
+                  </a>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {(["available", "sold", "rented"] as const).map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    disabled={marketBusy}
+                    onClick={async () => {
+                      if (a === availability) return;
+                      setMarketBusy(true);
+                      try {
+                        await propertyApi.setAvailability(String(propertyId), a);
+                        setAvailabilityState(a);
+                        toast.success(a === "available" ? "Back on the market" : a === "sold" ? "Marked sold" : "Marked rented out");
+                      } catch (err: any) {
+                        toast.error(err?.response?.data?.message || "Could not change it");
+                      } finally {
+                        setMarketBusy(false);
+                      }
+                    }}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                      availability === a
+                        ? a === "available"
+                          ? "bg-emerald-600 text-white"
+                          : "bg-red-600 text-white"
+                        : "bg-white text-gray-700 ring-1 ring-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    {a === "available" ? "Available" : a === "sold" ? "Sold" : "Rented out"}
+                  </button>
+                ))}
+                <label className="ml-auto flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-amber-500"
+                    checked={featured}
+                    disabled={marketBusy}
+                    onChange={async (e) => {
+                      const next = e.target.checked;
+                      setMarketBusy(true);
+                      try {
+                        await propertyApi.setFeatured(String(propertyId), next);
+                        setFeatured(next);
+                        toast.success(next ? "Featured — pinned above the rest" : "No longer featured");
+                      } catch (err: any) {
+                        toast.error(err?.response?.data?.message || "Could not change it");
+                      } finally {
+                        setMarketBusy(false);
+                      }
+                    }}
+                  />
+                  ★ Featured
+                </label>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={(e) => handleSubmit(e)} className="space-y-6">
             {/* Listing Type */}

@@ -299,6 +299,9 @@ export default function PropertiesPage() {
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  // ?ownerId= — one agent's listings (from My Team, or an admin's account list).
+  const ownerFilter = searchParams.get("ownerId") || undefined;
+  const ownerLabel = searchParams.get("owner") || "this agent";
   const [busyId, setBusyId] = useState<string | null>(null);
 
   // Status counts come from a single aggregation rather than from counting a
@@ -334,8 +337,8 @@ export default function PropertiesPage() {
   }, [loadStats]);
 
   const filters = useMemo(
-    () => ({ status: statusFilter, propertyType: typeFilter }),
-    [statusFilter, typeFilter],
+    () => ({ status: statusFilter, propertyType: typeFilter, ownerId: ownerFilter }),
+    [statusFilter, typeFilter, ownerFilter],
   );
 
   const fetchPage = useCallback(
@@ -358,12 +361,13 @@ export default function PropertiesPage() {
           propertyType: typeFilter,
           sortBy: query.sortBy ?? undefined,
           sortDir: query.sortDir,
+          ownerId: ownerFilter,
         },
         signal,
       );
       return { rows: result.properties, total: result.total };
     },
-    [statusFilter, typeFilter],
+    [statusFilter, typeFilter, ownerFilter],
   );
 
   const table = useServerTable<BackendProperty>({
@@ -578,7 +582,7 @@ export default function PropertiesPage() {
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
       <PageHeader
-        title={isAdmin ? "Properties" : "My Listings"}
+        title={ownerFilter ? `Listings of ${ownerLabel}` : isAdmin ? "Properties" : "My Listings"}
         description={
           isAdmin
             ? "Review, approve and manage every listing on the platform."
@@ -586,6 +590,11 @@ export default function PropertiesPage() {
         }
         actions={
           <>
+            {ownerFilter && (
+              <Button variant="outline" onClick={() => router.push("/dashboard/property")}>
+                Show all listings
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => {

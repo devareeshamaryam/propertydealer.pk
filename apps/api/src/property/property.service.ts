@@ -1,3 +1,4 @@
+import { AgencyService } from '../agency/agency.service';
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { Property } from '@rent-ghar/db/schemas/property.schema'
 import { ListingBrainService } from './listing-brain.service'
@@ -34,6 +35,8 @@ export interface DashboardPropertyFilters {
     limit?: number;
     sortBy?: string;
     sortDir?: 'asc' | 'desc';
+    /** One agent's listings — an agency owner's team member, or anyone for an admin. */
+    ownerId?: string;
 }
 
 export interface DashboardPropertyPage {
@@ -153,6 +156,7 @@ export class PropertyService {
         private readonly cache: RedisCacheService,
         private readonly revalidate: RevalidateService,
         private readonly siteSettings: SiteSettingsService,
+        private readonly agency: AgencyService,
     ) {}
 
     /**
@@ -314,17 +318,22 @@ export class PropertyService {
         }
 
 
+        /*
+         * Plans with instant publishing (Agency, Agency Plus) skip the review
+         * queue — unless the brain found something seriously wrong.
+         */
+        if (finalStatus === 'pending' && userRole !== 'ADMIN' && userId) {
+            const plan = await this.subscriptionService.getEffectivePlan(userId).catch(() => null);
+            if (plan?.perks.autoPublish && (brainVerdict?.score ?? 0) < 80) finalStatus = 'approved';
+        }
+
         // Drafts do not consume subscription slots — they aren't published yet.
         const consumesSubscription = userRole !== 'ADMIN' && finalStatus !== 'draft';
 
         if (consumesSubscription) {
           // SYNC: Before checking subscription, ensure the count is accurate
-          const actualCount = await this.propertyModel.countDocuments({ 
-            owner: userId,
-            // status: { $ne: 'deleted' } // depend on business logic if deleted counts
-          }).exec();
-          
-          await this.subscriptionService.syncPropertyUsage(userId, actualCount);
+          // The counter on the plan owner's subscription follows the team's real count.
+          await this.subscriptionService.syncPropertyUsage(userId);
 
           const subscriptionCheck = await this.subscriptionService.canCreateProperty(userId);
           
@@ -431,10 +440,12 @@ export class PropertyService {
       async mapListings(q: {
         minLat: number; maxLat: number; minLng: number; maxLng: number;
         purpose?: string; type?: string; priceMin?: number; priceMax?: number;
+        /** Also place unpinned listings at their area's centre. Off: the map shows exact pins only. */
+        approx?: boolean;
       }) {
         const r2 = (n: number) => Math.round(n * 100) / 100;
         const key = this.cache.buildKey('properties:map', [
-          r2(q.minLat), r2(q.maxLat), r2(q.minLng), r2(q.maxLng), q.purpose ?? '', q.type ?? '', q.priceMin ?? '', q.priceMax ?? '',
+          r2(q.minLat), r2(q.maxLat), r2(q.minLng), r2(q.maxLng), q.purpose ?? '', q.type ?? '', q.priceMin ?? '', q.priceMax ?? '', q.approx ? 1 : 0,
         ]);
         return this.cache.wrap(key, async () => {
           const LIMIT = 600;
@@ -466,13 +477,13 @@ export class PropertyService {
             .lean()
             .exec();
 
-          // 2. Unpinned listings whose area centre is inside the box.
-          const centres = await this.areaCentres();
+          // 2. Unpinned listings whose area centre is inside the box (only when asked for).
+          const centres = q.approx ? await this.areaCentres() : new Map<string, { lat: number; lng: number }>();
           const inBox = [...centres.entries()].filter(
             ([, c]) => c.lat >= q.minLat && c.lat <= q.maxLat && c.lng >= q.minLng && c.lng <= q.maxLng,
           );
           let approx: any[] = [];
-          if (inBox.length && pinned.length < LIMIT) {
+          if (q.approx && inBox.length && pinned.length < LIMIT) {
             const ids = inBox.map(([id]) => id);
             approx = await this.propertyModel
               .find({
@@ -604,10 +615,25 @@ export class PropertyService {
         const cacheKey = this.cache.buildKey('properties:list', [filters || {}]);
         // 10 minutes: every property write clears this tag, so the TTL only
         // decides how often an unchanged list is recomputed.
-        return this.cache.wrap(cacheKey, async () => this.findAllApprovedImpl(filters), {
+        const result: any = await this.cache.wrap(cacheKey, async () => this.findAllApprovedImpl(filters), {
             ttl: 600,
             tags: [TAG_PROPERTIES],
         });
+        return this.withVerified(result);
+      }
+
+      /**
+       * Marks each listing whose owner holds a plan with the verified badge
+       * (or is an agent of such an agency). Added after the cache, so the badge
+       * appears and disappears with the plan, not with the list's cache.
+       */
+      async withVerified<T extends { properties?: any[] }>(result: T): Promise<T> {
+        if (!result?.properties?.length) return result;
+        const verified = await this.agency.verifiedIds().catch(() => new Set<string>());
+        return {
+          ...result,
+          properties: result.properties.map((p: any) => ({ ...p, ownerVerified: verified.has(String(p.owner?._id ?? p.owner ?? '')) })),
+        };
       }
 
       /**
@@ -706,15 +732,41 @@ export class PropertyService {
           } else if (filters?.cityId || filters?.cityName) {
             const cityOrConditions: any[] = [];
 
-            // 1. Relational match via cityId -> areaIds
-            if (filters.cityId && this.isValidObjectId(filters.cityId)) {
-                // If filtering by city, find all areas in that city first
-                const areas = await this.areaModel.find({ city: filters.cityId }).select('_id').lean();
-                const areaIds = areas.map(a => a._id);
+            // 1. Relational match: the city's areas -> their listings.
+            //
+            // Most areas on the live site store `city` as a plain string, which
+            // a Mongoose (cast) query never matches — a city filtered by id
+            // alone found 7 of Lahore's 187 listings and none at all for most
+            // cities, so a list came up empty until an area was picked. The
+            // raw collection matches both forms. With only a name (or slug),
+            // the city is looked up by it first.
+            const cityIds: string[] = [];
+            if (filters.cityId && this.isValidObjectId(filters.cityId)) cityIds.push(String(filters.cityId));
+            if (filters.cityName) {
+                const wanted = String(filters.cityName).trim().toLowerCase().replace(/[-_]+/g, ' ');
+                const cities = await this.cityModel.collection.find({}, { projection: { name: 1 } }).toArray();
+                // One letter apart counts too: the site's "Faislabad" is the "Faisalabad" people type.
+                const close = (a: string, b: string) => {
+                    if (a === b) return true;
+                    if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 6) return false;
+                    let i = 0;
+                    while (i < a.length && a[i] === b[i]) i++;
+                    return a.slice(i + 1) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i) || a.slice(i) === b.slice(i + 1);
+                };
+                for (const c of cities as any[]) {
+                    const n = String(c.name ?? '').trim().toLowerCase().replace(/[-_]+/g, ' ');
+                    if (n && close(n, wanted) && !cityIds.includes(String(c._id))) cityIds.push(String(c._id));
+                }
+            }
+            if (cityIds.length) {
+                const areas = await this.areaModel.collection
+                    .find({ city: { $in: cityIds.flatMap((id) => [new Types.ObjectId(id), id]) } }, { projection: { _id: 1 } })
+                    .toArray();
+                const areaIds = areas.map((a: any) => a._id);
                 if (areaIds.length > 0) {
                     cityOrConditions.push({ area: { $in: areaIds } });
                     // Also include string versions of areaIds for resilience
-                    cityOrConditions.push({ area: { $in: areaIds.map(id => id.toString()) } });
+                    cityOrConditions.push({ area: { $in: areaIds.map((id: any) => id.toString()) } });
                 }
             }
 
@@ -904,22 +956,31 @@ export class PropertyService {
       ): Promise<Record<string, any> | null> {
         const query: Record<string, any> = {};
 
-        // AGENT and USER only ever see their own listings in the dashboard.
+        // AGENT and USER see their own listings — and an agency owner, the whole team's.
         if (userRole !== 'ADMIN' && userId) {
-          query.owner = userId;
+          const visible = await this.agency.visibleOwners(userId);
+          if (filters.ownerId) {
+            if (!visible.includes(String(filters.ownerId))) return null;
+            query.owner = { $in: AgencyService.anyIds([String(filters.ownerId)]) };
+          } else {
+            query.owner = visible.length === 1 ? userId : { $in: AgencyService.anyIds(visible) };
+          }
+        } else if (filters.ownerId) {
+          if (!this.isValidObjectId(filters.ownerId)) return null;
+          query.owner = { $in: AgencyService.anyIds([String(filters.ownerId)]) };
         }
 
+        // `area` and an area's `city` are stored as ObjectId or string (Mixed paths): match both.
         if (filters.areaId) {
           if (!this.isValidObjectId(filters.areaId)) return null;
-          query.area = filters.areaId;
+          query.area = { $in: AgencyService.anyIds([String(filters.areaId)]) };
         } else if (filters.cityId) {
           if (!this.isValidObjectId(filters.cityId)) return null;
-          const areas = await this.areaModel
-            .find({ city: filters.cityId })
-            .select('_id')
-            .lean();
+          const areas = await this.areaModel.collection
+            .find({ city: { $in: AgencyService.anyIds([String(filters.cityId)]) } }, { projection: { _id: 1 } })
+            .toArray();
           if (areas.length === 0) return null;
-          query.area = { $in: areas.map((a) => a._id) };
+          query.area = { $in: AgencyService.anyIds(areas.map((a: any) => String(a._id))) };
         }
 
         if (filters.status) query.status = filters.status;
@@ -1022,7 +1083,9 @@ export class PropertyService {
           if (!this.isValidObjectId(userId)) {
             return { total: 0, byStatus: { draft: 0, pending: 0, approved: 0, rejected: 0 } };
           }
-          match.owner = new Types.ObjectId(userId);
+          // An agency owner's numbers cover the whole team.
+          const visible = await this.agency.visibleOwners(userId);
+          match.owner = visible.length === 1 ? new Types.ObjectId(userId) : { $in: AgencyService.anyIds(visible) };
         }
 
         const rows = await this.propertyModel
@@ -1243,10 +1306,17 @@ export class PropertyService {
         // page; tag includes the slug so we can bust just one entry on edit.
         const normalizedSlug = this.toSlug(slug);
         const cacheKey = this.cache.buildKey('property:slug', [normalizedSlug]);
-        return this.cache.wrap(cacheKey, () => this.findPropertyBySlugImpl(slug), {
+        const found: any = await this.cache.wrap(cacheKey, () => this.findPropertyBySlugImpl(slug), {
             ttl: 600,
             tags: [TAG_PROPERTIES, `property:slug:${normalizedSlug}`],
         });
+        const doc = typeof found?.toObject === 'function' ? found.toObject() : found;
+        const ownerId = String(doc?.owner?._id ?? doc?.owner ?? '');
+        const [ownerVerified, agencyId] = await Promise.all([
+          this.agency.isVerified(ownerId).catch(() => false),
+          this.agency.agencyOf(ownerId).catch(() => null),
+        ]);
+        return { ...doc, ownerVerified, ownerAgencyId: agencyId };
       }
 
       private async findPropertyBySlugImpl(slug: string) {
@@ -1318,7 +1388,7 @@ export class PropertyService {
             if (!existing) {
                 throw new NotFoundException('Property not found');
             }
-            if (!userId || String(existing.owner) !== String(userId)) {
+            if (!userId || !(await this.agency.canManage(existing.owner, userId))) {
                 throw new ForbiddenException('You do not have permission to modify this property listing');
             }
             if (status !== 'draft' && status !== 'pending') {
@@ -1384,7 +1454,7 @@ export class PropertyService {
             .exec();
 
           if (!existing) throw new NotFoundException('Property not found');
-          if (!userId || String(existing.owner) !== String(userId)) {
+          if (!userId || !(await this.agency.canManage(existing.owner, userId))) {
             throw new ForbiddenException(
               'You do not have permission to modify this property listing',
             );
@@ -1395,8 +1465,9 @@ export class PropertyService {
 
             // Raw collection: part of this data stores `owner` as a string
             // rather than an ObjectId, and a cast query would undercount.
+            const team = await this.agency.teamOf(await this.agency.planOwnerOf(userId));
             const alreadyFeatured = await this.propertyModel.collection.countDocuments({
-              owner: { $in: [new Types.ObjectId(userId), userId] },
+              owner: { $in: AgencyService.anyIds(team) },
               isFeatured: true,
               _id: { $ne: new Types.ObjectId(id) },
             });
@@ -1470,7 +1541,7 @@ export class PropertyService {
         }
 
         if (userRole !== 'ADMIN') {
-            if (!userId || String(existing.owner) !== String(userId)) {
+            if (!userId || !(await this.agency.canManage(existing.owner, userId))) {
                 throw new ForbiddenException('You do not have permission to modify this property listing');
             }
         }
@@ -1514,7 +1585,7 @@ export class PropertyService {
           }
 
           // Allow update if user is ADMIN or the actual OWNER
-          if (userRole !== 'ADMIN' && String(property.owner) !== String(userId)) {
+          if (userRole !== 'ADMIN' && !(await this.agency.canManage(property.owner, String(userId)))) {
             throw new ForbiddenException('You do not have permission to modify this property listing');
           }
 
@@ -1680,7 +1751,7 @@ export class PropertyService {
           }
 
           // Allow delete if user is ADMIN or the actual OWNER
-          if (userRole !== 'ADMIN' && String(property.owner) !== String(userId)) {
+          if (userRole !== 'ADMIN' && !(await this.agency.canManage(property.owner, String(userId)))) {
             throw new ForbiddenException('You do not have permission to delete this property listing');
           }
 

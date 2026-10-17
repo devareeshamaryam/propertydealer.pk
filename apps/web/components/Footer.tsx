@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { Clock, Facebook, Instagram, Linkedin, Mail, MapPin, MessageCircle, Phone, Youtube } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { getSiteSettings } from '@/lib/site-settings.server';
-import { resolved, waDigits } from '@/lib/site-settings';
+import { DEFAULT_SOCIALS, DEFAULT_TAGLINE, resolved, waDigits } from '@/lib/site-settings';
 
 /*
  * A footer that is a directory, like every listing portal's — on a dark
@@ -23,7 +23,9 @@ const EXPLORE = [
   { name: 'Search on Map', href: '/emap' },
   { name: 'Agent Packages', href: '/packages' },
   { name: 'Blog', href: '/blog' },
+  { name: 'Verified Agencies', href: '/agents' },
   { name: 'About Us', href: '/about' },
+  { name: 'Contact Us', href: '/contact' },
 ];
 
 const CITIES = [
@@ -48,12 +50,6 @@ const RATES = [
   { name: 'Door Rates', href: '/today-door-rate-in-pakistan' },
 ];
 
-/** Used until the admin enters their own in Settings → General. */
-const DEFAULT_SOCIALS: [string, string][] = [
-  ['Facebook', 'https://www.facebook.com/pkpropertydealer'],
-  ['YouTube', 'https://www.youtube.com/@Propertydealer-y9r'],
-  ['LinkedIn', 'https://www.linkedin.com/company/propertydealer-pk/about/'],
-];
 
 function SocialIcon({ name }: { name: string }) {
   const cls = 'h-4 w-4';
@@ -193,7 +189,11 @@ const Footer = async () => {
       <div className="mx-5 border-t border-white/10 md:mx-6">
         <div className="container container-flush mx-auto flex flex-col gap-1 py-5 text-[12.5px] text-white/50 sm:flex-row sm:items-center sm:justify-between">
           <p>{settings.copyrightText ? settings.copyrightText.replace('{year}', String(year)) : `© ${year} ${r.siteName}. All rights reserved.`}</p>
-          <p>{settings.tagline || 'Serving buyers, renters and dealers across Pakistan since 2007.'}</p>
+          <nav aria-label="Legal" className="flex flex-wrap gap-x-4 gap-y-1">
+            <Link href="/privacy-policy" className="hover:text-white">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-white">Terms of Service</Link>
+            <span>{settings.tagline || DEFAULT_TAGLINE}</span>
+          </nav>
         </div>
       </div>
     </footer>

@@ -1,210 +1,120 @@
 import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import BlogPostClient from './BlogPostClient';
 import { Blog } from '@/lib/types/blog';
-import { serverApi } from '@/lib/server-api';
-
-interface PageProps {
-  params: Promise<{
-    slug: string;
-  }>;
-}
-
-// SEO Metadata Generation - Server Component
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  // Next.js 15: params is now a Promise, must await it
-  const { slug } = await params;
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://propertydealer.pk';
-
-  try {
-    // Fetch blog data for SEO using serverApi
-    const blog: Blog = await serverApi.get(`/blog/slug/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 3600 }
-    });
-
-    // Get author name
-    const authorName = typeof blog.author === 'object' && blog.author !== null && 'name' in blog.author
-      ? blog.author.name
-      : 'RentGhar Team';
-
-    // Get category names
-    const categories = Array.isArray(blog.categories) && blog.categories.length > 0
-      ? blog.categories.map(cat => typeof cat === 'object' && 'name' in cat ? cat.name : 'Uncategorized')
-      : ['Uncategorized'];
-
-    // Get featured image or default
-    const imageUrl = blog.featuredImage
-      ? (blog.featuredImage.startsWith('http')
-        ? blog.featuredImage
-        : `${baseUrl}${blog.featuredImage.startsWith('/') ? '' : '/'}${blog.featuredImage}`)
-      : `${baseUrl}/default-blog.jpg`;
-
-    // Get canonical URL
-    const canonicalUrl = blog.canonicalUrl || `${baseUrl}/blog/${blog.slug}`;
-    const pageUrl = `${baseUrl}/blog/${blog.slug}`;
-
-    // Meta title and description
-    const metaTitle = blog.metaTitle || blog.title;
-    const metaDescription = blog.metaDescription || blog.excerpt || blog.title.substring(0, 160);
-
-    // Format date
-    const publishedDate = blog.createdAt ? new Date(blog.createdAt).toISOString() : new Date().toISOString();
-    const modifiedDate = blog.updatedAt ? new Date(blog.updatedAt).toISOString() : publishedDate;
-
-    // Get author email for additional metadata
-    const authorEmail = typeof blog.author === 'object' && blog.author !== null && 'email' in blog.author
-      ? blog.author.email
-      : undefined;
-
-    // Generate keywords array
-    const keywords = blog.tags && blog.tags.length > 0
-      ? [...blog.tags, ...categories]
-      : categories;
-
-    return {
-     title: metaTitle,
-      description: metaDescription,
-      keywords: keywords.join(', '),
-      authors: [{ name: authorName, ...(authorEmail && { email: authorEmail }) }],
-      creator: authorName,
-      publisher: 'RentGhar',
-      applicationName: 'RentGhar',
-      referrer: 'origin-when-cross-origin',
-      formatDetection: {
-        email: false,
-        address: false,
-        telephone: false,
-      },
-      metadataBase: new URL(baseUrl),
-      alternates: {
-        canonical: canonicalUrl,
-        languages: {
-          'en-US': pageUrl,
-        },
-      },
-      openGraph: {
-        type: 'article',
-        title: metaTitle,
-        description: metaDescription,
-        url: pageUrl,
-        siteName: 'RentGhar',
-        images: [
-          {
-            url: imageUrl,
-            width: 1200,
-            height: 630,
-            alt: blog.title,
-            type: 'image/jpeg',
-          },
-        ],
-        locale: 'en_US',
-        publishedTime: publishedDate,
-        modifiedTime: modifiedDate,
-        authors: [authorName],
-        section: categories[0] || 'General',
-        tags: blog.tags || categories,
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title: metaTitle,
-        description: metaDescription,
-        images: [imageUrl],
-        creator: '@rentghar',
-        site: '@rentghar',
-      },
-      robots: {
-        index: blog.status === 'published',
-        follow: true,
-        nocache: false,
-        googleBot: {
-          index: blog.status === 'published',
-          follow: true,
-          noimageindex: false,
-          'max-video-preview': -1,
-          'max-image-preview': 'large',
-          'max-snippet': -1,
-        },
-      },
-      verification: {
-        // Add verification codes if available
-        // google: 'your-google-verification-code',
-        // yandex: 'your-yandex-verification-code',
-        // yahoo: 'your-yahoo-verification-code',
-      },
-      category: categories[0] || 'General',
-      classification: 'Blog Post',
-      other: {
-        'article:published_time': publishedDate,
-        'article:modified_time': modifiedDate,
-        'article:author': authorName,
-        'article:section': categories[0] || 'General',
-        'article:expiration_time': '', // Can be set if blog has expiration
-        ...(blog.tags && blog.tags.length > 0 && {
-          'article:tag': blog.tags.join(', '),
-        }),
-        'og:image:width': '1200',
-        'og:image:height': '630',
-        'og:image:type': 'image/jpeg',
-        'twitter:image:alt': blog.title,
-      },
-    };
-  } catch (error) {
-    console.error('Error generating metadata:', error);
-    return {
-      title: 'Blog Post | RentGhar',
-      description: 'Read the latest blog posts about real estate in Pakistan.',
-    };
-  }
-}
-
+import { serverApi, isNotFoundError } from '@/lib/server-api';
+import { transformBlogToPost, transformBlogsToPosts } from '@/lib/utils/blog-utils';
 import { buildBlogPostSchema } from '@/lib/schema/blog-schema';
 
-// Server Component - passes params to client component
-export default async function BlogPostPage({ params }: PageProps) {
-  // Next.js 15: params is now a Promise, must await it
-  const { slug } = await params;
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://propertydealer.pk';
+/*
+ * A blog post, rendered on the server: the article is in the HTML. Made on
+ * first visit, then cached; refreshed every 10 minutes and whenever the post
+ * is edited (the API revalidates "blogs").
+ */
+export const revalidate = 600;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
 
-  // Fetch blog data for structured data using serverApi
-  let blog: Blog | null = null;
+interface PageProps {
+  params: Promise<{ slug: string }>;
+}
+
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
+const SITE = 'PropertyDealer';
+
+/** The post, or a 404 for one that does not exist. An API that is down throws, so the cached page stays. */
+async function getBlog(slug: string): Promise<Blog> {
   try {
-    blog = await serverApi.get(`/blog/slug/${encodeURIComponent(slug)}`, {
-      next: { revalidate: 3600 }
+    const blog = await serverApi.get<Blog>(`/blog/slug/${encodeURIComponent(slug)}`, {
+      next: { revalidate: 600, tags: ['blogs', `blog:slug:${slug}`] },
     });
+    if (!blog) notFound();
+    return blog;
   } catch (error) {
-    console.error('Error fetching blog for structured data:', error);
+    if (isNotFoundError(error)) notFound();
+    throw error;
+  }
+}
+
+const plain = (html?: string) => String(html ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+function imageOf(blog: Blog): string {
+  if (!blog.featuredImage) return `${BASE_URL}/og-image.jpg`;
+  return blog.featuredImage.startsWith('http') ? blog.featuredImage : `${BASE_URL}${blog.featuredImage.startsWith('/') ? '' : '/'}${blog.featuredImage}`;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const blog = await getBlog(slug);
+
+  const authorName =
+    typeof blog.author === 'object' && blog.author !== null && 'name' in blog.author ? String(blog.author.name) : `${SITE} Team`;
+  const categories =
+    Array.isArray(blog.categories) && blog.categories.length > 0
+      ? blog.categories.map((c) => (typeof c === 'object' && c && 'name' in c ? String(c.name) : '')).filter(Boolean)
+      : [];
+  const pageUrl = `${BASE_URL}/blog/${blog.slug}`;
+  const title = blog.metaTitle || blog.title;
+  const description = (blog.metaDescription || blog.excerpt || plain(blog.content)).slice(0, 160);
+  const image = imageOf(blog);
+  const published = blog.createdAt ? new Date(blog.createdAt).toISOString() : undefined;
+  const modified = blog.updatedAt ? new Date(blog.updatedAt).toISOString() : published;
+
+  return {
+    title,
+    description,
+    ...(blog.tags?.length || categories.length ? { keywords: [...(blog.tags ?? []), ...categories] } : {}),
+    authors: [{ name: authorName }],
+    alternates: { canonical: blog.canonicalUrl || pageUrl },
+    openGraph: {
+      type: 'article',
+      title,
+      description,
+      url: pageUrl,
+      siteName: SITE,
+      images: [{ url: image, alt: blog.title }],
+      locale: 'en_PK',
+      ...(published ? { publishedTime: published } : {}),
+      ...(modified ? { modifiedTime: modified } : {}),
+      authors: [authorName],
+      ...(categories[0] ? { section: categories[0] } : {}),
+      ...(blog.tags?.length ? { tags: blog.tags } : {}),
+    },
+    twitter: { card: 'summary_large_image', title, description, images: [image] },
+    robots: { index: true, follow: true, googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 } },
+  };
+}
+
+export default async function BlogPostPage({ params }: PageProps) {
+  const { slug } = await params;
+  const blog = await getBlog(slug);
+
+  // Related posts are a nice-to-have: their failure must not take the article down.
+  let related: Blog[] = [];
+  try {
+    const all = await serverApi.getPublishedBlogs();
+    related = (Array.isArray(all) ? all : []).filter((b) => b.slug !== blog.slug && b._id !== blog._id).slice(0, 3);
+  } catch {
+    related = [];
   }
 
-  // --- Schema ---
-  let blogSchema: any = null;
-  if (blog) {
-    const publishedDate = blog.createdAt ? new Date(blog.createdAt).toISOString() : new Date().toISOString();
-    const modifiedDate = blog.updatedAt ? new Date(blog.updatedAt).toISOString() : publishedDate;
-    const imageUrl = blog.featuredImage
-      ? (blog.featuredImage.startsWith('http')
-        ? blog.featuredImage
-        : `${baseUrl}${blog.featuredImage.startsWith('/') ? '' : '/'}${blog.featuredImage}`)
-      : `${baseUrl}/default-blog.jpg`;
-
-    blogSchema = buildBlogPostSchema({
-      url: `${baseUrl}/blog/${blog.slug}`,
-      title: blog.metaTitle || blog.title,
-      description: blog.metaDescription || blog.excerpt || blog.title.substring(0, 160),
-      image: imageUrl,
-      publishedAt: publishedDate,
-      updatedAt: modifiedDate,
-    });
-  }
+  const post = transformBlogToPost(blog);
+  const published = blog.createdAt ? new Date(blog.createdAt).toISOString() : new Date().toISOString();
+  const schema = buildBlogPostSchema({
+    url: `${BASE_URL}/blog/${blog.slug}`,
+    title: blog.metaTitle || blog.title,
+    description: (blog.metaDescription || blog.excerpt || plain(blog.content)).slice(0, 160),
+    image: imageOf(blog),
+    publishedAt: published,
+    updatedAt: blog.updatedAt ? new Date(blog.updatedAt).toISOString() : published,
+  });
 
   return (
     <>
-      {/* JSON-LD Structured Data for SEO */}
-      {blogSchema && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(blogSchema) }}
-        />
-      )}
-      <BlogPostClient slug={slug} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+      <BlogPostClient post={post} relatedPosts={transformBlogsToPosts(related)} />
     </>
   );
 }

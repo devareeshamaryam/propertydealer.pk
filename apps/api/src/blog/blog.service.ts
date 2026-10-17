@@ -30,6 +30,8 @@ export class BlogService {
             tags.push(`blog:slug:${slug}`);
             paths.push(`/blog/${slug}`);
         }
+        // The API's own cached reads first, then the site's pages.
+        await this.cache.invalidateTags([TAG_BLOGS]).catch(() => undefined);
         await this.revalidate.revalidate({ tags, paths });
     }
 
@@ -214,24 +216,29 @@ export class BlogService {
         return blog;
     }
 
+    /**
+     * A published post, read-only and cached. It used to add a view and save
+     * the whole document on every read — a database write per page view,
+     * uncacheable — and sent the author's email to every visitor. Views are
+     * counted by POST /blog/:id/views from the browser.
+     */
     async findBlogBySlug(slug: string): Promise<BlogDocument> {
-        const blog = await this.blogModel
-            .findOne({ 
-                slug: slug,
-                status: 'published'
-            })
-            .populate('author', 'name email')
-            .populate('categories', 'name slug')
-            .exec();
-            
+        const blog = await this.cache.wrap(
+            this.cache.buildKey('blogs:slug', [slug]),
+            () =>
+                this.blogModel
+                    .findOne({ slug: slug, status: 'published' })
+                    .populate('author', 'name')
+                    .populate('categories', 'name slug')
+                    .lean()
+                    .exec(),
+            { ttl: 600, tags: [TAG_BLOGS] },
+        );
+
         if (!blog) {
             throw new NotFoundException(`Blog not found with slug: ${slug}`);
         }
-        
-        blog.views += 1;
-        await blog.save();
-        
-        return blog;
+        return blog as unknown as BlogDocument;
     }
 
     async updateBlog(id: string, updateBlogDto: UpdateBlogDto): Promise<BlogDocument> {

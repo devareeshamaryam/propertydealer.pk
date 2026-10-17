@@ -2,6 +2,14 @@ import { Metadata, ResolvingMetadata } from 'next';
 import BlogGrid from '@/components/BlogGrid';
 import blogCategoryApi from '@/lib/api/blog-category/blog-category.api';
 import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
+
+/* Rendered on first visit, then cached; refreshed every 10 minutes and when posts change. */
+export const revalidate = 600;
+export const dynamicParams = true;
+export function generateStaticParams() {
+  return [];
+}
 
 interface PageProps {
   params: Promise<{
@@ -40,9 +48,12 @@ export default async function BlogCategoryPage(props: PageProps) {
 
   try {
     category = await blogCategoryApi.getCategoryBySlug(slug);
-  } catch (error) {
-    console.error('Error fetching category:', error);
+  } catch (error: any) {
+    // A category that does not exist is a 404, not an empty page; an API that is down keeps the cached page.
+    if (Number(error?.response?.status) === 404) notFound();
+    throw error;
   }
+  if (!category) notFound();
 
   return (
     <div className="min-h-screen">
