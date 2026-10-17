@@ -1,5 +1,6 @@
 "use client";
 
+import { PosterCard } from "@/components/dashboard/poster-info";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -565,15 +566,19 @@ export function PropertyPreviewDialog({
                       value={property.whatsappNumber}
                     />
                   )}
-                  <Field
-                    icon={UserIcon}
-                    label="Listed by"
-                    value={
-                      property.owner && typeof property.owner === "object"
-                        ? (property.owner.name ?? property.owner.email ?? "—")
-                        : "—"
-                    }
-                  />
+                  {(property as any).poster !== undefined ? (
+                    <PosterCard poster={(property as any).poster} />
+                  ) : (
+                    <Field
+                      icon={UserIcon}
+                      label="Listed by"
+                      value={
+                        property.owner && typeof property.owner === "object"
+                          ? (property.owner.name ?? property.owner.email ?? "—")
+                          : "—"
+                      }
+                    />
+                  )}
                   {property.source && (
                     <Field label="Source" value={property.source} />
                   )}

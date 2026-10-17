@@ -174,16 +174,27 @@ export class SocietyMapSetup implements OnApplicationBootstrap {
       .catch(async (err) => this.finish(id, 'failed', err?.message ?? String(err)));
   }
 
+  /** scripts/areas/plan.json, then plan-2.json, … — each applied once (by its content), in order. */
   private async applyAreasPlan(root: string) {
-    const planFile = path.join(root, 'scripts', 'areas', 'plan.json');
+    const dir = path.join(root, 'scripts', 'areas');
+    const files = (await fs.readdir(dir).catch(() => [] as string[]))
+      .filter((f) => /^plan(-\d+)?\.json$/.test(f))
+      .sort((a, b) => Number(a.match(/\d+/)?.[0] ?? 1) - Number(b.match(/\d+/)?.[0] ?? 1));
+    for (const f of files) await this.applyAreasPlanFile(root, f);
+  }
+
+  private async applyAreasPlanFile(root: string, f: string) {
+    const planFile = path.join(root, 'scripts', 'areas', f);
     const plan = await fs.readFile(planFile).catch(() => null);
     if (!plan) return;
-    const id = `areas-plan-${createHash('sha1').update(plan).digest('hex').slice(0, 12)}`;
+    // plan.json keeps its original id, so it is not applied a second time.
+    const name = f === 'plan.json' ? 'areas-plan' : `areas-${f.replace(/\.json$/, '')}`;
+    const id = `${name}-${createHash('sha1').update(plan).digest('hex').slice(0, 12)}`;
     if (!(await this.claim(id))) return;
-    this.logger.log('Applying the areas plan (backup first)…');
+    this.logger.log(`Applying the areas plan ${f} (backup first)…`);
     const out: string[] = [];
     const code = await new Promise<number>((resolve) => {
-      const child = spawn(process.execPath, [path.join(root, 'scripts', 'areas', 'apply-plan.js'), '--apply'], { cwd: root, env: process.env });
+      const child = spawn(process.execPath, [path.join(root, 'scripts', 'areas', 'apply-plan.js'), '--plan', planFile, '--apply'], { cwd: root, env: process.env });
       child.stdout.on('data', (d) => out.push(String(d)));
       child.stderr.on('data', (d) => out.push(String(d)));
       child.on('close', (c) => resolve(c ?? 1));

@@ -6,11 +6,15 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  Eye,
+  EyeOff,
+  GitMerge,
   MapPin,
   PlusCircle,
   RefreshCcw,
   SquarePen,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -37,6 +41,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import areaApi from "@/lib/api/area/area.api";
 import cityApi from "@/lib/api/city/city.api";
 import { useAuth } from "@/context/auth-context";
@@ -67,7 +80,25 @@ interface AreaRecord {
   areaSlug?: string;
   city?: CityRef | string;
   createdAt?: string;
+  mergedInto?: string;
+  mergedIntoSlug?: string;
+  hidden?: boolean;
+  listings?: number;
 }
+
+/** Which areas the table shows. "Active" are the ones offered on the site. */
+type StatusFilter = "active" | "listings" | "empty" | "merged" | "hidden" | "all";
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  active: "Active",
+  listings: "Active, with listings",
+  empty: "Active, no listings",
+  merged: "Merged duplicates",
+  hidden: "Hidden",
+  all: "All areas",
+};
+const isActive = (a: AreaRecord) => !a.mergedInto && !a.hidden;
+const cityIdOf = (a: AreaRecord) =>
+  typeof a.city === "string" ? a.city : (a.city?._id ?? "");
 
 function formatDate(value?: string) {
   if (!value) return "—";
@@ -89,10 +120,16 @@ export default function AreasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cityFilter, setCityFilter] = useState("all");
+  const [status, setStatus] = useState<StatusFilter>("active");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [mergeFrom, setMergeFrom] = useState<AreaRecord | null>(null);
+  const [mergeQuery, setMergeQuery] = useState("");
+  const [merging, setMerging] = useState(false);
+  // Status and listing counts come from the admin overview; others get the plain list.
+  const [withCounts, setWithCounts] = useState(false);
 
   const { confirm, dialogProps } = useConfirm();
-  const columnCount = isAdmin ? 5 : 4;
+  const columnCount = isAdmin ? 6 : 4;
 
   const load = useCallback(async () => {
     try {
@@ -101,12 +138,21 @@ export default function AreasPage() {
       // Cities are only needed to label areas whose `city` came back unpopulated;
       // a failure there must not hide the areas themselves.
       const [areasResult, citiesResult] = await Promise.allSettled([
-        areaApi.getAll(),
+        isAdmin
+          ? areaApi.adminOverview()
+          : Promise.reject(new Error("overview is for admins")),
         cityApi.getNames(),
       ]);
 
-      if (areasResult.status === "rejected") throw areasResult.reason;
-      setAreas(Array.isArray(areasResult.value) ? areasResult.value : []);
+      if (areasResult.status === "fulfilled") {
+        setAreas(areasResult.value);
+        setWithCounts(true);
+      } else {
+        // An older API without the overview: the plain list, no status or counts.
+        const plain = await areaApi.getAll();
+        setAreas(Array.isArray(plain) ? plain : []);
+        setWithCounts(false);
+      }
 
       if (
         citiesResult.status === "fulfilled" &&
@@ -125,7 +171,7 @@ export default function AreasPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     void load();
@@ -156,11 +202,114 @@ export default function AreasPage() {
     return [...set].sort();
   }, [areas, cityNameOf]);
 
+  const byId = useMemo(() => new Map(areas.map((a) => [a._id, a])), [areas]);
+
+  const matchesStatus = useCallback(
+    (area: AreaRecord): boolean => {
+      if (!withCounts) return true;
+      switch (status) {
+        case "active":
+          return isActive(area);
+        case "listings":
+          return isActive(area) && (area.listings ?? 0) > 0;
+        case "empty":
+          return isActive(area) && (area.listings ?? 0) === 0;
+        case "merged":
+          return !!area.mergedInto;
+        case "hidden":
+          return !!area.hidden && !area.mergedInto;
+        default:
+          return true;
+      }
+    },
+    [status, withCounts],
+  );
+
   const rowFilter = useCallback(
     (area: AreaRecord) =>
-      cityFilter === "all" || cityNameOf(area) === cityFilter,
-    [cityFilter, cityNameOf],
+      matchesStatus(area) &&
+      (cityFilter === "all" || cityNameOf(area) === cityFilter),
+    [cityFilter, cityNameOf, matchesStatus],
   );
+
+  const summary = useMemo(() => {
+    const inCity = areas.filter(
+      (a) => cityFilter === "all" || cityNameOf(a) === cityFilter,
+    );
+    return {
+      active: inCity.filter(isActive).length,
+      listings: inCity.filter((a) => isActive(a) && (a.listings ?? 0) > 0)
+        .length,
+      merged: inCity.filter((a) => a.mergedInto).length,
+      hidden: inCity.filter((a) => a.hidden && !a.mergedInto).length,
+    };
+  }, [areas, cityFilter, cityNameOf]);
+
+  /** Where the area being merged can go: active areas of the same city, matching the search. */
+  const mergeTargets = useMemo(() => {
+    if (!mergeFrom) return [];
+    const city = cityIdOf(mergeFrom);
+    const q = mergeQuery.trim().toLowerCase();
+    return areas
+      .filter(
+        (a) => a._id !== mergeFrom._id && isActive(a) && cityIdOf(a) === city,
+      )
+      .filter(
+        (a) =>
+          !q ||
+          a.name.toLowerCase().includes(q) ||
+          (a.areaSlug ?? "").includes(q),
+      )
+      .sort(
+        (a, b) =>
+          (b.listings ?? 0) - (a.listings ?? 0) || a.name.localeCompare(b.name),
+      )
+      .slice(0, 40);
+  }, [areas, mergeFrom, mergeQuery]);
+
+  const openMerge = (area: AreaRecord) => {
+    setMergeFrom(area);
+    // Start from the area's first word — duplicates usually share it.
+    setMergeQuery(area.name.split(/[\s,]+/)[0] ?? "");
+  };
+
+  const doMerge = async (target: AreaRecord) => {
+    if (!mergeFrom) return;
+    try {
+      setMerging(true);
+      const res = await areaApi.merge(mergeFrom._id, target._id);
+      toast.success(`Merged into “${target.name}”`, {
+        description: `${res.moved} listing${res.moved === 1 ? "" : "s"} moved. The old URL keeps working and points to ${res.keptSlug}.`,
+      });
+      setMergeFrom(null);
+      await load();
+    } catch (err) {
+      toast.error("Could not merge", {
+        description: apiErrorMessage(err, "Please try again."),
+      });
+    } finally {
+      setMerging(false);
+    }
+  };
+
+  const runAction = async (
+    area: AreaRecord,
+    action: () => Promise<unknown>,
+    done: string,
+  ) => {
+    try {
+      setBusyId(area._id);
+      await action();
+      toast.success(done);
+      await load();
+    } catch (err) {
+      toast.error("Could not update the area", {
+        description: apiErrorMessage(err, "Please try again."),
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const searchAccessor = useCallback(
     (area: AreaRecord) => [area.name, area.areaSlug, cityNameOf(area)],
@@ -179,7 +328,7 @@ export default function AreasPage() {
   useEffect(() => {
     table.setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cityFilter]);
+  }, [cityFilter, status]);
 
   const requestDelete = (area: AreaRecord) =>
     confirm({
@@ -235,9 +384,11 @@ export default function AreasPage() {
     );
   };
 
-  const filtersActive = cityFilter !== "all" || table.search !== "";
+  const filtersActive =
+    cityFilter !== "all" || status !== "active" || table.search !== "";
   const resetAll = () => {
     setCityFilter("all");
+    setStatus("active");
     table.resetFilters();
   };
 
@@ -250,11 +401,17 @@ export default function AreasPage() {
     </Button>
   ) : null;
 
+  const n = (v: number) => v.toLocaleString("en-PK");
+
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
       <PageHeader
         title="Areas"
-        description="Societies, sectors and phases that properties can be listed under."
+        description={
+          withCounts
+            ? `${n(summary.active)} active · ${n(summary.listings)} with listings · ${n(summary.merged)} merged duplicates · ${n(summary.hidden)} hidden. Merge a duplicate or misspelling into the right area: its listings move and its URL keeps working.`
+            : "Societies, sectors and phases that properties can be listed under."
+        }
         actions={
           <>
             <Button
@@ -300,6 +457,26 @@ export default function AreasPage() {
                 </SelectContent>
               </Select>
             )}
+            {withCounts && (
+              <Select
+                value={status}
+                onValueChange={(v) => setStatus(v as StatusFilter)}
+              >
+                <SelectTrigger
+                  className="w-[200px]"
+                  aria-label="Filter by status"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(STATUS_LABELS) as StatusFilter[]).map((k) => (
+                    <SelectItem key={k} value={k}>
+                      {STATUS_LABELS[k]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {filtersActive && (
               <Button variant="ghost" size="sm" onClick={resetAll}>
                 <X className="mr-1.5 h-3.5 w-3.5" />
@@ -320,6 +497,11 @@ export default function AreasPage() {
                 <TableHead>
                   <SortButton column="areaSlug">Slug</SortButton>
                 </TableHead>
+                {isAdmin && (
+                  <TableHead className="whitespace-nowrap">
+                    <SortButton column="listings">Listings</SortButton>
+                  </TableHead>
+                )}
                 <TableHead className="whitespace-nowrap">
                   <SortButton column="createdAt">Created</SortButton>
                 </TableHead>
@@ -355,12 +537,32 @@ export default function AreasPage() {
                 table.rows.map((area) => {
                   const busy = busyId === area._id;
                   const city = cityNameOf(area);
+                  const listings = area.listings ?? 0;
                   return (
                     <TableRow
                       key={area._id}
                       className={cn(busy && "opacity-60")}
                     >
-                      <TableCell className="font-medium">{area.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <span>{area.name}</span>
+                        {area.hidden && !area.mergedInto && (
+                          <Badge
+                            variant="secondary"
+                            className="ml-2 align-middle"
+                          >
+                            Hidden
+                          </Badge>
+                        )}
+                        {area.mergedInto && (
+                          <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                            Merged into{" "}
+                            <span className="font-medium text-foreground">
+                              {byId.get(area.mergedInto)?.name ??
+                                area.mergedIntoSlug}
+                            </span>
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         {city ? (
                           <Badge variant="outline">{city}</Badge>
@@ -375,12 +577,102 @@ export default function AreasPage() {
                           {area.areaSlug || "—"}
                         </span>
                       </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-sm tabular-nums">
+                          {withCounts ? n(listings) : "—"}
+                        </TableCell>
+                      )}
                       <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                         {formatDate(area.createdAt)}
                       </TableCell>
                       {isAdmin && (
                         <TableCell>
                           <div className="flex items-center justify-end gap-1">
+                            {withCounts && !area.mergedInto && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    disabled={busy}
+                                    onClick={() => openMerge(area)}
+                                  >
+                                    <GitMerge className="h-4 w-4" />
+                                    <span className="sr-only">Merge</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Merge into the right area (duplicate or
+                                  misspelling)
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {withCounts && area.mergedInto && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      void runAction(
+                                        area,
+                                        () => areaApi.unmerge(area._id),
+                                        "Area is active again",
+                                      )
+                                    }
+                                  >
+                                    <Undo2 className="h-4 w-4" />
+                                    <span className="sr-only">Unmerge</span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  Undo the merge (moved listings stay where they
+                                  are)
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                            {withCounts && !area.mergedInto && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      void runAction(
+                                        area,
+                                        () =>
+                                          areaApi.setHidden(
+                                            area._id,
+                                            !area.hidden,
+                                          ),
+                                        area.hidden
+                                          ? "Area is offered again"
+                                          : "Area hidden from pickers",
+                                      )
+                                    }
+                                  >
+                                    {area.hidden ? (
+                                      <Eye className="h-4 w-4" />
+                                    ) : (
+                                      <EyeOff className="h-4 w-4" />
+                                    )}
+                                    <span className="sr-only">
+                                      {area.hidden ? "Unhide" : "Hide"}
+                                    </span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {area.hidden
+                                    ? "Offer in area pickers again"
+                                    : "Hide from area pickers (its page and listings stay)"}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button
@@ -401,17 +693,24 @@ export default function AreasPage() {
                             </Tooltip>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  disabled={busy}
-                                  onClick={() => requestDelete(area)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                {/* A span keeps the tooltip working on the disabled button. */}
+                                <span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    disabled={busy || listings > 0}
+                                    onClick={() => requestDelete(area)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </span>
                               </TooltipTrigger>
-                              <TooltipContent>Delete</TooltipContent>
+                              <TooltipContent>
+                                {listings > 0
+                                  ? "Has listings — merge it instead"
+                                  : "Delete"}
+                              </TooltipContent>
                             </Tooltip>
                           </div>
                         </TableCell>
@@ -442,6 +741,69 @@ export default function AreasPage() {
       </DataCard>
 
       <ConfirmDialog {...dialogProps} />
+
+      <Dialog
+        open={!!mergeFrom}
+        onOpenChange={(open) => !open && !merging && setMergeFrom(null)}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Merge “{mergeFrom?.name}”</DialogTitle>
+            <DialogDescription>
+              Choose the area to keep
+              {mergeFrom && cityNameOf(mergeFrom)
+                ? ` in ${cityNameOf(mergeFrom)}`
+                : ""}
+              . {mergeFrom?.listings ?? 0} listing
+              {mergeFrom?.listings === 1 ? "" : "s"} move there; the old URL (
+              {mergeFrom?.areaSlug}) keeps working and points to the kept area.
+              Nothing is deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={mergeQuery}
+            onChange={(e) => setMergeQuery(e.target.value)}
+            placeholder="Search the area to keep…"
+            autoFocus
+          />
+          <div className="max-h-[320px] overflow-y-auto rounded-md border">
+            {mergeTargets.length === 0 ? (
+              <p className="p-4 text-sm text-muted-foreground">
+                No matching area in this city.
+              </p>
+            ) : (
+              mergeTargets.map((a) => (
+                <button
+                  key={a._id}
+                  type="button"
+                  disabled={merging}
+                  onClick={() => void doMerge(a)}
+                  className="flex w-full items-center justify-between gap-3 border-b px-3 py-2.5 text-left text-sm last:border-b-0 hover:bg-accent disabled:opacity-50"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{a.name}</span>
+                    <span className="block truncate font-mono text-xs text-muted-foreground">
+                      {a.areaSlug}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {n(a.listings ?? 0)} listings
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMergeFrom(null)}
+              disabled={merging}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

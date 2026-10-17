@@ -45,6 +45,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CustomPage({ params }: PageProps) {
   const { slug } = await params;
+  // The e-map pages' own texts belong to /emap, not to a page of their own.
+  if (slug === 'emap' || slug.startsWith('emap-')) notFound();
 
   try {
     const page = await serverApi.getPageBySlug(slug);

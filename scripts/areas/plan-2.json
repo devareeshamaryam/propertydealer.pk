@@ -1,0 +1,729 @@
+{
+ "note": "Areas clean-up 2 (Oct 2026): spelling duplicates and \"<society> near/road …\" entries merged, address-like names shortened. Display names only; no slug changes.",
+ "cities": [
+  {
+   "cityId": "698da1cc9ea1e7c584021c30",
+   "city": "Lahore",
+   "citySlug": "lahore",
+   "coords": [],
+   "rename": [
+    {
+     "id": "6a142a47c84885bb0da67053",
+     "from": "al rahman garden phase 2",
+     "to": "al rehman garden phase 2"
+    },
+    {
+     "id": "69a13b7ff169ea6b772beeab",
+     "from": "bahria town sector c, lahore",
+     "to": "bahria town sector c"
+    },
+    {
+     "id": "699bf5ff3a53feab430cb63b",
+     "from": "bahria town, sector e, lahore",
+     "to": "bahria town sector e"
+    },
+    {
+     "id": "6a06cf344e28d4a8f617e2de",
+     "from": "takbeer homes, street 2-h",
+     "to": "takbeer homes"
+    },
+    {
+     "id": "6a13f088c84885bb0da65a93",
+     "from": "imamia colony main g t road",
+     "to": "imamia colony"
+    },
+    {
+     "id": "6ac4bc80cc6af73cdef1a4fe",
+     "from": "shadman enclave housing society main sharaqpur road",
+     "to": "shadman enclave housing society"
+    },
+    {
+     "id": "699c1f043a53feab430cb6b8",
+     "from": "eden boulevard society college road",
+     "to": "eden boulevard"
+    },
+    {
+     "id": "6a2bbdf4534fb3f22da32065",
+     "from": "wapda town kasur main multan road near manga mandi",
+     "to": "wapda town kasur"
+    },
+    {
+     "id": "6a0436714c0940d3bc6daa81",
+     "from": "medical town near bahria orchard",
+     "to": "medical town"
+    },
+    {
+     "id": "6a3a318d9b41f2bbb445cd08",
+     "from": "dera hakeema near jallo park",
+     "to": "dera hakeema"
+    },
+    {
+     "id": "6ac8b1c6fb1628e98501649c",
+     "from": "c block gulfishan town near kot abdul malik motorway interchange",
+     "to": "gulfishan town"
+    },
+    {
+     "id": "6a06caee4e28d4a8f617e0fa",
+     "from": "faisal town near gajjumata metro bus stop",
+     "to": "faisal town gajjumata"
+    },
+    {
+     "id": "6acc8a5491a6c54970d975f2",
+     "from": "rasol town street no 10 kharianwala sapphire fiber mil",
+     "to": "rasool town kharianwala"
+    },
+    {
+     "id": "699c251e3a53feab430cb722",
+     "from": "al kabir town phase 2, lahore",
+     "to": "al kabir town phase 2"
+    },
+    {
+     "id": "699bf3d73a53feab430cb62b",
+     "from": "formanites housing scheme, lahore",
+     "to": "formanites housing scheme"
+    },
+    {
+     "id": "699d6874ce488394e8ccffad",
+     "from": "palm city, lahore",
+     "to": "palm city"
+    }
+   ],
+   "hide": [
+    "6a0572c9bf83906071220323",
+    "6acf28b091a6c54970dbfeef"
+   ],
+   "merge": [
+    {
+     "keep": "69980fc59b5a1119a979ed32",
+     "ids": [
+      "69980fc59b5a1119a979ed32",
+      "6997fefd9b5a1119a979ec56",
+      "6a2cff19534fb3f22da3ba46",
+      "6a043d474c0940d3bc6dac5c"
+     ],
+     "names": [
+      "al haram garden",
+      "al haram garden near central park",
+      "al haram garden near central park ferozepur road",
+      "al haram near central park"
+     ]
+    },
+    {
+     "keep": "6a142a47c84885bb0da67053",
+     "ids": [
+      "6a142a47c84885bb0da67053",
+      "6acca7a291a6c54970d99352"
+     ],
+     "names": [
+      "al rahman garden phase 2",
+      "al rehman garden phase 2 near saggian bypass"
+     ]
+    },
+    {
+     "keep": "6ad30af544cb08890dca6c41",
+     "ids": [
+      "6ad30af544cb08890dca6c41",
+      "6a2691f3b7e51be6630c0c45"
+     ],
+     "names": [
+      "gulshan e ravi",
+      "gulshan ravi"
+     ]
+    },
+    {
+     "keep": "6ad30b0e44cb08890dca6cf0",
+     "ids": [
+      "6ad30b0e44cb08890dca6cf0",
+      "6ad30b1744cb08890dca6d32"
+     ],
+     "names": [
+      "guru arjan nagar",
+      "guru arjun nagar"
+     ]
+    },
+    {
+     "keep": "6ad30b0544cb08890dca6cb6",
+     "ids": [
+      "6ad30b0544cb08890dca6cb6",
+      "6ad30b1444cb08890dca6d21"
+     ],
+     "names": [
+      "mominpura",
+      "muminpura"
+     ]
+    },
+    {
+     "keep": "6997ed3a9b5a1119a979ebba",
+     "ids": [
+      "6997ed3a9b5a1119a979ebba",
+      "6a056b25bf8390607121fff9"
+     ],
+     "names": [
+      "nasheman-e-iqbal phase 2",
+      "nasheman iqbal phase 2"
+     ]
+    },
+    {
+     "keep": "6ad30b0944cb08890dca6ccf",
+     "ids": [
+      "6ad30b0944cb08890dca6ccf",
+      "6ad30b1244cb08890dca6d0f"
+     ],
+     "names": [
+      "rehman park",
+      "rahman park"
+     ]
+    },
+    {
+     "keep": "6ad30b1744cb08890dca6d31",
+     "ids": [
+      "6ad30b1744cb08890dca6d31",
+      "6ad30b0744cb08890dca6cc1"
+     ],
+     "names": [
+      "tagore park",
+      "tegore park"
+     ]
+    },
+    {
+     "keep": "69ce12bf41e98724bf986388",
+     "ids": [
+      "69ce12bf41e98724bf986388",
+      "6a269406b7e51be6630c0d37"
+     ],
+     "names": [
+      "township",
+      "township near umar chowk"
+     ]
+    },
+    {
+     "keep": "6ad30b0644cb08890dca6cbc",
+     "ids": [
+      "6ad30b0644cb08890dca6cbc",
+      "6ad30b1444cb08890dca6d1f"
+     ],
+     "names": [
+      "wassanpura",
+      "wasanpura"
+     ]
+    },
+    {
+     "keep": "6ad30af544cb08890dca6c45",
+     "ids": [
+      "6ad30af544cb08890dca6c45",
+      "69b6e9bbb3febb1c13d6c0ec"
+     ],
+     "names": [
+      "iep town",
+      "iep town defence road"
+     ]
+    },
+    {
+     "keep": "6a0448a34c0940d3bc6db0f7",
+     "ids": [
+      "6a0448a34c0940d3bc6db0f7",
+      "6a042c844c0940d3bc6da6da"
+     ],
+     "names": [
+      "sj garden",
+      "sj garden bedian road"
+     ]
+    },
+    {
+     "keep": "699ff8dece488394e8cd0773",
+     "ids": [
+      "699ff8dece488394e8cd0773",
+      "6a0432c84c0940d3bc6da90d"
+     ],
+     "names": [
+      "chinar bagh",
+      "chinar bagh raiwind road"
+     ]
+    },
+    {
+     "keep": "69c6255169531e44f89628b8",
+     "ids": [
+      "69c6255169531e44f89628b8",
+      "6a26721bb7e51be6630bfb8c"
+     ],
+     "names": [
+      "park view city",
+      "park view city main multan road"
+     ]
+    },
+    {
+     "keep": "6ad30af444cb08890dca6c39",
+     "ids": [
+      "6ad30af444cb08890dca6c39",
+      "6a2695e2b7e51be6630c0e57"
+     ],
+     "names": [
+      "eden value homes",
+      "eden value homes multan road"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "698b1ee4f302e0d68c7e5130",
+   "city": "Multan",
+   "citySlug": "multan",
+   "coords": [],
+   "rename": [
+    {
+     "id": "699eb63ace488394e8cd0279",
+     "from": "bahadurpur, multan",
+     "to": "bahadurpur"
+    },
+    {
+     "id": "69a16266cb18e60441e5d779",
+     "from": "royal orchard royal orchard - block c",
+     "to": "royal orchard block c"
+    },
+    {
+     "id": "699e8f04ce488394e8cd01c8",
+     "from": "royal orchard, block f",
+     "to": "royal orchard block f"
+    },
+    {
+     "id": "6acf1bd191a6c54970dbf160",
+     "from": "bilal nagar near chungi 11",
+     "to": "bilal nagar"
+    },
+    {
+     "id": "6ac8c5c6fb1628e985017a73",
+     "from": "eden villas near modal town",
+     "to": "eden villas"
+    },
+    {
+     "id": "69d786ff0fe661ad4628367b",
+     "from": "shalimar t chowk near model town",
+     "to": "shalimar t chowk"
+    },
+    {
+     "id": "699d8493ce488394e8cd0116",
+     "from": "bypass chowk, khan village road",
+     "to": "khan village road"
+    },
+    {
+     "id": "699d6faace488394e8ccfffc",
+     "from": "buch executive villas, multan",
+     "to": "buch executive villas"
+    },
+    {
+     "id": "69a2a5f2115c68e4af5aab34",
+     "from": "fatima avenue, multan",
+     "to": "fatima avenue"
+    },
+    {
+     "id": "699ebe18ce488394e8cd0299",
+     "from": "ma jinnah road, multan",
+     "to": "ma jinnah road"
+    },
+    {
+     "id": "69a167d8ab51efed0ce0b511",
+     "from": "royal orchard, multan",
+     "to": "royal orchard"
+    }
+   ],
+   "hide": [
+    "699ed393ce488394e8cd03ee",
+    "6ac8bdc0fb1628e98501723d",
+    "699ed54cce488394e8cd03fb"
+   ],
+   "merge": [
+    {
+     "keep": "699eb63ace488394e8cd0279",
+     "ids": [
+      "699eb63ace488394e8cd0279",
+      "69ae78879aaf6009c91c29ec",
+      "699ed0adce488394e8cd03cf"
+     ],
+     "names": [
+      "bahadurpur, multan",
+      "bahadurpur near bilawal house",
+      "bahadurpur near bosan road"
+     ]
+    },
+    {
+     "keep": "6ac8b918fb1628e985016c3e",
+     "ids": [
+      "6ac8b918fb1628e985016c3e",
+      "6ac8be9bfb1628e9850172c1"
+     ],
+     "names": [
+      "mps road",
+      "mps road near pak turk school"
+     ]
+    },
+    {
+     "keep": "69b523abfc91b85fdddb372f",
+     "ids": [
+      "69b523abfc91b85fdddb372f",
+      "6997f7cb204c64ed947ddaf2"
+     ],
+     "names": [
+      "zakariya town",
+      "zakrya town"
+     ]
+    },
+    {
+     "keep": "699eac7ece488394e8cd0256",
+     "ids": [
+      "699eac7ece488394e8cd0256",
+      "699d8a4cce488394e8cd0125"
+     ],
+     "names": [
+      "grand enclave",
+      "grand enclave mps road"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "699441e3aa846dc95199498c",
+   "city": "Gujranwala",
+   "citySlug": "gujranwala",
+   "coords": [],
+   "rename": [],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "69aa9f3ec40bf2405a164272",
+     "ids": [
+      "69aa9f3ec40bf2405a164272",
+      "69fae0fe42a1b65ac1356c6b"
+     ],
+     "names": [
+      "citi housing society",
+      "city housing society"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "6989a8bb5fa8858b32ba2b15",
+   "city": "Karachi",
+   "citySlug": "karachi",
+   "coords": [],
+   "rename": [
+    {
+     "id": "6ad30ad644cb08890dca6c0e",
+     "from": "sector 3a, qtchs,, scheme 33",
+     "to": "sector 3a scheme 33"
+    },
+    {
+     "id": "6ad30ad644cb08890dca6c0f",
+     "from": "sector 2a , scheme 33",
+     "to": "sector 2a scheme 33"
+    },
+    {
+     "id": "6ad30acb44cb08890dca6bc2",
+     "from": "new dhoraji colony phase a, b, c",
+     "to": "new dhoraji colony"
+    },
+    {
+     "id": "6ad30ad644cb08890dca6c0c",
+     "from": "bantva memon coop. housing society sector 2a, scheme",
+     "to": "bantva memon cooperative housing society"
+    },
+    {
+     "id": "6ad30a9144cb08890dca6a23",
+     "from": "zulfiqar  al murtaza commercial area dha",
+     "to": "zulfiqar al murtaza commercial area"
+    }
+   ],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "6ad30a9544cb08890dca6a40",
+     "ids": [
+      "6ad30a9544cb08890dca6a40",
+      "6ad30a9a44cb08890dca6a65"
+     ],
+     "names": [
+      "ghausia colony",
+      "ghosia colony"
+     ]
+    },
+    {
+     "keep": "6ad30a8d44cb08890dca6a0d",
+     "ids": [
+      "6ad30a8d44cb08890dca6a0d",
+      "6ad30a8c44cb08890dca6a01"
+     ],
+     "names": [
+      "jafar-e-tayyar society",
+      "jaffer e tayar society"
+     ]
+    },
+    {
+     "keep": "6ad30a8244cb08890dca69bc",
+     "ids": [
+      "6ad30a8244cb08890dca69bc",
+      "6ad30a8544cb08890dca69d0"
+     ],
+     "names": [
+      "mehmoodabad",
+      "mahmudabad"
+     ]
+    },
+    {
+     "keep": "6ad30aca44cb08890dca6bb7",
+     "ids": [
+      "6ad30aca44cb08890dca6bb7",
+      "6ad30ac044cb08890dca6b6e"
+     ],
+     "names": [
+      "salehabad",
+      "salihabad"
+     ]
+    },
+    {
+     "keep": "6ad30a8844cb08890dca69e5",
+     "ids": [
+      "6ad30a8844cb08890dca69e5",
+      "6ad30aa844cb08890dca6ac8"
+     ],
+     "names": [
+      "swat colony",
+      "sawat colony"
+     ]
+    },
+    {
+     "keep": "6ad30abe44cb08890dca6b66",
+     "ids": [
+      "6ad30abe44cb08890dca6b66",
+      "6ad30a9444cb08890dca6a39"
+     ],
+     "names": [
+      "umar farooq colony",
+      "umer farooq colony"
+     ]
+    },
+    {
+     "keep": "6ad30aa344cb08890dca6aa8",
+     "ids": [
+      "6ad30aa344cb08890dca6aa8",
+      "6ad30aa244cb08890dca6a9e"
+     ],
+     "names": [
+      "teachers cooperative housing society",
+      "teachers cooperative housnig society"
+     ]
+    },
+    {
+     "keep": "6ad30aab44cb08890dca6adf",
+     "ids": [
+      "6ad30aab44cb08890dca6adf",
+      "6ad30a9944cb08890dca6a5f"
+     ],
+     "names": [
+      "central govt employees cooperative housing society",
+      "central goverment employees cooperative housing society"
+     ]
+    },
+    {
+     "keep": "6ad30aaa44cb08890dca6ad9",
+     "ids": [
+      "6ad30aaa44cb08890dca6ad9",
+      "6ad30ac644cb08890dca6b9e"
+     ],
+     "names": [
+      "national cement employees cooperative housing society",
+      "national cement employee housing society"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "6994427daa846dc95199499a",
+   "city": "Faislabad",
+   "citySlug": "faislabad",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69aa896ac40bf2405a164011",
+     "from": "city housing society - phase 1, faisalabad",
+     "to": "city housing society phase 1"
+    },
+    {
+     "id": "69aa7f78c40bf2405a163eb6",
+     "from": "canal park, faisalabad",
+     "to": "canal park"
+    },
+    {
+     "id": "69aa95a3c40bf2405a16419c",
+     "from": "civil lines, faisalabad",
+     "to": "civil lines"
+    },
+    {
+     "id": "69aa853ac40bf2405a163fab",
+     "from": "eden executive, faisalabad",
+     "to": "eden executive"
+    },
+    {
+     "id": "69aa8375c40bf2405a163f25",
+     "from": "ghalib city, faisalabad",
+     "to": "ghalib city"
+    },
+    {
+     "id": "69aa8c2bc40bf2405a16413d",
+     "from": "kohinoor city, faisalabad",
+     "to": "kohinoor city"
+    },
+    {
+     "id": "69aa8fffc40bf2405a16417a",
+     "from": "madina town, faisalabad",
+     "to": "madina town"
+    },
+    {
+     "id": "69aa874ac40bf2405a163fc9",
+     "from": "millat chowk, faisalabad",
+     "to": "millat chowk"
+    },
+    {
+     "id": "69aa81e1c40bf2405a163f0a",
+     "from": "model city 1, faisalabad",
+     "to": "model city 1"
+    }
+   ],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "69abd6dd194769393ac6a187",
+     "ids": [
+      "69abd6dd194769393ac6a187",
+      "6ad30a4b44cb08890dca68b4"
+     ],
+     "names": [
+      "khayaban colony",
+      "khayban colony"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "69b53f4767194c79fe324244",
+   "city": "Gujrat",
+   "citySlug": "gujrat",
+   "coords": [],
+   "rename": [],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "6ad30a5b44cb08890dca6919",
+     "ids": [
+      "6ad30a5b44cb08890dca6919",
+      "6ad30a5444cb08890dca68e9"
+     ],
+     "names": [
+      "khursheed colony",
+      "khurashid colony"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "69b53f7767194c79fe32424d",
+   "city": "Sahiwal",
+   "citySlug": "sahiwal",
+   "coords": [],
+   "rename": [
+    {
+     "id": "6ac76a7735bd4cc665db9f7d",
+     "from": "hamd block near shadman town",
+     "to": "hamd block shadman town"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  },
+  {
+   "cityId": "69b52ddf3cf386af45136d2f",
+   "city": "Sialkot",
+   "citySlug": "sialkot",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69c5009669531e44f895f61e",
+     "from": "citi housing society - block a extension",
+     "to": "citi housing society block a extension"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  },
+  {
+   "cityId": "69b53fd267194c79fe324285",
+   "city": "Wah Cant",
+   "citySlug": "wah-cant",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69d4b0e20fe661ad462792f3",
+     "from": "kohistan enclave sector i - precinct 1, wah",
+     "to": "kohistan enclave sector i"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  },
+  {
+   "cityId": "69b53f5867194c79fe324247",
+   "city": "Sukkur",
+   "citySlug": "sukkur",
+   "coords": [],
+   "rename": [
+    {
+     "id": "6ad30b7444cb08890dca6eca",
+     "from": "danish gah colony, old sukkur, sukkur",
+     "to": "danish gah colony"
+    },
+    {
+     "id": "6ad30b7044cb08890dca6eb1",
+     "from": "shah faisal colony golimar road sukkur",
+     "to": "shah faisal colony"
+    },
+    {
+     "id": "6ad30b7244cb08890dca6ebb",
+     "from": "king crystal phase ii(housing scheme)",
+     "to": "king crystal phase 2"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  },
+  {
+   "cityId": "698d8542b63dfe156d709072",
+   "city": "Islamabad",
+   "citySlug": "islamabad",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69c4d79269531e44f895e27b",
+     "from": "f-10, islamabad",
+     "to": "f-10"
+    },
+    {
+     "id": "69f308614511fd90d062a1fd",
+     "from": "g-13/4, islamabad",
+     "to": "g-13/4"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  }
+ ]
+}

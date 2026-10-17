@@ -76,6 +76,7 @@ export default function SocietyLayers({
             maxLat: b.getNorth().toFixed(3),
             minLng: b.getWest().toFixed(3),
             maxLng: b.getEast().toFixed(3),
+            zoom: map.getZoom(),
           },
         });
         if (id === req.current) setInView(Array.isArray(res.data?.data) ? res.data.data : []);

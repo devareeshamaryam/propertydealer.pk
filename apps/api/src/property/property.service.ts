@@ -1058,7 +1058,7 @@ export class PropertyService {
           ]);
 
           return {
-            properties,
+            properties: await this.withPosters(properties, userRole === 'ADMIN'),
             total,
             totalPages: Math.ceil(total / limit),
             currentPage: page,
@@ -1068,6 +1068,74 @@ export class PropertyService {
           console.error('❌ Critical: Error in findAll:', error);
           throw error;
         }
+      }
+
+      /**
+       * Who posted each listing, for the dashboard: the approval queue showed a
+       * title and nothing about the account behind it. Everyone sees the
+       * poster's name (an agency owner sees which of its agents posted); the
+       * admin also gets contact details, role, agency and plan.
+       */
+      private async withPosters(rows: any[], admin: boolean) {
+        if (!rows.length) return rows;
+        const ids = [...new Set(rows.map((p) => String(p.owner ?? '')).filter((id) => Types.ObjectId.isValid(id)))];
+        if (!ids.length) return rows;
+        const db = this.propertyModel.db;
+        const users = await db
+          .collection('users')
+          .find({ _id: { $in: ids.map((id) => new Types.ObjectId(id)) } }, { projection: { name: 1, companyName: 1, email: 1, phone: 1, role: 1, agencyId: 1, isActive: 1, createdAt: 1 } })
+          .toArray();
+        const byId = new Map(users.map((u: any) => [String(u._id), u]));
+
+        let agencies = new Map<string, any>();
+        let plans = new Map<string, string>();
+        let counts = new Map<string, number>();
+        if (admin) {
+          const agencyIds = [...new Set(users.map((u: any) => (u.agencyId ? String(u.agencyId) : '')).filter(Boolean))];
+          if (agencyIds.length) {
+            const rowsA = await db.collection('users').find({ _id: { $in: agencyIds.map((i) => new Types.ObjectId(i)) } }, { projection: { name: 1, companyName: 1 } }).toArray();
+            agencies = new Map(rowsA.map((a: any) => [String(a._id), a]));
+          }
+          // The plan in force: an agent's comes from the agency.
+          const planOwners = [...new Set(users.map((u: any) => String(u.agencyId ?? u._id)))];
+          const subs = await db
+            .collection('subscriptions')
+            .find({ userId: { $in: AgencyService.anyIds(planOwners) }, status: 'active', endDate: { $gt: new Date() } }, { projection: { userId: 1, planName: 1, packageId: 1 } })
+            .toArray();
+          const pkgIds = [...new Set(subs.map((s: any) => String(s.packageId ?? '')).filter((i) => Types.ObjectId.isValid(i)))];
+          const pkgs = pkgIds.length ? await db.collection('packages').find({ _id: { $in: pkgIds.map((i) => new Types.ObjectId(i)) } }, { projection: { name: 1 } }).toArray() : [];
+          const pkgName = new Map(pkgs.map((p: any) => [String(p._id), p.name]));
+          plans = new Map(subs.map((s: any) => [String(s.userId), pkgName.get(String(s.packageId)) ?? s.planName ?? 'Paid plan']));
+          const agg = await this.propertyModel
+            .aggregate([
+              { $match: { owner: { $in: AgencyService.anyIds(ids) } } },
+              { $group: { _id: { $toString: '$owner' }, n: { $sum: 1 } } },
+            ])
+            .exec();
+          counts = new Map((agg as any[]).map((r) => [String(r._id), r.n]));
+        }
+
+        return rows.map((p) => {
+          const u: any = byId.get(String(p.owner ?? ''));
+          if (!u) return { ...p, poster: null };
+          const base = { _id: String(u._id), name: u.name ?? '', companyName: u.companyName ?? '' };
+          if (!admin) return { ...p, poster: base };
+          const agency = u.agencyId ? agencies.get(String(u.agencyId)) : null;
+          return {
+            ...p,
+            poster: {
+              ...base,
+              email: u.email ?? '',
+              phone: u.phone ?? '',
+              role: u.role ?? '',
+              isActive: u.isActive !== false,
+              joinedAt: u.createdAt ?? null,
+              agency: agency ? { _id: String(agency._id), name: agency.companyName || agency.name || 'Agency' } : null,
+              plan: plans.get(String(u.agencyId ?? u._id)) ?? 'Free',
+              listings: counts.get(String(u._id)) ?? 0,
+            },
+          };
+        });
       }
 
       /**

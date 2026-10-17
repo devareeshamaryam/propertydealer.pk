@@ -72,6 +72,7 @@ import {
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { amountShort, propertySizeLabel } from "@/lib/pk";
 import { PropertyPreviewDialog } from "@/components/dashboard/property-preview-dialog";
+import { PosterLine } from "@/components/dashboard/poster-info";
 
 type StatusFilter = "all" | "draft" | "pending" | "approved" | "rejected";
 
@@ -389,7 +390,9 @@ export default function PropertiesPage() {
     );
     try {
       const detail = await propertyApi.getPropertyById({ id: propertyId });
-      setPreview(detail);
+      // The poster comes with the list, not with the single record.
+      const row: any = table.rows.find((property) => property._id === propertyId);
+      setPreview(row?.poster ? ({ ...detail, poster: row.poster } as any) : detail);
     } catch (err) {
       toast.error("Could not load property", {
         description: apiErrorMessage(err, "Please try again."),
@@ -746,6 +749,7 @@ export default function PropertiesPage() {
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
                         {property.location ?? "—"}
                       </p>
+                      {!ownerFilter && <PosterLine poster={(property as any).poster} className="mt-0.5" />}
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="text-sm font-semibold tabular-nums">
                           {amountShort(property.price) || "—"}
@@ -992,6 +996,7 @@ export default function PropertiesPage() {
                               {property.bathrooms ?? 0} baths ·{" "}
                               {propertySizeLabel(property)}
                             </p>
+                            {!ownerFilter && <PosterLine poster={(property as any).poster} className="mt-0.5" />}
                           </div>
                         </div>
                       </TableCell>

@@ -77,12 +77,13 @@ export class SocietyMapController {
     @Query('maxLat') maxLat: string,
     @Query('minLng') minLng: string,
     @Query('maxLng') maxLng: string,
+    @Query('zoom') zoom?: string,
   ) {
     const box = { minLat: Number(minLat), maxLat: Number(maxLat), minLng: Number(minLng), maxLng: Number(maxLng) };
     if (Object.values(box).some((v) => !Number.isFinite(v))) {
       throw new BadRequestException('minLat, maxLat, minLng and maxLng are required');
     }
-    return { success: true, data: await this.maps.inView(box) };
+    return { success: true, data: await this.maps.inView(box, Number(zoom) || 14) };
   }
 
   /** Labels for the map: cities, or one city's societies (placed by their real listings). */

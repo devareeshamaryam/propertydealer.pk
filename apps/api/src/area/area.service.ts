@@ -1,5 +1,5 @@
  /* eslint-disable prettier/prettier */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, isValidObjectId } from 'mongoose';
 import { Area, AreaDocument } from '@rent-ghar/db/schemas/area.schema';
@@ -17,6 +17,7 @@ const TAG_AREAS = 'areas';
  */
 const cityMatch = (cityId: string) => (isValidObjectId(cityId) ? { $in: [new Types.ObjectId(cityId), String(cityId)] } : String(cityId));
 const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const AREA_SEO_FIELDS = ['metaTitle', 'metaDescription', 'description', 'rentMetaTitle', 'rentMetaDescription', 'rentContent', 'saleMetaTitle', 'saleMetaDescription', 'saleContent'];
 
 @Injectable()
 export class AreaService {
@@ -287,9 +288,89 @@ export class AreaService {
     return area;
   }
 
+  /**
+   * The dashboard's areas table: every area with its status and how many
+   * listings it holds, light (no SEO content), so duplicates and junk entries
+   * can be found and cleaned up.
+   */
+  async adminOverview() {
+    const [rows, counts] = await Promise.all([
+      this.areaModel.collection
+        .find({}, { projection: { name: 1, areaSlug: 1, city: 1, createdAt: 1, mergedInto: 1, mergedIntoSlug: 1, hidden: 1, source: 1 } })
+        .toArray(),
+      this.areaModel.db
+        .collection('properties')
+        .aggregate([{ $match: { area: { $nin: [null, ''] } } }, { $group: { _id: { $toString: '$area' }, n: { $sum: 1 } } }])
+        .toArray(),
+    ]);
+    const n = new Map(counts.map((c: any) => [String(c._id), c.n as number]));
+    return rows.map((a: any) => ({
+      _id: String(a._id),
+      name: a.name,
+      areaSlug: a.areaSlug,
+      city: a.city ? String(a.city) : undefined,
+      createdAt: a.createdAt,
+      mergedInto: a.mergedInto ? String(a.mergedInto) : undefined,
+      mergedIntoSlug: a.mergedIntoSlug || undefined,
+      hidden: !!a.hidden,
+      source: a.source || undefined,
+      listings: n.get(String(a._id)) ?? 0,
+    }));
+  }
+
+  /**
+   * Folds a duplicate into the area it repeats: its listings move to the
+   * kept area, the kept area's empty SEO fields are filled from it, and it is
+   * marked mergedInto — its URL keeps working, shows the kept area and points
+   * its canonical there. Nothing is deleted and no slug changes.
+   */
+  async mergeArea(id: string, intoId: string) {
+    if (!isValidObjectId(id) || !isValidObjectId(intoId) || id === intoId) throw new BadRequestException('Choose two different areas');
+    const col = this.areaModel.collection;
+    const [dup, keep] = await Promise.all([col.findOne({ _id: new Types.ObjectId(id) }), col.findOne({ _id: new Types.ObjectId(intoId) })]);
+    if (!dup || !keep) throw new NotFoundException('Area not found');
+    if (keep.mergedInto) throw new BadRequestException(`“${keep.name}” is itself merged — choose the area it was merged into`);
+    if (String(dup.city) !== String(keep.city)) throw new BadRequestException('Both areas must be in the same city');
+
+    const fill: Record<string, unknown> = {};
+    for (const f of AREA_SEO_FIELDS) if (!keep[f] && dup[f]) fill[f] = dup[f];
+    if (Object.keys(fill).length) await col.updateOne({ _id: keep._id }, { $set: fill });
+
+    // Old areas may have no stored slug; their URL is the one generated from the name.
+    const keptSlug = keep.areaSlug || String(keep.name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const ids = [dup._id, String(dup._id)];
+    const moved = await this.areaModel.db.collection('properties').updateMany({ area: { $in: ids } }, { $set: { area: keep._id } });
+    // Areas merged into this duplicate earlier now point at the kept one too.
+    await col.updateMany({ mergedInto: { $in: ids } }, { $set: { mergedInto: keep._id, mergedIntoSlug: keptSlug, updatedAt: new Date() } });
+    await col.updateOne({ _id: dup._id }, { $set: { mergedInto: keep._id, mergedIntoSlug: keptSlug, updatedAt: new Date() } });
+    await this.revalidate.revalidate({ tags: [TAG_AREAS, 'properties', 'cities', 'society-maps'], paths: ['/properties'] }).catch(() => {});
+    return { kept: String(keep._id), keptSlug, moved: moved.modifiedCount };
+  }
+
+  /** Undo a merge: the area is offered again (its moved listings stay where they are). */
+  async unmergeArea(id: string) {
+    if (!isValidObjectId(id)) throw new NotFoundException('Invalid area ID');
+    await this.areaModel.collection.updateOne({ _id: new Types.ObjectId(id) }, { $unset: { mergedInto: '', mergedIntoSlug: '' }, $set: { updatedAt: new Date() } });
+    await this.revalidate.revalidate({ tags: [TAG_AREAS, 'properties', 'cities'], paths: ['/properties'] }).catch(() => {});
+    return { ok: true };
+  }
+
+  /** Hidden areas are not offered in pickers or the sitemap; their pages and listings stay as they are. */
+  async setAreaHidden(id: string, hidden: boolean) {
+    if (!isValidObjectId(id)) throw new NotFoundException('Invalid area ID');
+    await this.areaModel.collection.updateOne({ _id: new Types.ObjectId(id) }, hidden ? { $set: { hidden: true, updatedAt: new Date() } } : { $unset: { hidden: '' }, $set: { updatedAt: new Date() } });
+    await this.revalidate.revalidate({ tags: [TAG_AREAS, 'cities'], paths: ['/properties'] }).catch(() => {});
+    return { ok: true, hidden };
+  }
+
   async deleteArea(id: string): Promise<void> {
     if (!isValidObjectId(id)) {
       throw new NotFoundException('Invalid area ID');
+    }
+    // An area with listings is never deleted: its listings would lose their location and its page would 404.
+    const listings = await this.areaModel.db.collection('properties').countDocuments({ area: { $in: [new Types.ObjectId(id), id] } });
+    if (listings > 0) {
+      throw new BadRequestException(`This area has ${listings} listing${listings === 1 ? '' : 's'}. Merge it into the right area instead of deleting it.`);
     }
     const area = await this.areaModel.findByIdAndDelete(id).exec();
     if (!area) {

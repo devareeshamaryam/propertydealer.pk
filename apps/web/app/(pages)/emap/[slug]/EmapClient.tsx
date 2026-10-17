@@ -12,9 +12,14 @@ import { CITIES } from "../cities-data";
 export default async function EmapClient({
   focusedSlug,
   city,
+  content = "",
+  heading = "",
 }: {
   focusedSlug: string;
   city: { name: string; lat: number; lng: number; zoom: number };
+  /** The admin's text for this city map (Static Pages, slug "emap-<city>"). */
+  content?: string;
+  heading?: string;
 }) {
   const places = CITIES.map(({ slug, name, lat, lng, zoom }) => ({ slug, name, lat, lng, zoom }));
   const [maps, all] = await Promise.all([getSocietyMaps(focusedSlug), getMapPlaces(focusedSlug)]);
@@ -30,12 +35,13 @@ export default async function EmapClient({
     <>
       <MapExplorerClient places={places} focus={focus} city={{ slug: focusedSlug, name }} mode="page" />
       <section className="container mx-auto max-w-6xl pb-28 pt-5 lg:pb-12">
-        <h1 className="text-[24px] font-bold tracking-tight text-slate-900 sm:text-[30px]">{name} Map — Housing Societies &amp; Plots</h1>
-        <p className="mt-1 max-w-3xl text-[15px] text-slate-600">
-          {maps.length
-            ? `${maps.length} ${maps.length === 1 ? "society" : "societies"} of ${name} on the map${pictured.length ? `, ${pictured.length} with an official master or layout plan` : ""} — with their blocks, landmarks, approval status and the properties for sale and rent in each.`
-            : `Every society of ${name} on the map, with the properties for sale and rent in each. Tap a society to open it.`}
-        </p>
+        <h1 className="text-[24px] font-bold tracking-tight text-slate-900 sm:text-[30px]">{heading || `${name} Society Maps`}</h1>
+        {content && (
+          <div
+            className="prose prose-slate mt-3 max-w-3xl text-[15px] leading-relaxed prose-a:text-primary"
+            dangerouslySetInnerHTML={{ __html: content }}
+          />
+        )}
 
         {pictured.length > 0 && (
           <div className="mt-5">
@@ -47,7 +53,6 @@ export default async function EmapClient({
         {outlines.length > 0 && (
           <div className="mt-8">
             <h2 className="mb-1 text-[18px] font-bold text-slate-900 sm:text-[20px]">More society maps in {name}</h2>
-            <p className="mb-2 text-[13.5px] text-slate-500">Outline, blocks and landmarks of each society on the satellite map.</p>
             <SocietyMapGrid items={outlines} list />
           </div>
         )}

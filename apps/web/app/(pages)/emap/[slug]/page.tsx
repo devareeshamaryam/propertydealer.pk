@@ -1,6 +1,8 @@
 import { getCityBySlug, CITIES } from "../cities-data";
 import { notFound } from "next/navigation";
-import { getMapPlaces } from "@/lib/society-map";
+import { getMapPlaces, getSocietyMaps } from "@/lib/society-map";
+import { serverApi } from "@/lib/server-api";
+import { cityMapMeta } from "@/lib/seo/emap-meta";
 import EmapClient from "./EmapClient";
 
 export function generateStaticParams() {
@@ -23,13 +25,25 @@ export async function generateMetadata({
   const { slug } = await params;
   const city = await findCity(slug);
   if (!city) return {};
-  const title = `${city.name} Map — Housing Societies & Plots | PropertyDealer`;
-  const description = `${city.name} map: every housing society with its outline, blocks, approval status and official plans, plus houses and plots for sale and rent.`;
+  // Dashboard → Static Pages, slug "emap-<city>": its Meta Title / Description win; else the keyword defaults.
+  const [page, maps] = await Promise.all([cityPage(slug), getSocietyMaps(slug)]);
+  const fallback = cityMapMeta(city.name, maps.length);
+  const title = page?.metaTitle?.trim() || fallback.title;
+  const description = page?.metaDescription?.trim() || fallback.description;
   const url = `${BASE_URL}/emap/${slug}`;
   return { title, description, alternates: { canonical: url }, openGraph: { title, description, url, type: "website" } };
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://propertydealer.pk";
+
+/** The admin's page for this city's map (Dashboard → Static Pages, slug "emap-<city>"), if published. */
+async function cityPage(slug: string): Promise<{ title?: string; content?: string; metaTitle?: string; metaDescription?: string } | null> {
+  try {
+    return await serverApi.getPageBySlug(`emap-${slug}`);
+  } catch {
+    return null;
+  }
+}
 
 export default async function CityPage({
   params,
@@ -40,5 +54,6 @@ export default async function CityPage({
   const city = await findCity(slug);
   if (!city) notFound();
 
-  return <EmapClient focusedSlug={slug} city={city} />;
+  const page = await cityPage(slug);
+  return <EmapClient focusedSlug={slug} city={city} content={page?.content ?? ""} heading={page?.title ?? ""} />;
 }

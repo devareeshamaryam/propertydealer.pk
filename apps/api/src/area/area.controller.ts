@@ -48,6 +48,32 @@ export class AreaController {
     return this.areaService.findAreaNames(cityId);
   }
 
+  /** Dashboard: every area with status (merged / hidden) and its listing count. */
+  @Get('admin/overview')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async adminOverview() {
+    return this.areaService.adminOverview();
+  }
+
+  /** Dashboard: fold a duplicate into the area it repeats (listings move, URL keeps working). */
+  @Post(':id/merge')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async mergeArea(@Param('id') id: string, @Body('into') into: string) {
+    return this.areaService.mergeArea(id, into);
+  }
+
+  @Post(':id/unmerge')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async unmergeArea(@Param('id') id: string) {
+    return this.areaService.unmergeArea(id);
+  }
+
+  @Post(':id/hidden')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async setAreaHidden(@Param('id') id: string, @Body('hidden') hidden: boolean) {
+    return this.areaService.setAreaHidden(id, hidden !== false);
+  }
+
   @Get(':id')
   async findAreaById(@Param('id') id: string): Promise<AreaDocument> {
     return this.areaService.findAreaById(id);

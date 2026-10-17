@@ -4,6 +4,7 @@ import MapExplorerClient from "@/components/map/MapExplorerClient";
 import SocietyMapGrid from "@/components/society-map/SocietyMapGrid";
 import { getMapPlaces, getSocietyMaps } from "@/lib/society-map";
 import { CITIES } from "./cities-data";
+import { serverApi } from "@/lib/server-api";
 
 /*
  * The property map of Pakistan: every live listing, pinned — then the cities
@@ -12,7 +13,12 @@ import { CITIES } from "./cities-data";
  */
 export default async function EmapPage() {
   const places = CITIES.map(({ slug, name, lat, lng, zoom }) => ({ slug, name, lat, lng, zoom }));
-  const [maps, cityRows] = await Promise.all([getSocietyMaps(), getMapPlaces()]);
+  const [maps, cityRows, page] = await Promise.all([
+    getSocietyMaps(),
+    getMapPlaces(),
+    // The admin's text for this page: Dashboard → Static Pages, slug "emap".
+    serverApi.getPageBySlug("emap").catch(() => null) as Promise<{ title?: string; content?: string } | null>,
+  ]);
 
   // Cities with a page: the hand-placed list, plus any city the API knows with listings.
   const known = new Map(CITIES.map((c) => [c.slug, { slug: c.slug, name: c.name, listings: 0, societies: c.areas.length, maps: 0 }]));
@@ -31,10 +37,10 @@ export default async function EmapPage() {
     <>
       <MapExplorerClient places={places} mode="page" />
       <section className="container mx-auto max-w-6xl pb-28 pt-5 lg:pb-12">
-        <h1 className="text-[24px] font-bold tracking-tight text-slate-900 sm:text-[30px]">Housing Society Maps in Pakistan</h1>
-        <p className="mt-1 max-w-3xl text-[15px] text-slate-600">
-          Choose a city to open its map — every society with its outline, blocks, landmarks and approval status, official master and layout plans, plot finder, and the properties for sale and rent.
-        </p>
+        <h1 className="text-[24px] font-bold tracking-tight text-slate-900 sm:text-[30px]">{page?.title || "Housing Society Maps in Pakistan"}</h1>
+        {page?.content && (
+          <div className="prose prose-slate mt-2 max-w-3xl text-[15px] leading-relaxed prose-a:text-primary" dangerouslySetInnerHTML={{ __html: page.content }} />
+        )}
 
         <h2 className="mt-6 text-[18px] font-bold text-slate-900 sm:text-[20px]">Cities</h2>
         <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">

@@ -29,6 +29,19 @@ export interface CreateAreaData {
   sizeContents?: SizeContentItem[];
 }
 
+export interface AreaOverview {
+  _id: string;
+  name: string;
+  areaSlug?: string;
+  city?: string;
+  createdAt?: string;
+  mergedInto?: string;
+  mergedIntoSlug?: string;
+  hidden?: boolean;
+  source?: string;
+  listings: number;
+}
+
 export const areaApi = {
   create: async (data: CreateAreaData) => {
     const response = await api.post('/areas', data);
@@ -54,6 +67,28 @@ export const areaApi = {
   getAll: async (cityId?: string) => {
     const url = cityId ? `/areas?cityId=${cityId}` : '/areas';
     const response = await api.get(url);
+    return response.data;
+  },
+
+  /** Dashboard: every area with its status and listing count. */
+  adminOverview: async (): Promise<AreaOverview[]> => {
+    const response = await api.get("/areas/admin/overview");
+    return Array.isArray(response.data) ? response.data : [];
+  },
+
+  /** Folds `id` into `into`: listings move, the old URL keeps working and points to the kept area. */
+  merge: async (id: string, into: string): Promise<{ kept: string; keptSlug: string; moved: number }> => {
+    const response = await api.post(`/areas/${id}/merge`, { into });
+    return response.data;
+  },
+
+  unmerge: async (id: string) => {
+    const response = await api.post(`/areas/${id}/unmerge`);
+    return response.data;
+  },
+
+  setHidden: async (id: string, hidden: boolean) => {
+    const response = await api.post(`/areas/${id}/hidden`, { hidden });
     return response.data;
   },
 

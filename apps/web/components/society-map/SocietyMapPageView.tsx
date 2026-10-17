@@ -6,6 +6,7 @@ import { serverApi } from '@/lib/server-api';
 import { amountShort } from '@/lib/pk';
 import type { Property } from '@/lib/data';
 import { OFFICIAL_LABELS, POI_ICONS, POI_LABELS, type SocietyMapPage } from '@/lib/society-map';
+import { societyMapMeta } from '@/lib/seo/emap-meta';
 import type { MapPlace } from '@/components/map/MapExplorer';
 
 /*
@@ -19,63 +20,6 @@ import type { MapPlace } from '@/components/map/MapExplorer';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 
 const fmtNum = (n?: number) => (n ? n.toLocaleString('en-PK') : '');
-
-/** The page's opening paragraph when the admin has not written one — facts only. */
-export function autoIntro(s: SocietyMapPage): string {
-  const parts: string[] = [];
-  const o = s.official;
-  const where = `${s.name} is a housing society in ${s.cityName}`;
-  if (s.kind === 'plan') parts.push(`${where}. Its official master plan is laid over the satellite map${s.blocks.length ? `, with ${s.blocks.length} blocks and sectors marked` : ''}.`);
-  else if (s.kind === 'document') parts.push(`${where}. Its ${o?.authority ?? 'official'} approved layout plan is on this page${s.boundary.length > 2 ? ', and its outline is drawn on the satellite map' : ''}.`);
-  else if (s.boundary.length > 2 || s.blocks.length) parts.push(`${where}. Its outline${s.blocks.length ? ` and ${s.blocks.length} blocks` : ''} are drawn on the satellite map.`);
-  else parts.push(`${where}.`);
-  if (s.info.location && s.boundary.length < 3) parts.push(`Its exact outline is not mapped yet; the map shows the area it is in (${s.info.location.replace(/^Approximate\s*[—-]\s*/i, '')}).`);
-  if (s.plotCount) parts.push(`${fmtNum(s.plotCount)} plots are on record — tap any plot to see its number and size, or search a plot by sector and number.`);
-  const st = o ? OFFICIAL_LABELS[o.status] : null;
-  if (o && st) {
-    if (o.status === 'illegal') parts.push(`${o.authority} has listed it as an illegal / unapproved scheme.`);
-    else
-      parts.push(
-        `${o.authority} lists it as ${st.label.toLowerCase()}${o.date ? ` (${o.date})` : ''}${o.approvedArea ? ` on ${o.approvedArea}` : ''}${
-          o.residentialPlots ? ` with ${fmtNum(o.residentialPlots)} residential${o.commercialPlots ? ` and ${fmtNum(o.commercialPlots)} commercial` : ''} plots` : ''
-        }.`,
-      );
-  }
-  if (s.pois.length) parts.push('Mosques, schools, parks and other landmarks inside it are marked.');
-  const listings = s.stats.sale + s.stats.rent;
-  if (listings) parts.push(listings === 1 ? 'One property is listed here.' : `${fmtNum(listings)} properties are listed for sale and rent here.`);
-  return parts.join(' ');
-}
-
-/** Questions answered from the page's own data. */
-export function autoFaqs(s: SocietyMapPage): { q: string; a: string }[] {
-  const out: { q: string; a: string }[] = [];
-  const o = s.official;
-  const st = o ? OFFICIAL_LABELS[o.status] : null;
-  if (o && st) {
-    out.push({
-      q: `Is ${s.name} approved?`,
-      a:
-        o.status === 'illegal'
-          ? `${o.authority} has listed ${s.name} as an illegal / unapproved housing scheme (${o.listName ?? 'its published list'}, checked ${o.checkedAt ?? 'recently'}). Verify its status with ${o.authority} before buying.`
-          : `${o.authority} lists ${s.name} as ${st.label.toLowerCase()}${o.stage ? ` (${o.stage})` : ''}${o.date ? `, dated ${o.date}` : ''}. Source: ${o.listName ?? o.authority}, checked ${o.checkedAt ?? 'recently'}. Approvals can change — confirm with ${o.authority} before you buy.`,
-    });
-    if (o.approvedArea || o.residentialPlots) {
-      out.push({
-        q: `How big is ${s.name}?`,
-        a: `${[o.approvedArea && `Its approved area is ${o.approvedArea}`, o.residentialPlots && `with ${fmtNum(o.residentialPlots)} residential plots`, o.commercialPlots && `and ${fmtNum(o.commercialPlots)} commercial plots`].filter(Boolean).join(' ')}, according to ${o.authority}.`,
-      });
-    }
-  }
-  if (s.center) {
-    out.push({ q: `Where is ${s.name}?`, a: `${s.name} is in ${s.cityName}, Pakistan, at ${s.center.lat.toFixed(5)}, ${s.center.lng.toFixed(5)}. Tap Directions on the map for the route from where you are.` });
-  }
-  if (s.plotCount) {
-    out.push({ q: `How do I find a plot in ${s.name}?`, a: 'Open the search on the map and type the sector and plot number (for example “L 215”), or tap a plot on the map. It shows the plot number, sector and size, with directions to it.' });
-  }
-  if (s.blocks.length) out.push({ q: `Which blocks are in ${s.name}?`, a: `${s.blocks.map((b) => b.name).join(', ')}.` });
-  return out;
-}
 
 async function listings(areaId: string, purpose: 'buy' | 'rent'): Promise<{ items: Property[]; total: number }> {
   if (!areaId) return { items: [], total: 0 };
@@ -101,8 +45,10 @@ export default async function SocietyMapPageView({ society, places }: { society:
   const download = s.layers.find((l) => l.downloadUrl)?.downloadUrl ?? s.documents?.[0]?.url;
   const saleCount = Math.max(s.stats.sale, sale.total);
   const rentCount = Math.max(s.stats.rent, rent.total);
-  const intro = s.seo.intro || autoIntro(s);
-  const faqs = s.faqs.length ? s.faqs : autoFaqs(s);
+  // Only what the admin wrote (Dashboard → Society Maps): no generated prose.
+  const intro = s.seo.intro ?? '';
+  const faqs = s.faqs;
+  const meta = societyMapMeta(s);
   const status = s.official ? OFFICIAL_LABELS[s.official.status] : null;
   const docs = s.documents ?? [];
   const poiGroups = Object.entries(
@@ -150,7 +96,7 @@ export default async function SocietyMapPageView({ society, places }: { society:
       '@type': 'Place',
       name: s.name,
       url,
-      description: intro.slice(0, 300),
+      description: meta.description,
       ...(image ? { image } : {}),
       address: { '@type': 'PostalAddress', addressLocality: s.cityName, addressCountry: 'PK' },
       ...(s.center ? { geo: { '@type': 'GeoCoordinates', latitude: s.center.lat, longitude: s.center.lng } } : {}),

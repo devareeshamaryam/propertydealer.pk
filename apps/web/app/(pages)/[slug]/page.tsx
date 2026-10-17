@@ -16,7 +16,8 @@ type PageProps = {
 
 // ✅ Static files jo is route pe nahi aane chahiye
 function isStaticFile(slug: string): boolean {
-  return slug.includes('.') || slug === 'og-image' || slug === 'favicon';
+  // Also the e-map pages' own texts ("emap", "emap-<city>"): they belong to /emap, not to a page of their own.
+  return slug.includes('.') || slug === 'og-image' || slug === 'favicon' || slug === 'emap' || slug.startsWith('emap-');
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

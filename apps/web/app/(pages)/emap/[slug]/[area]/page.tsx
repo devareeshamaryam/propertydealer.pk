@@ -4,7 +4,8 @@ import Link from "next/link";
 import { ChevronRight, MapPin } from "lucide-react";
 import { CITIES, getCityBySlug } from "../../cities-data";
 import MapExplorerClient from "@/components/map/MapExplorerClient";
-import SocietyMapPageView, { autoIntro } from "@/components/society-map/SocietyMapPageView";
+import SocietyMapPageView from "@/components/society-map/SocietyMapPageView";
+import { societyMapMeta } from "@/lib/seo/emap-meta";
 import { getMapPlaces, getSocietyMap } from "@/lib/society-map";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://propertydealer.pk";
@@ -40,13 +41,7 @@ export async function generateMetadata({
   // A society with a published map: its own title, description and share image.
   const society = await getSocietyMap(slug, area);
   if (society) {
-    // Short enough to show in full in search results (~60 characters).
-    const what = society.kind === "plan" ? (society.plotCount ? "Master Plan & Plots" : "Master Plan") : society.kind === "document" ? "Approved Plan" : "Location & Blocks";
-    const long = `${society.name} ${society.cityName} Map — ${what}`;
-    const title = society.seo.metaTitle || (long.length <= 62 ? long : `${society.name} Map — ${what}`);
-    // ~155 characters, cut at a word.
-    const fullDescription = society.seo.metaDescription || society.seo.intro || autoIntro(society);
-    const description = fullDescription.length <= 158 ? fullDescription : `${fullDescription.slice(0, 155).replace(/\s+\S*$/, "")}…`;
+    const { title, description } = societyMapMeta(society);
     const url = `${BASE_URL}/emap/${society.citySlug}/${society.slug}`;
     const image = society.thumb ? (society.thumb.startsWith("http") ? society.thumb : `${BASE_URL}${society.thumb}`) : undefined;
     return {

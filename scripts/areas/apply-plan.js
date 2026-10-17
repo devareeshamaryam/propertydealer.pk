@@ -4,6 +4,7 @@
  *
  *   node scripts/areas/apply-plan.js            # dry run: prints what would change
  *   node scripts/areas/apply-plan.js --apply    # backs up, then changes
+ *   node scripts/areas/apply-plan.js --plan scripts/areas/plan-2.json [--apply]   # a later plan
  *
  * It reads MONGODB_URI (and REDIS_URL) from the environment or apps/api/.env
  * and never prints them.
@@ -38,6 +39,8 @@ const ROOT = path.join(__dirname, '..', '..');
 const argv = process.argv.slice(2);
 const APPLY = argv.includes('--apply');
 const RESTORE = argv.includes('--restore') ? argv[argv.indexOf('--restore') + 1] : null;
+// --plan scripts/areas/plan-2.json runs a later plan; plan.json is the default.
+const PLAN = argv.includes('--plan') ? path.resolve(argv[argv.indexOf('--plan') + 1]) : path.join(__dirname, 'plan.json');
 
 function env(name) {
   if (process.env[name]) return process.env[name];
@@ -49,6 +52,8 @@ function env(name) {
 
 const oid = (v) => (v && ObjectId.isValid(String(v)) ? new ObjectId(String(v)) : null);
 const anyId = (v) => [oid(v), String(v)].filter(Boolean);
+// Old areas may have no stored slug; their URL is the one generated from the name.
+const slugOf = (a) => a.areaSlug || String(a.name).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 const SEO_FIELDS = ['metaTitle', 'metaDescription', 'description', 'rentMetaTitle', 'rentMetaDescription', 'rentContent', 'saleMetaTitle', 'saleMetaDescription', 'saleContent'];
 
 async function flushCache() {
@@ -107,7 +112,9 @@ async function flushCache() {
     return;
   }
 
-  const plan = JSON.parse(fs.readFileSync(path.join(__dirname, 'plan.json'), 'utf8'));
+  const plan = JSON.parse(fs.readFileSync(PLAN, 'utf8'));
+  console.log(`Plan: ${path.relative(ROOT, PLAN)}`);
+  for (const c of plan.cities) for (const k of ['coords', 'rename', 'hide', 'merge', 'add']) c[k] = c[k] || [];
   const all = await Areas.find({}).toArray();
   const byId = new Map(all.map((a) => [String(a._id), a]));
   const totals = { coords: 0, rename: 0, hide: 0, merged: 0, moved: 0, added: 0, skipped: 0 };
@@ -159,22 +166,27 @@ async function flushCache() {
     for (const m of c.merge) {
       const group = m.ids.map((id) => byId.get(id)).filter((a) => a && !a.mergedInto);
       if (group.length < 2) continue;
+      // The planned keeper is gone (merged or deleted since): leave this group alone rather than guess.
+      if (m.keep && !group.some((a) => String(a._id) === m.keep)) { totals.skipped++; continue; }
       const counts = await Promise.all(group.map((a) => Props.countDocuments({ area: { $in: anyId(a._id) } })));
       const suffix = new RegExp(`-${c.citySlug}$`);
+      // m.keep names the area to keep (the clean, correctly spelt one); otherwise the one with most listings.
       const order = group
         .map((a, i) => ({ a, n: counts[i] }))
-        .sort((x, y) => y.n - x.n || Number(suffix.test(x.a.areaSlug)) - Number(suffix.test(y.a.areaSlug)) || x.a.areaSlug.length - y.a.areaSlug.length);
+        .sort((x, y) => Number(String(y.a._id) === m.keep) - Number(String(x.a._id) === m.keep) || y.n - x.n || Number(suffix.test(slugOf(x.a))) - Number(suffix.test(slugOf(y.a))) || slugOf(x.a).length - slugOf(y.a).length);
       const keep = order[0].a;
       const fill = {};
       for (const { a } of order.slice(1)) for (const f of SEO_FIELDS) if (!keep[f] && !fill[f] && a[f]) fill[f] = a[f];
-      log.push(`  keep ${keep.areaSlug} (${order[0].n})  ←  ${order.slice(1).map((o) => `${o.a.areaSlug} (${o.n})`).join(', ')}`);
+      log.push(`  keep ${slugOf(keep)} (${order[0].n})  ←  ${order.slice(1).map((o) => `${slugOf(o.a)} (${o.n})`).join(', ')}`);
       totals.merged += order.length - 1;
       totals.moved += order.slice(1).reduce((s, o) => s + o.n, 0);
       if (APPLY) {
         if (Object.keys(fill).length) await Areas.updateOne({ _id: keep._id }, { $set: fill });
         for (const { a } of order.slice(1)) {
           await Props.updateMany({ area: { $in: anyId(a._id) } }, { $set: { area: keep._id } });
-          await Areas.updateOne({ _id: a._id }, { $set: { mergedInto: keep._id, mergedIntoSlug: keep.areaSlug, updatedAt: now } });
+          // Areas merged into this one by an earlier plan follow it to the kept area.
+          await Areas.updateMany({ mergedInto: { $in: anyId(a._id) } }, { $set: { mergedInto: keep._id, mergedIntoSlug: slugOf(keep), updatedAt: now } });
+          await Areas.updateOne({ _id: a._id }, { $set: { mergedInto: keep._id, mergedIntoSlug: slugOf(keep), updatedAt: now } });
         }
       }
     }

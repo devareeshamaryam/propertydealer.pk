@@ -117,9 +117,11 @@ export class SocietyMapService {
   }
 
   /** Published maps overlapping a box — so every map on the site shows the society plans in view. */
-  async inView(box: { minLat: number; maxLat: number; minLng: number; maxLng: number }) {
+  async inView(box: { minLat: number; maxLat: number; minLng: number; maxLng: number }, zoom = 14) {
     const r = (n: number) => Math.round(n * 50) / 50;
-    const key = this.cache.buildKey('society-maps:view', [r(box.minLat), r(box.maxLat), r(box.minLng), r(box.maxLng)]);
+    // Far out an outline needs few points: lighter, so every society in view fits in one response.
+    const detail = zoom >= 15 ? 0 : zoom >= 13 ? 60 : 24;
+    const key = this.cache.buildKey('society-maps:view', [r(box.minLat), r(box.maxLat), r(box.minLng), r(box.maxLng), detail]);
     return this.cache.wrap(key, async () => {
       const rows = await this.model
         .find({
@@ -130,16 +132,22 @@ export class SocietyMapService {
           'bbox.maxLng': { $gte: box.minLng },
         })
         .select('name slug citySlug center boundary layers downloadEnabled')
-        .limit(80)
+        // A city like Lahore has hundreds of society maps; 80 left most of them undrawn.
+        .limit(600)
         .lean()
         .exec();
+      const thin = (pts: number[][]) => {
+        if (!detail || pts.length <= detail) return pts;
+        const step = pts.length / detail;
+        return Array.from({ length: detail }, (_, i) => pts[Math.floor(i * step)]!);
+      };
       return rows.map((d: any) => ({
         id: String(d._id),
         name: d.name,
         slug: d.slug,
         citySlug: d.citySlug,
         center: d.center,
-        boundary: d.boundary ?? [],
+        boundary: thin(d.boundary ?? []),
         layers: SocietyMapService.publicLayers({ ...d, downloadEnabled: false }),
       }));
     }, { ttl: 300, tags: [TAG] });
