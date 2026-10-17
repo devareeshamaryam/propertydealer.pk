@@ -38,6 +38,8 @@ export class LayerTiles {
   @Prop() count?: number;
   @Prop() error?: string;
   @Prop() generatedAt?: Date;
+  /** Runs started; a run cut short by a restart is resumed automatically while this is under 3. */
+  @Prop({ default: 0 }) attempts?: number;
 }
 const LayerTilesSchema = SchemaFactory.createForClass(LayerTiles);
 

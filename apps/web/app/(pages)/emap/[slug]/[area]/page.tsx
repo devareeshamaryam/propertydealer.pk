@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ChevronRight, MapPin } from "lucide-react";
 import { CITIES, getCityBySlug } from "../../cities-data";
 import MapExplorerClient from "@/components/map/MapExplorerClient";
 import SocietyMapPageView, { autoIntro } from "@/components/society-map/SocietyMapPageView";
@@ -38,23 +40,20 @@ export async function generateMetadata({
   // A society with a published map: its own title, description and share image.
   const society = await getSocietyMap(slug, area);
   if (society) {
-    const what =
-      society.kind === "plan"
-        ? society.plotCount
-          ? "Master Plan, Plot Finder & Location"
-          : "Master Plan, Blocks & Location"
-        : society.kind === "document"
-          ? "Approved Layout Plan & Location"
-          : "Location, Blocks & Landmarks";
-    const title = society.seo.metaTitle || `${society.name} ${society.cityName} Map — ${what}`;
-    const description = society.seo.metaDescription || society.seo.intro || autoIntro(society);
+    // Short enough to show in full in search results (~60 characters).
+    const what = society.kind === "plan" ? (society.plotCount ? "Master Plan & Plots" : "Master Plan") : society.kind === "document" ? "Approved Plan" : "Location & Blocks";
+    const long = `${society.name} ${society.cityName} Map — ${what}`;
+    const title = society.seo.metaTitle || (long.length <= 62 ? long : `${society.name} Map — ${what}`);
+    // ~155 characters, cut at a word.
+    const fullDescription = society.seo.metaDescription || society.seo.intro || autoIntro(society);
+    const description = fullDescription.length <= 158 ? fullDescription : `${fullDescription.slice(0, 155).replace(/\s+\S*$/, "")}…`;
     const url = `${BASE_URL}/emap/${society.citySlug}/${society.slug}`;
     const image = society.thumb ? (society.thumb.startsWith("http") ? society.thumb : `${BASE_URL}${society.thumb}`) : undefined;
     return {
       title,
-      description: description.slice(0, 200),
+      description,
       alternates: { canonical: url },
-      openGraph: { title, description: description.slice(0, 200), url, type: "website", ...(image ? { images: [{ url: image }] } : {}) },
+      openGraph: { title, description, url, type: "website", ...(image ? { images: [{ url: image }] } : {}) },
       twitter: { card: "summary_large_image", title, ...(image ? { images: [image] } : {}) },
     };
   }
@@ -62,12 +61,58 @@ export async function generateMetadata({
   const city = getCityBySlug(slug);
   const areaData = city?.areas.find((a) => toSlug(a.name) === area);
   if (city && areaData) {
-    return { title: `${areaData.name} Map | ${city.name} | PropertyDealer.pk` };
+    // The original E-Map pages: kept in the index as they always were.
+    return {
+      title: `${areaData.name} Map | ${city.name} | PropertyDealer.pk`,
+      description: `${areaData.name}, ${city.name} on the satellite map, with the properties for sale and rent there.`,
+      alternates: { canonical: `${BASE_URL}/emap/${slug}/${area}` },
+    };
   }
-  // A society placed by its real listings.
+  // A society placed by its real listings: useful to open from the map, too
+  // thin to stand in search results until it has a map of its own.
   const place = (await getMapPlaces(slug)).find((p) => p.slug === area);
   if (!place) return {};
-  return { title: `${place.name} Map | ${place.cityName ?? city?.name ?? ""} | PropertyDealer.pk` };
+  return {
+    title: `${place.name} Map | ${place.cityName ?? city?.name ?? ""} | PropertyDealer.pk`,
+    alternates: { canonical: `${BASE_URL}/emap/${slug}/${area}` },
+    robots: { index: false, follow: true },
+  };
+}
+
+/** A society without a map yet: where it is, and its listings. */
+function PlaceView({ name, cityName, citySlug, areaSlug, listings, focus }: { name: string; cityName: string; citySlug: string; areaSlug: string; listings: number; focus: { lat: number; lng: number; zoom: number } }) {
+  return (
+    <>
+      <MapExplorerClient places={places()} focus={focus} mode="page" />
+      <section className="container mx-auto max-w-6xl pb-28 pt-4 lg:pb-12">
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-[12.5px] text-slate-500">
+          <Link href="/emap" className="hover:text-primary">E-Map</Link>
+          <ChevronRight className="h-3 w-3 text-slate-300" />
+          <Link href={`/emap/${citySlug}`} className="hover:text-primary">{cityName}</Link>
+          <ChevronRight className="h-3 w-3 text-slate-300" />
+          <span className="font-medium text-slate-700">{name}</span>
+        </nav>
+        <h1 className="mt-3 text-[24px] font-bold tracking-tight text-slate-900 sm:text-[30px]">{name} {cityName} Map</h1>
+        <p className="mt-1 flex items-center gap-1.5 text-[14px] text-slate-600">
+          <MapPin className="h-4 w-4 text-primary" /> {name}, {cityName}, Pakistan
+        </p>
+        <p className="mt-3 max-w-3xl text-[15px] leading-relaxed text-slate-700">
+          {name} is marked on the satellite map above{listings ? `, with ${listings} ${listings === 1 ? "property" : "properties"} listed here` : ""}. Its outline and master plan are not on the map yet — the {cityName} map shows the societies that have them.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href={`/properties/sale/${citySlug}/${areaSlug}`} className="btn-shape inline-flex h-11 items-center rounded-xl bg-primary px-4 text-[14px] font-semibold text-white">
+            Property for sale in {name}
+          </Link>
+          <Link href={`/properties/rent/${citySlug}/${areaSlug}`} className="btn-shape inline-flex h-11 items-center rounded-xl border border-slate-300 px-4 text-[14px] font-semibold text-slate-800">
+            For rent
+          </Link>
+          <Link href={`/emap/${citySlug}`} className="btn-shape inline-flex h-11 items-center rounded-xl border border-slate-300 px-4 text-[14px] font-semibold text-slate-800">
+            {cityName} map
+          </Link>
+        </div>
+      </section>
+    </>
+  );
 }
 
 export default async function AreaPage({
@@ -84,10 +129,28 @@ export default async function AreaPage({
   // a hand-placed one, or one placed by its real listings.
   const city = getCityBySlug(slug);
   const areaData = city?.areas.find((a) => toSlug(a.name) === area);
-  if (areaData) {
-    return <MapExplorerClient places={places()} focus={{ lat: areaData.lat, lng: areaData.lng, zoom: 15 }} />;
-  }
   const place = (await getMapPlaces(slug)).find((p) => p.slug === area);
+  if (areaData && city) {
+    return (
+      <PlaceView
+        name={areaData.name}
+        cityName={city.name}
+        citySlug={slug}
+        areaSlug={area}
+        listings={place?.listings ?? 0}
+        focus={{ lat: areaData.lat, lng: areaData.lng, zoom: 15 }}
+      />
+    );
+  }
   if (!place) notFound();
-  return <MapExplorerClient places={places()} focus={{ lat: place.lat, lng: place.lng, zoom: 15 }} />;
+  return (
+    <PlaceView
+      name={place.name}
+      cityName={place.cityName ?? city?.name ?? slug}
+      citySlug={slug}
+      areaSlug={area}
+      listings={place.listings}
+      focus={{ lat: place.lat, lng: place.lng, zoom: 15 }}
+    />
+  );
 }

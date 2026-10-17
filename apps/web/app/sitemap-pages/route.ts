@@ -1,12 +1,8 @@
- // app/sitemap-pages.xml/route.ts
-// ─── STATIC PAGES SITEMAP ──────────────────────────────────────────────────
+// /sitemap-pages.xml — the site's own pages, then each city's archive pages
+// (city, and city + property type) — only those with listings.
 
-import { NextResponse } from 'next/server';
-import { serverApi } from '@/lib/server-api';
+import { getSitemapData, sitemapXml, xmlResponse, SITE_URL } from '@/lib/sitemap-data';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
-
-// Only pages that exist: /map, /hotels, /random, /listing-detail and /p answered 404 and were dropped.
 const STATIC_PAGES = [
   { url: '/',                                      priority: '1.0', changefreq: 'daily'   },
   { url: '/about',                                 priority: '0.6', changefreq: 'monthly' },
@@ -31,91 +27,20 @@ const STATIC_PAGES = [
   { url: '/today-wood-rate-in-pakistan',           priority: '0.8', changefreq: 'daily'   },
 ];
 
-const PROPERTY_TYPES = [
-  'house', 'apartment', 'flat', 'plot', 'shop', 'office',
-  'land', 'commercial', 'factory', 'hotel', 'restaurant'
-];
-
-function generateXml(urls: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }>) {
-  const urlSet = urls.map(({ loc, lastmod, changefreq, priority }) => `
-  <url>
-    <loc>${loc}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>${changefreq}</changefreq>
-    <priority>${priority}</priority>
-  </url>`).join('');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${urlSet}
-</urlset>`;
-}
-
 export async function GET() {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows: Parameters<typeof sitemapXml>[0] = STATIC_PAGES.map((p) => ({ loc: `${SITE_URL}${p.url}`, lastmod: today, changefreq: p.changefreq, priority: p.priority }));
   try {
-    const today = new Date().toISOString().split('T')[0]!;
-    const urls: Array<{ loc: string; lastmod: string; changefreq: string; priority: string }> = [];
-
-    // 1. Static pages
-    for (const page of STATIC_PAGES) {
-      urls.push({
-        loc:        `${BASE_URL}${page.url}`,
-        lastmod:    today,
-        changefreq: page.changefreq,
-        priority:   page.priority,
-      });
+    const data = await getSitemapData();
+    for (const a of data.archives) {
+      // /properties/<purpose>/<city> and /properties/<purpose>/<city>/<type>; areas are in sitemap-areas.
+      if (a.depth > 4) continue;
+      const isType = a.depth === 4 && /\/(house|apartment|flat|plot|shop|office|land|commercial|factory|hotel|restaurant)$/.test(a.path);
+      if (a.depth === 4 && !isType) continue;
+      rows.push({ loc: `${SITE_URL}${a.path}`, lastmod: a.lastmod, changefreq: 'daily', priority: a.depth === 3 ? '0.8' : '0.6' });
     }
-
-    // 2. City-based property pages — DB se fresh fetch
-    try {
-      // FIX: Direct array handle — getCities() array return karta hai
-      const citiesRes = await serverApi.getCities();
-      const cities: any[] = Array.isArray(citiesRes) ? citiesRes : [];
-
-      console.log(`[sitemap-pages] Cities fetched: ${cities.length}`);
-
-      for (const city of cities) {
-        const slug = city.slug || city.name?.toLowerCase().replace(/\s+/g, '-');
-        if (!slug) continue;
-
-        for (const purpose of ['sale', 'rent', 'all']) {
-          urls.push({
-            loc:        `${BASE_URL}/properties/${purpose}/${slug}`,
-            lastmod:    city.updatedAt
-              ? new Date(city.updatedAt).toISOString().split('T')[0]!
-              : today,
-            changefreq: 'daily',
-            priority:   '0.8',
-          });
-
-          for (const type of PROPERTY_TYPES) {
-            urls.push({
-              loc:        `${BASE_URL}/properties/${purpose}/${slug}/${type}`,
-              lastmod:    today,
-              changefreq: 'weekly',
-              priority:   '0.6',
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[sitemap-pages] Cities fetch failed:', err);
-    }
-
-    console.log(`[sitemap-pages] Total URLs: ${urls.length}`);
-
-    const xml = generateXml(urls);
-
-    return new NextResponse(xml, {
-      headers: {
-        'Content-Type': 'application/xml; charset=utf-8',
-        // FIX: 1 ghante ka cache
-        'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200',
-      },
-    });
-
   } catch (err) {
-    console.error('[sitemap-pages] Error:', err);
-    return new NextResponse('Error generating sitemap', { status: 500 });
+    console.error('[sitemap-pages]', err);
   }
+  return xmlResponse(sitemapXml(rows));
 }

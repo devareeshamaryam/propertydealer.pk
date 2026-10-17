@@ -65,7 +65,9 @@ async function resolveSegments(citySlug: string, segments: string[]) {
 
     if (cleanSegments.length === 1) {
       const seg = cleanSegments[0] as string;
-      const matchedType = propertyTypes.find(t => t.toLowerCase() === seg.toLowerCase());
+      // The site's fixed types count even when no listing uses one yet (it is still a type page, not an area).
+      const KNOWN = ['house', 'apartment', 'flat', 'plot', 'shop', 'office', 'land', 'commercial', 'factory', 'hotel', 'restaurant'];
+      const matchedType = propertyTypes.find(t => t.toLowerCase() === seg.toLowerCase()) ?? KNOWN.find(t => t === seg.toLowerCase());
       if (matchedType) {
         return { cityData, areaData: null, propertyType: matchedType, areaSlug: null, marla };
       }
@@ -169,7 +171,9 @@ export async function generateMetadata(
     }
   }
 
-  return { title: `Properties in ${cityName}` };
+  // Nothing more specific matched: still this page's own canonical — not the
+  // /properties one it would otherwise inherit from the layout.
+  return { title: `Properties in ${cityName}`, alternates: { canonical: `/properties/all/${citySlug}/${segments.join('/')}` } };
 }
 
 export default async function AllCitySegmentsPage(props: PageProps) {

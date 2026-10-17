@@ -141,6 +141,51 @@ export class SocietyDataService {
     }, { ttl: 3600, tags: [TAG] });
   }
 
+  /**
+   * Plots inside a map box — drawn as coloured outlines with their numbers,
+   * the way society maps are read on site. Only at street level (the box must
+   * be small), compact: [id, no, sector, kind, ring as [lat, lng] pairs].
+   */
+  async plotsInView(box: { minLat: number; maxLat: number; minLng: number; maxLng: number }) {
+    if (box.maxLat - box.minLat > 0.03 || box.maxLng - box.minLng > 0.04) return { plots: [], tooWide: true };
+    const r = (n: number) => Math.round(n * 400) / 400;
+    const key = this.cache.buildKey('society-plots:view', [r(box.minLat), r(box.maxLat), r(box.minLng), r(box.maxLng)]);
+    return this.cache.wrap(key, async () => {
+      const rows = await this.plots
+        .find({
+          loc: {
+            $geoWithin: {
+              $geometry: {
+                type: 'Polygon',
+                coordinates: [[
+                  [box.minLng, box.minLat],
+                  [box.maxLng, box.minLat],
+                  [box.maxLng, box.maxLat],
+                  [box.minLng, box.maxLat],
+                  [box.minLng, box.minLat],
+                ]],
+              },
+            },
+          },
+        })
+        .select('no sector kind ring')
+        .limit(3000)
+        .lean()
+        .exec();
+      return {
+        plots: rows.map((p: any) => [
+          String(p._id),
+          p.no,
+          p.sector,
+          p.kind,
+          (p.ring ?? []).map((pt: number[]) => [Math.round((pt[1] ?? 0) * 1e6) / 1e6, Math.round((pt[0] ?? 0) * 1e6) / 1e6]),
+        ]),
+        tooWide: false,
+        truncated: rows.length >= 3000,
+      };
+    }, { ttl: 3600, tags: [TAG] });
+  }
+
   /** The plot under a point on the map — what a tap shows. */
   async plotAt(lat: number, lng: number): Promise<PlotOut | null> {
     const near = await this.plots
@@ -217,6 +262,27 @@ export class SocietyDataService {
     for (const [slug, c] of counts) await this.maps.updateOne({ citySlug: city, slug }, { $set: { plotCount: c } }).exec();
     await this.bust(slugs.map((slug) => ({ citySlug: city, slug })));
     return { plots: n, maps: Object.fromEntries(counts) };
+  }
+
+  /**
+   * Plot counts (and each plot's map) from the plots themselves. Idempotent;
+   * run at the end of every start-up, because the plots can be imported by
+   * one API process while another is still creating the maps they belong to.
+   */
+  async syncPlotCounts() {
+    const groups = await this.plots.aggregate([{ $group: { _id: { c: '$citySlug', m: '$mapSlug' }, n: { $sum: 1 } } }]).exec();
+    let fixed = 0;
+    for (const g of groups as any[]) {
+      const doc: any = await this.maps.findOne({ citySlug: g._id.c, slug: g._id.m }).select('_id plotCount').lean().exec();
+      if (!doc) continue;
+      if (doc.plotCount !== g.n) {
+        await this.maps.updateOne({ _id: doc._id }, { $set: { plotCount: g.n } }).exec();
+        fixed++;
+      }
+      await this.plots.updateMany({ citySlug: g._id.c, mapSlug: g._id.m, map: { $ne: doc._id } }, { $set: { map: doc._id } }).exec();
+    }
+    if (fixed) await this.bust([]);
+    return { maps: groups.length, fixed };
   }
 
   /**

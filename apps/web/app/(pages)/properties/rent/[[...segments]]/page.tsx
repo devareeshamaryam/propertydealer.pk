@@ -280,6 +280,7 @@ export default async function RentPage({ params }: PageProps) {
           useCleanUrls={true}
           richDescription={richDescription}
           initialMarla={marla ?? undefined}
+          heading={pageTitle}
         />
       </Suspense>
     </>

@@ -1,69 +1,46 @@
- 'use client'
+'use client'
 
-import { useEffect } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import PropertiesListing from '@/components/PropertiesListing';
-import { Suspense } from 'react';
+import SearchParamsBridge from '@/components/SearchParamsBridge';
 import { Property } from '@/lib/data';
 
-interface PropertiesContentProps {
+interface PropertiesClientProps {
   initialProperties?: Property[];
 }
 
-function PropertiesContent({ initialProperties }: PropertiesContentProps) {
-  const searchParams = useSearchParams();
+/*
+ * /properties. The list is rendered on the server with the newest listings;
+ * old query-string links (?purpose=…&city=…&type=…) are sent on to their clean
+ * URL once the query string is known in the browser. The query string comes
+ * through <SearchParamsBridge> so the page itself is not rendered in the
+ * browser only (which useSearchParams() here would cause on a cached page).
+ */
+export default function PropertiesClient({ initialProperties }: PropertiesClientProps) {
   const router = useRouter();
+  const [params, setParams] = useState<URLSearchParams | null>(null);
 
-  const purpose = (searchParams.get('purpose') as 'rent' | 'buy' | 'all') || 'all';
-  const city    = searchParams.get('city') || '';
-  const type    = searchParams.get('type') || 'all';
-
-  // Redirect query-param URLs to clean URLs
   useEffect(() => {
-    // Only redirect if there are query params that we can clean up
-    const hasQueryParams = searchParams.get('purpose') || searchParams.get('city') || searchParams.get('type');
-    if (!hasQueryParams) return;
+    if (!params) return;
+    const purpose = params.get('purpose');
+    const city = params.get('city') || '';
+    const type = params.get('type') || '';
+    if (!purpose && !city && !type) return;
 
-    const pp     = purpose === 'buy' ? 'sale' : purpose === 'rent' ? 'rent' : null;
-    const cSlug  = city ? city.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : '';
-    const tSlug  = type && type !== 'all' ? `/${type.toLowerCase()}` : '';
-
-    if (pp) {
-      // Has purpose → go to /properties/rent or /properties/sale
-      const url = cSlug
-        ? `/properties/${pp}/${cSlug}${tSlug}`
-        : `/properties/${pp}${tSlug}`;
-      router.replace(url);
-    } else {
-      // No purpose (all) → go to /properties/all
-      const url = cSlug
-        ? `/properties/all/${cSlug}${tSlug}`
-        : type && type !== 'all'
-          ? `/properties/all${tSlug}`
-          : '/properties';
-      router.replace(url);
-    }
-  }, []);
+    const pp = purpose === 'buy' ? 'sale' : purpose === 'rent' ? 'rent' : null;
+    const cSlug = city ? city.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-') : '';
+    const tSlug = type && type !== 'all' ? `/${type.toLowerCase()}` : '';
+    if (pp) router.replace(cSlug ? `/properties/${pp}/${cSlug}${tSlug}` : `/properties/${pp}${tSlug}`);
+    else router.replace(cSlug ? `/properties/all/${cSlug}${tSlug}` : tSlug ? `/properties/all${tSlug}` : '/properties');
+  }, [params, router]);
 
   return (
-    <PropertiesListing
-      purpose={purpose}
-      city={city}
-      type={type}
-      useCleanUrls={true}
-      initialProperties={initialProperties}
-    />
-  );
-}
-
-export default function PropertiesClient({ initialProperties }: PropertiesContentProps) {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    }>
-      <PropertiesContent initialProperties={initialProperties} />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <SearchParamsBridge onChange={setParams} />
+      </Suspense>
+      <PropertiesListing purpose="all" city="" type="all" useCleanUrls={true} initialProperties={initialProperties} />
+    </>
   );
 }

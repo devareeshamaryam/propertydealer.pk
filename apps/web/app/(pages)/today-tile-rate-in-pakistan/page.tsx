@@ -3,6 +3,8 @@ import { slimRates } from "@/lib/shop";
 import { serverApi } from "@/lib/server-api";
 import MaterialPageClient from "./MaterialPageClient";
 
+const SITE = (process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk').replace(/\/$/, '');
+
 export const revalidate = 60;
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -69,12 +69,55 @@ export class SocietyMapSetup implements OnApplicationBootstrap {
     await this.connection.collection('datamigrations').updateOne({ _id: id as any }, { $set: { status, result, finishedAt: new Date() } });
   }
 
+  /**
+   * The whole run belongs to one process at a time. Each step has its own
+   * lock as well, but with several API processes (pm2 cluster) one of them
+   * could reach "import plots" while another was still creating the maps
+   * those plots belong to.
+   */
+  private async lock(): Promise<boolean> {
+    const col = this.connection.collection('datamigrations');
+    const now = new Date();
+    try {
+      const r = await col.findOneAndUpdate(
+        { _id: 'society-setup-lock' as any, $or: [{ until: { $lt: now } }, { until: { $exists: false } }] },
+        { $set: { until: new Date(now.getTime() + 30 * 60_000), pid: process.pid, startedAt: now } },
+        { upsert: true, returnDocument: 'after' },
+      );
+      return !!r;
+    } catch (err: any) {
+      if (err?.code === 11000) return false; // held by another process
+      throw err;
+    }
+  }
+
+  private async unlock() {
+    await this.connection
+      .collection('datamigrations')
+      .updateOne({ _id: 'society-setup-lock' as any, pid: process.pid }, { $set: { until: new Date(0) } })
+      .catch(() => undefined);
+  }
+
   private async run() {
+    if (!(await this.lock())) {
+      this.logger.log('Society setup is running in another process.');
+      return;
+    }
+    try {
+      await this.runLocked();
+    } finally {
+      await this.unlock();
+    }
+  }
+
+  private async runLocked() {
     const root = this.root();
     await this.applyAreasPlan(root);
     await this.importMaps(root);
     await this.importPlots(root);
     await this.applySocieties(root);
+    const counts = await this.data.syncPlotCounts().catch(() => null);
+    if (counts?.fixed) this.logger.log(`Plot counts updated on ${counts.fixed} maps`);
   }
 
   private static async hashOf(file: string) {

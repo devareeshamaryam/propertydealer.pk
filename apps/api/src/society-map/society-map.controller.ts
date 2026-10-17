@@ -39,6 +39,20 @@ export class SocietyMapController {
     return { success: true, data: await this.data.findPlots(city, map, q) };
   }
 
+  /** Plots inside a small map box (street level), for drawing plot outlines and numbers. */
+  @Get('plots/in-view')
+  @Header('Cache-Control', 'public, max-age=600, s-maxage=3600')
+  async plotsInView(
+    @Query('minLat') minLat: string,
+    @Query('maxLat') maxLat: string,
+    @Query('minLng') minLng: string,
+    @Query('maxLng') maxLng: string,
+  ) {
+    const box = { minLat: Number(minLat), maxLat: Number(maxLat), minLng: Number(minLng), maxLng: Number(maxLng) };
+    if (Object.values(box).some((v) => !Number.isFinite(v))) throw new BadRequestException('minLat, maxLat, minLng and maxLng are required');
+    return { success: true, data: await this.data.plotsInView(box) };
+  }
+
   /** The plot under a tapped point, if the society's GIS has it. */
   @Get('plots/at')
   @Header('Cache-Control', 'public, max-age=300, s-maxage=3600')

@@ -41,6 +41,7 @@ import { SiteSettingsModule } from './site-settings/site-settings.module';
 import { SocietyMapModule } from './society-map/society-map.module';
 import { TeamModule } from './team/team.module';
 import { SetupModule } from './setup/setup.module';
+import { SeoModule } from './seo/seo.module';
 import { ShopModule } from './shop/shop.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import * as path from 'path';
@@ -168,6 +169,7 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     SocietyMapModule,
     TeamModule,
     SetupModule,
+    SeoModule,
     ShopModule,
   ],
   controllers: [AppController],

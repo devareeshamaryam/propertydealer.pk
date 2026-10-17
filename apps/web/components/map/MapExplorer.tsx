@@ -39,6 +39,8 @@ import { CLEAN_TILES, MAP_TILES, type MapStyle } from '@/lib/map-tiles';
 import { amountShort, propertySizeLabel } from '@/lib/pk';
 import { cn, toTitleCase } from '@/lib/utils';
 import {
+  POI_ICONS,
+  POI_LABELS,
   insidePolygon,
   marlaLabel,
   plotSizeLabel,
@@ -51,6 +53,7 @@ import {
 } from '@/lib/society-map';
 import SocietyLayers, { MeasureLayer } from './SocietyLayers';
 import PlaceLabels from './PlaceLabels';
+import PlotsLayer, { PLOT_COLORS } from './PlotsLayer';
 
 /*
  * The property map.
@@ -88,6 +91,33 @@ export interface MapListing {
   featured: boolean;
   closed: boolean;
   location?: string;
+  /** In this society / city but the dealer never pinned it: listed, not drawn. */
+  unpinned?: boolean;
+}
+
+/** A listing from the plain list API, in the map's shape (no position). */
+function fromApi(p: any): MapListing {
+  return {
+    id: String(p._id),
+    slug: p.slug,
+    title: p.title,
+    price: Number(p.price) || 0,
+    purpose: p.listingType === 'rent' ? 'rent' : 'sale',
+    type: p.propertyType ?? '',
+    lat: Number(p.latitude) || 0,
+    lng: Number(p.longitude) || 0,
+    approx: false,
+    image: p.mainPhotoUrl || p.videoPosterUrl || '',
+    marla: p.marla,
+    kanal: p.kanal,
+    areaSize: p.areaSize,
+    beds: p.bedrooms,
+    baths: p.bathrooms,
+    featured: !!p.isFeatured,
+    closed: p.availability === 'sold' || p.availability === 'rented',
+    location: p.location,
+    unpinned: !(Number(p.latitude) && Number(p.longitude)),
+  };
 }
 
 export interface MapPlace {
@@ -290,6 +320,7 @@ function ListingCard({ item, compact, onClose }: { item: MapListing; compact?: b
           {!!item.baths && <span className="inline-flex items-center gap-0.5"><Bath className="h-3.5 w-3.5" />{item.baths}</span>}
           {size !== '—' && <span className="inline-flex items-center gap-0.5"><Ruler className="h-3.5 w-3.5" />{size}</span>}
           {item.approx && <span className="text-[11px] text-amber-700">Approx. location</span>}
+          {item.unpinned && <span className="text-[11px] text-slate-500">Not pinned on map</span>}
         </p>
       </div>
       {onClose && (
@@ -302,6 +333,28 @@ function ListingCard({ item, compact, onClose }: { item: MapListing; compact?: b
 }
 
 const ctrl = 'grid h-10 w-10 place-items-center rounded-full bg-white text-slate-900 shadow-md ring-1 ring-slate-200 transition-colors hover:bg-slate-50';
+
+/** The rest of a society's or city's listings: in the list, though not on the map. */
+function ScopeMore({ rows, title, busy, hasMore, onMore }: { rows: MapListing[]; title: string; busy: boolean; hasMore: boolean; onMore: () => void }) {
+  if (!rows.length && !busy) return null;
+  return (
+    <>
+      {title && rows.length > 0 && <p className="px-1 pt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{title}</p>}
+      {rows.map((item) => (
+        <ListingCard key={`s:${item.id}`} item={item} />
+      ))}
+      {busy ? (
+        <p className="flex items-center justify-center gap-1.5 py-3 text-[13px] text-slate-500">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading listings…
+        </p>
+      ) : hasMore ? (
+        <button type="button" onClick={onMore} className="w-full rounded-xl border border-slate-200 py-2.5 text-[13.5px] font-semibold text-slate-800 hover:border-slate-400">
+          Show more listings
+        </button>
+      ) : null}
+    </>
+  );
+}
 
 /** A city's societies, searchable: the ones with a map open their page, the rest fly the map there. */
 function SocietyList({
@@ -431,6 +484,11 @@ export default function MapExplorer({
   const [style, setStyle] = useState<MapStyle>(society?.layers.length ? 'satellite' : society ? 'hybrid' : 'street');
   const [showLayers, setShowLayers] = useState(false);
   const [poisOn, setPoisOn] = useState(true);
+  // Landmark kinds switched off in the layers menu (all on to start).
+  const [poiOff, setPoiOff] = useState<Set<string>>(() => new Set());
+  // Plot outlines and numbers from the society's GIS, at street level.
+  const [plotsOn, setPlotsOn] = useState(true);
+  const [plotsShown, setPlotsShown] = useState(0);
   // Tapped plot (from the society's GIS) and plot finder.
   const [plot, setPlot] = useState<SocietyPlotHit | null>(null);
   const [plotBusy, setPlotBusy] = useState(false);
@@ -440,6 +498,12 @@ export default function MapExplorer({
   const [cityPlaces, setCityPlaces] = useState<MapPlaceRow[] | null>(null);
   const [tab, setTab] = useState<'societies' | 'listings'>(city ? 'societies' : 'listings');
   const [societyFilter, setSocietyFilter] = useState('');
+  // Every listing of this society (or city) — not only the pinned ones on the
+  // map. The map labels count them all, so the list has to show them all.
+  const [scopeRows, setScopeRows] = useState<MapListing[]>([]);
+  const [scopeTotal, setScopeTotal] = useState(0);
+  const [scopePage, setScopePage] = useState(1);
+  const [scopeBusy, setScopeBusy] = useState(false);
   const [purpose, setPurpose] = useState<Purpose>('all');
   const [type, setType] = useState('all');
   const [all, setAll] = useState<MapListing[]>([]);
@@ -501,14 +565,7 @@ export default function MapExplorer({
       mapRef.current = map;
       if (timer.current) clearTimeout(timer.current);
       timer.current = setTimeout(async () => {
-        // Keep the address bar on this view, for sharing.
-        const c = map.getCenter();
-        try {
-          // A shared plot link keeps its #plot= until the plot is closed.
-          if (!window.location.hash.includes('plot=')) window.history.replaceState(null, '', `#map=${map.getZoom()}/${c.lat.toFixed(5)}/${c.lng.toFixed(5)}`);
-        } catch {
-          // ignore
-        }
+        // The address bar keeps the page's own clean URL; Share adds the view.
         // Country and city views: names only, no price pins.
         if (map.getZoom() < LISTINGS_ZOOM) {
           ++reqId.current;
@@ -571,6 +628,43 @@ export default function MapExplorer({
       .then((r) => setCityPlaces(Array.isArray(r.data?.data) ? r.data.data : []))
       .catch(() => setCityPlaces([]));
   }, [cityslug, city, searchOpen, cityPlaces]);
+
+  const scopeParams = society?.areaId ? { areaId: society.areaId } : city ? { city: city.slug } : null;
+  const scopeKey = JSON.stringify([scopeParams, purpose, type]);
+  useEffect(() => {
+    setScopeRows([]);
+    setScopeTotal(0);
+    setScopePage(1);
+  }, [scopeKey]);
+  useEffect(() => {
+    if (!scopeParams) return;
+    let cancelled = false;
+    setScopeBusy(true);
+    api
+      .get('/properties', {
+        params: {
+          ...scopeParams,
+          ...(purpose === 'sale' ? { purpose: 'buy' } : purpose === 'rent' ? { purpose: 'rent' } : {}),
+          ...(type !== 'all' ? { type } : {}),
+          page: scopePage,
+          limit: 24,
+        },
+      })
+      .then((r) => {
+        if (cancelled) return;
+        const rows: any[] = Array.isArray(r.data) ? r.data : r.data?.properties ?? [];
+        setScopeTotal(Number(r.data?.total) || rows.length);
+        setScopeRows((prev) => (scopePage === 1 ? rows.map(fromApi) : [...prev, ...rows.map(fromApi)]));
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setScopeBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey, scopePage]);
 
   // Plot finder: "L 215", "215 L", "6/L/215" — in this society's GIS.
   const plotSearchable = !!society?.plotCount;
@@ -673,7 +767,12 @@ export default function MapExplorer({
   };
 
   const share = async () => {
-    const url = window.location.href;
+    // The page's URL plus where the map is looking (#map=zoom/lat/lng), so the link opens on this view.
+    const m = mapRef.current;
+    const c = m?.getCenter();
+    const url = `${window.location.origin}${window.location.pathname}${
+      window.location.hash.includes('plot=') ? window.location.hash : m && c ? `#map=${m.getZoom()}/${c.lat.toFixed(5)}/${c.lng.toFixed(5)}` : ''
+    }`;
     const title = society ? `${society.name} map` : 'Property map';
     try {
       if (navigator.share) {
@@ -699,6 +798,12 @@ export default function MapExplorer({
     () => [...visible].sort((a, b) => Number(b.featured) - Number(a.featured) || Number(a.approx) - Number(b.approx)),
     [visible],
   );
+  /** The scope's listings not already on the map in view. */
+  const moreRows = useMemo(() => {
+    const shown = new Set(visible.map((v) => v.id));
+    return scopeRows.filter((r) => !shown.has(r.id) && (!block || r.unpinned));
+  }, [scopeRows, visible, block]);
+  const listCount = scopeParams ? Math.max(scopeTotal, visible.length) : visible.length;
 
   const measured = useMemo(() => {
     if (measure === 'area') {
@@ -788,11 +893,13 @@ export default function MapExplorer({
             <Title className="text-[20px] font-bold tracking-tight text-slate-900">Property map</Title>
           )}
           <p className="mt-0.5 text-[13px] text-slate-600">
-            {zoomedOut
-              ? city ? `Tap a society — on the map or in the list — to open its map.` : 'Choose a city, then a society, to see its listings.'
-              : loading
-                ? 'Loading…'
-                : `${visible.length.toLocaleString('en-PK')} ${visible.length === 1 ? 'listing' : 'listings'} ${block ? `in ${block.name}` : 'in this area'}`}
+            {society
+              ? `${listCount.toLocaleString('en-PK')} ${listCount === 1 ? 'listing' : 'listings'} in ${block ? block.name : society.name}${visible.length ? ` · ${visible.length} on the map` : ''}`
+              : zoomedOut
+                ? city ? `Tap a society — on the map or in the list — to open its map.` : 'Choose a city, then a society, to see its listings.'
+                : loading
+                  ? 'Loading…'
+                  : `${visible.length.toLocaleString('en-PK')} ${visible.length === 1 ? 'listing' : 'listings'} ${block ? `in ${block.name}` : 'in this area'}`}
             {truncated && ' · zoom in to see all'}
           </p>
           {society && society.blocks.length > 0 && (
@@ -853,7 +960,7 @@ export default function MapExplorer({
                 onClick={() => setTab(t)}
                 className={cn('-mb-px border-b-2 px-3 pb-2 text-[13.5px] font-semibold', tab === t ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-800')}
               >
-                {t === 'societies' ? `Societies${cityPlaces ? ` (${cityPlaces.length})` : ''}` : `Listings (${visible.length})`}
+                {t === 'societies' ? `Societies${cityPlaces ? ` (${cityPlaces.length})` : ''}` : `Listings (${listCount.toLocaleString('en-PK')})`}
               </button>
             ))}
           </div>
@@ -886,16 +993,25 @@ export default function MapExplorer({
                 </Link>
               ))}
             </>
-          ) : sortedVisible.length === 0 && !loading ? (
+          ) : sortedVisible.length === 0 && moreRows.length === 0 && !loading && !scopeBusy ? (
             <p className="px-2 py-10 text-center text-[14px] text-slate-500">
-              {zoomedOut ? 'Tap a city on the map, then a society, to see the properties listed there.' : 'No listings with an exact location here yet. Move the map or try another society.'}
+              {zoomedOut && !scopeParams ? 'Tap a city on the map, then a society, to see the properties listed there.' : 'No listings here yet. Move the map or try another society.'}
             </p>
           ) : (
-            sortedVisible.slice(0, 120).map((item) => (
-              <div key={item.id} onMouseEnter={() => setSelected(item)} onMouseLeave={() => setSelected(null)}>
-                <ListingCard item={item} />
-              </div>
-            ))
+            <>
+              {sortedVisible.slice(0, 120).map((item) => (
+                <div key={item.id} onMouseEnter={() => setSelected(item)} onMouseLeave={() => setSelected(null)}>
+                  <ListingCard item={item} />
+                </div>
+              ))}
+              <ScopeMore
+                rows={moreRows}
+                title={sortedVisible.length ? `More in ${society?.name ?? city?.name ?? 'this area'}` : ''}
+                busy={scopeBusy}
+                hasMore={scopeRows.length < scopeTotal}
+                onMore={() => setScopePage((n) => n + 1)}
+              />
+            </>
           )}
         </div>
         )}
@@ -905,7 +1021,9 @@ export default function MapExplorer({
         <MapContainer center={[start.lat, start.lng]} zoom={start.zoom} minZoom={5} maxZoom={21} className="h-full w-full" zoomControl={false} preferCanvas>
           <TileLayer key={style} url={tiles.url} subdomains={tiles.subdomains} attribution={tiles.attribution} maxNativeZoom={tiles.maxZoom} maxZoom={21} />
           <PlaceLabels cities={places} focusSlug={society?.slug ?? null} />
-          <SocietyLayers focus={society} opacity={planOpacity} visible={planOn} onCount={setPlanCount} onBlock={chooseBlock} activeBlock={block?.id ?? null} poisOn={poisOn} />
+          <SocietyLayers focus={society} opacity={planOpacity} visible={planOn} onCount={setPlanCount} onBlock={chooseBlock} activeBlock={block?.id ?? null} poisOn={poisOn} poiOff={poiOff} />
+          {/* Under a scanned master plan the plan already shows the plots and their numbers: drawn only without one. */}
+          <PlotsLayer enabled={plotsOn && !(planOn && planCount > 0)} onCount={setPlotsShown} />
           <Viewport onChange={load} />
           <FlyTo target={target} />
           <FitTo bounds={fit} />
@@ -1064,13 +1182,35 @@ export default function MapExplorer({
                     </button>
                   ))}
                 </div>
+                <button type="button" onClick={() => setPlotsOn((v) => !v)} className="mt-2 flex w-full items-center justify-between rounded-xl px-1.5 py-1.5 text-[13px] font-medium text-slate-800 hover:bg-slate-50">
+                  Plot outlines &amp; numbers
+                  <span className={cn('grid h-5 w-5 place-items-center rounded-md border', plotsOn ? 'border-primary bg-primary text-white' : 'border-slate-300')}>
+                    {plotsOn && <Check className="h-3.5 w-3.5" />}
+                  </span>
+                </button>
                 {society && society.pois.length > 0 && (
-                  <button type="button" onClick={() => setPoisOn((v) => !v)} className="mt-2 flex w-full items-center justify-between rounded-xl px-1.5 py-1.5 text-[13px] font-medium text-slate-800 hover:bg-slate-50">
-                    Landmarks ({society.pois.length})
-                    <span className={cn('grid h-5 w-5 place-items-center rounded-md border', poisOn ? 'border-primary bg-primary text-white' : 'border-slate-300')}>
-                      {poisOn && <Check className="h-3.5 w-3.5" />}
-                    </span>
-                  </button>
+                  <>
+                    <button type="button" onClick={() => setPoisOn((v) => !v)} className="flex w-full items-center justify-between rounded-xl px-1.5 py-1.5 text-[13px] font-medium text-slate-800 hover:bg-slate-50">
+                      Landmarks ({society.pois.length})
+                      <span className={cn('grid h-5 w-5 place-items-center rounded-md border', poisOn ? 'border-primary bg-primary text-white' : 'border-slate-300')}>
+                        {poisOn && <Check className="h-3.5 w-3.5" />}
+                      </span>
+                    </button>
+                    {poisOn && (
+                      <div className="flex flex-wrap gap-1 px-1 pb-1">
+                        {[...new Set(society.pois.map((p) => p.kind))].map((k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            onClick={() => setPoiOff((cur) => { const n = new Set(cur); if (n.has(k)) n.delete(k); else n.add(k); return n; })}
+                            className={cn('rounded-full border px-2 py-0.5 text-[11.5px] font-medium', poiOff.has(k) ? 'border-slate-200 text-slate-400' : 'border-primary/40 bg-primary/5 text-slate-800')}
+                          >
+                            {POI_ICONS[k] ?? '📍'} {POI_LABELS[k] ?? k}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
                 <p className="mt-1.5 px-1.5 text-[11px] leading-snug text-slate-500">Hybrid shows street names on the satellite view.</p>
               </div>
@@ -1138,6 +1278,18 @@ export default function MapExplorer({
             <List className="h-5 w-5" />
           </button>
         </div>
+
+        {plotsOn && plotsShown > 0 && !(planOn && planCount > 0) && (
+          <div className="pointer-events-none absolute bottom-3 left-2 z-[450] hidden flex-wrap gap-x-2.5 gap-y-1 rounded-xl bg-white/95 px-2.5 py-1.5 text-[11px] text-slate-700 shadow-md ring-1 ring-slate-200 sm:flex">
+            {['residential', 'commercial', 'park', 'mosque', 'school', 'utility'].map((k) => (
+              <span key={k} className="inline-flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: PLOT_COLORS[k]!.fill, outline: `1px solid ${PLOT_COLORS[k]!.stroke}` }} />
+                {PLOT_COLORS[k]!.label}
+              </span>
+            ))}
+            <span className="text-slate-500">· tap a plot for details</span>
+          </div>
+        )}
 
         {copied && (
           <div className="absolute left-1/2 top-16 z-[600] -translate-x-1/2 rounded-full bg-slate-900 px-3 py-1.5 text-[12.5px] font-semibold text-white">Link copied</div>
@@ -1224,13 +1376,13 @@ export default function MapExplorer({
                 <div className="flex gap-1 rounded-full bg-slate-100 p-0.5">
                   {(['societies', 'listings'] as const).map((t) => (
                     <button key={t} type="button" onClick={() => setTab(t)} className={cn('h-8 rounded-full px-3 text-[13px] font-semibold', tab === t ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600')}>
-                      {t === 'societies' ? `Societies${cityPlaces ? ` (${cityPlaces.length})` : ''}` : `Listings (${visible.length})`}
+                      {t === 'societies' ? `Societies${cityPlaces ? ` (${cityPlaces.length})` : ''}` : `Listings (${listCount.toLocaleString('en-PK')})`}
                     </button>
                   ))}
                 </div>
               ) : (
                 <p className="text-[15px] font-bold text-slate-900">
-                  {visible.length.toLocaleString('en-PK')} listings {block ? `in ${block.name}` : 'in view'}
+                  {listCount.toLocaleString('en-PK')} listings {block ? `in ${block.name}` : society ? `in ${society.name}` : 'in view'}
                 </p>
               )}
               <button type="button" onClick={() => setShowList(false)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-slate-100" aria-label="Back to map">
@@ -1253,6 +1405,13 @@ export default function MapExplorer({
                 {sortedVisible.slice(0, 150).map((item) => (
                   <ListingCard key={item.id} item={item} />
                 ))}
+                <ScopeMore
+                  rows={moreRows}
+                  title={sortedVisible.length ? `More in ${society?.name ?? city?.name ?? 'this area'}` : ''}
+                  busy={scopeBusy}
+                  hasMore={scopeRows.length < scopeTotal}
+                  onMore={() => setScopePage((n) => n + 1)}
+                />
               </div>
             )}
           </div>

@@ -545,6 +545,15 @@ a[class*="footerAction"] {
   color: #0f172a;
 }
 .leaflet-tooltip.pd-block-label::before { display: none; }
+/* Plot numbers drawn on the map (society GIS), centred on each plot. */
+.pd-plot-no {
+  transform: translate(-50%, -50%);
+  font: 600 10px/1 ui-sans-serif, system-ui, sans-serif;
+  color: #1f2937;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff;
+}
 .pd-poi {
   position: absolute;
   transform: translate(-50%, -50%);

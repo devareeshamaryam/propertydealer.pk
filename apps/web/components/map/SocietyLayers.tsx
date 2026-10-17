@@ -37,6 +37,7 @@ export default function SocietyLayers({
   onBlock,
   activeBlock,
   poisOn = true,
+  poiOff,
 }: {
   /** The society whose page this is: its blocks and landmarks are drawn. */
   focus?: SocietyMapPage | null;
@@ -49,6 +50,8 @@ export default function SocietyLayers({
   activeBlock?: string | null;
   /** Landmarks on or off (the layers menu). */
   poisOn?: boolean;
+  /** Landmark kinds switched off. */
+  poiOff?: Set<string>;
 }) {
   const map = useMap();
   const [zoom, setZoom] = useState(map.getZoom());
@@ -172,7 +175,7 @@ export default function SocietyLayers({
         ) : null,
       )}
       {focus && poisOn && zoom >= 15 &&
-        focus.pois.map((p) => (
+        focus.pois.filter((p) => !poiOff?.has(p.kind)).map((p) => (
           <Marker key={`poi:${p.id}`} position={[p.lat, p.lng]} icon={poiIcon(p.kind)}>
             <Tooltip direction="top" offset={[0, -14]}>{p.name}</Tooltip>
           </Marker>

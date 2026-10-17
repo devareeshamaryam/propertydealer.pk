@@ -5,6 +5,7 @@ import BlogGrid from '@/components/BlogGrid';  // ← BlogSection ki jagah BlogG
 export const metadata = {
   title: "Pakistan Real Estate Blog | Property News, Trends & Tips",
   description: "Explore the latest Pakistan property market news, real estate trends, investment tips, and city-wise insights for Lahore, Karachi, Islamabad & more.",
+  alternates: { canonical: "/blog" },
 };
 
 export default function BlogPage() {

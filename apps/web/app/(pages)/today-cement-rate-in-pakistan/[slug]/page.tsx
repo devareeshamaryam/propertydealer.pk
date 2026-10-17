@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import CementDetailClient from "./CementDetailClient";
 
 
+const SITE = (process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk').replace(/\/$/, '');
+
 /* Rendered on first visit, then cached; refreshed every 10 minutes and when rates change. */
 export const revalidate = 600;
 export const dynamicParams = true;
@@ -27,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       || `Today's ${rate.brand} cement price is Rs ${rate.price}. Check latest updates and order online.`;
 
     const imageUrl = rate.image
-      ? `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005').replace(/\/$/, '')}${rate.image.startsWith('/') ? '' : '/'}${rate.image}`
+      ? `${SITE}${rate.image.startsWith('/') ? '' : '/'}${rate.image}`
       : undefined;
 
     const canonicalUrl = `https://propertydealer.pk/today-cement-rate-in-pakistan/${slug}`;

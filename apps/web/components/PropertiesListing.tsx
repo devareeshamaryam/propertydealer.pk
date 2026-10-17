@@ -1,7 +1,8 @@
  'use client'
 
-import { useState, useMemo, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
+import SearchParamsBridge from '@/components/SearchParamsBridge';
 import { SlidersHorizontal, Loader2, X, MapPin, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +32,8 @@ interface PropertiesListingProps {
   initialTotalPages?: number;
   /** The city's id, when the server already resolved it — saves waiting for the city list. */
   cityId?: string;
+  /** The page's H1 as the server worked it out (area and city names included). */
+  heading?: string;
 }
 
 interface AreaOption {
@@ -60,9 +63,13 @@ export default function PropertiesListing({
   initialProperties,
   initialTotalPages,
   cityId: initialCityId,
+  heading,
 }: PropertiesListingProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // The query string arrives through <SearchParamsBridge> (rendered below):
+  // useSearchParams() here made Next render this whole list in the browser
+  // only, so the results pages' HTML was a spinner. Empty until it arrives.
+  const [searchParams, setSearchParams] = useState<URLSearchParams>(() => new URLSearchParams());
   const { listingsPerPage } = useSiteSettings();
 
   const [properties, setProperties]             = useState<Property[]>(initialProperties ?? []);
@@ -684,6 +691,9 @@ export default function PropertiesListing({
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <Suspense fallback={null}>
+        <SearchParamsBridge onChange={setSearchParams} />
+      </Suspense>
 
       <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
         <SheetContent side="bottom" className="h-screen w-full p-0 rounded-none border-0 lg:hidden flex flex-col">
@@ -831,11 +841,11 @@ export default function PropertiesListing({
             <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
 
               <h1 className="text-[21px] font-bold tracking-tight text-slate-900 sm:text-[28px]">
-                {type !== 'all'
+                {heading && !searchParams.toString() ? heading : <>{type !== 'all'
                   ? (type.toLowerCase() === 'house' ? 'Property' : `${type.charAt(0).toUpperCase() + type.slice(1)}s`)
                   : 'Properties'}
                 {purpose === 'rent' ? ' for Rent ' : purpose === 'buy' ? ' for Sale ' : ' '}
-                in {matchedCity || 'Pakistan'}
+                in {matchedCity || 'Pakistan'}</>}
               </h1>
 
               <div className="lg:hidden flex h-10 overflow-hidden rounded-xl border border-slate-200 bg-white">

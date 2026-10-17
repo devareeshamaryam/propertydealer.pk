@@ -23,8 +23,8 @@ export async function generateMetadata({
   const { slug } = await params;
   const city = await findCity(slug);
   if (!city) return {};
-  const title = `${city.name} Map — Housing Societies, Plots & Property | PropertyDealer.pk`;
-  const description = `Interactive ${city.name} map: every housing society with its outline, blocks, landmarks and approval status, official master and layout plans, and the houses and plots for sale and rent — on satellite.`;
+  const title = `${city.name} Map — Housing Societies & Plots | PropertyDealer`;
+  const description = `${city.name} map: every housing society with its outline, blocks, approval status and official plans, plus houses and plots for sale and rent.`;
   const url = `${BASE_URL}/emap/${slug}`;
   return { title, description, alternates: { canonical: url }, openGraph: { title, description, url, type: "website" } };
 }

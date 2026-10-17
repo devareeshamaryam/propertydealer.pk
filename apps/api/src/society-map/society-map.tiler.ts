@@ -26,6 +26,7 @@ import { HALF, cornersOf, fitAffine, fromMerc, mercPixel, type Affine } from './
  */
 
 const TILE = 256;
+const INTERRUPTED = 'Interrupted by a server restart — run it again.';
 const ZOOM_LEVELS = 6;
 
 @Injectable()
@@ -41,16 +42,47 @@ export class SocietyMapTiler implements OnModuleInit {
     private readonly revalidate: RevalidateService,
   ) {}
 
-  /** A job interrupted by a restart would read "processing" for ever. */
+  /**
+   * A job interrupted by a restart would read "processing" for ever: it is
+   * marked failed, then resumed a minute later. A deploy restarts the API
+   * while the big master plans are still tiling (each takes minutes), and
+   * nothing used to pick them up again — so those maps stayed blank.
+   * At most three attempts, so a plan that crashes the process cannot loop.
+   */
   async onModuleInit() {
     await this.model
       .updateMany(
         { 'layers.tiles.status': { $in: ['queued', 'processing'] } },
-        { $set: { 'layers.$[l].tiles.status': 'failed', 'layers.$[l].tiles.error': 'Interrupted by a server restart — run it again.' } },
+        { $set: { 'layers.$[l].tiles.status': 'failed', 'layers.$[l].tiles.error': INTERRUPTED } },
         { arrayFilters: [{ 'l.tiles.status': { $in: ['queued', 'processing'] } }] },
       )
       .exec()
       .catch(() => undefined);
+    setTimeout(() => void this.resumeInterrupted().catch((e) => this.logger.warn(`Resume failed: ${e?.message}`)), 60_000).unref?.();
+  }
+
+  private async resumeInterrupted() {
+    const docs = await this.model
+      .find({ layers: { $elemMatch: { 'tiles.status': 'failed', 'tiles.error': INTERRUPTED } } })
+      .select('_id layers._id layers.tiles layers.controlPoints')
+      .lean()
+      .exec();
+    for (const d of docs as any[]) {
+      for (const l of d.layers ?? []) {
+        if (l.tiles?.status !== 'failed' || l.tiles?.error !== INTERRUPTED || (l.tiles?.attempts ?? 0) >= 3) continue;
+        if (!fitAffine(l.controlPoints ?? [])) continue;
+        // Claimed atomically: with several API processes only one takes each layer.
+        const claimed = await this.model
+          .updateOne(
+            { _id: d._id, layers: { $elemMatch: { _id: l._id, 'tiles.status': 'failed', 'tiles.error': INTERRUPTED } } },
+            { $set: { 'layers.$.tiles.status': 'queued', 'layers.$.tiles.error': '' } },
+          )
+          .exec();
+        if (!claimed.modifiedCount) continue;
+        this.logger.log(`Resuming tiles for ${d._id}/${l._id}`);
+        this.chain = this.chain.then(() => this.run(String(d._id), String(l._id))).catch(() => undefined);
+      }
+    }
   }
 
   /** Queue a layer for tiling. Returns once it is queued, not when it is done. */
@@ -119,7 +151,7 @@ export class SocietyMapTiler implements OnModuleInit {
       if (!t) throw new Error('At least three well-spread points are needed to place the map.');
 
       const version = (layer.tiles?.version ?? 0) + 1;
-      await this.setTiles(mapId, layerId, { status: 'processing', progress: 1, version });
+      await this.setTiles(mapId, layerId, { status: 'processing', progress: 1, version, attempts: (layer.tiles?.attempts ?? 0) + 1 });
 
       const source = await this.readSource(layer.sourceKey);
       if (!source) throw new Error('The uploaded image could not be read.');

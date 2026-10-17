@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import MaterialDetailClient from "@/components/MaterialRate/MaterialDetailClient";
 
 
+const SITE = (process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk').replace(/\/$/, '');
+
 /* Rendered on first visit, then cached; refreshed every 10 minutes and when rates change. */
 export const revalidate = 600;
 export const dynamicParams = true;
@@ -20,18 +22,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const rate = await serverApi.getTileRateBySlug(slug);
     return {
+      alternates: { canonical: `${SITE}/today-tile-rate-in-pakistan/${slug}` },
       title: `${rate.brand} Tile Price in Pakistan | PropertyDealer.pk`,
       description: `Today's ${rate.brand} tile price is Rs ${rate.price}/${rate.unit}. Check latest rates and order online.`,
       openGraph: {
         title: `${rate.brand} Tile Price Today`,
         description: `Rs ${rate.price}/${rate.unit}`,
         images: rate.image
-          ? [`${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005').replace(/\/$/, '')}${rate.image.startsWith('/') ? '' : '/'}${rate.image}`]
+          ? [`${SITE}${rate.image.startsWith('/') ? '' : '/'}${rate.image}`]
           : [],
       },
     };
   } catch {
-    return { title: "Tile Rate | PropertyDealer.pk" };
+    return {
+      alternates: { canonical: `${SITE}/today-tile-rate-in-pakistan/${slug}` }, title: "Tile Rate | PropertyDealer.pk" };
   }
 }
 
