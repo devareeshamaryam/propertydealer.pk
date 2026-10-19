@@ -7,6 +7,7 @@ import MapExplorerClient from "@/components/map/MapExplorerClient";
 import SocietyMapPageView from "@/components/society-map/SocietyMapPageView";
 import { societyMapMeta } from "@/lib/seo/emap-meta";
 import { getMapPlaces, getSocietyMap } from "@/lib/society-map";
+import { getSiteName } from "@/lib/site-settings.server";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://propertydealer.pk";
 
@@ -36,6 +37,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ slug: string; area: string }>;
 }): Promise<Metadata> {
+  const site = await getSiteName();
   const { slug, area } = await params;
 
   // A society with a published map: its own title, description and share image.
@@ -50,6 +52,8 @@ export async function generateMetadata({
       alternates: { canonical: url },
       openGraph: { title, description, url, type: "website", ...(image ? { images: [{ url: image }] } : {}) },
       twitter: { card: "summary_large_image", title, ...(image ? { images: [image] } : {}) },
+      // Only a society with a real plan on the map belongs in search; an outline or a scanned record stays out.
+      ...(society.kind === "plan" ? {} : { robots: { index: false, follow: true } }),
     };
   }
 
@@ -58,7 +62,7 @@ export async function generateMetadata({
   if (city && areaData) {
     // The original E-Map pages: kept in the index as they always were.
     return {
-      title: `${areaData.name} Map | ${city.name} | PropertyDealer.pk`,
+      title: `${areaData.name} Map | ${city.name} | ${site}`,
       description: `${areaData.name}, ${city.name} on the satellite map, with the properties for sale and rent there.`,
       alternates: { canonical: `${BASE_URL}/emap/${slug}/${area}` },
     };
@@ -68,7 +72,7 @@ export async function generateMetadata({
   const place = (await getMapPlaces(slug)).find((p) => p.slug === area);
   if (!place) return {};
   return {
-    title: `${place.name} Map | ${place.cityName ?? city?.name ?? ""} | PropertyDealer.pk`,
+    title: `${place.name} Map | ${place.cityName ?? city?.name ?? ""} | ${site}`,
     alternates: { canonical: `${BASE_URL}/emap/${slug}/${area}` },
     robots: { index: false, follow: true },
   };

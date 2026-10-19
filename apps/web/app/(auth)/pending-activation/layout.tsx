@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { getSiteName } from "@/lib/site-settings.server";
 
-export const metadata: Metadata = {
-  title: "Account pending activation — PropertyDealer",
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteName();
+  return {
+  title: `Account pending activation — ${site}`,
   robots: { index: false, follow: false },
 };
+}
 
 export default function PendingActivationLayout({
   children,

@@ -35,7 +35,7 @@ import {
   X,
 } from 'lucide-react';
 import api from '@/lib/api';
-import { CLEAN_TILES, MAP_TILES, type MapStyle } from '@/lib/map-tiles';
+import { CLEAN_TILES, EMAP_TILES, type MapStyle } from '@/lib/map-tiles';
 import { amountShort, propertySizeLabel } from '@/lib/pk';
 import { cn, toTitleCase } from '@/lib/utils';
 import {
@@ -480,8 +480,8 @@ export default function MapExplorer({
   mode?: 'full' | 'page';
 }) {
   const router = useRouter();
-  // Satellite under a laid-over plan; satellite with streets and names for an outline; the clean map elsewhere.
-  const [style, setStyle] = useState<MapStyle>(society?.layers.length ? 'satellite' : society ? 'hybrid' : 'street');
+  // The simple map by default everywhere; Satellite and Hybrid are a tap away in Layers.
+  const [style, setStyle] = useState<MapStyle>('street');
   const [showLayers, setShowLayers] = useState(false);
   const [poisOn, setPoisOn] = useState(true);
   // Landmark kinds switched off in the layers menu (all on to start).
@@ -793,7 +793,7 @@ export default function MapExplorer({
   }, []);
 
   // The plain map hides every label except ours; on a society page its streets are worth reading.
-  const tiles = style === 'street' && !society ? CLEAN_TILES : MAP_TILES[style];
+  const tiles = style === 'street' && !society ? CLEAN_TILES : EMAP_TILES[style];
   const sortedVisible = useMemo(
     () => [...visible].sort((a, b) => Number(b.featured) - Number(a.featured) || Number(a.approx) - Number(b.approx)),
     [visible],

@@ -118,7 +118,7 @@ const Footer = async () => {
                   className="h-[var(--logo-h)] w-auto max-w-[220px] object-contain md:h-[var(--logo-h-lg)]"
                 />
               ) : (
-                <BrandLogo markClassName="text-white" textClassName="text-white [&>span]:text-white/70" />
+                <BrandLogo name={r.siteName} markClassName="text-white" textClassName="text-white [&>span]:text-white/70" />
               )}
             </Link>
 

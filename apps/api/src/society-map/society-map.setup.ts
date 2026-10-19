@@ -19,9 +19,9 @@ import { SocietyDataService } from './society-data.service';
  *      phases). Each is imported once, if no map is at its address yet; its
  *      tiles are then made in the background.
  *   3. data/society-plots/<city>-<name>.ndjson.gz — plots from a society's GIS.
- *   4. data/society-data/<city>.json — every society's outline, blocks,
- *      landmarks and development-authority record; then the authorities'
- *      approved layout plans are fetched in the background.
+ *   4. Once: the society pages without a map of their own (an outline or an
+ *      authority's record, imported earlier) are removed — the eMap shows
+ *      only societies with a real map, the way emap.pk does.
  *
  * Runs ~30 s after start, in the background, in one process only (a lock
  * document in `datamigrations`), and never again for the same data.
@@ -115,7 +115,7 @@ export class SocietyMapSetup implements OnApplicationBootstrap {
     await this.applyAreasPlan(root);
     await this.importMaps(root);
     await this.importPlots(root);
-    await this.applySocieties(root);
+    await this.removeUnmapped();
     const counts = await this.data.syncPlotCounts().catch(() => null);
     if (counts?.fixed) this.logger.log(`Plot counts updated on ${counts.fixed} maps`);
   }
@@ -142,36 +142,17 @@ export class SocietyMapSetup implements OnApplicationBootstrap {
     }
   }
 
-  private async applySocieties(root: string) {
-    const dir = path.join(root, 'data', 'society-data');
-    const files = (await fs.readdir(dir).catch(() => [] as string[])).filter((f) => f.endsWith('.json')).sort();
-    const hashes: string[] = [];
-    for (const f of files) {
-      const file = path.join(dir, f);
-      const hash = await SocietyMapSetup.hashOf(file);
-      hashes.push(hash);
-      const id = `society-data-${f.replace(/\.json$/, '')}-${hash}`;
-      if (!(await this.claim(id))) continue;
-      try {
-        const r = await this.data.applySocieties(file);
-        await this.finish(id, 'done', r);
-        this.logger.log(`Society data ${f}: ${JSON.stringify(r)}`);
-      } catch (err: any) {
-        await this.finish(id, 'failed', err?.message ?? String(err));
-        this.logger.error(`Society data ${f} failed: ${err?.message}`);
-      }
-    }
-    if (!files.length) return;
-    // Approved layout plans from the authorities' sites — slow, so in the background. Retried on the next start until all are in.
-    const id = `society-docs-${createHash('sha1').update(hashes.join(',')).digest('hex').slice(0, 12)}`;
+  private async removeUnmapped() {
+    const id = 'society-unmapped-removed-v1';
     if (!(await this.claim(id))) return;
-    void this.data
-      .fetchDocuments()
-      .then(async (r) => {
-        await this.finish(id, r.failed ? 'failed' : 'done', r);
-        this.logger.log(`Official plans: ${JSON.stringify(r)}`);
-      })
-      .catch(async (err) => this.finish(id, 'failed', err?.message ?? String(err)));
+    try {
+      const r = await this.data.removeUnmapped();
+      await this.finish(id, 'done', r);
+      this.logger.log(`Society pages without a map removed: ${JSON.stringify(r)}`);
+    } catch (err: any) {
+      await this.finish(id, 'failed', err?.message ?? String(err));
+      this.logger.error(`Removing society pages without a map failed: ${err?.message}`);
+    }
   }
 
   /** scripts/areas/plan.json, then plan-2.json, … — each applied once (by its content), in order. */

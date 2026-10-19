@@ -299,7 +299,10 @@ export async function fetchInitialListings(filters: {
   } catch (error) {
     // A slow or failing API must not be cached as "no listings": throw, and
     // the page keeps its last good version (the list then loads in the browser).
-    if (!isNotFoundError(error)) throw error;
+    // Except during `next build`, when there is no last good version and the
+    // API may simply not be running: the page is built empty, loads its list
+    // in the browser, and is regenerated with listings on its first revalidate.
+    if (!isNotFoundError(error) && process.env.NEXT_PHASE !== 'phase-production-build') throw error;
     return { properties: [], totalPages: 1, raw: [] };
   }
 }

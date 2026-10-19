@@ -95,7 +95,7 @@ export const DEFAULT_HERO_SUBTITLE =
 /** Hunza valley — "Beautiful Hunza" by Mehtab Farooq on Unsplash (free licence). */
 export const DEFAULT_HERO_IMAGE =
   'https://images.unsplash.com/photo-1514558427911-8e293bebf18c?w=1920&q=70&auto=format&fit=crop';
-export const DEFAULT_SITE_NAME = 'PropertyDealer';
+export const DEFAULT_SITE_NAME = 'Property Dealer';
 export const DEFAULT_PHONE = '+92 303 011 9992';
 export const DEFAULT_EMAIL = 'propertydealer.pk01@gmail.com';
 export const DEFAULT_GA_ID = 'G-GFGWSFNVDS';
@@ -176,7 +176,7 @@ export const DEFAULT_SEO_TITLE = 'Property Dealer | Buy, Sell & Rent Property';
 export const DEFAULT_SEO_DESCRIPTION =
   'Property Dealer is a property buying and selling marketplace across Pakistan, connecting buyers and sellers for residential and commercial real estate.';
 export const DEFAULT_TAGLINE = 'Serving buyers, renters and dealers across Pakistan since 2007.';
-export const DEFAULT_COPYRIGHT = '© {year} PropertyDealer. All rights reserved.';
+export const DEFAULT_COPYRIGHT = '© {year} Property Dealer. All rights reserved.';
 
 /**
  * What the live site shows for each setting left empty — so the settings

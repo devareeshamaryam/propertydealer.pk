@@ -1,6 +1,7 @@
 import { serverApi, isNotFoundError } from '@/lib/server-api';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { getSiteName } from "@/lib/site-settings.server";
 
 
 /* CMS pages: rendered on first visit, then cached; the API revalidates them on edit. */
@@ -15,6 +16,7 @@ type PageProps = {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const site = await getSiteName();
   const { slug } = await params;
   try {
     const page = await serverApi.getPageBySlug(slug);
@@ -23,8 +25,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       return { title: 'Page Not Found' };
     }
 
-    const title = page.metaTitle || `${page.title} | PropertyDealer`;
-    const description = page.metaDescription || "Read more about this on PropertyDealer.";
+    const title = page.metaTitle || `${page.title} | ${site}`;
+    const description = page.metaDescription || `Read more about this on ${site}.`;
 
     return {
       title,

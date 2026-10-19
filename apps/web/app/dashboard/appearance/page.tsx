@@ -21,6 +21,7 @@ import {
   DEFAULT_HERO_TITLE,
   DEFAULT_PRICE_TAG,
   DEFAULT_PRIMARY,
+  DEFAULT_SITE_NAME,
   SITE_FONTS,
   type SiteSettings,
 } from "@/lib/site-settings";
@@ -190,7 +191,7 @@ export default function AppearancePage() {
               </Field>
             </SettingsCard>
 
-            <SettingsCard title="Logo & icon" description="Empty logo fields show the built-in PropertyDealer mark.">
+            <SettingsCard title="Logo & icon" description="Empty logo fields show the built-in mark with the site name.">
               <ImageField
                 label="Header logo"
                 hint="A wide PNG or SVG with a transparent background."
@@ -304,7 +305,17 @@ export default function AppearancePage() {
                       <img src={settings.logoUrl} alt="" style={{ height: Math.min(settings.logoHeight, 40) }} />
                     ) : (
                       <span className="text-[15px] font-bold">
-                        Property<span style={{ color: primary }}>Dealer</span>
+                        {(() => {
+                          // The built-in wordmark: the site name, its last word in the brand colour.
+                          const words = (settings.siteName || DEFAULT_SITE_NAME).trim().split(/\s+/);
+                          const last = words.length > 1 ? words.pop() : "";
+                          return (
+                            <>
+                              {words.join(" ")}
+                              {last && <> <span style={{ color: primary }}>{last}</span></>}
+                            </>
+                          );
+                        })()}
                       </span>
                     )}
                     <span className="px-2.5 py-1 text-xs font-semibold text-white" style={{ background: primary, borderRadius: settings.radius }}>
@@ -341,7 +352,7 @@ export default function AppearancePage() {
                   </p>
                 </div>
                 <div className="px-4 py-3 text-[11px] text-white/80" style={{ background: dark, borderTopLeftRadius: 18, borderTopRightRadius: 18 }}>
-                  © PropertyDealer · Footer
+                  © Property Dealer · Footer
                 </div>
               </div>
             </DataCard>

@@ -2,6 +2,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import MaterialDetailClient from "@/components/MaterialRate/MaterialDetailClient";
+import { getSiteName } from "@/lib/site-settings.server";
 
 
 const SITE = (process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk').replace(/\/$/, '');
@@ -18,12 +19,13 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const site = await getSiteName();
   const { slug } = await params;
   try {
     const rate = await serverApi.getTileRateBySlug(slug);
     return {
       alternates: { canonical: `${SITE}/today-tile-rate-in-pakistan/${slug}` },
-      title: `${rate.brand} Tile Price in Pakistan | PropertyDealer.pk`,
+      title: `${rate.brand} Tile Price in Pakistan | ${site}`,
       description: `Today's ${rate.brand} tile price is Rs ${rate.price}/${rate.unit}. Check latest rates and order online.`,
       openGraph: {
         title: `${rate.brand} Tile Price Today`,
@@ -35,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   } catch {
     return {
-      alternates: { canonical: `${SITE}/today-tile-rate-in-pakistan/${slug}` }, title: "Tile Rate | PropertyDealer.pk" };
+      alternates: { canonical: `${SITE}/today-tile-rate-in-pakistan/${slug}` }, title: `Tile Rate | ${site}` };
   }
 }
 

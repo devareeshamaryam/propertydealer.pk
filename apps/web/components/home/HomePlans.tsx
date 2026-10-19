@@ -3,12 +3,12 @@ import { ArrowRight, BadgeCheck } from 'lucide-react';
 import PlanCards from '@/components/plans/PlanCards';
 import type { Plan } from '@/lib/plans';
 
-/* Homepage: the agent plans, the same cards as /packages, key lines only. */
+/* Homepage: the agent plans — the same cards, with the same benefits, as /packages and the dashboard. */
 export default function HomePlans({ plans }: { plans: Plan[] }) {
   if (!plans.length) return null;
   return (
-    <section className="container mx-auto px-[var(--gutter)] py-10 sm:px-4 sm:py-14">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <section className="container mx-auto overflow-x-hidden px-4 py-10 sm:py-14">
+      <div className="mb-2 flex flex-wrap items-end justify-between gap-3">
         <div className="max-w-2xl">
           <p className="text-[12.5px] font-semibold uppercase tracking-wider text-primary">For agents &amp; agencies</p>
           <h2 className="mt-1 text-[24px] font-bold tracking-tight text-slate-900 sm:text-[30px]">Grow your property business</h2>
@@ -24,7 +24,7 @@ export default function HomePlans({ plans }: { plans: Plan[] }) {
           Compare all packages <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
-      <PlanCards plans={plans} compact />
+      <PlanCards plans={plans} />
     </section>
   );
 }

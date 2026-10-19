@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import StaticPageView from '@/components/StaticPageView';
 import { pageMetadata } from '@/lib/seo/page-seo';
+import { getSiteName } from "@/lib/site-settings.server";
 
 /*
  * /contact — the text is edited in Dashboard → Static Pages (slug "contact"), as
@@ -8,9 +9,10 @@ import { pageMetadata } from '@/lib/seo/page-seo';
  */
 
 export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteName();
   return pageMetadata('contact', {
-    title: 'Contact PropertyDealer — Phone, WhatsApp & Email',
-    description: 'Get in touch with PropertyDealer by phone, WhatsApp or email — for listing help, packages for agents, advertising or to report a problem.',
+    title: `Contact ${site} — Phone, WhatsApp & Email`,
+    description: `Get in touch with ${site} by phone, WhatsApp or email — for listing help, packages for agents, advertising or to report a problem.`,
     path: '/contact',
   });
 }

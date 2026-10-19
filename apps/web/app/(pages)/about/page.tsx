@@ -1,20 +1,22 @@
 import Link from 'next/link';
 import StaticPageView from '@/components/StaticPageView';
+import { getSiteName } from '@/lib/site-settings.server';
 
 /*
  * About. The text is edited in Dashboard → Static Pages (slug "about"); the
  * copy below is shown only until that page exists, so /about is never empty.
  */
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const site = await getSiteName();
   return (
     <StaticPageView
       slug="about"
-      title="About PropertyDealer"
+      title={`About ${site}`}
       fallback={
         <>
           <p className="mt-3 text-[17px] leading-relaxed text-slate-600">
-            PropertyDealer is a Pakistani property portal. Owners and dealers list houses, flats,
+            {site} is a Pakistani property portal. Owners and dealers list houses, flats,
             plots and shops for sale or rent, and buyers and tenants contact them directly — by
             phone or WhatsApp, without signing up.
           </p>

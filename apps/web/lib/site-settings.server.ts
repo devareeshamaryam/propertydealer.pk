@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { DEFAULT_SITE_SETTINGS, type SiteSettings } from './site-settings';
+import { DEFAULT_SITE_SETTINGS, resolved, type SiteSettings } from './site-settings';
 
 function apiBase(): string {
   const raw =
@@ -29,3 +29,8 @@ export const getSiteSettings = cache(async (): Promise<SiteSettings> => {
     return DEFAULT_SITE_SETTINGS;
   }
 });
+
+/** The site's name for titles and text — Settings → General → Site name, else "Property Dealer". */
+export async function getSiteName(): Promise<string> {
+  return resolved(await getSiteSettings()).siteName;
+}

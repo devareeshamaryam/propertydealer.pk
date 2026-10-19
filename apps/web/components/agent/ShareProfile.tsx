@@ -2,15 +2,18 @@
 
 import { useState } from 'react';
 import { Check, Share2 } from 'lucide-react';
+import { useSiteSettings } from '@/components/SiteSettingsProvider';
+import { resolved } from '@/lib/site-settings';
 
 /** Share an agent's profile: the phone's share sheet, or the link copied. */
 export default function ShareProfile({ name }: { name: string }) {
+  const { siteName } = resolved(useSiteSettings());
   const [copied, setCopied] = useState(false);
   const share = async () => {
     const url = window.location.href.split('#')[0]!;
     try {
       if (navigator.share) {
-        await navigator.share({ title: `${name} on PropertyDealer`, url });
+        await navigator.share({ title: `${name} on ${siteName}`, url });
         return;
       }
       await navigator.clipboard.writeText(url);

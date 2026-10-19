@@ -2,6 +2,8 @@
 
 import ShopCategoryClient from "@/components/shop/ShopCategoryClient";
 import { toShopProduct } from "@/lib/shop";
+import { useSiteSettings } from '@/components/SiteSettingsProvider';
+import { resolved } from '@/lib/site-settings';
 
 /*
  * The cement page's client entry; the layout is the shared
@@ -17,6 +19,7 @@ interface CementPageClientProps {
 }
 
 export default function CementPageClient({ initialBrands, pageContent, pageTitle }: CementPageClientProps) {
+  const { siteName } = resolved(useSiteSettings());
   const products = (initialBrands ?? [])
     .filter((r: any) => r && r.isActive !== false)
     .map((r: any) => toShopProduct("cement", r));
@@ -31,7 +34,7 @@ export default function CementPageClient({ initialBrands, pageContent, pageTitle
         <>
           <h2 className="mb-3 text-lg font-bold text-slate-900">Today Cement Rate in Pakistan</h2>
           <p className="mb-4 text-sm leading-relaxed text-slate-600">
-            PropertyDealer.pk publishes daily cement prices across the major brands — Lucky,
+            {siteName} publishes daily cement prices across the major brands — Lucky,
             Bestway, Maple Leaf, DG Khan, Fauji and more — for Lahore, Karachi, Islamabad,
             Rawalpindi, Peshawar and other cities across Pakistan.
           </p>

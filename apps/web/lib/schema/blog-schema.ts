@@ -31,7 +31,7 @@ export function buildBlogPostSchema(data: {
         'dateModified': updatedAt,
         'author': {
           '@type': 'Organization',
-          'name': 'PropertyDealer Team'
+          'name': 'Property Dealer Team'
         },
         'publisher': {
           '@id': `${BASE_URL}/#organization`

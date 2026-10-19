@@ -16,6 +16,11 @@ import { PLAN_BENEFITS, STATIC_PAGES } from './setup-content';
  *                    and listing limits untouched)
  *   static-pages-v1  About, Contact, Privacy Policy and Terms as Static Pages
  *                    (only those that do not exist yet)
+ *   brand-name-v1    "PropertyDealer" written as two words, "Property Dealer":
+ *                    the Site name setting (when it is still the old default),
+ *                    the copyright line and default title, and the four
+ *                    built-in Static Pages. Addresses (propertydealer.pk) and
+ *                    URLs are left alone.
  */
 @Injectable()
 export class SetupService implements OnApplicationBootstrap {
@@ -67,6 +72,41 @@ export class SetupService implements OnApplicationBootstrap {
   private async run() {
     await this.job('plans-v2', () => this.plans());
     await this.job('static-pages-v1', () => this.staticPages());
+    await this.job('brand-name-v1', () => this.brandName());
+  }
+
+  private async brandName() {
+    // "PropertyDealer" and "PropertyDealer.pk" as a name → "Property Dealer"; never inside a URL or an email address.
+    const fix = (v: unknown) =>
+      typeof v === 'string' ? v.replace(/(?<![\w/@.-])PropertyDealer(?:\.pk)?(?![\w@-])/g, 'Property Dealer') : v;
+    const settings = this.connection.collection('site_settings');
+    const s: any = await settings.findOne({ key: 'site' });
+    const set: Record<string, unknown> = {};
+    if (s) {
+      if (s.siteName === 'PropertyDealer' || s.siteName === 'PropertyDealer.pk') set.siteName = 'Property Dealer';
+      for (const k of ['copyrightText', 'seoTitle', 'seoDescription', 'footerAbout', 'tagline']) {
+        if (typeof s[k] === 'string' && fix(s[k]) !== s[k]) set[k] = fix(s[k]);
+      }
+      if (Object.keys(set).length) await settings.updateOne({ _id: s._id }, { $set: set });
+    }
+    const pages: string[] = [];
+    for (const doc of await this.pages.find({ slug: { $in: STATIC_PAGES.map((p) => p.slug) } }).exec()) {
+      let changed = false;
+      for (const k of ['title', 'metaTitle', 'metaDescription', 'content'] as const) {
+        const before = (doc as any)[k];
+        const after = fix(before);
+        if (after !== before) {
+          (doc as any)[k] = after;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await doc.save();
+        pages.push(doc.slug);
+      }
+    }
+    void this.revalidate.revalidate({ tags: ['site-settings', 'pages', ...pages.map((x) => `page:slug:${x}`)], paths: ['/', ...pages.map((x) => `/${x}`)] });
+    return { settings: Object.keys(set), pages };
   }
 
   private async plans() {

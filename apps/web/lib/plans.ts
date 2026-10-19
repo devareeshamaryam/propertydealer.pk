@@ -42,6 +42,55 @@ export const PERK_LABELS: { key: keyof Plan; label: string; hint: string }[] = [
   { key: 'socialLinks', label: 'Social links', hint: 'Facebook, Instagram, YouTube, TikTok and website on your profile' },
 ];
 
+/** "1 month", "1 year", "45 days" — or "No expiry" for the free plan. */
+export function planDuration(p: Pick<Plan, 'price' | 'duration'>): string {
+  if (!p.price) return 'No expiry';
+  if (p.duration === 30 || p.duration === 31) return '1 month';
+  if (p.duration === 365) return '1 year';
+  return `${p.duration} days`;
+}
+
+export interface PlanBenefit {
+  /** Stable id, for comparison rows and React keys. */
+  key: string;
+  on: boolean;
+  label: string;
+  hint: string;
+}
+
+const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+
+/**
+ * What a plan gives, worked out from its numbers and switches — the same
+ * fields the API enforces — so a card can never promise what the plan does
+ * not do. Every place that shows a plan uses this list.
+ */
+export function planBenefits(p: Plan): PlanBenefit[] {
+  const team = p.teamMembers ?? 0;
+  const featured = p.featuredListings ?? 0;
+  return [
+    { key: 'listings', on: true, label: n(p.propertyLimit, 'live listing', 'live listings'), hint: team > 0 ? 'Shared by your team' : 'Live at the same time' },
+    { key: 'featured', on: featured > 0, label: featured > 0 ? n(featured, 'featured listing', 'featured listings') : 'Featured listings', hint: 'Shown first in search, with a Featured tag' },
+    { key: 'verified', on: !!p.verifiedBadge, label: 'Verified badge', hint: 'On your profile, listings and listing cards' },
+    { key: 'instant', on: !!p.autoPublish, label: 'Instant publishing', hint: 'Listings go live without waiting for review' },
+    { key: 'spotlight', on: !!p.spotlight, label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and agents page' },
+    { key: 'team', on: team > 0, label: team > 0 ? n(team, 'agent account', 'agent accounts') : 'Agent accounts', hint: 'Your agents list under your agency' },
+    { key: 'branded', on: !!p.brandedProfile, label: 'Cover photo on your profile', hint: 'A banner across the top of your agent page' },
+    { key: 'social', on: !!p.socialLinks, label: 'Social links on your profile', hint: 'Facebook, Instagram, YouTube, TikTok, website' },
+  ];
+}
+
+/** What every plan has, Free included — shown once instead of on every card. */
+export function sharedBenefits(): string[] {
+  return [
+    'Photos and a video on every listing',
+    'Call and WhatsApp buttons on every listing',
+    'Your listings on the property map',
+    'Your own agent profile with a share link',
+    'Views and enquiry stats',
+  ];
+}
+
 export function perksOf(p: Plan): string[] {
   return PERK_LABELS.filter(({ key }) => (key === 'teamMembers' ? (p.teamMembers ?? 0) > 0 : Boolean(p[key]))).map(({ key, label }) =>
     key === 'teamMembers' ? `${p.teamMembers} ${label.toLowerCase()}` : label,

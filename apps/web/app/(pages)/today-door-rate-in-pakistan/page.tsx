@@ -2,23 +2,25 @@
 import { slimRates } from "@/lib/shop";
 import { serverApi } from "@/lib/server-api";
 import MaterialPageClient from "./MaterialPageClient";
+import { getSiteName } from "@/lib/site-settings.server";
 
 const SITE = (process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk').replace(/\/$/, '');
 
 export const revalidate = 60;
 
 export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteName();
   try {
     const page = await serverApi.getPageBySlug("today-door-rate-in-pakistan");
     return {
       alternates: { canonical: `${SITE}/today-door-rate-in-pakistan` },
-      title: page?.metaTitle || "Today Door Rate in Pakistan 2026 | PropertyDealer.pk",
+      title: page?.metaTitle || `Today Door Rate in Pakistan 2026 | ${site}`,
       description: page?.metaDescription || "Check today's latest door rates in Pakistan. Updated daily prices from top brands and suppliers.",
     };
   } catch {
     return {
       alternates: { canonical: `${SITE}/today-door-rate-in-pakistan` },
-      title: "Today Door Rate in Pakistan 2026 | PropertyDealer.pk",
+      title: `Today Door Rate in Pakistan 2026 | ${site}`,
       description: "Check today's latest door rates in Pakistan. Updated daily prices from top brands and suppliers.",
     };
   }

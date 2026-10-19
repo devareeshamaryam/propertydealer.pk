@@ -80,12 +80,12 @@ const p = (text: string) => `<p>${text}</p>`;
 export const STATIC_PAGES: { slug: string; title: string; metaTitle: string; metaDescription: string; content: string }[] = [
   {
     slug: 'about',
-    title: 'About PropertyDealer',
-    metaTitle: "About PropertyDealer — Pakistan's Property & Construction Portal",
+    title: 'About Property Dealer',
+    metaTitle: "About Property Dealer — Pakistan's Property & Construction Portal",
     metaDescription:
       "Who we are: a Pakistani property portal where buyers, sellers and dealers meet, and where today's cement, steel, brick and sand rates are published every day.",
     content: [
-      p('PropertyDealer is a Pakistani property portal. Owners and dealers list houses, flats, plots and shops for sale or rent, and buyers and tenants contact them directly — by phone or WhatsApp, without signing up.'),
+      p('Property Dealer is a Pakistani property portal. Owners and dealers list houses, flats, plots and shops for sale or rent, and buyers and tenants contact them directly — by phone or WhatsApp, without signing up.'),
       '<h2>What you will find here</h2>',
       p('Listings across Lahore, Islamabad, Rawalpindi, Karachi, Multan, Faisalabad, Gujranwala, Sahiwal and other cities, searchable by city, area, property type, size and price. Sizes are in marla and kanal and prices in lakh and crore, the way property is bought and sold here.'),
       p("Alongside the listings we publish the day's construction material rates — cement, steel, bricks, sand, bajri, tiles, wood and doors — for anyone building or renovating."),
@@ -99,8 +99,8 @@ export const STATIC_PAGES: { slug: string; title: string; metaTitle: string; met
   {
     slug: 'contact',
     title: 'Contact us',
-    metaTitle: 'Contact PropertyDealer — Phone, WhatsApp & Email',
-    metaDescription: 'Get in touch with PropertyDealer by phone, WhatsApp or email — for listing help, packages for agents, advertising or to report a problem.',
+    metaTitle: 'Contact Property Dealer — Phone, WhatsApp & Email',
+    metaDescription: 'Get in touch with Property Dealer by phone, WhatsApp or email — for listing help, packages for agents, advertising or to report a problem.',
     content: [
       p('We are happy to help — with posting a property, choosing a package, a problem with a listing, or advertising on the site.'),
       '<h2>The quickest way</h2>',
@@ -112,10 +112,10 @@ export const STATIC_PAGES: { slug: string; title: string; metaTitle: string; met
   {
     slug: 'privacy-policy',
     title: 'Privacy Policy',
-    metaTitle: 'Privacy Policy — PropertyDealer',
-    metaDescription: 'How PropertyDealer collects, uses and protects your information when you browse listings, create an account or post a property.',
+    metaTitle: 'Privacy Policy — Property Dealer',
+    metaDescription: 'How Property Dealer collects, uses and protects your information when you browse listings, create an account or post a property.',
     content: [
-      p('This policy explains what information PropertyDealer collects, how it is used and the choices you have. By using the site you agree to it.'),
+      p('This policy explains what information Property Dealer collects, how it is used and the choices you have. By using the site you agree to it.'),
       '<h2>Information we collect</h2>',
       '<ul><li><strong>Account details</strong> — your name, email, phone and WhatsApp number, and anything you add to your profile.</li><li><strong>Listings</strong> — the details, photos, videos and location of properties you post. These are public.</li><li><strong>Usage</strong> — pages viewed, searches and clicks on call or WhatsApp buttons, used to show you and listing owners how listings perform.</li><li><strong>Cookies</strong> — to keep you signed in and to measure traffic (Google Analytics).</li></ul>',
       '<h2>How we use it</h2>',
@@ -132,12 +132,12 @@ export const STATIC_PAGES: { slug: string; title: string; metaTitle: string; met
   {
     slug: 'terms',
     title: 'Terms of Service',
-    metaTitle: 'Terms of Service — PropertyDealer',
-    metaDescription: 'The terms for using PropertyDealer — posting listings, packages for agents, and buying, selling or renting through the site.',
+    metaTitle: 'Terms of Service — Property Dealer',
+    metaDescription: 'The terms for using Property Dealer — posting listings, packages for agents, and buying, selling or renting through the site.',
     content: [
-      p('These terms apply to everyone who uses PropertyDealer. By using the site you agree to them.'),
+      p('These terms apply to everyone who uses Property Dealer. By using the site you agree to them.'),
       '<h2>The service</h2>',
-      p('PropertyDealer is a listings platform. We are not a broker or a party to any sale, purchase or rental, and we do not guarantee any listing. Always see the property and verify ownership papers before paying anything.'),
+      p('Property Dealer is a listings platform. We are not a broker or a party to any sale, purchase or rental, and we do not guarantee any listing. Always see the property and verify ownership papers before paying anything.'),
       '<h2>Posting listings</h2>',
       '<ul><li>You must own the property or be authorised to market it.</li><li>Listings must be accurate — real photos, price, size and location — and kept up to date. Mark a property sold or rented when it is.</li><li>No duplicate, misleading or offensive listings, and no contact details inside descriptions or photos.</li><li>We may edit, hold or remove any listing, and suspend accounts that break these rules.</li></ul>',
       '<h2>Packages for agents</h2>',
@@ -145,7 +145,7 @@ export const STATIC_PAGES: { slug: string; title: string; metaTitle: string; met
       '<h2>Content</h2>',
       p('You keep ownership of what you post, and allow us to show it on the site and in our marketing. Do not upload material you do not have the right to use.'),
       '<h2>Liability</h2>',
-      p('The site is provided as it is. To the extent the law allows, PropertyDealer is not liable for losses arising from listings, from dealings between users, or from the site being unavailable.'),
+      p('The site is provided as it is. To the extent the law allows, Property Dealer is not liable for losses arising from listings, from dealings between users, or from the site being unavailable.'),
       '<h2>Changes</h2>',
       p('We may update these terms; the version on this page applies. Questions: see our <a href="/contact">contact page</a>.'),
     ].join('\n'),

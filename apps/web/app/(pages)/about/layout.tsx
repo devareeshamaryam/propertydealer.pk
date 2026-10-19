@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo/page-seo";
+import { getSiteName } from "@/lib/site-settings.server";
 
 /*
  * The page's metadata lives here (it was a client component when this was
@@ -10,8 +11,9 @@ import { pageMetadata } from "@/lib/seo/page-seo";
  * Meta Title / Meta Description win over the fallback below.
  */
 export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteName();
   return pageMetadata("about", {
-    title: "About PropertyDealer — Pakistan's Property & Construction Portal",
+    title: `About ${site} — Pakistan's Property & Construction Portal`,
     description:
       "Who we are: a Pakistani property portal where buyers, sellers and dealers meet, and where today's cement, steel, brick and sand rates are published every day.",
     path: "/about",

@@ -22,7 +22,7 @@ interface PageProps {
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
-const SITE = 'PropertyDealer';
+const SITE = 'Property Dealer';
 
 /** The post, or a 404 for one that does not exist. An API that is down throws, so the cached page stays. */
 async function getBlog(slug: string): Promise<Blog> {

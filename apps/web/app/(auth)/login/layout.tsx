@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getSiteName } from "@/lib/site-settings.server";
 
 /*
  * noindex, and a title of its own.
@@ -8,11 +9,14 @@ import type { Metadata } from "next";
  * so Google saw a second copy of the home page. `follow` stays on, so the
  * links in the header and footer still carry weight.
  */
-export const metadata: Metadata = {
-  title: "Sign in — PropertyDealer",
-  description: "Sign in to manage your property listings on PropertyDealer.",
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteName();
+  return {
+  title: `Sign in — ${site}`,
+  description: `Sign in to manage your property listings on ${site}.`,
   robots: { index: false, follow: true },
 };
+}
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

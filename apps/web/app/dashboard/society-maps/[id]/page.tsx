@@ -67,6 +67,8 @@ interface Doc {
   zoom: number;
   boundary: [number, number][];
   layers: Layer[];
+  /** Official documents (the LDA approved layout plan, …) — not on the map until aligned as an image. */
+  documents?: { title: string; kind?: string; url: string; thumbUrl?: string; source?: string; sourceUrl?: string }[];
   blocks: (EditorBlock & { _id?: string })[];
   pois: (EditorPoi & { _id?: string })[];
   info: { developer?: string; approval?: string; totalArea?: string; launched?: string; possession?: string; plotSizes?: string; amenities?: string[] };
@@ -95,6 +97,7 @@ export default function SocietyMapEditor() {
   const [tab, setTab] = useState("images");
   const [amenity, setAmenity] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [fromDoc, setFromDoc] = useState<number | null>(null);
   const { confirm, dialogProps } = useConfirm();
 
   const normalise = (d: any): Doc => ({
@@ -222,6 +225,24 @@ export default function SocietyMapEditor() {
     }
   };
 
+  /** An official document becomes a map image, ready for points — nothing is downloaded again. */
+  const addDocumentLayer = async (index: number) => {
+    if (dirty && !(await save())) return;
+    setFromDoc(index);
+    try {
+      const res = await api.post(`/admin/society-maps/${id}/documents/${index}/layer`, {}, { timeout: 10 * 60 * 1000 });
+      const d = normalise(res.data.data);
+      setDoc(d);
+      setDirty(false);
+      setLayerId(d.layers[d.layers.length - 1]?._id ?? null);
+      toast.success("Added as a map image. Now match at least 3 points (road crossings, corners) to the satellite, then generate the tiles.");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Could not add the document"));
+    } finally {
+      setFromDoc(null);
+    }
+  };
+
   const generate = async (lid: string) => {
     if (!(await save())) return;
     try {
@@ -313,6 +334,31 @@ export default function SocietyMapEditor() {
 
         {/* ── 1. Images ── */}
         <TabsContent value="images" className="mt-4 space-y-4">
+          {(doc.documents ?? []).some((d) => d.url) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+              <p className="text-sm font-semibold text-slate-900">Official plans of this society</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Shown on the page as documents. To show one on the map like DHA, add it as a map image, match 3+ points to the satellite and generate the tiles.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(doc.documents ?? []).map((d, i) =>
+                  d.url ? (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border bg-white p-1.5 pr-2 text-sm">
+                      <a href={d.url} target="_blank" rel="noopener" className="h-10 w-14 overflow-hidden rounded-md bg-slate-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={d.thumbUrl || d.url} alt="" className="h-full w-full object-cover" />
+                      </a>
+                      <span className="max-w-[220px] truncate font-medium" title={d.title}>{d.title || "Plan"}</span>
+                      <Button size="sm" variant="outline" disabled={fromDoc !== null || doc.layers.length >= 12} onClick={() => void addDocumentLayer(i)}>
+                        {fromDoc === i ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+                        Put on map
+                      </Button>
+                    </div>
+                  ) : null,
+                )}
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             {doc.layers.map((l) => (
               <button

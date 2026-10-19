@@ -23,6 +23,8 @@ import { Label } from '@/components/ui/label'
 import { useAuth } from '@/context/auth-context'
 import { safeNextUrl } from '@/lib/auth-intent'
 import { GoogleButton } from '@/components/auth/google-button'
+import { useSiteSettings } from '@/components/SiteSettingsProvider';
+import { resolved } from '@/lib/site-settings';
 
 export const dynamic = 'force-dynamic'
 
@@ -45,6 +47,7 @@ type FormValues = z.infer<typeof registerSchema>
 
 function RegisterForm() {
   const router = useRouter()
+  const { siteName } = resolved(useSiteSettings())
   const searchParams = useSearchParams()
   const { registerAndSignIn } = useAuth()
 
@@ -77,7 +80,7 @@ function RegisterForm() {
         password: values.password,
       })
 
-      toast.success('Welcome to PropertyDealer', {
+      toast.success(`Welcome to ${siteName}`, {
         description: 'Your account is ready — you can list a property right away.',
       })
 
@@ -97,8 +100,12 @@ function RegisterForm() {
 
       // Already registered → the login page, with the email carried over.
       if (status === 409 || /already exists/i.test(String(message))) {
+        // A Google account has no password to enter — the message says to use the button.
+        const google = /google/i.test(String(message))
         toast.error('You already have an account', {
-          description: 'Signing you in instead — just enter your password.',
+          description: google
+            ? 'This email signs in with Google — use "Continue with Google". You can set a password from My Account.'
+            : 'Signing you in instead — just enter your password.',
         })
         router.push(`/login?email=${encodeURIComponent(values.email.trim().toLowerCase())}`)
         return

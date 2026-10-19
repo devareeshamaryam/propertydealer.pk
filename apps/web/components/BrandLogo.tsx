@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { DEFAULT_SITE_NAME } from "@/lib/site-settings";
 
 /**
  * The PropertyDealer mark and wordmark, still.
@@ -50,11 +51,16 @@ export function BrandLogo({
   className,
   markClassName,
   textClassName,
+  name = DEFAULT_SITE_NAME,
 }: {
   className?: string;
   markClassName?: string;
   textClassName?: string;
+  /** The site name (Settings → Site name); its last word takes the brand colour. */
+  name?: string;
 }) {
+  const words = name.trim().split(/\s+/);
+  const last = words.length > 1 ? words.pop()! : "";
   return (
     <span className={cn("inline-flex items-center gap-2 select-none", className)}>
       <BrandMark className={cn("h-8 w-8", markClassName)} />
@@ -64,7 +70,13 @@ export function BrandLogo({
           textClassName,
         )}
       >
-        Property<span className="text-primary">Dealer</span>
+        {words.join(" ")}
+        {last && (
+          <>
+            {" "}
+            <span className="text-primary">{last}</span>
+          </>
+        )}
       </span>
     </span>
   );

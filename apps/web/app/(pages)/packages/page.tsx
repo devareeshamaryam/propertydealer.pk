@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { BadgeCheck, Check, Minus } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { packageApi, subscriptionApi } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import PlanCards from '@/components/plans/PlanCards';
-import { PERK_LABELS, type Plan } from '@/lib/plans';
+import { planBenefits, planDuration, planPrice, type Plan } from '@/lib/plans';
 
 /*
  * Packages for agents — the same plan cards as the homepage and the
@@ -19,7 +20,7 @@ const FAQS = [
   },
   {
     q: 'What does the Verified badge do?',
-    a: 'Agency and Agency Plus accounts get a blue Verified badge on their profile, on every listing page and on every listing card across the site — buyers see at once that they are dealing with an established agency.',
+    a: 'Plans with the Verified badge (see the table above) show a blue Verified badge on your profile, on every listing page and on every listing card across the site — buyers see at once that they are dealing with an established agency.',
   },
   {
     q: 'What is a featured listing?',
@@ -27,7 +28,7 @@ const FAQS = [
   },
   {
     q: 'How do agent accounts work?',
-    a: "On Agency Plus you create accounts for your agents from your dashboard. Each agent signs in with their own email, posts and manages their own listings, and shows as an agent of your agency. You see and manage every listing of the team, and the plan's listings are shared by the team.",
+    a: "On a plan with agent accounts you create accounts for your agents from your dashboard. Each agent signs in with their own email, posts and manages their own listings, and shows as an agent of your agency. You see and manage every listing of the team, and the plan's listings are shared by the team.",
   },
   {
     q: 'How do I pay?',
@@ -60,9 +61,9 @@ export default function PackagesPublicPage() {
   const sorted = [...plans].sort((a, b) => a.price - b.price);
 
   return (
-    <div className="container mx-auto max-w-7xl px-4 py-8 sm:py-10">
+    <div className="container mx-auto max-w-7xl overflow-x-hidden px-4 py-8 sm:py-10">
       <div className="max-w-2xl">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Packages for agents &amp; agencies</h1>
+        <h1 className="text-[26px] font-bold leading-tight tracking-tight text-slate-900 sm:text-[34px]">Packages for agents &amp; agencies</h1>
         <p className="mt-2 text-[15px] text-slate-600">
           Every account starts free. Choose a monthly package to list more, feature your best properties and — on the agency plans — get the
           <span className="mx-1 inline-flex items-center gap-1 font-semibold text-sky-700">
@@ -74,9 +75,9 @@ export default function PackagesPublicPage() {
 
       <div className="mt-7">
         {loading ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          <div className="flex gap-3 overflow-hidden pt-4 lg:grid lg:grid-cols-3 xl:grid-cols-5">
             {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-[30rem] animate-pulse rounded-2xl bg-slate-100" />
+              <div key={i} className="h-[28rem] w-[84%] max-w-[340px] shrink-0 animate-pulse rounded-2xl bg-slate-100 sm:w-[46%] lg:w-auto lg:max-w-none" />
             ))}
           </div>
         ) : (
@@ -87,45 +88,38 @@ export default function PackagesPublicPage() {
       {sorted.length > 0 && (
         <section className="mt-12">
           <h2 className="text-[20px] font-bold text-slate-900 sm:text-[24px]">Compare packages</h2>
+          <p className="mt-1 text-[14px] text-slate-500 sm:hidden">Swipe the table sideways to see every plan.</p>
           <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white">
-            <table className="w-full min-w-[640px] text-left text-[14px]">
+            <table className="w-full min-w-[620px] border-separate border-spacing-0 text-left text-[13.5px] sm:text-[14px]">
               <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-4 py-3 font-semibold text-slate-600">Benefit</th>
-                  {sorted.map((p) => (
-                    <th key={p._id} className="px-3 py-3 text-center font-bold text-slate-900">
-                      {p.name}
-                    </th>
-                  ))}
+                <tr>
+                  <th className="sticky left-0 z-10 w-[38%] border-b border-slate-200 bg-slate-50 px-3 py-3 font-semibold text-slate-600 sm:px-4">Benefit</th>
+                  {sorted.map((p) => {
+                    const price = planPrice(p);
+                    return (
+                      <th key={p._id} className={cn('border-b border-slate-200 px-2 py-3 text-center align-bottom', p.highlight ? 'bg-primary/5' : 'bg-slate-50')}>
+                        <span className="block font-bold text-slate-900">{p.name}</span>
+                        <span className="block text-[12px] font-medium text-slate-500">{price.amount}{price.per ? ` / ${price.per}` : ''}</span>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="px-4 py-2.5 text-slate-700">Live listings</td>
-                  {sorted.map((p) => (
-                    <td key={p._id} className="px-3 py-2.5 text-center font-semibold text-slate-900">{p.propertyLimit}</td>
-                  ))}
-                </tr>
-                <tr>
-                  <td className="px-4 py-2.5 text-slate-700">Featured listings</td>
-                  {sorted.map((p) => (
-                    <td key={p._id} className="px-3 py-2.5 text-center font-semibold text-slate-900">{p.featuredListings || '—'}</td>
-                  ))}
-                </tr>
-                {PERK_LABELS.map(({ key, label, hint }) => (
-                  <tr key={key}>
-                    <td className="px-4 py-2.5">
-                      <p className="text-slate-700">{label}</p>
-                      <p className="text-[12px] text-slate-400">{hint}</p>
+              <tbody>
+                {planBenefits(sorted[0]!).map((row) => (
+                  <tr key={row.key}>
+                    <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-3 py-2.5 sm:px-4">
+                      <p className="font-medium text-slate-800">{row.key === 'listings' ? 'Live listings' : row.key === 'featured' ? 'Featured listings' : row.key === 'team' ? 'Agent accounts' : row.label}</p>
+                      <p className="hidden text-[12px] text-slate-400 sm:block">{row.hint}</p>
                     </td>
                     {sorted.map((p) => {
-                      const v = p[key];
-                      const on = key === 'teamMembers' ? (p.teamMembers ?? 0) > 0 : Boolean(v);
+                      const b = planBenefits(p).find((x) => x.key === row.key)!;
+                      const count = row.key === 'listings' ? p.propertyLimit : row.key === 'featured' ? p.featuredListings : row.key === 'team' ? p.teamMembers ?? 0 : null;
                       return (
-                        <td key={p._id} className="px-3 py-2.5 text-center">
-                          {key === 'teamMembers' && on ? (
-                            <span className="font-semibold text-slate-900">{p.teamMembers}</span>
-                          ) : on ? (
+                        <td key={p._id} className={cn('border-b border-slate-100 px-2 py-2.5 text-center', p.highlight && 'bg-primary/5')}>
+                          {count !== null && count > 0 ? (
+                            <span className="font-bold text-slate-900">{count}</span>
+                          ) : b.on ? (
                             <Check className="mx-auto h-5 w-5 text-emerald-600" strokeWidth={2.5} />
                           ) : (
                             <Minus className="mx-auto h-4 w-4 text-slate-300" />
@@ -136,11 +130,9 @@ export default function PackagesPublicPage() {
                   </tr>
                 ))}
                 <tr>
-                  <td className="px-4 py-2.5 text-slate-700">Profile page with share link, views &amp; enquiry stats</td>
+                  <td className="sticky left-0 z-10 bg-white px-3 py-2.5 font-medium text-slate-800 sm:px-4">Valid for</td>
                   {sorted.map((p) => (
-                    <td key={p._id} className="px-3 py-2.5 text-center">
-                      <Check className="mx-auto h-5 w-5 text-emerald-600" strokeWidth={2.5} />
-                    </td>
+                    <td key={p._id} className={cn('px-2 py-2.5 text-center text-slate-700', p.highlight && 'bg-primary/5')}>{planDuration(p)}</td>
                   ))}
                 </tr>
               </tbody>

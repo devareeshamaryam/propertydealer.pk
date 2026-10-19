@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import StaticPageView from '@/components/StaticPageView';
 import { pageMetadata } from '@/lib/seo/page-seo';
+import { getSiteName } from "@/lib/site-settings.server";
 
 /*
  * /privacy-policy — the text is edited in Dashboard → Static Pages (slug "privacy-policy"), as
@@ -8,9 +9,10 @@ import { pageMetadata } from '@/lib/seo/page-seo';
  */
 
 export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteName();
   return pageMetadata('privacy-policy', {
-    title: 'Privacy Policy — PropertyDealer',
-    description: 'How PropertyDealer collects, uses and protects your information when you browse listings, create an account or post a property.',
+    title: `Privacy Policy — ${site}`,
+    description: `How ${site} collects, uses and protects your information when you browse listings, create an account or post a property.`,
     path: '/privacy-policy',
   });
 }

@@ -250,7 +250,7 @@ export default function PaymentMethodsPage() {
                 onChange={(event) =>
                   setDraft({ ...draft, accountTitle: event.target.value })
                 }
-                placeholder="PropertyDealer"
+                placeholder="Property Dealer"
               />
               <p className="text-xs text-muted-foreground">
                 People check the name before sending — leaving it out costs you

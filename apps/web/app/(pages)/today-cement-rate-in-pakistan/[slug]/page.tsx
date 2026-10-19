@@ -2,6 +2,7 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import CementDetailClient from "./CementDetailClient";
+import { getSiteName } from "@/lib/site-settings.server";
 
 
 const SITE = (process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk').replace(/\/$/, '');
@@ -18,12 +19,13 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const site = await getSiteName();
   const { slug } = await params;
   try {
     const rate = await serverApi.getCementRateBySlug(slug);
 
     const title = rate.metaTitle?.trim()
-      || `${rate.brand} Price in Pakistan — ${rate.weightKg ?? 50} Kg Bag | PropertyDealer.pk`;
+      || `${rate.brand} Price in Pakistan — ${rate.weightKg ?? 50} Kg Bag | ${site}`;
 
     const description = rate.metaDescription?.trim()
       || `Today's ${rate.brand} cement price is Rs ${rate.price}. Check latest updates and order online.`;
@@ -49,7 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       },
     };
   } catch {
-    return { title: "Cement Rate | PropertyDealer.pk" };
+    return { title: `Cement Rate | ${site}` };
   }
 }
 

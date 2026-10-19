@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   UnauthorizedException,
   ForbiddenException,
@@ -23,6 +24,34 @@ export interface LoginResponse extends TokenResponse {
   refreshToken?: string;
 }
 
+const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The query that finds an account by email address — the way the mailbox sees it.
+ *
+ * Gmail ignores dots and anything after a "+" in the name: xo.moeez@gmail.com,
+ * xomoeez@gmail.com and xomoeez+ads@gmail.com are one inbox. Google sign-in
+ * returns the address exactly as the Google account spells it, so somebody who
+ * typed it without the dot when signing up with a password got a second,
+ * empty account the first time they pressed "Continue with Google". Matching
+ * on the mailbox links the two instead. Every other domain: case-insensitive,
+ * exact.
+ */
+export function emailQuery(raw: string): Record<string, unknown> {
+  const email = String(raw ?? '').trim().toLowerCase();
+  const at = email.lastIndexOf('@');
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (at > 0 && (domain === 'gmail.com' || domain === 'googlemail.com')) {
+    const base = local.split('+')[0]!.replace(/\./g, '');
+    if (base) {
+      const name = [...base].map(escapeRe).join('\\.?');
+      return { email: { $regex: new RegExp(`^${name}(\\+[^@]*)?@(gmail|googlemail)\\.com$`, 'i') } };
+    }
+  }
+  return { email: { $regex: new RegExp(`^${escapeRe(email)}$`, 'i') } };
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -31,7 +60,7 @@ export class AuthService {
     private readonly discord: DiscordService,
   ) {}
   async register(dto: RegisterDto): Promise<LoginResponse> {
-    const existingUser = await this.userModel.findOne({ email: dto.email });
+    const existingUser = await this.userModel.findOne(emailQuery(dto.email)).select('+password googleId');
     /*
      * 409, not 502.
      *
@@ -47,7 +76,13 @@ export class AuthService {
      *
      * An email that is taken is a conflict, not a gateway failure.
      */
-    if (existingUser) throw new ConflictException('User already exists');
+    if (existingUser) {
+      throw new ConflictException(
+        !existingUser.password && existingUser.googleId
+          ? 'User already exists — this email signs in with Google. Use "Continue with Google", then set a password from My Account.'
+          : 'User already exists',
+      );
+    }
     /*
      * Everyone is an agent from the first second.
      *
@@ -89,12 +124,21 @@ export class AuthService {
 
   // 🔒 SECURITY: Login with account lockout protection (HIGH PRIORITY)
   async login(dto: LoginDto): Promise<LoginResponse> {
+    // Oldest first: if a mailbox ever got two accounts, the original one is the one that signs in.
     const user = await this.userModel
-      .findOne({ email: dto.email })
+      .findOne(emailQuery(dto.email))
+      .sort({ createdAt: 1 })
       .select('+password +loginAttempts +lockUntil +refreshToken');
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // A Google-only account has no password to compare — say so rather than count a "wrong" one.
+    if (!user.password) {
+      throw new UnauthorizedException(
+        'This account signs in with Google. Use "Continue with Google" — you can set a password from My Account afterwards.',
+      );
     }
 
     // Check if account is locked
@@ -188,13 +232,16 @@ export class AuthService {
     googleId: string;
     picture?: string;
   }): Promise<LoginResponse> {
-    let user = await this.userModel
-      .findOne({
-        $or: [{ googleId: profile.googleId }, { email: profile.email }],
-      })
-      // Written back by issueSession below; selected so the document is not
-      // saving a field it never loaded.
-      .select('+refreshToken');
+    // The account already linked to this Google login; otherwise the one with
+    // this mailbox (dots and +tags ignored), the original first.
+    let user: UserDocument | null =
+      (await this.userModel.findOne({ googleId: profile.googleId }).select('+refreshToken')) ??
+      (await this.userModel
+        .findOne(emailQuery(profile.email))
+        .sort({ createdAt: 1 })
+        // Written back by issueSession below; selected so the document is not
+        // saving a field it never loaded.
+        .select('+refreshToken'));
 
     if (!user) {
       user = new this.userModel({
@@ -232,6 +279,39 @@ export class AuthService {
     }
 
     return this.issueSession(user, 'Login successful');
+  }
+
+  /** How this account signs in — for the "Login & password" card in My Account. */
+  async passwordStatus(userId: string) {
+    const user = await this.userModel.findById(userId).select('+password googleId email provider').lean();
+    if (!user) throw new UnauthorizedException('Account not found');
+    return { email: user.email, hasPassword: !!user.password, google: !!user.googleId };
+  }
+
+  /**
+   * Sets or changes the account's password.
+   *
+   * A Google account has none, so it sets one without a current password —
+   * afterwards both "Continue with Google" and email + password open the same
+   * account. An account that has a password must give the current one.
+   */
+  async setPassword(userId: string, body: { currentPassword?: string; newPassword?: string }) {
+    const next = String(body?.newPassword ?? '');
+    if (next.length < 6) throw new BadRequestException('Use at least 6 characters for your password');
+    if (next.length > 128) throw new BadRequestException('That password is too long');
+    const user = await this.userModel.findById(userId).select('+password +loginAttempts +lockUntil');
+    if (!user) throw new UnauthorizedException('Account not found');
+    if (user.password) {
+      if (!body?.currentPassword || !(await user.comparePassword(body.currentPassword))) {
+        throw new BadRequestException('Your current password is not right');
+      }
+    }
+    const had = !!user.password;
+    user.password = next; // hashed by the schema's pre-save hook
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    await user.save();
+    return { ok: true, hasPassword: true, message: had ? 'Password changed' : 'Password set — you can now sign in with your email and password too' };
   }
 
   /**

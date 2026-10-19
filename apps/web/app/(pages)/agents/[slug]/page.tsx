@@ -17,6 +17,7 @@ import {
   mapBackendToFrontendProperty,
   type BackendProperty,
 } from "@/lib/types/property-utils";
+import { getSiteName } from "@/lib/site-settings.server";
 
 /**
  * An agent's public page: who they are, how to reach them, and everything they
@@ -111,6 +112,7 @@ async function getAgent(slug: string): Promise<AgentPageData | null> {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const site = await getSiteName();
   const { slug } = await params;
   const data = await getAgent(slug);
 
@@ -123,7 +125,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `${name} — Properties for Sale & Rent in Pakistan`,
     description:
       data.profile.bio?.replace(/<[^>]*>/g, "").slice(0, 160) ||
-      `${name} has ${count} ${count === 1 ? "property" : "properties"} listed on PropertyDealer. See their listings and contact them directly.`,
+      `${name} has ${count} ${count === 1 ? "property" : "properties"} listed on ${site}. See their listings and contact them directly.`,
     // A profile with nothing listed is a thin page; keep it out of the index
     // until there is something on it worth finding.
     robots: count > 0 ? undefined : { index: false, follow: true },

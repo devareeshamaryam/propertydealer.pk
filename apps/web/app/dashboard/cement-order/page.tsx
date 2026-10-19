@@ -252,7 +252,7 @@ function OrderSheet({ id, onClose, onChanged }: { id: string | null; onClose: ()
                     <Phone className="h-4 w-4" /> Call
                   </a>
                   <a
-                    href={`https://wa.me/${waDigits(order.customerPhone)}?text=${encodeURIComponent(`Assalam o Alaikum ${order.customerName}, regarding your order ${ref} (${rs(order.total)}) from PropertyDealer.`)}`}
+                    href={`https://wa.me/${waDigits(order.customerPhone)}?text=${encodeURIComponent(`Assalam o Alaikum ${order.customerName}, regarding your order ${ref} (${rs(order.total)}) from Property Dealer.`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex h-10 items-center justify-center gap-2 rounded-lg bg-[#25D366] text-[13.5px] font-semibold text-white"

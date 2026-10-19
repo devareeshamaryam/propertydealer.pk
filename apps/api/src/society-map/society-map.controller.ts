@@ -171,6 +171,12 @@ export class SocietyMapAdminController {
     return { success: true, data: await this.maps.addLayer(id, file, name) };
   }
 
+  /** Turns one of the map's official documents (by its position) into a map image to align. */
+  @Post(':id/documents/:index/layer')
+  async layerFromDocument(@Param('id') id: string, @Param('index') index: string) {
+    return { success: true, data: await this.maps.addLayerFromDocument(id, Number(index)) };
+  }
+
   @Delete(':id/layers/:layerId')
   async removeLayer(@Param('id') id: string, @Param('layerId') layerId: string) {
     return { success: true, data: await this.maps.removeLayer(id, layerId) };

@@ -20,6 +20,7 @@ import {
   DEFAULT_GA_ID,
   DEFAULT_PHONE,
   DEFAULT_SITE_NAME,
+  DEFAULT_COPYRIGHT,
   type SiteSettings,
 } from "@/lib/site-settings";
 
@@ -98,7 +99,7 @@ export default function GeneralSettingsPage() {
               <Field label="About text" htmlFor="footerAbout" hint="The short paragraph under the footer logo.">
                 <Textarea id="footerAbout" rows={3} maxLength={400} value={settings.footerAbout} placeholder={DEFAULT_FOOTER_ABOUT} onChange={(e) => set("footerAbout", e.target.value)} />
               </Field>
-              <TextField id="copyrightText" label="Copyright line" value={settings.copyrightText} placeholder="© {year} PropertyDealer. All rights reserved." maxLength={150} onChange={(v) => set("copyrightText", v)} hint="{year} becomes the current year." />
+              <TextField id="copyrightText" label="Copyright line" value={settings.copyrightText} placeholder={DEFAULT_COPYRIGHT} maxLength={150} onChange={(v) => set("copyrightText", v)} hint="{year} becomes the current year." />
             </SettingsCard>
           </div>
 

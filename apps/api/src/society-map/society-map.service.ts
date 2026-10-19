@@ -82,6 +82,16 @@ export class SocietyMapService {
     return 'outline';
   }
 
+  /**
+   * What the eMap offers visitors: published maps with a real plan on the
+   * ground (an aligned master plan or official plot GIS, its tiles ready) —
+   * the way emap.pk lists only societies it has a map for. Outline-only and
+   * document-only societies are not listed or drawn; their pages still open
+   * (unlinked, noindex) so no address breaks. Adding a plan in the dashboard
+   * puts a society back on the eMap by itself.
+   */
+  static readonly ON_MAP = { status: 'published', layers: { $elemMatch: { 'tiles.status': 'ready', visible: { $ne: false } } } };
+
   private static official(doc: any) {
     const o = doc.official;
     return o?.authority && o?.status ? o : null;
@@ -92,7 +102,7 @@ export class SocietyMapService {
     const city = citySlug ? slugify(citySlug) : '';
     return this.cache.wrap(this.cache.buildKey('society-maps:list', [city]), async () => {
       const rows = await this.model
-        .find({ status: 'published', ...(city ? { citySlug: city } : {}) })
+        .find({ ...SocietyMapService.ON_MAP, ...(city ? { citySlug: city } : {}) })
         .select('name slug citySlug cityName center zoom layers.thumbUrl documents.thumbUrl documents.url blocks.name seo.intro official.authority official.status plotCount updatedAt')
         .sort({ name: 1 })
         .lean()
@@ -125,7 +135,7 @@ export class SocietyMapService {
     return this.cache.wrap(key, async () => {
       const rows = await this.model
         .find({
-          status: 'published',
+          ...SocietyMapService.ON_MAP,
           'bbox.minLat': { $lte: box.maxLat },
           'bbox.maxLat': { $gte: box.minLat },
           'bbox.minLng': { $lte: box.maxLng },
@@ -177,7 +187,7 @@ export class SocietyMapService {
             { $group: { _id: { $toString: '$area' }, lat: { $avg: '$latitude' }, lng: { $avg: '$longitude' } } },
           ])
           .exec(),
-        this.model.find({ status: 'published' }).select('name slug citySlug cityName center area areaSlug').lean().exec(),
+        this.model.find(SocietyMapService.ON_MAP).select('name slug citySlug cityName center area areaSlug').lean().exec(),
       ]);
       const cityName = new Map(cityRows.map((c: any) => [String(c._id), String(c.name)]));
       const count = new Map((counts as any[]).map((r) => [String(r._id), r.n as number]));
@@ -191,7 +201,8 @@ export class SocietyMapService {
         const cn = cityName.get(String(a.city));
         // The area's own centre (set from the dashboard or the import), else its pinned listings' middle.
         const at = Number.isFinite(a.lat) && Number.isFinite(a.lng) ? { lat: a.lat, lng: a.lng } : pin.get(id);
-        if (!cn || !at || !a.areaSlug) continue;
+        // An area without a map earns a label only by having live listings.
+        if (!cn || !at || !a.areaSlug || !count.get(id)) continue;
         const cs = slugify(cn);
         byKey.set(`${cs}/${a.areaSlug}`, { name: title(a.name), slug: a.areaSlug, citySlug: cs, cityName: cn, lat: at.lat, lng: at.lng, listings: count.get(id) ?? 0, hasMap: false });
       }
@@ -238,7 +249,7 @@ export class SocietyMapService {
         filter = { citySlug: c, $or: [{ areaSlug: a }, { slug: a }] };
       }
       if (!filter) return { found: false };
-      const d: any = await this.model.findOne({ status: 'published', ...filter }).select('name slug citySlug').lean().exec();
+      const d: any = await this.model.findOne({ ...SocietyMapService.ON_MAP, ...filter }).select('name slug citySlug').lean().exec();
       return d ? { found: true, name: d.name, slug: d.slug, citySlug: d.citySlug, url: `/emap/${d.citySlug}/${d.slug}` } : { found: false };
     }, { ttl: 600, tags: [TAG] });
     return hit.found ? hit : null;
@@ -306,7 +317,7 @@ export class SocietyMapService {
 
   private async nearby(d: any) {
     const rows = await this.model
-      .find({ status: 'published', citySlug: d.citySlug, _id: { $ne: d._id } })
+      .find({ ...SocietyMapService.ON_MAP, citySlug: d.citySlug, _id: { $ne: d._id } })
       .select('name slug citySlug center layers.thumbUrl documents.thumbUrl')
       .limit(400)
       .lean()
@@ -560,11 +571,32 @@ export class SocietyMapService {
   /** A new map image: kept privately in full, with a preview for aligning and a card thumbnail. */
   async addLayer(id: string, file: Express.Multer.File | undefined, name?: string) {
     if (!file?.buffer?.length) throw new BadRequestException('Choose an image');
+    return this.addLayerFromBuffer(id, file.buffer, file.originalname, file.mimetype, name);
+  }
+
+  /**
+   * One of the map's official documents (the LDA approved layout plan, …) as
+   * a map image, ready to align with control points — the same image the page
+   * already shows, so nothing is downloaded again.
+   */
+  async addLayerFromDocument(id: string, index: number) {
+    const doc: any = await this.model.findById(id).select('documents').lean().exec();
+    if (!doc) throw new NotFoundException('Map not found');
+    const d = doc.documents?.[index];
+    if (!d?.url) throw new BadRequestException('That document has no stored image yet');
+    const key = String(d.url).split('/society-maps/')[1];
+    const buffer = key ? await this.storage.readBuffer(`society-maps/${key}`) : null;
+    if (!buffer?.length) throw new BadRequestException('The stored image could not be read');
+    return this.addLayerFromBuffer(id, buffer, `${key}`, 'image/jpeg', String(d.title || 'Approved layout plan').slice(0, 80));
+  }
+
+  private async addLayerFromBuffer(id: string, buffer: Buffer, originalname: string, mimetype: string, name?: string) {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException('Map not found');
     if (doc.layers.length >= 12) throw new BadRequestException('A map can have at most 12 images');
 
-    let input = file.buffer;
+    const file = { originalname, mimetype };
+    let input = buffer;
     const isPdf = file.mimetype === 'application/pdf' || /\.pdf$/i.test(file.originalname) || input.subarray(0, 5).toString() === '%PDF-';
     if (isPdf) input = await SocietyMapService.pdfToPng(input);
     let meta: sharp.Metadata;

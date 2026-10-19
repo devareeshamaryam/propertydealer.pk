@@ -13,7 +13,7 @@ API start hone ke ~30 second baad, background mein, **ek hi dafa** (har data ki 
 | 1 | `scripts/areas/plan.json` | Areas ki safai: duplicates merge, coordinates, naam, nayi societies. Pehle `scripts/areas/backup-<waqt>.json` banta hai. Koi URL nahi badalta. |
 | 2 | `data/society-maps/<city>-<slug>/` | DHA Lahore ke 13 official master plans import; tiles background mein banti hain (bari phases ~10 min). |
 | 3 | `data/society-plots/*.ndjson.gz` | DHA Lahore ke 1,20,244 plots (plot number, sector, size, outline) — plot finder aur "plot pe tap" ke liye. |
-| 4 | `data/society-data/<city>.json` | Har city ki societies: OSM outline + blocks + landmarks, aur LDA ka record (approved / regularised / illegal, area, plots, blocks). Sirf jin societies ke paas asal data hai unka map page banta hai. |
+| 4 | (ek dafa) | Jin societies ka apna map nahi tha (sirf OSM outline ya LDA record) woh pages hata diye jate hain. eMap par sirf asal map wali societies. |
 | 5 | (LDA website) | LDA ke approved layout plans (~330 images) ek ek kar ke download, web-size bana kar save. Kuch ghante lag sakte hain; ruk jaye to agli restart pe wahin se. |
 
 Admin panel mein jo map khud edit kiya ho, us ka text/blocks/landmarks overwrite **nahi** hote — sirf khali fields bharti hain aur official record taaza hota hai.

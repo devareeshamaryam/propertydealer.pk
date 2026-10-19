@@ -3,17 +3,22 @@ import Link from "next/link";
 import { BadgeCheck, Building2, MapPin } from "lucide-react";
 import { getSpotlightAgencies } from "@/lib/server-api";
 import { agentProfilePath } from "@/lib/agent";
+import { getSiteName } from "@/lib/site-settings.server";
 
 export const revalidate = 600;
 
-export const metadata: Metadata = {
-  title: "Verified Property Agencies in Pakistan | PropertyDealer",
-  description: "Verified real estate agencies on PropertyDealer — see their listings for sale and rent, and contact them directly by phone or WhatsApp.",
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteName();
+  return {
+  title: `Verified Property Agencies in Pakistan | ${site}`,
+  description: `Verified real estate agencies on ${site} — see their listings for sale and rent, and contact them directly by phone or WhatsApp.`,
   alternates: { canonical: "/agents" },
 };
+}
 
 /* /agents: the verified agencies (plans with the spotlight benefit), most listings first. */
 export default async function AgentsPage() {
+  const site = await getSiteName();
   const agencies = await getSpotlightAgencies();
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8 sm:py-10">
@@ -21,7 +26,7 @@ export default async function AgentsPage() {
         <BadgeCheck className="h-7 w-7 text-sky-500" /> Verified agencies
       </h1>
       <p className="mt-2 max-w-2xl text-[15px] text-slate-600">
-        Established agencies on PropertyDealer. Each one carries the Verified badge on its profile and on every listing.
+        Established agencies on {site}. Each one carries the Verified badge on its profile and on every listing.
       </p>
 
       {agencies.length === 0 ? (

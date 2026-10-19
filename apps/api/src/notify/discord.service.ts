@@ -95,7 +95,7 @@ export class DiscordService {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: 'PropertyDealer',
+        username: 'Property Dealer',
         embeds: [embed],
       }),
       signal: AbortSignal.timeout(6000),

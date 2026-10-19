@@ -54,6 +54,17 @@ export const MAP_TILES: Record<MapStyle, TileSource> = {
 };
 
 /**
+ * The eMap's tiles: the same layers without Google's business pins (shops,
+ * restaurants, hostels…) baked into them — on a society map they read as our
+ * own markers and bury the plan. `apistyle` s.t:2|p.v:off hides points of
+ * interest only; road and area names stay. The listing location picker keeps
+ * them: there they help find the spot.
+ */
+export const EMAP_TILES: Record<MapStyle, TileSource> = Object.fromEntries(
+  Object.entries(MAP_TILES).map(([k, t]) => [k, k === "satellite" ? t : { ...t, url: `${t.url}&apistyle=s.t%3A2%7Cp.v%3Aoff` }]),
+) as Record<MapStyle, TileSource>;
+
+/**
  * The explorer's plain map: Google's street map with every label switched off
  * (`apistyle` s.e:l|p.v:off), so the only names on it are ours — cities,
  * societies and prices — instead of hundreds of shop and lane names.

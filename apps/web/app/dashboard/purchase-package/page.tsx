@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Check, Loader2, Package2, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Check, Loader2, Package2, RefreshCcw, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,8 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { packageApi, subscriptionApi, type MyPlan } from "@/lib/api";
 import PlanCards from "@/components/plans/PlanCards";
-import type { Plan } from "@/lib/plans";
+import { planBenefits, planDuration, type Plan } from "@/lib/plans";
+import { cn } from "@/lib/utils";
 import {
   DataCard,
   DataCardTitle,
@@ -269,7 +270,7 @@ function PurchaseContent() {
                 </span>
               }
             />
-            <Row label="Duration" value={`${selected.duration} days`} />
+            <Row label="Valid for" value={planDuration(selected as Plan)} />
             <Row
               label="Listing limit"
               value={`${selected.propertyLimit ?? "—"} properties`}
@@ -288,22 +289,32 @@ function PurchaseContent() {
             )}
           </div>
 
-          {(selected.features?.length ?? 0) > 0 && (
-            <>
-              <Separator className="my-4" />
-              <ul className="space-y-2">
-                {selected.features?.map((feature, index) => (
-                  <li
-                    key={`${feature}-${index}`}
-                    className="flex items-start gap-2 text-sm"
-                  >
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          <Separator className="my-4" />
+          {/* Worked out from the plan's own limits and switches, like the cards. */}
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {planBenefits(selected as Plan).map((b) => (
+              <li
+                key={b.key}
+                className={cn(
+                  "flex items-start gap-2.5 rounded-lg border p-3 text-sm",
+                  !b.on && "opacity-55",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full",
+                    b.on ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-400",
+                  )}
+                >
+                  {b.on ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />}
+                </span>
+                <span>
+                  <span className="block font-medium">{b.label}</span>
+                  <span className="block text-xs text-muted-foreground">{b.hint}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
 
           {myPlan?.team.role === "agent" ? (
             <p className="mt-6 rounded-lg bg-slate-50 p-3 text-center text-sm text-muted-foreground">

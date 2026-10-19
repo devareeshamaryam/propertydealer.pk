@@ -1,6 +1,7 @@
  import { serverApi, isNotFoundError } from '@/lib/server-api';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { getSiteName } from "@/lib/site-settings.server";
 
 
 /* CMS pages: rendered on first visit, then cached; the API revalidates them on edit. */
@@ -21,11 +22,12 @@ function isStaticFile(slug: string): boolean {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const site = await getSiteName();
   const { slug } = await params;
 
   // ✅ Static file request aaye toh metadata nahi banao
   if (isStaticFile(slug)) {
-    return { title: 'PropertyDealer' };
+    return { title: `${site}` };
   }
 
   try {
@@ -35,8 +37,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       return { title: 'Page Not Found' };
     }
 
-    const title = page.metaTitle || `${page.title} | PropertyDealer`;
-    const description = page.metaDescription || "Read more about this on PropertyDealer.";
+    const title = page.metaTitle || `${page.title} | ${site}`;
+    const description = page.metaDescription || `Read more about this on ${site}.`;
 
     return {
       title,

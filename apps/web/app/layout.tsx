@@ -43,9 +43,9 @@ const metadataBase: Metadata = {
   },
   description: "Property Dealer is a property buying and selling marketplace across Pakistan, connecting buyers and sellers for residential and commercial real estate.",
   keywords: ["property portal pakistan", "Property Dealer", "houses for rent multan", "apartments for sale lahore", "plots karachi", "commercial property islamabad"],
-  authors: [{ name: "PropertyDealer Team" }],
-  creator: "PropertyDealer",
-  publisher: "PropertyDealer",
+  authors: [{ name: "Property Dealer Team" }],
+  creator: "Property Dealer",
+  publisher: "Property Dealer",
   formatDetection: {
     email: false,
     address: true,
@@ -63,13 +63,13 @@ const metadataBase: Metadata = {
         url: '/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'PropertyDealer Property Portal',
+        alt: 'Property Dealer Property Portal',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'PropertyDealer - Property Portal Pakistan',
+    title: 'Property Dealer - Property Portal Pakistan',
     description: 'Find properties for rent and sale in Pakistan.',
     images: ['/og-image.jpg'],
   },
@@ -101,7 +101,12 @@ export async function generateMetadata(): Promise<Metadata> {
     meta.openGraph = { ...meta.openGraph, images: [{ url: s.ogImageUrl, width: 1200, height: 630 }] };
     meta.twitter = { ...meta.twitter, images: [s.ogImageUrl] };
   }
-  if (s.siteName) meta.openGraph = { ...meta.openGraph, siteName: s.siteName };
+  if (s.siteName) {
+    meta.openGraph = { ...meta.openGraph, siteName: s.siteName };
+    meta.authors = [{ name: `${s.siteName} Team` }];
+    meta.creator = s.siteName;
+    meta.publisher = s.siteName;
+  }
   if (s.googleVerification) meta.verification = { google: s.googleVerification };
   if (s.faviconUrl) meta.icons = { icon: s.faviconUrl, apple: s.faviconUrl };
   return meta;

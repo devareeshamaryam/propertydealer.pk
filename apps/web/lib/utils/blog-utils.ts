@@ -75,7 +75,7 @@ function getAuthorName(blog: Blog): string {
   if (typeof blog.author === 'object' && blog.author !== null && 'name' in blog.author) {
     return blog.author.name;
   }
-  return 'PropertyDealer Team';
+  return 'Property Dealer Team';
 }
 
 /**
@@ -108,7 +108,7 @@ export function transformBlogToPost(blog: Blog | null | undefined): BlogPost {
       excerpt: '',
       content: '',
       date: 'Date not available',
-      author: 'PropertyDealer Team',
+      author: 'Property Dealer Team',
       image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=500&fit=crop',
       category: 'Uncategorized',
       readTime: '0 min read',

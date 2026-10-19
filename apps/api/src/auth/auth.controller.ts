@@ -121,6 +121,22 @@ export class AuthController {
     return req.user;
   }
 
+  /** { email, hasPassword, google } — whether this account can sign in with a password, Google, or both. */
+  @UseGuards(AuthGuard('jwt'))
+  @Get('password')
+  passwordStatus(@Req() req: AuthRequest) {
+    return this.authService.passwordStatus((req.user as { userId: string }).userId);
+  }
+
+  /** Sets a password (Google accounts) or changes it (needs currentPassword). */
+  @UseGuards(AuthGuard('jwt'))
+  @Post('password')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  setPassword(@Req() req: AuthRequest, @Body() body: { currentPassword?: string; newPassword?: string }) {
+    return this.authService.setPassword((req.user as { userId: string }).userId, body);
+  }
+
   // 🔒 SECURITY: Strict rate limiting on registration (CRITICAL)
   @Post('register')
   @Throttle({ default: { limit: 3, ttl: 60000 } }) // 3 registrations per minute

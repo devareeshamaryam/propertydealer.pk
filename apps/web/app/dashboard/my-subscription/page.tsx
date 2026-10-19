@@ -36,6 +36,7 @@ import {
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { CheckoutDialog } from "@/components/billing/checkout-dialog";
 import { amountShort } from "@/lib/pk";
+import { planBenefits } from "@/lib/plans";
 
 interface PackageRef {
   name?: string;
@@ -593,16 +594,22 @@ export default function MySubscriptionPage() {
 function PlanBenefitsCard({ plan }: { plan: EffectivePlan }) {
   const perks = plan.perks;
   if (!perks) return null;
-  const rows: [boolean, string, string][] = [
-    [true, `${plan.propertyLimit} live ${plan.propertyLimit === 1 ? "listing" : "listings"}`, plan.team.role ? "Shared across your agency" : "At any one time"],
-    [plan.featuredLimit > 0, plan.featuredLimit > 0 ? `${plan.featuredLimit} featured ${plan.featuredLimit === 1 ? "listing" : "listings"}` : "Featured listings", "Shown first in search, with a Featured tag"],
-    [perks.verifiedBadge, "Verified badge", "On your profile, listings and listing cards"],
-    [perks.autoPublish, "Instant publishing", "New listings go live without waiting for review"],
-    [perks.spotlight, "Spotlight", "Shown in Verified agencies on the homepage"],
-    [perks.brandedProfile, "Branded profile", "Cover photo on your profile page"],
-    [perks.socialLinks, "Social links", "Facebook, Instagram, YouTube and more on your profile"],
-    [perks.teamMembers > 0, perks.teamMembers > 0 ? `${perks.teamMembers} agent accounts` : "Agent accounts", "Your agents log in and list under your agency"],
-  ];
+  // The same list as the plan cards and /packages, worked out from the plan in force.
+  const rows: [boolean, string, string][] = planBenefits({
+    _id: "",
+    name: plan.name ?? "",
+    price: 0,
+    duration: 0,
+    propertyLimit: plan.propertyLimit,
+    featuredListings: plan.featuredLimit,
+    features: [],
+    verifiedBadge: perks.verifiedBadge,
+    autoPublish: perks.autoPublish,
+    spotlight: perks.spotlight,
+    brandedProfile: perks.brandedProfile,
+    socialLinks: perks.socialLinks,
+    teamMembers: perks.teamMembers,
+  }).map((b) => [b.on, b.label, b.key === "listings" && plan.team.role ? "Shared across your agency" : b.hint]);
   return (
     <DataCard>
       <DataCardTitle hint={plan.tier === "free" ? "Upgrade for more" : "Included in your plan"}>

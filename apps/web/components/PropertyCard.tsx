@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Bath, BedDouble, Camera, MapPin, Play, Ruler } from 'lucide-react';
@@ -53,7 +54,9 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
   const hasVideo = Boolean(property.videoUrl || property.videoPosterUrl);
   const realImage =
     property.image && !property.image.includes('images.unsplash.com') ? property.image : '';
-  const poster = property.videoPosterUrl || realImage;
+  // A photo whose file is missing on the server shows the "No photo" tile, not a broken image.
+  const [broken, setBroken] = useState(false);
+  const poster = broken ? '' : property.videoPosterUrl || realImage;
   const isVideoPrimary = Boolean(property.isVideoThumbnail || (hasVideo && !realImage));
   const rawVideoUrl = property.videoUrl || '';
 
@@ -95,6 +98,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
             fill
             className="object-cover"
             sizes="(max-width: 640px) 112px, 210px"
+            onError={() => setBroken(true)}
           />
         ) : isVideoPrimary && rawVideoUrl ? (
           <video

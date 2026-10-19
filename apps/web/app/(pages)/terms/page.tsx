@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import StaticPageView from '@/components/StaticPageView';
 import { pageMetadata } from '@/lib/seo/page-seo';
+import { getSiteName } from "@/lib/site-settings.server";
 
 /*
  * /terms — the text is edited in Dashboard → Static Pages (slug "terms"), as
@@ -8,9 +9,10 @@ import { pageMetadata } from '@/lib/seo/page-seo';
  */
 
 export async function generateMetadata(): Promise<Metadata> {
+  const site = await getSiteName();
   return pageMetadata('terms', {
-    title: 'Terms of Service — PropertyDealer',
-    description: 'The terms for using PropertyDealer — posting listings, packages for agents, and buying, selling or renting through the site.',
+    title: `Terms of Service — ${site}`,
+    description: `The terms for using ${site} — posting listings, packages for agents, and buying, selling or renting through the site.`,
     path: '/terms',
   });
 }

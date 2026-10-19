@@ -89,6 +89,7 @@ export function SiteLogo() {
   }
   return (
     <BrandLogo
+      name={siteName}
       markClassName="h-[var(--logo-h)] w-[var(--logo-h)] md:h-[var(--logo-h-lg)] md:w-[var(--logo-h-lg)]"
       textClassName="text-[calc(var(--logo-h)*0.64)] md:text-[calc(var(--logo-h-lg)*0.6)]"
     />
@@ -150,7 +151,7 @@ const Navbar = () => {
       )}
     >
       <div className="container container-flush mx-auto flex h-16 items-center gap-4 px-3 sm:px-4">
-        <Link href="/" aria-label="PropertyDealer home" className="shrink-0">
+        <Link href="/" aria-label="Home" className="shrink-0">
           <SiteLogo />
         </Link>
 

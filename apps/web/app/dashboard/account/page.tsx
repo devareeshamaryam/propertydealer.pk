@@ -30,6 +30,7 @@ import { ImageField } from "@/components/media";
 import { Textarea } from "@/components/ui/textarea";
 import { agentProfilePath } from "@/lib/agent";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+import { LoginPasswordCard } from "@/components/dashboard/login-password-card";
 
 /** The public fields /auth/profile returns alongside the sign-in details. */
 interface PublicProfileFields {
@@ -583,6 +584,8 @@ export default function AccountPage() {
           )}
         </DataCard>
       )}
+
+      <LoginPasswordCard />
 
       {/* Where to go next */}
       <DataCard>
