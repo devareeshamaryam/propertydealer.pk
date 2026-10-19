@@ -122,8 +122,22 @@ export class Property extends Document {
   @Prop({ type: Date })
   featuredAt?: Date
 
-  @Prop({ default: 'pending', index: true, enum: ['pending', 'approved', 'rejected', 'draft'] })
-  status: 'pending' | 'approved' | 'rejected' | 'draft'
+  /**
+   * 'expired': a listing on the Free plan whose month ran out (see expiresAt).
+   * It leaves search, the city and area pages, the map and the sitemap, and
+   * no longer counts against the plan; its own page keeps answering with an
+   * "expired" notice, because the URL may be ranked. Renewing puts it back.
+   */
+  @Prop({ default: 'pending', index: true, enum: ['pending', 'approved', 'rejected', 'draft', 'expired'] })
+  status: 'pending' | 'approved' | 'rejected' | 'draft' | 'expired'
+
+  /**
+   * When a Free-plan listing stops being live — 30 days after it went up or
+   * was last renewed. Empty on a paid plan's listings (they stay live while
+   * the plan does) and on the admin's own listings.
+   */
+  @Prop({ type: Date, default: undefined })
+  expiresAt?: Date
 
   /**
    * Has it gone? Separate from `status`, which is moderation.
@@ -214,6 +228,8 @@ PropertySchema.index({ owner: 1, createdAt: -1 });
 
 // Admin list filtered by status tab, newest first.
 PropertySchema.index({ status: 1, createdAt: -1 });
+// The hourly expiry run: approved listings whose month is up.
+PropertySchema.index({ status: 1, expiresAt: 1 });
 
 // Unfiltered admin list (and any plain newest-first sort).
 PropertySchema.index({ createdAt: -1 });

@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { DataCard, PageHeader, apiErrorMessage } from "@/components/dashboard";
-import { PRODUCT_TYPES, TYPE_META, imageSrc, shopApi, type ProductType, type ShopProduct } from "@/lib/shop";
+import { PRODUCT_TYPES, imageSrc, isBuiltIn, shopApi, typeMeta, type BuiltInType, type ProductType, type ShopProduct } from "@/lib/shop";
+import { materialTypeApi } from "@/lib/api/material-type.api";
+import type { MaterialTypeInfo } from "@/lib/materials";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,7 +25,7 @@ import { cn } from "@/lib/utils";
  * still a click away for photos and descriptions.
  */
 
-const EDIT_PATH: Record<ProductType, string> = {
+const EDIT_PATH: Record<BuiltInType, string> = {
   cement: "/dashboard/cement-rate/edit",
   steel: "/dashboard/steel-rate/edit",
   bricks: "/dashboard/bricks-rate/edit",
@@ -69,6 +71,11 @@ export default function ShopProductsPage() {
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState<ProductType | "all">("all");
+  // Materials added from the dashboard sit next to the built-in ones.
+  const [customs, setCustoms] = useState<MaterialTypeInfo[]>([]);
+  useEffect(() => {
+    materialTypeApi.active().then(setCustoms).catch(() => undefined);
+  }, []);
   const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
@@ -118,14 +125,14 @@ export default function ShopProductsPage() {
       <DataCard flush className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b p-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="hide-scrollbar -mx-1 flex gap-1 overflow-x-auto px-1">
-            {(["all", ...PRODUCT_TYPES] as const).map((t) => (
+            {(["all", ...PRODUCT_TYPES, ...customs.map((c) => c.slug)] as string[]).map((t) => (
               <button
                 key={t}
                 type="button"
                 onClick={() => setType(t)}
                 className={cn("shrink-0 rounded-lg px-3 py-1.5 text-[13px] font-medium", type === t ? "bg-primary text-white" : "text-slate-600 hover:bg-slate-100")}
               >
-                {t === "all" ? "All" : TYPE_META[t].label}
+                {t === "all" ? "All" : typeMeta(t, customs).label}
                 <span className="ml-1 opacity-70">{t === "all" ? products.length : counts[t] ?? 0}</span>
               </button>
             ))}
@@ -172,13 +179,13 @@ export default function ShopProductsPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="hidden px-4 py-2.5 text-slate-600 md:table-cell">{TYPE_META[p.type].label}</td>
+                    <td className="hidden px-4 py-2.5 text-slate-600 md:table-cell">{typeMeta(p.type, customs).label}</td>
                     <td className="px-4 py-2.5"><div className="flex justify-end"><NumberCell value={p.price} prefix="Rs" onSave={(n) => save(p, { price: n })} /></div></td>
                     <td className="px-4 py-2.5"><div className="flex justify-end"><NumberCell value={p.change} onSave={(n) => save(p, { change: n })} /></div></td>
                     <td className="px-4 py-2.5 text-center"><Switch checked={p.isActive !== false} onCheckedChange={(v) => void save(p, { isActive: v })} /></td>
                     <td className="px-4 py-2.5">
                       <div className="flex justify-end gap-1">
-                        <Link href={`${EDIT_PATH[p.type]}/${p.id}`} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Full edit"><Pencil className="h-4 w-4" /></Link>
+                        <Link href={isBuiltIn(p.type) ? `${EDIT_PATH[p.type]}/${p.id}` : `/dashboard/material-rate/edit/${p.id}`} className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Full edit"><Pencil className="h-4 w-4" /></Link>
                         <Link href={p.href} target="_blank" className="grid h-8 w-8 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="View on site"><ExternalLink className="h-4 w-4" /></Link>
                       </div>
                     </td>

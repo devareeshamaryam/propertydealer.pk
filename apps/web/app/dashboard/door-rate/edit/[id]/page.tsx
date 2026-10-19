@@ -88,7 +88,7 @@ export default function EditDoorRatePage() {
         <ArrowLeft className="w-4 h-4" /> Back
       </Button>
 
-      <div className="bg-white rounded-xl shadow-sm border p-8">
+      <div className="bg-white rounded-xl shadow-sm border px-3 py-4 sm:p-6 lg:p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-1">
           Edit Door Rate
         </h1>

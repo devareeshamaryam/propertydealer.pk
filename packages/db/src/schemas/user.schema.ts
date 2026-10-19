@@ -72,6 +72,14 @@ export class User {
   @Prop({ type: Types.ObjectId, ref: 'User', index: true, default: undefined })
   agencyId?: Types.ObjectId;
 
+  /**
+   * An agency's agent only: how many live listings the owner lets this agent
+   * have out of the team's allowance. Empty or 0 — no cap of their own; the
+   * team's plan limit still applies.
+   */
+  @Prop({ type: Number, default: undefined })
+  listingLimit?: number;
+
   /** Profile links — shown when the plan includes social links. */
   @Prop({ type: Object, default: undefined })
   socialLinks?: { facebook?: string; instagram?: string; youtube?: string; tiktok?: string; linkedin?: string; website?: string };

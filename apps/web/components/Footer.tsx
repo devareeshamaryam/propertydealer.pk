@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Clock, Facebook, Instagram, Linkedin, Mail, MapPin, MessageCircle, Phone, Youtube } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { getSiteSettings } from '@/lib/site-settings.server';
+import { getMaterialTypes } from '@/lib/materials';
 import { DEFAULT_SOCIALS, DEFAULT_TAGLINE, resolved, waDigits } from '@/lib/site-settings';
 
 /*
@@ -95,7 +96,9 @@ function Column({ title, links }: { title: string; links: { name: string; href: 
 }
 
 const Footer = async () => {
-  const settings = await getSiteSettings();
+  const [settings, materials] = await Promise.all([getSiteSettings(), getMaterialTypes()]);
+  // The built-in rate pages, then the materials added from the dashboard.
+  const rateLinks = [...RATES, ...materials.map((m) => ({ name: `${m.name} Rates`, href: m.path }))];
   const r = resolved(settings);
   const footerLogo = settings.footerLogoUrl || settings.logoUrl;
   const socials = r.socials.length ? r.socials : DEFAULT_SOCIALS;
@@ -181,7 +184,7 @@ const Footer = async () => {
           <Column title="Explore" links={EXPLORE} />
           <Column title="Popular cities" links={CITIES} />
           <div className="col-span-2 md:col-span-1">
-            <Column title="Construction rates" links={RATES} />
+            <Column title="Construction rates" links={rateLinks} />
           </div>
         </div>
       </div>

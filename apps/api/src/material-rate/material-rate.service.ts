@@ -5,6 +5,10 @@ import { MaterialRate, MaterialRateDocument } from '@rent-ghar/db/schemas/materi
 import { CreateMaterialRateDto, UpdateMaterialRateDto } from './dto';
 import { RedisCacheService } from '../redis-cache/redis-cache.service';
 import { RevalidateService } from '../revalidate/revalidate.service';
+import { MaterialTypeService } from '../material-type/material-type.service';
+
+/** The names this collection started with; anything else must be a material the admin added. */
+const LEGACY_TYPES = ['Door', 'Wood', 'Sand', 'Tile', 'Bajri', 'Steel', 'Bricks'];
 
 const TAG_RATES = 'material-rates';
 
@@ -15,7 +19,29 @@ export class MaterialRateService {
     private materialRateModel: Model<MaterialRateDocument>,
     private readonly cache: RedisCacheService,
     private readonly revalidate: RevalidateService,
+    private readonly types: MaterialTypeService,
   ) {}
+
+  private async checkType(materialType?: string) {
+    if (materialType === undefined) return;
+    if (LEGACY_TYPES.includes(materialType)) return;
+    if (!(await this.types.exists(materialType))) {
+      throw new BadRequestException(`Unknown material "${materialType}" — add it under Dashboard → Materials first`);
+    }
+  }
+
+  /** A rate of one material by its slug (the product page of a material the admin added). */
+  async findBySlugInType(materialType: string, slug: string) {
+    return this.cache.wrap(
+      this.cache.buildKey('material-rates:type-slug', [materialType, slug]),
+      async () => {
+        const rate = await this.materialRateModel.findOne({ materialType, slug, isActive: { $ne: false } }).lean().exec();
+        if (!rate) throw new NotFoundException(`Material rate not found: ${slug}`);
+        return rate;
+      },
+      { ttl: 60, tags: [TAG_RATES] },
+    );
+  }
 
   /**
    * Bust the rate caches and ping all today-{material}-rate pages so they
@@ -74,6 +100,7 @@ export class MaterialRateService {
   }
 
   async create(dto: CreateMaterialRateDto): Promise<MaterialRateDocument> {
+    await this.checkType(dto.materialType);
     const rate = new this.materialRateModel(dto);
     const saved = await rate.save();
     this.bustRateCaches(saved.materialType).catch(() => {});
@@ -84,6 +111,7 @@ export class MaterialRateService {
     if (!isValidObjectId(id)) throw new BadRequestException('Invalid ID');
     const rate = await this.materialRateModel.findById(id).exec();
     if (!rate) throw new NotFoundException('Material rate not found');
+    await this.checkType(dto.materialType);
 
     Object.assign(rate, dto);
     // Explicitly mark fields to trigger the pre('save') slug regeneration

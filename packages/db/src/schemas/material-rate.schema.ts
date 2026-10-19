@@ -29,7 +29,13 @@ export class MaterialRate {
   @Prop({ default: 'Per Unit' })
   unit: string;
 
-  @Prop({ required: true, enum: ['Door', 'Wood', 'Sand', 'Tile', 'Bajri', 'Steel', 'Bricks'], index: true })
+  /**
+   * Which material: a built-in name from the early version of this collection
+   * ('Door', 'Wood', …) or the slug of a material the admin added (see
+   * MaterialType). Checked by MaterialRateService, not by an enum here, so a
+   * new material needs no code change.
+   */
+  @Prop({ required: true, trim: true, index: true })
   materialType: string;
 
   @Prop({ trim: true })

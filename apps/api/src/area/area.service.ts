@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types, isValidObjectId } from 'mongoose';
 import { Area, AreaDocument } from '@rent-ghar/db/schemas/area.schema';
 import { CreateAreaDto } from '@rent-ghar/dtos/area/createarea.dto';
+import { cleanPlaceName } from '../common/place-name';
 import { UpdateAreaDto } from '@rent-ghar/dtos/area/updatearea.dto';
 import { RedisCacheService } from '../redis-cache/redis-cache.service';
 import { RevalidateService } from '../revalidate/revalidate.service';
@@ -209,6 +210,13 @@ export class AreaService {
     if (!area) {
       throw new NotFoundException(`Area with slug ${slug} not found`);
     }
+    // A hidden area (an empty or junk entry) has no page while it has no listings.
+    if ((area as any).hidden && !(area as any).mergedInto) {
+      const listings = await this.areaModel.db
+        .collection('properties')
+        .countDocuments({ area: { $in: [area._id, String(area._id)] }, status: 'approved' });
+      if (!listings) throw new NotFoundException(`Area with slug ${slug} not found`);
+    }
     return area as AreaDocument;
   }
 
@@ -361,6 +369,50 @@ export class AreaService {
     await this.areaModel.collection.updateOne({ _id: new Types.ObjectId(id) }, hidden ? { $set: { hidden: true, updatedAt: new Date() } } : { $unset: { hidden: '' }, $set: { updatedAt: new Date() } });
     await this.revalidate.revalidate({ tags: [TAG_AREAS, 'cities'], paths: ['/properties'] }).catch(() => {});
     return { ok: true, hidden };
+  }
+
+  /**
+   * An agent adds the area their listing is in. The same name in the city
+   * (any case, spacing or hyphens) is reused — a merged duplicate gives its
+   * kept area, a hidden one is shown again — so this never makes a second
+   * copy. New areas are marked source 'agent', for the admin's Areas list.
+   */
+  async suggestArea(cityId: string, rawName: string, userId?: string) {
+    if (!isValidObjectId(cityId)) throw new BadRequestException('Choose the city first');
+    const city = await this.areaModel.db.collection('cities').findOne({ _id: new Types.ObjectId(cityId) }, { projection: { _id: 1 } });
+    if (!city) throw new BadRequestException('City not found');
+    const name = cleanPlaceName(rawName, 'area');
+    const slug = name.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) throw new BadRequestException('Enter the area name in English letters');
+    const loose = name.replace(/[^a-z0-9]+/g, '');
+
+    const col = this.areaModel.collection;
+    const inCity = await col
+      .find({ city: { $in: [new Types.ObjectId(cityId), cityId] } }, { projection: { name: 1, areaSlug: 1, mergedInto: 1, hidden: 1 } })
+      .toArray();
+    let hit: any = inCity.find((a: any) => a.areaSlug === slug || String(a.name).toLowerCase().replace(/[^a-z0-9]+/g, '') === loose);
+    if (hit?.mergedInto) hit = (await col.findOne({ _id: hit.mergedInto })) ?? hit;
+    if (hit) {
+      if (hit.hidden) {
+        await col.updateOne({ _id: hit._id }, { $unset: { hidden: '', hiddenReason: '' }, $set: { updatedAt: new Date() } });
+        this.bustAreaCaches().catch(() => {});
+      }
+      return { _id: String(hit._id), name: hit.name, areaSlug: hit.areaSlug, city: cityId, created: false };
+    }
+    const now = new Date();
+    const doc = {
+      name,
+      areaSlug: slug,
+      city: new Types.ObjectId(cityId),
+      source: 'agent',
+      ...(userId && isValidObjectId(userId) ? { createdBy: new Types.ObjectId(userId) } : {}),
+      sizeContents: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    const r = await col.insertOne(doc as any);
+    this.bustAreaCaches().catch(() => {});
+    return { _id: String(r.insertedId), name, areaSlug: slug, city: cityId, created: true };
   }
 
   async deleteArea(id: string): Promise<void> {

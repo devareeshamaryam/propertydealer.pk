@@ -10,6 +10,7 @@ import { DoorRate, DoorRateSchema } from '@rent-ghar/db/schemas/door-rate.schema
 import { TileRate, TileRateSchema } from '@rent-ghar/db/schemas/tile-rate.schema';
 import { CementOrder, CementOrderSchema } from '@rent-ghar/db/schemas/cement-order.schema';
 import { SiteSettingsModule } from '../site-settings/site-settings.module';
+import { MaterialTypeModule } from '../material-type/material-type.module';
 import { ShopService } from './shop.service';
 import { ShopController } from './shop.controller';
 
@@ -27,6 +28,7 @@ import { ShopController } from './shop.controller';
       { name: CementOrder.name, schema: CementOrderSchema },
     ]),
     SiteSettingsModule,
+    MaterialTypeModule,
   ],
   providers: [ShopService],
   controllers: [ShopController],

@@ -5,6 +5,7 @@ import { User, UserDocument } from '@rent-ghar/db/schemas/user.schema';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { AgencyService } from '../agency/agency.service';
 import { RedisCacheService } from '../redis-cache/redis-cache.service';
+import { RevalidateService } from '../revalidate/revalidate.service';
 
 @Injectable()
 export class UserService {
@@ -13,7 +14,39 @@ export class UserService {
     private readonly subscriptions: SubscriptionService,
     private readonly agency: AgencyService,
     private readonly cache: RedisCacheService,
+    private readonly revalidate: RevalidateService,
   ) {}
+
+  /** The public profile's address, the way the site builds it: /agents/<company-or-name>-<id>. */
+  private static profilePath(u: { _id: unknown; companyName?: string; name?: string }) {
+    const label = String(u.companyName || u.name || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return label ? `/agents/${label}-${String(u._id)}` : `/agents/${String(u._id)}`;
+  }
+
+  /**
+   * After a profile change: the agent's page (old and new address — the name
+   * is in it), the agents directory and the listings that show this agent's
+   * card are refreshed at once, instead of after the 10-minute cache.
+   */
+  private async refreshProfile(before: any, after: any) {
+    const id = String(after?._id ?? before?._id ?? '');
+    if (!id) return;
+    const paths = new Set<string>(['/agents', `/agents/${id}`]);
+    if (before) paths.add(UserService.profilePath(before));
+    if (after) paths.add(UserService.profilePath(after));
+    const owned = await this.userModel.db
+      .collection('properties')
+      .find({ owner: { $in: [new Types.ObjectId(id), id] }, status: 'approved' }, { projection: { slug: 1 } })
+      .limit(150)
+      .toArray();
+    await this.cache.invalidateTags(['agents']).catch(() => undefined);
+    await this.revalidate
+      .revalidate({
+        tags: ['agents', ...owned.map((p: any) => `property:slug:${p.slug}`)],
+        paths: [...paths, ...owned.slice(0, 60).map((p: any) => `/properties/${p.slug}`)],
+      })
+      .catch(() => undefined);
+  }
 
   /**
    * Agencies on a plan with the spotlight benefit — for "Verified agencies" on
@@ -149,7 +182,18 @@ export class UserService {
         .sort({ name: 1 })
         .limit(50)
         .lean();
-      team = members.map((m: any) => ({ _id: String(m._id), name: m.name ?? 'Agent', avatarUrl: m.avatarUrl ?? '' }));
+      const ids = members.map((m: any) => m._id);
+      const counts = ids.length
+        ? await this.userModel.db
+            .collection('properties')
+            .aggregate([
+              { $match: { owner: { $in: [...ids, ...ids.map(String)] }, status: 'approved' } },
+              { $group: { _id: { $toString: '$owner' }, n: { $sum: 1 } } },
+            ])
+            .toArray()
+        : [];
+      const n = new Map(counts.map((c: any) => [String(c._id), c.n as number]));
+      team = members.map((m: any) => ({ _id: String(m._id), name: m.name ?? 'Agent', avatarUrl: m.avatarUrl ?? '', listings: n.get(String(m._id)) ?? 0 }));
     }
 
     const { agencyId: _agencyId, socialLinks, coverUrl, ...rest } = user;
@@ -182,6 +226,7 @@ export class UserService {
   }
 
   async update(id: string, updateData: Partial<User>) {
+    const before: any = await this.userModel.findById(id).select('name companyName').lean();
     const user = await this.userModel
       .findByIdAndUpdate(id, { $set: updateData }, { new: true })
       .select('-password -refreshToken');
@@ -189,6 +234,7 @@ export class UserService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    void this.refreshProfile(before, user).catch(() => undefined);
     return user;
   }
 

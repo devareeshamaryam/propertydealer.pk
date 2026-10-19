@@ -78,6 +78,12 @@ export class UserController {
       );
     }
 
+    // An agency's agent carries the agency's name: it is set when the agency adds them, not edited by the agent.
+    if ('companyName' in patch) {
+      const me: any = await this.userService.findOne(userId).catch(() => null);
+      if (me?.agencyId) delete patch.companyName;
+    }
+
     // An empty body would otherwise issue a pointless write.
     if (Object.keys(patch).length === 0) {
       throw new BadRequestException('Nothing to update');

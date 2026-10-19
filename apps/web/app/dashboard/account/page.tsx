@@ -19,18 +19,18 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { propertyApi, subscriptionApi, userApi, type MyPlan } from "@/lib/api";
 import { BadgeCheck, Copy, Lock } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { DataCard, DataCardTitle, PageHeader } from "@/components/dashboard";
-import { ImageField } from "@/components/media";
 import { Textarea } from "@/components/ui/textarea";
 import { agentProfilePath } from "@/lib/agent";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { LoginPasswordCard } from "@/components/dashboard/login-password-card";
+import { CoverPhoto, ProfilePhoto } from "@/components/dashboard/profile-media";
+import { cn } from "@/lib/utils";
 
 /** The public fields /auth/profile returns alongside the sign-in details. */
 interface PublicProfileFields {
@@ -43,6 +43,8 @@ interface PublicProfileFields {
   avatarUrl?: string;
   coverUrl?: string;
   socialLinks?: SocialLinks;
+  /** Set on an agency's agent: the agency's name is theirs and is not edited here. */
+  agencyId?: string;
 }
 
 type SocialLinks = { facebook?: string; instagram?: string; youtube?: string; tiktok?: string; linkedin?: string; website?: string };
@@ -240,14 +242,28 @@ export default function AccountPage() {
         description="Your sign-in details and role on the platform."
       />
 
-      {/* Identity */}
-      <DataCard>
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-          <Avatar className="h-20 w-20">
-            <AvatarFallback className="bg-primary/10 text-2xl font-semibold text-primary">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+      {/* Identity — the photo (and cover) are changed right here, saved at once. */}
+      <DataCard flush className="overflow-hidden">
+        {!isAdmin && plan?.perks.brandedProfile && (
+          <CoverPhoto
+            url={coverUrl}
+            context={`${companyName || name} cover`}
+            onSaved={(url) => {
+              setCoverUrl(url);
+              setRecord((r) => (r ? { ...r, coverUrl: url } : r));
+            }}
+          />
+        )}
+        <div className={cn("flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6", !isAdmin && plan?.perks.brandedProfile && "-mt-10 sm:-mt-8")}>
+          <ProfilePhoto
+            url={avatarUrl}
+            initials={initials}
+            context={companyName || name || "Agent profile photo"}
+            onSaved={(url) => {
+              setAvatarUrl(url);
+              setRecord((r) => (r ? { ...r, avatarUrl: url } : r));
+            }}
+          />
 
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-xl font-semibold">
@@ -435,9 +451,12 @@ export default function AccountPage() {
               value={companyName}
               onChange={(event) => setCompanyName(event.target.value)}
               placeholder="e.g. Al-Hamd Estate & Builders"
+              disabled={Boolean(record?.agencyId)}
             />
             <p className="text-xs text-muted-foreground">
-              Used as the heading of your profile when set.
+              {record?.agencyId
+                ? "Set by your agency — your profile shows you as its agent."
+                : "Used as the heading of your profile when set."}
             </p>
           </div>
 
@@ -491,17 +510,6 @@ export default function AccountPage() {
             />
           </div>
 
-          <div className="sm:col-span-2">
-            <ImageField
-              label="Profile photo / logo"
-              value={avatarUrl}
-              onChange={setAvatarUrl}
-              folder="general"
-              context={companyName || name || "Agent profile photo"}
-              aspect="square"
-              hint="Square works best. Shown on your profile and next to your listings."
-            />
-          </div>
         </div>
 
         <div className="mt-6 flex items-center gap-3">
@@ -535,15 +543,9 @@ export default function AccountPage() {
           <Separator className="my-5" />
 
           {plan?.perks.brandedProfile ? (
-            <ImageField
-              label="Cover photo"
-              value={coverUrl}
-              onChange={setCoverUrl}
-              folder="general"
-              context={`${companyName || name} cover`}
-              aspect="banner"
-              hint="A wide photo of your office, team or a project — 1600×500 works best."
-            />
+            <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground">
+              Your cover photo is changed at the top of this page — tap <b>Change cover</b>.
+            </p>
           ) : (
             <p className="flex items-center gap-2 rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground">
               <Lock className="h-4 w-4 shrink-0" /> A cover photo comes with the Dealer, Agency and Agency Plus plans.{" "}

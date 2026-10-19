@@ -14,7 +14,9 @@ import {
   ImageOff,
   PlusCircle,
   RefreshCcw,
+  RefreshCw,
   RotateCcw,
+  UserRoundCog,
   Send,
   ShieldAlert,
   ShieldCheck,
@@ -50,7 +52,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { propertyApi, getAccessToken } from "@/lib/api";
+import { propertyApi, subscriptionApi, teamApi, getAccessToken, type TeamMember } from "@/lib/api";
 import type { BackendProperty } from "@/lib/types/property-utils";
 import { PROPERTY_TYPE_ORDER } from "@/lib/types/property-utils";
 import { useAuth } from "@/context/auth-context";
@@ -72,9 +74,10 @@ import {
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { amountShort, propertySizeLabel } from "@/lib/pk";
 import { PropertyPreviewDialog } from "@/components/dashboard/property-preview-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PosterLine } from "@/components/dashboard/poster-info";
 
-type StatusFilter = "all" | "draft" | "pending" | "approved" | "rejected";
+type StatusFilter = "all" | "draft" | "pending" | "approved" | "rejected" | "expired";
 
 const STATUS_FILTERS: StatusFilter[] = [
   "all",
@@ -82,6 +85,7 @@ const STATUS_FILTERS: StatusFilter[] = [
   "pending",
   "approved",
   "rejected",
+  "expired",
 ];
 
 const STATUS_STYLES: Record<string, string> = {
@@ -89,7 +93,22 @@ const STATUS_STYLES: Record<string, string> = {
   pending: "bg-amber-100 text-amber-800 hover:bg-amber-100",
   rejected: "bg-red-100 text-red-800 hover:bg-red-100",
   draft: "bg-slate-200 text-slate-700 hover:bg-slate-200",
+  expired: "bg-orange-100 text-orange-800 hover:bg-orange-100",
 };
+
+/**
+ * Free plan: "Live until 18 Nov" on a listing with an end date, "Expired"
+ * once it has run out. A date, not a countdown — see AvailabilityChip.
+ */
+function ExpiryNote({ property }: { property: BackendProperty }) {
+  if (!property.expiresAt) return null;
+  const date = new Date(property.expiresAt).toLocaleDateString("en-PK", { day: "numeric", month: "short" });
+  return (
+    <span className={cn("mt-1 block text-[11px]", property.status === "expired" ? "font-semibold text-orange-700" : "text-muted-foreground")}>
+      {property.status === "expired" ? `Expired ${date} — renew to show it again` : `Live until ${date}`}
+    </span>
+  );
+}
 
 // Property, Type, Location, Price, Status, Views, Created, Actions.
 const COLUMN_COUNT = 8;
@@ -297,6 +316,38 @@ export default function PropertiesPage() {
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
+  // An agency's agent posts and edits; featuring and deleting stay with the agency owner.
+  const [isAgent, setIsAgent] = useState(false);
+  // An agency owner can hand a listing to one of their agents (or take it back).
+  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [assigning, setAssigning] = useState<{ property: BackendProperty; to: string } | null>(null);
+  useEffect(() => {
+    if (!user || isAdmin) return;
+    subscriptionApi
+      .getMyPlan()
+      .then((p) => {
+        setIsAgent(p?.team.role === "agent");
+        if (p?.team.role === "owner") teamApi.list().then((t) => setTeam(t.members)).catch(() => undefined);
+      })
+      .catch(() => undefined);
+  }, [user, isAdmin]);
+  const ownerOf = (p: BackendProperty) => String((p as any).owner?._id ?? (p as any).owner ?? "");
+  const assignTo = async () => {
+    if (!assigning) return;
+    const { property, to } = assigning;
+    try {
+      setBusyId(property._id);
+      await teamApi.assign(property._id, to === "me" ? undefined : to);
+      const who = to === "me" ? "you" : team.find((m) => m._id === to)?.name ?? "the agent";
+      toast.success(`Listing given to ${who}`);
+      setAssigning(null);
+      table.reload();
+    } catch (err) {
+      toast.error("Could not move the listing", { description: apiErrorMessage(err, "Please try again.") });
+    } finally {
+      setBusyId(null);
+    }
+  };
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -490,6 +541,21 @@ export default function PropertiesPage() {
    * editorial call about what the site should be showing, not something a
    * package buys. The API refuses it for anyone else regardless.
    */
+  const renew = async (property: BackendProperty) => {
+    try {
+      setBusyId(property._id);
+      const r = await propertyApi.renew(property._id);
+      table.patchRow((item) => item._id === property._id, { status: r.status as BackendProperty["status"], expiresAt: r.expiresAt });
+      void loadStats();
+      toast.success(r.expiresAt ? "Renewed — live for another month" : "Back on the site");
+    } catch (err) {
+      toast.error("Could not renew", { description: apiErrorMessage(err, "Please try again.") });
+    } finally {
+      setBusyId(null);
+    }
+  };
+  const renewable = (p: BackendProperty) => p.status === "expired" || (p.status === "approved" && !!p.expiresAt);
+
   const toggleFeatured = async (property: BackendProperty) => {
     const next = !property.isFeatured;
     try {
@@ -767,6 +833,7 @@ export default function PropertiesPage() {
                             {titleCase(property.status)}
                           </Badge>
                           <ModerationNote property={property} />
+                          <ExpiryNote property={property} />
                           <AvailabilityChip property={property} />
                         </span>
                       </div>
@@ -793,6 +860,7 @@ export default function PropertiesPage() {
                         and the API is what enforces it — a Free account gets
                         a message naming the plan that would allow it, which
                         is a better advert than hiding the button. */}
+                    {!isAgent && (
                     <Button
                       size="sm"
                       variant="outline"
@@ -807,6 +875,19 @@ export default function PropertiesPage() {
                       />
                       {property.isFeatured ? "Featured" : "Feature"}
                     </Button>
+                    )}
+                    {team.length > 0 && (
+                      <Button size="sm" variant="outline" disabled={busy} onClick={() => setAssigning({ property, to: ownerOf(property) === user?._id ? "me" : ownerOf(property) })}>
+                        <UserRoundCog className="mr-1.5 h-3.5 w-3.5" />
+                        Assign
+                      </Button>
+                    )}
+                    {renewable(property) && (
+                      <Button size="sm" variant={property.status === "expired" ? "default" : "outline"} disabled={busy} onClick={() => void renew(property)}>
+                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                        Renew
+                      </Button>
+                    )}
                     {/* Owners get this one too: telling the site a house has
                         gone should never need an admin. */}
                     {property.availability && property.availability !== "available" ? (
@@ -884,6 +965,7 @@ export default function PropertiesPage() {
                       <Eye className="mr-1.5 h-3.5 w-3.5" />
                       Preview
                     </Button>
+                    {!isAgent && (
                     <Button
                       size="sm"
                       variant="ghost"
@@ -894,6 +976,7 @@ export default function PropertiesPage() {
                       <Trash2 className="h-3.5 w-3.5" />
                       <span className="sr-only">Delete</span>
                     </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -1039,6 +1122,7 @@ export default function PropertiesPage() {
                           {titleCase(property.status)}
                         </Badge>
                         <ModerationNote property={property} />
+                          <ExpiryNote property={property} />
                         <AvailabilityChip property={property} />
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
@@ -1058,6 +1142,7 @@ export default function PropertiesPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
+                          {!isAgent && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -1083,6 +1168,27 @@ export default function PropertiesPage() {
                                 : "Feature this listing"}
                             </TooltipContent>
                           </Tooltip>
+                          )}
+                          {team.length > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={busy} onClick={() => setAssigning({ property, to: ownerOf(property) === user?._id ? "me" : ownerOf(property) })}>
+                                  <UserRoundCog className="h-4 w-4 text-muted-foreground" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Give to an agent</TooltipContent>
+                            </Tooltip>
+                          )}
+                          {renewable(property) && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" disabled={busy} onClick={() => void renew(property)}>
+                                  <RefreshCw className={cn("h-4 w-4", property.status === "expired" ? "text-orange-600" : "text-muted-foreground")} />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{property.status === "expired" ? "Renew — show it again for a month" : "Renew — restart its month"}</TooltipContent>
+                            </Tooltip>
+                          )}
 
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1210,6 +1316,7 @@ export default function PropertiesPage() {
                                 <TooltipContent>Edit</TooltipContent>
                               </Tooltip>
 
+                              {!isAgent && (
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button
@@ -1224,6 +1331,7 @@ export default function PropertiesPage() {
                                 </TooltipTrigger>
                                 <TooltipContent>Delete</TooltipContent>
                               </Tooltip>
+                              )}
                             </>
                           )}
                         </div>
@@ -1252,6 +1360,39 @@ export default function PropertiesPage() {
           </div>
         )}
       </DataCard>
+
+      <Dialog open={!!assigning} onOpenChange={(o) => !o && setAssigning(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Give this listing to</DialogTitle>
+            <DialogDescription className="line-clamp-2">{assigning?.property.title}</DialogDescription>
+          </DialogHeader>
+          {assigning && (
+            <Select value={assigning.to} onValueChange={(to) => setAssigning({ ...assigning, to })}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="me">Me (agency owner)</SelectItem>
+                {team.map((m) => (
+                  <SelectItem key={m._id} value={m._id}>
+                    {m.name}
+                    {m.isActive ? "" : " (paused)"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAssigning(null)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void assignTo()} disabled={!assigning || busyId === assigning.property._id}>
+              Give listing
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <PropertyPreviewDialog
         property={preview}

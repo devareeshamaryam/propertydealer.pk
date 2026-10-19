@@ -664,6 +664,22 @@ export class SubscriptionService {
   }> {
     const plan = await this.getEffectivePlan(userId);
     if (plan.canCreate) {
+      // An agent may also have a cap of their own, set by the agency owner.
+      if (plan.team.role === 'agent') {
+        // Paused by the agency: no new listings even on a session that has not run out yet.
+        const me: any = await this.propertyModel.db.collection('users').findOne({ _id: new Types.ObjectId(String(userId)) }, { projection: { isActive: 1 } });
+        if (me?.isActive === false) {
+          return { canCreate: false, message: 'Your agency has paused this account. Please contact your agency owner.' };
+        }
+        const cap = await this.agentCap(userId);
+        if (cap && cap.used >= cap.limit) {
+          return {
+            canCreate: false,
+            ...(plan.subscription ? { subscription: plan.subscription } : {}),
+            message: `Your agency allows you ${cap.limit} live ${cap.limit === 1 ? 'listing' : 'listings'}, and they are in use. Ask your agency owner to raise your limit, or remove one of your listings.`,
+          };
+        }
+      }
       return { canCreate: true, ...(plan.subscription ? { subscription: plan.subscription } : {}) };
     }
     const who = plan.team.role === 'agent' ? 'Your agency' : 'Your';
@@ -677,6 +693,19 @@ export class SubscriptionService {
           : `${who} ${plan.name} plan's limit of ${plan.propertyLimit} listings is reached.` +
             (plan.team.role === 'agent' ? ' Ask your agency owner to upgrade.' : ' Move up a plan to list more.'),
     };
+  }
+
+  /** An agent's own cap (Team → listing limit) and how much of it is in use; null when none is set. */
+  async agentCap(userId: string): Promise<{ limit: number; used: number } | null> {
+    if (!Types.ObjectId.isValid(String(userId))) return null;
+    const u: any = await this.propertyModel.db.collection('users').findOne({ _id: new Types.ObjectId(String(userId)) }, { projection: { listingLimit: 1 } });
+    const limit = Number(u?.listingLimit ?? 0);
+    if (!(limit > 0)) return null;
+    const used = await this.propertyModel.collection.countDocuments({
+      owner: { $in: AgencyService.anyIds([String(userId)]) },
+      status: { $in: ['pending', 'approved'] },
+    });
+    return { limit, used };
   }
 
   async decrementPropertyCount(subscriptionId: string): Promise<SubscriptionDocument | null> {

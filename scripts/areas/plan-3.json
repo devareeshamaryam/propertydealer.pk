@@ -1,0 +1,564 @@
+{
+ "note": "Areas clean-up 3 (Oct 2026): every area checked — spelling duplicates and address-style entries merged, names ending in their own city or carrying a street address shortened. Display names only; no slug changes.",
+ "cities": [
+  {
+   "cityId": "698b1ee4f302e0d68c7e5130",
+   "city": "Multan",
+   "citySlug": "multan",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69a167d8ab51efed0ce0b511",
+     "from": "royal orchard, multan",
+     "to": "royal orchard"
+    },
+    {
+     "id": "699d6faace488394e8ccfffc",
+     "from": "buch executive villas, multan",
+     "to": "buch executive villas"
+    },
+    {
+     "id": "699ebe18ce488394e8cd0299",
+     "from": "ma jinnah road, multan",
+     "to": "ma jinnah road"
+    },
+    {
+     "id": "699eb63ace488394e8cd0279",
+     "from": "bahadurpur, multan",
+     "to": "bahadurpur"
+    },
+    {
+     "id": "6acf2f0091a6c54970dc01ef",
+     "from": "bosn road gated colony",
+     "to": "bosan road gated colony"
+    },
+    {
+     "id": "6ac751d235bd4cc665db844f",
+     "from": "mehmmod lot bosan road",
+     "to": "mehmood kot"
+    },
+    {
+     "id": "6acf20d491a6c54970dbf605",
+     "from": "main nahar road pe ha dr akhtar malik wali puli pe sabzi mandi",
+     "to": "sabzi mandi"
+    },
+    {
+     "id": "6acf28ce91a6c54970dbff0c",
+     "from": "kotla toly khan dilshad market 8no sy aty huy sheedan mushtaq wala road hy",
+     "to": "kotla tolay khan"
+    },
+    {
+     "id": "699d65c1ce488394e8ccff9e",
+     "from": "park view city executive block, lahore",
+     "to": "park view city executive block"
+    },
+    {
+     "id": "6ac8b931fb1628e985016c5b",
+     "from": "punjab small society nagana chowk",
+     "to": "punjab small industries colony"
+    },
+    {
+     "id": "6996cdbda74095809a225aed",
+     "from": "royal orchard - block g",
+     "to": "royal orchard block g"
+    }
+   ],
+   "hide": [
+    "699ed393ce488394e8cd03ee",
+    "699ed54cce488394e8cd03fb",
+    "6ac8bdc0fb1628e98501723d"
+   ],
+   "merge": [
+    {
+     "keep": "699eb63ace488394e8cd0279",
+     "ids": [
+      "699eb63ace488394e8cd0279",
+      "6ac7572d35bd4cc665db88fa",
+      "6ac7611935bd4cc665db94df"
+     ],
+     "names": [
+      "bahadurpur, multan",
+      "bahadarpur metro station",
+      "bahadur por beacon house school"
+     ]
+    },
+    {
+     "keep": "6ac8b918fb1628e985016c3e",
+     "ids": [
+      "6ac8b918fb1628e985016c3e",
+      "699ecef9ce488394e8cd0366",
+      "6ac74c8b35bd4cc665db7ce8"
+     ],
+     "names": [
+      "mps road",
+      "mps road model town",
+      "mps road rahman street"
+     ]
+    },
+    {
+     "keep": "69a171dfab51efed0ce0b5fb",
+     "ids": [
+      "69a171dfab51efed0ce0b5fb",
+      "6ac89b6afb1628e985014ac5"
+     ],
+     "names": [
+      "shalimar colony",
+      "shalimar colony street no 9"
+     ]
+    },
+    {
+     "keep": "699ecbbcce488394e8cd0338",
+     "ids": [
+      "699ecbbcce488394e8cd0338",
+      "6ac8ab64fb1628e985015d78"
+     ],
+     "names": [
+      "bosan road",
+      "near becone house school bosan road"
+     ]
+    },
+    {
+     "keep": "6ac355adcc6af73cdef0a16b",
+     "ids": [
+      "6ac355adcc6af73cdef0a16b",
+      "6abf69a6cc6af73cdeee0324"
+     ],
+     "names": [
+      "dha sector a",
+      "sector a, dha"
+     ]
+    },
+    {
+     "keep": "69c6628469531e44f89635f0",
+     "ids": [
+      "69c6628469531e44f89635f0",
+      "69c666d269531e44f8963868"
+     ],
+     "names": [
+      "new multan",
+      "new"
+     ]
+    },
+    {
+     "keep": "6ac751d235bd4cc665db844f",
+     "ids": [
+      "6ac751d235bd4cc665db844f",
+      "6ac74f8635bd4cc665db8169"
+     ],
+     "names": [
+      "mehmmod lot bosan road",
+      "near mehmood kot metro station"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "6994427daa846dc95199499a",
+   "city": "Faislabad",
+   "citySlug": "faislabad",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69aa853ac40bf2405a163fab",
+     "from": "eden executive, faisalabad",
+     "to": "eden executive"
+    },
+    {
+     "id": "6a1d3117c84885bb0da90672",
+     "from": "near allied hospital daewoo road",
+     "to": "daewoo road"
+    },
+    {
+     "id": "6a1d2a65c84885bb0da90236",
+     "from": "vista homes millat road",
+     "to": "vista homes"
+    }
+   ],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "69abdc205139ce6687fc030c",
+     "ids": [
+      "69abdc205139ce6687fc030c",
+      "6ad30a4044cb08890dca6865"
+     ],
+     "names": [
+      "eden gardens",
+      "eden garden"
+     ]
+    },
+    {
+     "keep": "6ad30a3f44cb08890dca6860",
+     "ids": [
+      "6ad30a3f44cb08890dca6860",
+      "6ad30a4844cb08890dca68a2"
+     ],
+     "names": [
+      "samanabad",
+      "samman abad"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "698da1cc9ea1e7c584021c30",
+   "city": "Lahore",
+   "citySlug": "lahore",
+   "coords": [],
+   "rename": [
+    {
+     "id": "699bf5ff3a53feab430cb63b",
+     "from": "bahria town, sector e, lahore",
+     "to": "bahria town sector e"
+    },
+    {
+     "id": "699c251e3a53feab430cb722",
+     "from": "al kabir town phase 2, lahore",
+     "to": "al kabir town phase 2"
+    },
+    {
+     "id": "699bf3d73a53feab430cb62b",
+     "from": "formanites housing scheme, lahore",
+     "to": "formanites housing scheme"
+    },
+    {
+     "id": "6a266ae6b7e51be6630bf71d",
+     "from": "ali chowk meherpura multan road",
+     "to": "ali chowk meherpura"
+    },
+    {
+     "id": "6a268796b7e51be6630c08a7",
+     "from": "shamnagar road chuburji",
+     "to": "shamnagar"
+    },
+    {
+     "id": "6a27ea7847fdd735035192da",
+     "from": "near salli town askari 9",
+     "to": "askari 9"
+    },
+    {
+     "id": "6a2a57fde935cdc30f2af352",
+     "from": "ferozpure road 5",
+     "to": "ferozepur road"
+    }
+   ],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "69b912303dff137aef6e96ff",
+     "ids": [
+      "69b912303dff137aef6e96ff",
+      "6ad30afc44cb08890dca6c71"
+     ],
+     "names": [
+      "fort villas",
+      "fort villa"
+     ]
+    },
+    {
+     "keep": "69df71fb63783697d3d42283",
+     "ids": [
+      "69df71fb63783697d3d42283",
+      "6ad30afa44cb08890dca6c68"
+     ],
+     "names": [
+      "tariq gardens",
+      "tariq garden"
+     ]
+    },
+    {
+     "keep": "6ad30af344cb08890dca6c36",
+     "ids": [
+      "6ad30af344cb08890dca6c36",
+      "6ad30b0d44cb08890dca6cef"
+     ],
+     "names": [
+      "eden gardens",
+      "eden garden"
+     ]
+    },
+    {
+     "keep": "69df77003d13c1d766ee3f3d",
+     "ids": [
+      "69df77003d13c1d766ee3f3d",
+      "6a2a5c34e935cdc30f2af5c3"
+     ],
+     "names": [
+      "jubilee town",
+      "jubileen town"
+     ]
+    },
+    {
+     "keep": "6a142a47c84885bb0da67053",
+     "ids": [
+      "6a142a47c84885bb0da67053",
+      "69a005d9ce488394e8cd07b2",
+      "6ad076c33744961a16163cb3"
+     ],
+     "names": [
+      "al rehman garden phase 2",
+      "rehman garden phase 2",
+      "rehan garden phase2"
+     ]
+    },
+    {
+     "keep": "6ad30b1944cb08890dca6d41",
+     "ids": [
+      "6ad30b1944cb08890dca6d41",
+      "6a06c9154e28d4a8f617e08c"
+     ],
+     "names": [
+      "shama colony",
+      "ashiana road shama colony"
+     ]
+    },
+    {
+     "keep": "69df68764a98a72b2559e485",
+     "ids": [
+      "69df68764a98a72b2559e485",
+      "6a0446834c0940d3bc6db003"
+     ],
+     "names": [
+      "allama iqbal town",
+      "iqbal town wahdat road"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "6989a8bb5fa8858b32ba2b15",
+   "city": "Karachi",
+   "citySlug": "karachi",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69c390ee80e06cc2031c8fdc",
+     "from": "sports city, bahria town",
+     "to": "bahria town sports city"
+    }
+   ],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "6ad30ac644cb08890dca6b9a",
+     "ids": [
+      "6ad30ac644cb08890dca6b9a",
+      "6ad30a9044cb08890dca6a22"
+     ],
+     "names": [
+      "dha phase 8 extension",
+      "dha phase 8 ext"
+     ]
+    },
+    {
+     "keep": "6a01878dd7e1f73c27ed3941",
+     "ids": [
+      "6a01878dd7e1f73c27ed3941",
+      "6ad30aa344cb08890dca6aa2"
+     ],
+     "names": [
+      "musalmanan-e-punjab cooperative housing society",
+      "musalman-e-punjab society"
+     ]
+    },
+    {
+     "keep": "6ad30aad44cb08890dca6aeb",
+     "ids": [
+      "6ad30aad44cb08890dca6aeb",
+      "6ad30a9844cb08890dca6a55"
+     ],
+     "names": [
+      "darakhshan housing society",
+      "darakshan cooperative housing society"
+     ]
+    },
+    {
+     "keep": "6ad30acb44cb08890dca6bc2",
+     "ids": [
+      "6ad30acb44cb08890dca6bc2",
+      "6ad30acf44cb08890dca6bde"
+     ],
+     "names": [
+      "new dhoraji colony",
+      "name dhoraji colony"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "69b3d568b54bea7df8c37b07",
+   "city": "Rawalpindi",
+   "citySlug": "rawalpindi",
+   "coords": [],
+   "rename": [
+    {
+     "id": "6ad30b5744cb08890dca6e28",
+     "from": "sector b, phase 8",
+     "to": "dha phase 8 sector b"
+    },
+    {
+     "id": "6ad30b5844cb08890dca6e29",
+     "from": "sector c, phase 8",
+     "to": "dha phase 8 sector c"
+    },
+    {
+     "id": "6ad30b5844cb08890dca6e2a",
+     "from": "sector f, phase 8",
+     "to": "dha phase 8 sector f"
+    },
+    {
+     "id": "6ad30b5d44cb08890dca6e50",
+     "from": "sector g, dha phase 2, islamabad",
+     "to": "dha phase 2 sector g"
+    },
+    {
+     "id": "6ad30b6044cb08890dca6e66",
+     "from": "model town, humak",
+     "to": "model town humak"
+    },
+    {
+     "id": "6ad30b6544cb08890dca6e86",
+     "from": "meridian 1, emaar dha",
+     "to": "emaar meridian 1"
+    }
+   ],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "6ad30b6344cb08890dca6e75",
+     "ids": [
+      "6ad30b6344cb08890dca6e75",
+      "6ad30b5544cb08890dca6e18"
+     ],
+     "names": [
+      "soan gardens",
+      "soan garden"
+     ]
+    },
+    {
+     "keep": "6ad30b5544cb08890dca6e19",
+     "ids": [
+      "6ad30b5544cb08890dca6e19",
+      "6ad30b6244cb08890dca6e73"
+     ],
+     "names": [
+      "river garden",
+      "river gardens housing scheme"
+     ]
+    },
+    {
+     "keep": "6ad30b5f44cb08890dca6e5b",
+     "ids": [
+      "6ad30b5f44cb08890dca6e5b",
+      "6ad30b5f44cb08890dca6e5c"
+     ],
+     "names": [
+      "doctors residence",
+      "doctors residences"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "69b5409467194c79fe32433c",
+   "city": "Hyderabad",
+   "citySlug": "hyderabad",
+   "coords": [],
+   "rename": [],
+   "hide": [],
+   "merge": [
+    {
+     "keep": "6ad30a6944cb08890dca696a",
+     "ids": [
+      "6ad30a6944cb08890dca696a",
+      "6ad30a6d44cb08890dca698a"
+     ],
+     "names": [
+      "peons colony",
+      "peon colony"
+     ]
+    }
+   ],
+   "add": []
+  },
+  {
+   "cityId": "698d8542b63dfe156d709072",
+   "city": "Islamabad",
+   "citySlug": "islamabad",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69c4d79269531e44f895e27b",
+     "from": "f-10, islamabad",
+     "to": "f-10"
+    },
+    {
+     "id": "69b7d3bd3dff137aef6e6810",
+     "from": "g-13 islamabad",
+     "to": "g-13"
+    },
+    {
+     "id": "69f308614511fd90d062a1fd",
+     "from": "g-13/4, islamabad",
+     "to": "g-13/4"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  },
+  {
+   "cityId": "69b5405067194c79fe324302",
+   "city": "Jhelum",
+   "citySlug": "jhelum",
+   "coords": [],
+   "rename": [
+    {
+     "id": "6ad30a7844cb08890dca6992",
+     "from": "new metro city kharian - sarai alamgir",
+     "to": "new metro city kharian"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  },
+  {
+   "cityId": "69b53f7767194c79fe32424d",
+   "city": "Sahiwal",
+   "citySlug": "sahiwal",
+   "coords": [],
+   "rename": [
+    {
+     "id": "6ac89741d9344264bdf28292",
+     "from": "shalimar colony street no. 9",
+     "to": "shalimar colony"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  },
+  {
+   "cityId": "69b530153cf386af45136e32",
+   "city": "Sargodha",
+   "citySlug": "sargodha",
+   "coords": [],
+   "rename": [
+    {
+     "id": "69b9325b3dff137aef6ea684",
+     "from": "sargodha to sillanwali road",
+     "to": "sillanwali road"
+    }
+   ],
+   "hide": [],
+   "merge": [],
+   "add": []
+  }
+ ]
+}

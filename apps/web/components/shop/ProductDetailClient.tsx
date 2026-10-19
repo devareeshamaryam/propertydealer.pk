@@ -7,7 +7,8 @@ import api from '@/lib/api';
 import ProductCard, { AddToCart, PriceChange, ProductImage } from '@/components/shop/ProductCard';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import { resolved, waDigits } from '@/lib/site-settings';
-import { TYPE_META, imageSrc, rs, type ShopProduct } from '@/lib/shop';
+import { imageSrc, rs, typeMeta, type ShopProduct } from '@/lib/shop';
+import { useMaterialTypes } from '@/components/MaterialTypesProvider';
 import { cn } from '@/lib/utils';
 
 /*
@@ -28,7 +29,7 @@ export default function ProductDetailClient({
 }) {
   const settings = useSiteSettings();
   const site = resolved(settings);
-  const meta = TYPE_META[product.type];
+  const meta = typeMeta(product.type, useMaterialTypes());
   const gallery = [product.image, ...images].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
   const [active, setActive] = useState(0);
   const [related, setRelated] = useState<ShopProduct[]>([]);

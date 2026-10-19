@@ -38,6 +38,12 @@ export function agentProfilePath(agent?: AgentRef | string | null): string | nul
   return label ? `/agents/${label}-${id}` : `/agents/${id}`;
 }
 
+/** "<company-or-name>-<id>" — one level of a profile address. */
+export function agentSlugPart(agent: AgentRef): string {
+  const label = slugify(agent.companyName || agent.name || "");
+  return label ? `${label}-${agent._id}` : String(agent._id);
+}
+
 /** The id back out of a profile slug. */
 export function agentIdFromSlug(slug: string): string | null {
   const match = slug.match(/([0-9a-f]{24})$/i);

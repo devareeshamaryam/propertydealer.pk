@@ -46,7 +46,9 @@ export interface BackendProperty {
   features?: string[];
   mainPhotoUrl?: string;
   additionalPhotosUrls?: string[];
-  status: 'pending' | 'approved' | 'rejected' | 'draft';
+  status: 'pending' | 'approved' | 'rejected' | 'draft' | 'expired';
+  /** Free plan: when the listing stops being live (renewable). Empty on paid plans. */
+  expiresAt?: string | null;
   /** Pinned to the top of the public lists by an admin. */
   isFeatured?: boolean;
   /** The owner holds a plan with the verified badge (or is an agent of such an agency). */

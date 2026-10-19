@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body , Param, Put, Delete, UsePipes, ValidationPipe, UseGuards} from '@nestjs/common';
+import { Controller, Get, Post, Body , Param, Put, Delete, UsePipes, ValidationPipe, UseGuards } from '@nestjs/common';
 import { CityService } from './city.service';
 import { CreateCityDto } from '@rent-ghar/dtos/city/createcity.dto';
 import { CityDocument } from '@rent-ghar/db/schemas/city.schema';
@@ -9,6 +9,13 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 @Controller('cities')
 export class CityController {
     constructor(private readonly cityService: CityService){}
+
+    /** Any signed-in agent: the city their listing is in, added if it is missing (no duplicates). */
+    @Post('suggest')
+    @UseGuards(JwtAuthGuard)
+    async suggestCity(@Body('name') name: string) {
+        return this.cityService.suggestCity(name);
+    }
 
     @Post()
     @UseGuards(JwtAuthGuard, AdminGuard)

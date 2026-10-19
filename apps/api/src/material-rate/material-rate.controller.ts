@@ -29,8 +29,9 @@ export class MaterialRateController {
   }
 
   @Get('slug/:slug')
-  async findBySlug(@Param('slug') slug: string) {
-    return this.materialRateService.findBySlug(slug);
+  async findBySlug(@Param('slug') slug: string, @Query('materialType') materialType?: string) {
+    // With ?materialType= the product page of a material added from the dashboard (slugs repeat across materials).
+    return materialType ? this.materialRateService.findBySlugInType(materialType, slug) : this.materialRateService.findBySlug(slug);
   }
 
   // ── Admin ───────────────────────────────────────────────────────────────

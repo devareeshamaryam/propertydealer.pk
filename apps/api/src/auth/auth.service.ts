@@ -184,7 +184,10 @@ export class AuthService {
     }
 
     if (user.isActive === false) {
-      throw new ForbiddenException('Account is pending activation');
+      // An agency's agent switched off by the agency owner — not an account waiting for approval.
+      throw new ForbiddenException(
+        user.agencyId ? 'Your agency has paused this account. Please contact your agency owner.' : 'Account is pending activation',
+      );
     }
     
     // generate access token and refresh token
@@ -275,7 +278,9 @@ export class AuthService {
     }
 
     if (user.isActive === false) {
-      throw new ForbiddenException('Account is pending activation');
+      throw new ForbiddenException(
+        user.agencyId ? 'Your agency has paused this account. Please contact your agency owner.' : 'Account is pending activation',
+      );
     }
 
     return this.issueSession(user, 'Login successful');

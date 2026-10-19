@@ -16,6 +16,11 @@ import { PLAN_BENEFITS, STATIC_PAGES } from './setup-content';
  *                    and listing limits untouched)
  *   static-pages-v1  About, Contact, Privacy Policy and Terms as Static Pages
  *                    (only those that do not exist yet)
+ *   plans-v3         agent accounts on Agency too (3; Agency Plus 10), and
+ *                    more listings and featured slots on both agency plans so
+ *                    the agents have room. Numbers only ever go up — an
+ *                    admin's higher figure stays — and prices are untouched.
+ *                    Free's description now says a listing runs for a month.
  *   brand-name-v1    "PropertyDealer" written as two words, "Property Dealer":
  *                    the Site name setting (when it is still the old default),
  *                    the copyright line and default title, and the four
@@ -73,6 +78,34 @@ export class SetupService implements OnApplicationBootstrap {
     await this.job('plans-v2', () => this.plans());
     await this.job('static-pages-v1', () => this.staticPages());
     await this.job('brand-name-v1', () => this.brandName());
+    await this.job('plans-v3', () => this.plansV3());
+  }
+
+  private async plansV3() {
+    const AT_LEAST: Record<string, { teamMembers: number; propertyLimit: number; featuredListings: number }> = {
+      agency: { teamMembers: 3, propertyLimit: 80, featuredListings: 15 },
+      'agency plus': { teamMembers: 10, propertyLimit: 200, featuredListings: 40 },
+    };
+    const updated: string[] = [];
+    for (const pkg of await this.packages.find().exec()) {
+      const key = String(pkg.name).trim().toLowerCase();
+      const p: any = pkg;
+      const target = AT_LEAST[key];
+      if (target) {
+        for (const [k, v] of Object.entries(target)) p[k] = Math.max(Number(p[k] ?? 0), v);
+        // The built-in wording only — an admin's own description stays.
+        if (key === 'agency' && p.description === 'For established agencies that want to stand out.') p.description = 'For established agencies with a few agents.';
+        if (key === 'agency plus' && p.description === 'For agencies with a team of agents.') p.description = 'For bigger agencies with a team of agents.';
+        await pkg.save();
+        updated.push(pkg.name);
+      } else if ((key === 'free' || Number(p.price ?? 0) <= 0) && /no expiry/i.test(String(p.description ?? ''))) {
+        p.description = 'Start listing today — no card needed. Your listing stays live for a month; renew it for free.';
+        await pkg.save();
+        updated.push(pkg.name);
+      }
+    }
+    void this.revalidate.revalidate({ tags: ['packages'], paths: ['/', '/packages'] });
+    return { updated };
   }
 
   private async brandName() {

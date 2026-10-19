@@ -125,6 +125,9 @@ export class PropertyService {
      */
     static readonly AVAILABILITY_GRACE_DAYS = 15;
 
+    /** How long a Free-plan listing stays live before it needs renewing. */
+    static readonly FREE_LISTING_DAYS = 30;
+
     /** Settings → General → Listings: days a sold/rented listing stays in the lists. */
     private async graceCutoff(): Promise<Date> {
         let days = PropertyService.AVAILABILITY_GRACE_DAYS;
@@ -330,6 +333,15 @@ export class PropertyService {
         // Drafts do not consume subscription slots — they aren't published yet.
         const consumesSubscription = userRole !== 'ADMIN' && finalStatus !== 'draft';
 
+        // On the Free plan a listing stays live for a month (renewable); paid plans' listings do not expire.
+        let expiresAt: Date | undefined;
+        if (consumesSubscription) {
+          const effective = await this.subscriptionService.getEffectivePlan(userId).catch(() => null);
+          if (effective && effective.tier === 'free' && !effective.subscription) {
+            expiresAt = new Date(Date.now() + PropertyService.FREE_LISTING_DAYS * 24 * 60 * 60 * 1000);
+          }
+        }
+
         if (consumesSubscription) {
           // SYNC: Before checking subscription, ensure the count is accurate
           // The counter on the plan owner's subscription follows the team's real count.
@@ -385,6 +397,7 @@ export class PropertyService {
               mainPhotoUrl,
               additionalPhotosUrls: additionalPhotosUrls || [],
               status: finalStatus,
+              ...(expiresAt ? { expiresAt } : {}),
               source,
               latitude: dto.latitude ? Number(dto.latitude) : undefined,
               longitude: dto.longitude ? Number(dto.longitude) : undefined,
@@ -400,6 +413,13 @@ export class PropertyService {
               autoPublished: brainVerdict?.action === 'publish',
             })
             const saved = await property.save()
+
+            // A listing in a hidden area (an emptied-out entry) brings the area back.
+            if (saved.area) {
+              this.areaModel.collection
+                .updateOne({ _id: new Types.ObjectId(String(saved.area)), hidden: true }, { $unset: { hidden: '', hiddenReason: '' } })
+                .catch(() => undefined);
+            }
 
             // Bust caches only when the new property is publicly visible.
             // Drafts/pending listings don't appear on the public site, so
@@ -1394,7 +1414,8 @@ export class PropertyService {
         // That made an unknown slug — including one typed by a crawler — cost a
         // full collection scan plus writes, on an uncacheable 404 path.
         const property = await this.propertyModel
-          .findOne({ slug: normalizedSlug, status: 'approved' })
+          // An expired listing's page still answers (with a notice): the URL may be ranked.
+          .findOne({ slug: normalizedSlug, status: { $in: ['approved', 'expired'] } })
           .exec();
         if (!property) {
           throw new NotFoundException(`Property with slug ${slug} not found`)
@@ -1469,7 +1490,18 @@ export class PropertyService {
             }
         }
 
-        const property = await this.propertyModel.findByIdAndUpdate(id, { status }, { new: true }).exec();
+        // Approved again after its month ran out (edited, then re-reviewed): a fresh month, not an instant re-expiry.
+        const soon = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const restart = status === 'approved'
+          ? await this.propertyModel.exists({ _id: id, expiresAt: { $ne: null, $lt: soon } })
+          : null;
+        const property = await this.propertyModel
+          .findByIdAndUpdate(
+            id,
+            restart ? { status, expiresAt: new Date(Date.now() + PropertyService.FREE_LISTING_DAYS * 24 * 60 * 60 * 1000) } : { status },
+            { new: true },
+          )
+          .exec();
 
         if (property && property.status === 'approved' && property.slug) {
             const host = this.configService.get<string>('APP_HOST') || 'propertydealer.pk';
@@ -1522,7 +1554,10 @@ export class PropertyService {
             .exec();
 
           if (!existing) throw new NotFoundException('Property not found');
-          if (!userId || !(await this.agency.canManage(existing.owner, userId))) {
+          if (!userId || !(await this.agency.canAdminister(existing.owner, userId))) {
+            if (userId && (await this.agency.agencyOf(userId))) {
+              throw new ForbiddenException('Only your agency owner can feature listings.');
+            }
             throw new ForbiddenException(
               'You do not have permission to modify this property listing',
             );
@@ -1811,6 +1846,40 @@ export class PropertyService {
         }
       }
 
+      /**
+       * Renew a Free-plan listing: another month live. An expired one comes
+       * back (it takes a slot of the plan again, so the plan must have one);
+       * one still live just gets its month restarted. On a paid plan the
+       * listing simply stays live with no end date.
+       */
+      async renew(id: string, userId?: string, userRole?: string) {
+        if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Property not found');
+        const property = await this.propertyModel.findById(id).exec();
+        if (!property) throw new NotFoundException('Property not found');
+        if (userRole !== 'ADMIN' && !(await this.agency.canManage(property.owner, String(userId)))) {
+          throw new ForbiddenException('You do not have permission to renew this listing');
+        }
+        const wasExpired = property.status === 'expired';
+        if (!wasExpired && !(property.status === 'approved' && property.expiresAt)) {
+          throw new BadRequestException('This listing does not need renewing');
+        }
+        const ownerId = String(property.owner);
+        if (wasExpired) {
+          const check = await this.subscriptionService.canCreateProperty(ownerId);
+          if (!check.canCreate) throw new ForbiddenException(check.message || 'Your plan has no free listing slot');
+        }
+        const plan = await this.subscriptionService.getEffectivePlan(ownerId);
+        const free = plan.tier === 'free' && !plan.subscription;
+        const expiresAt = free ? new Date(Date.now() + PropertyService.FREE_LISTING_DAYS * 24 * 60 * 60 * 1000) : null;
+        // A field update, not save(): older listings may lack fields today's form requires.
+        await this.propertyModel.updateOne(
+          { _id: property._id },
+          expiresAt ? { $set: { status: 'approved', expiresAt } } : { $set: { status: 'approved' }, $unset: { expiresAt: '' } },
+        );
+        this.bustPropertyCaches(property.slug).catch(() => {});
+        return { _id: String(property._id), status: 'approved', expiresAt };
+      }
+
       async delete(id: string, userId?: string, userRole?: string) {
         try {
           const property = await this.propertyModel.findById(id).exec();
@@ -1819,8 +1888,13 @@ export class PropertyService {
           }
 
           // Allow delete if user is ADMIN or the actual OWNER
-          if (userRole !== 'ADMIN' && !(await this.agency.canManage(property.owner, String(userId)))) {
-            throw new ForbiddenException('You do not have permission to delete this property listing');
+          // The agency deletes; its agents cannot (they can mark a listing sold or edit it).
+          if (userRole !== 'ADMIN' && !(await this.agency.canAdminister(property.owner, String(userId)))) {
+            throw new ForbiddenException(
+              (await this.agency.agencyOf(String(userId)))
+                ? 'Only your agency owner can delete listings. You can mark it sold or edit it.'
+                : 'You do not have permission to delete this property listing',
+            );
           }
 
           await this.propertyModel.findByIdAndDelete(id).exec();

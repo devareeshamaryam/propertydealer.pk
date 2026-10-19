@@ -10,9 +10,13 @@ import api from '@/lib/api';
  */
 
 export const PRODUCT_TYPES = ['cement', 'steel', 'bricks', 'sand', 'bajri', 'wood', 'door', 'tile'] as const;
-export type ProductType = (typeof PRODUCT_TYPES)[number];
+export type BuiltInType = (typeof PRODUCT_TYPES)[number];
+/** A built-in material, or the slug of one added from the dashboard (Dashboard → Materials). */
+export type ProductType = BuiltInType | (string & {});
 
-export const TYPE_META: Record<ProductType, { label: string; path: string; single: string }> = {
+export const isBuiltIn = (t: string): t is BuiltInType => (PRODUCT_TYPES as readonly string[]).includes(t);
+
+export const TYPE_META: Record<BuiltInType, { label: string; path: string; single: string }> = {
   cement: { label: 'Cement', single: 'Cement', path: '/today-cement-rate-in-pakistan' },
   steel: { label: 'Steel (Sarya)', single: 'Steel', path: '/today-steel-rate-in-pakistan' },
   bricks: { label: 'Bricks', single: 'Bricks', path: '/today-bricks-rate-in-pakistan' },
@@ -23,11 +27,23 @@ export const TYPE_META: Record<ProductType, { label: string; path: string; singl
   tile: { label: 'Tiles', single: 'Tile', path: '/today-tile-rate-in-pakistan' },
 };
 
-/** "Steel", "Tile"… as the rate pages name their material, mapped to our type. */
+/**
+ * Label and address of any material — a built-in one, or one added from the
+ * dashboard (pass the list from useMaterialTypes() for its proper name).
+ */
+export function typeMeta(type: ProductType, customs?: { slug: string; name: string }[]): { label: string; path: string; single: string } {
+  if (isBuiltIn(type)) return TYPE_META[type];
+  const name = customs?.find((c) => c.slug === type)?.name ?? type.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  return { label: name, single: name, path: `/today-${type}-rate-in-pakistan` };
+}
+
+/** "Steel", "Tile"… as the rate pages name their material, mapped to our type; a dashboard material keeps its slug. */
 export function typeFromMaterial(material: string): ProductType {
-  const key = material.toLowerCase().replace(/s$/, '') as string;
+  const lower = material.toLowerCase();
+  const key = lower.replace(/s$/, '');
   if (key === 'brick') return 'bricks';
-  return (PRODUCT_TYPES as readonly string[]).includes(key) ? (key as ProductType) : 'cement';
+  if (isBuiltIn(key)) return key;
+  return lower;
 }
 
 export interface ShopProduct {
@@ -64,7 +80,7 @@ export function toShopProduct(type: ProductType, r: any): ShopProduct {
     image: r.image || r.images?.[0] || '',
     isActive: r.isActive !== false,
     updatedAt: r.updatedAt,
-    href: `${TYPE_META[type].path}${r.slug ? `/${r.slug}` : ''}`,
+    href: `${typeMeta(type).path}${r.slug ? `/${r.slug}` : ''}`,
   };
 }
 

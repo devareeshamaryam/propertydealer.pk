@@ -21,7 +21,7 @@ export interface AgentProfile {
   /** For an agency's agent: the agency. */
   agency?: { _id: string; name: string; avatarUrl?: string } | null;
   /** For an agency: its agents. */
-  team?: { _id: string; name: string; avatarUrl?: string }[];
+  team?: { _id: string; name: string; avatarUrl?: string; listings?: number }[];
 }
 
 export const agentApi = {

@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsBoolean, IsEnum, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class CreateMaterialRateDto {
@@ -22,7 +22,7 @@ export class CreateMaterialRateDto {
   @IsString()
   unit?: string; // e.g., "50 Kg", "Per Cubic Foot", "Per Sq Ft"
 
-  @IsEnum(['Door', 'Wood', 'Sand', 'Tile', 'Bajri', 'Steel', 'Bricks'])
+  @IsString()
   materialType: string;
 
   @IsOptional()

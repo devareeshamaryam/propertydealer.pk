@@ -7,7 +7,7 @@
 export const PLAN_BENEFITS: Record<string, { perks: Record<string, unknown>; features: string[]; description?: string }> = {
   free: {
     perks: { verifiedBadge: false, teamMembers: 0, socialLinks: false, brandedProfile: false, autoPublish: false, spotlight: false, highlight: false },
-    description: 'Start listing today — no card, no expiry.',
+    description: 'Start listing today — no card needed. Your listing stays live for a month; renew it for free.',
     features: [
       '1 live listing at a time',
       'Photos and a walkthrough video on every listing',
@@ -45,8 +45,8 @@ export const PLAN_BENEFITS: Record<string, { perks: Record<string, unknown>; fea
     ],
   },
   agency: {
-    perks: { verifiedBadge: true, teamMembers: 0, socialLinks: true, brandedProfile: true, autoPublish: true, spotlight: true, highlight: false },
-    description: 'For established agencies that want to stand out.',
+    perks: { verifiedBadge: true, teamMembers: 3, socialLinks: true, brandedProfile: true, autoPublish: true, spotlight: true, highlight: false },
+    description: 'For established agencies with a few agents.',
     features: [
       '40 live listings',
       '10 featured listings — pinned above the rest, with a Featured tag',
@@ -60,7 +60,7 @@ export const PLAN_BENEFITS: Record<string, { perks: Record<string, unknown>; fea
   },
   'agency plus': {
     perks: { verifiedBadge: true, teamMembers: 10, socialLinks: true, brandedProfile: true, autoPublish: true, spotlight: true, highlight: false },
-    description: 'For agencies with a team of agents.',
+    description: 'For bigger agencies with a team of agents.',
     features: [
       '100 live listings, shared by your team',
       '25 featured listings — pinned above the rest, with a Featured tag',

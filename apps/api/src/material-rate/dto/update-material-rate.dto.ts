@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsBoolean, IsEnum, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateMaterialRateDto {
@@ -26,7 +26,7 @@ export class UpdateMaterialRateDto {
   unit?: string;
 
   @IsOptional()
-  @IsEnum(['Door', 'Wood', 'Sand', 'Tile', 'Bajri', 'Steel', 'Bricks'])
+  @IsString()
   materialType?: string;
 
   @IsOptional()

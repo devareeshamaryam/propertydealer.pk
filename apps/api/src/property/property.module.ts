@@ -3,6 +3,7 @@ import { PropertyController } from './property.controller';
 import { PropertyService } from './property.service';
 import { PropertyCountersService } from './property-counters.service';
 import { ListingBrainService } from './listing-brain.service';
+import { ListingExpiryService } from './listing-expiry.service';
 import { Property, PropertySchema } from '@rent-ghar/db/schemas/property.schema';
 import { Area, AreaSchema } from '@rent-ghar/db/schemas/area.schema';
 import { City, CitySchema } from '@rent-ghar/db/schemas/city.schema';
@@ -30,7 +31,7 @@ import { UserModule } from '../user/user.module';
     AgencyModule,
   ],
   controllers: [PropertyController],
-  providers: [PropertyService, PropertyCountersService, ListingBrainService],
+  providers: [PropertyService, PropertyCountersService, ListingBrainService, ListingExpiryService],
   exports: [PropertyService]
 })
 export class PropertyModule {}

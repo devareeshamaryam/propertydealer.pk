@@ -33,6 +33,8 @@ export interface NavLeaf {
   adminOnly?: boolean;
   /** Hidden from admins — for agent-side screens. */
   agentOnly?: boolean;
+  /** Hidden from an agency's own agents — the plan and the team are the agency owner's. */
+  notForTeamAgents?: boolean;
   /** Extra words the sidebar filter should match against. */
   keywords?: string[];
 }
@@ -133,10 +135,11 @@ export const NAV_SECTIONS: NavSection[] = [
         keywords: ["analytics", "views", "performance", "stats", "enquiries"],
       },
       {
-        // An agency owner's agent accounts (Agency Plus); explains the plan to everyone else.
+        // An agency owner's agent accounts (the agency plans); explains the plans to everyone else.
         title: "My Team",
         href: "/dashboard/team",
         agentOnly: true,
+        notForTeamAgents: true,
         keywords: ["agents", "team", "agency", "staff"],
       },
       {
@@ -305,8 +308,14 @@ export const NAV_SECTIONS: NavSection[] = [
         adminOnly: true,
         matches: MATERIAL_RATE_ITEMS.map((item) => item.href).concat(
           "/dashboard/material-rate",
+          "/dashboard/materials",
         ),
-        items: MATERIAL_RATE_ITEMS,
+        items: [
+          ...MATERIAL_RATE_ITEMS,
+          // New materials (Marble, Glass…) without code: each gets its page, menu and shop place.
+          { title: "Add a material", href: "/dashboard/materials", exact: true, keywords: ["new material", "material type", "marble", "glass", "paint"] },
+          { title: "Added materials' rates", href: "/dashboard/material-rate", keywords: ["custom", "other materials"] },
+        ],
       },
       {
         id: "rate-taxonomy",
@@ -372,6 +381,7 @@ export const NAV_SECTIONS: NavSection[] = [
          */
         title: "Buy a Plan",
         href: "/dashboard/purchase-package",
+        notForTeamAgents: true,
         keywords: ["package", "packages", "upgrade", "subscribe", "checkout", "pay"],
       },
     ],
@@ -486,6 +496,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   "door-rate": "Door Rates",
   "tile-rate": "Tile Rates",
   "material-rate": "Material Rates",
+  materials: "Materials",
   "tile-category": "Tile Categories",
   packages: "Packages",
   subscriptions: "Subscriptions",

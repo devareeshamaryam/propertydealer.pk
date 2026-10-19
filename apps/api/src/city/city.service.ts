@@ -6,6 +6,7 @@ import { CreateCityDto } from '@rent-ghar/dtos/city/createcity.dto';
 import { UpdateCityDto } from '@rent-ghar/dtos/city/updatecity.dto';
 import { RedisCacheService } from '../redis-cache/redis-cache.service';
 import { RevalidateService } from '../revalidate/revalidate.service';
+import { cleanPlaceName } from '../common/place-name';
 
 const TAG_CITIES = 'cities';
 
@@ -26,6 +27,24 @@ export class CityService {
 
     private toTitleCase(str: string): string {
         return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+
+    /**
+     * An agent adds the city their listing is in. An existing city with the
+     * same name (any case or spacing) is returned instead of a copy. New ones
+     * are marked source 'agent' for the admin's Cities list.
+     */
+    async suggestCity(rawName: string) {
+        const lower = cleanPlaceName(rawName, 'city');
+        const loose = lower.replace(/[^a-z0-9]+/g, '');
+        const all = await this.cityModel.collection.find({}, { projection: { name: 1 } }).toArray();
+        const hit: any = all.find((c: any) => String(c.name).toLowerCase().replace(/[^a-z0-9]+/g, '') === loose);
+        if (hit) return { _id: String(hit._id), name: hit.name, created: false };
+        const name = this.toTitleCase(lower);
+        const now = new Date();
+        const r = await this.cityModel.collection.insertOne({ name, source: 'agent', createdAt: now, updatedAt: now } as any);
+        this.bustCityCaches().catch(() => {});
+        return { _id: String(r.insertedId), name, created: true };
     }
 
     async createCity(createCityDto: CreateCityDto): Promise<CityDocument> {

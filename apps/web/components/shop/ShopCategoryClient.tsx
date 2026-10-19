@@ -6,7 +6,8 @@ import { usePathname } from 'next/navigation';
 import { ChevronDown, ChevronRight, LayoutGrid, List, PackageCheck, PhoneCall, Search, Truck, X } from 'lucide-react';
 import ProductCard from '@/components/shop/ProductCard';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
-import { PRODUCT_TYPES, TYPE_META, rs, type ProductType, type ShopProduct } from '@/lib/shop';
+import { PRODUCT_TYPES, rs, typeMeta, type ProductType, type ShopProduct } from '@/lib/shop';
+import { useMaterialTypes } from '@/components/MaterialTypesProvider';
 import { cn } from '@/lib/utils';
 
 /*
@@ -62,6 +63,7 @@ export default function ShopCategoryClient({
   fallbackContent?: ReactNode;
   tileCategories?: TileCategory[];
 }) {
+  const customs = useMaterialTypes();
   const pathname = usePathname();
   const settings = useSiteSettings();
   const [query, setQuery] = useState('');
@@ -105,7 +107,7 @@ export default function ShopCategoryClient({
         <nav aria-label="Breadcrumb" className="mb-3 flex items-center gap-1 text-[12.5px] text-slate-500">
           <Link href="/" className="hover:text-primary">Home</Link>
           <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-          <span className="text-slate-700">{TYPE_META[type].label} rates</span>
+          <span className="text-slate-700">{typeMeta(type, customs).label} rates</span>
         </nav>
 
         <h1 className="text-[24px] font-bold tracking-tight text-slate-900 sm:text-[32px]" suppressHydrationWarning>
@@ -121,18 +123,19 @@ export default function ShopCategoryClient({
 
         {/* Material switcher */}
         <div className="hide-scrollbar -mx-[var(--gutter)] mt-4 flex gap-2 overflow-x-auto px-[var(--gutter)] pb-1">
-          {PRODUCT_TYPES.map((t) => {
-            const active = pathname?.startsWith(TYPE_META[t].path) ?? t === type;
+          {[...PRODUCT_TYPES, ...customs.map((c) => c.slug)].map((t) => {
+            const m = typeMeta(t, customs);
+            const active = pathname?.startsWith(m.path) ?? t === type;
             return (
               <Link
                 key={t}
-                href={TYPE_META[t].path}
+                href={m.path}
                 className={cn(
                   'shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors',
                   active ? 'border-primary bg-primary text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300',
                 )}
               >
-                {TYPE_META[t].label}
+                {m.label}
               </Link>
             );
           })}
@@ -160,7 +163,7 @@ export default function ShopCategoryClient({
                 {openTileCat === cat.slug && !!cat.subcategories?.length && (
                   <div className="absolute left-0 top-full z-20 mt-1 w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
                     {cat.subcategories.map((sub) => (
-                      <Link key={sub.slug} href={`${TYPE_META.tile.path}/${sub.slug}`} className="block rounded-lg px-3 py-2 text-[13px] text-slate-700 hover:bg-slate-50 hover:text-primary">
+                      <Link key={sub.slug} href={`${typeMeta('tile').path}/${sub.slug}`} className="block rounded-lg px-3 py-2 text-[13px] text-slate-700 hover:bg-slate-50 hover:text-primary">
                         {sub.name}
                       </Link>
                     ))}
@@ -179,7 +182,7 @@ export default function ShopCategoryClient({
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={`Search ${TYPE_META[type].label.toLowerCase()}`}
+                placeholder={`Search ${typeMeta(type, customs).label.toLowerCase()}`}
                 className="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-[13.5px] outline-none focus:border-primary"
               />
             </label>

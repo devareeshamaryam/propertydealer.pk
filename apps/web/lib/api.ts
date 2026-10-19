@@ -402,7 +402,13 @@ export const propertyApi = {
     return response.data;
   },
 
-  /** Pin a listing to the top of the public lists. Admin only. */
+  /** Another month for a Free-plan listing, or an expired one back on the site. */
+  renew: async (propertyId: string): Promise<{ _id: string; status: string; expiresAt: string | null }> => {
+    const response = await api.post(`/properties/${propertyId}/renew`);
+    return response.data;
+  },
+
+  /** Pin a listing to the top of the public lists. The admin, or the agency that owns it. */
   setFeatured: async (propertyId: string, isFeatured: boolean) => {
     const response = await api.patch(`/properties/${propertyId}/featured`, {
       isFeatured,
@@ -572,25 +578,46 @@ export interface TeamMember {
   phone: string;
   isActive: boolean;
   createdAt?: string;
-  listings: { total: number; live: number };
+  /** The owner's cap for this agent; 0 = none of their own (the team's plan limit applies). */
+  listingLimit: number;
+  listings: { total: number; live: number; pending: number; expired: number; featured: number };
+  stats: { views: number; calls: number; whatsapp: number };
 }
 
-/** An agency owner's agent accounts (Agency Plus). */
+export interface TeamOverview {
+  limit: number;
+  planName: string;
+  pool: { limit: number; used: number; featuredLimit: number };
+  owner: { listings: TeamMember["listings"]; stats: TeamMember["stats"] };
+  members: TeamMember[];
+}
+
+/** An agency owner's agent accounts (the agency plans). */
 export const teamApi = {
-  list: async (): Promise<{ limit: number; planName: string; members: TeamMember[] }> => {
+  list: async (): Promise<TeamOverview> => {
     const response = await api.get("/team");
     return response.data.data;
   },
-  create: async (data: { name: string; email: string; password: string; phone?: string }): Promise<TeamMember> => {
+  create: async (data: { name: string; email: string; password: string; phone?: string; listingLimit?: number }): Promise<TeamMember> => {
     const response = await api.post("/team", data);
     return response.data.data;
   },
-  update: async (id: string, data: { name?: string; phone?: string; isActive?: boolean; password?: string }) => {
+  update: async (id: string, data: { name?: string; phone?: string; email?: string; isActive?: boolean; password?: string; listingLimit?: number | null }) => {
     const response = await api.patch(`/team/${id}`, data);
     return response.data.data;
   },
-  remove: async (id: string): Promise<{ removed: boolean; listingsMoved: number }> => {
-    const response = await api.delete(`/team/${id}`);
+  /** One listing of the team to the owner (no `to`) or an agent. */
+  assign: async (propertyId: string, to?: string): Promise<{ _id: string; owner: string }> => {
+    const response = await api.post(`/team/listings/${propertyId}/assign`, { to });
+    return response.data.data;
+  },
+  /** Move all of an agent's listings to the owner (no `to`) or another agent. */
+  transfer: async (id: string, to?: string): Promise<{ moved: number; to: string }> => {
+    const response = await api.post(`/team/${id}/transfer`, { to });
+    return response.data.data;
+  },
+  remove: async (id: string, to?: string): Promise<{ removed: boolean; listingsMoved: number }> => {
+    const response = await api.delete(`/team/${id}`, { params: to ? { to } : {} });
     return response.data.data;
   },
 };

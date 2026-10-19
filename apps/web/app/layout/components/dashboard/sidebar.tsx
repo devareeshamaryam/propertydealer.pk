@@ -50,6 +50,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
+import { subscriptionApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { agentProfilePath } from "@/lib/agent";
 import {
@@ -87,6 +88,15 @@ function groupMatchesFilter(group: NavGroup, term: string) {
 export default function DashboardSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  // An agency's agent: the plan and the team belong to the agency owner, so those links are hidden.
+  const [teamAgent, setTeamAgent] = useState(false);
+  useEffect(() => {
+    if (!user || user.role === "ADMIN") return;
+    subscriptionApi
+      .getMyPlan()
+      .then((p) => setTeamAgent(p?.team.role === "agent"))
+      .catch(() => undefined);
+  }, [user]);
   const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
   const isActive = useIsActive();
   const isAdmin = user?.role === "ADMIN";
@@ -142,10 +152,12 @@ export default function DashboardSidebar() {
     for (const section of NAV_SECTIONS) {
       const entries = section.entries
         .filter((entry) => (isAdmin || !entry.adminOnly) && !(isAdmin && !isGroup(entry) && entry.agentOnly))
+        .filter((entry) => !(teamAgent && !isGroup(entry) && entry.notForTeamAgents))
         .map((entry) => {
           if (!isGroup(entry)) return entry;
           const items = entry.items
             .filter((item) => isAdmin || !item.adminOnly)
+            .filter((item) => !(teamAgent && item.notForTeamAgents))
             .filter((item) =>
               term
                 ? matchesFilter(item, term) ||
@@ -163,7 +175,7 @@ export default function DashboardSidebar() {
       if (entries.length > 0) sections.push({ label: section.label, entries });
     }
     return sections;
-  }, [isAdmin, term]);
+  }, [isAdmin, term, teamAgent]);
 
   const initials =
     (user?.name ?? user?.email ?? "?")

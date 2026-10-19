@@ -263,10 +263,8 @@ export default function AddProperty() {
     if (!newCityName.trim()) return;
     try {
       setIsAddingLocation(true);
-      const data = await cityApi.create({
-        name: toTitleCase(newCityName.trim()),
-      });
-      toast.success("City added successfully");
+      const data = await cityApi.suggest(newCityName.trim());
+      toast.success(data.created ? `${data.name} added` : `${data.name} selected — it was already on the list`);
       const allCities = await cityApi.getNames();
       setCities(allCities);
       setCityId(String(data._id));
@@ -283,13 +281,8 @@ export default function AddProperty() {
     if (!newAreaName.trim() || !cityId) return;
     try {
       setIsAddingLocation(true);
-      const slug = generateSlug(newAreaName);
-      const data = await areaApi.create({
-        name: toTitleCase(newAreaName.trim()),
-        city: cityId,
-        areaSlug: slug,
-      });
-      toast.success("Area added successfully");
+      const data = await areaApi.suggest(cityId, newAreaName.trim());
+      toast.success(data.created ? `${toTitleCase(data.name)} added` : `${toTitleCase(data.name)} selected — it was already on the list`);
       const allAreas = (await areaApi.getNames(cityId)) as unknown as Area[];
       setAreas(allAreas);
       setAreaId(String(data._id));
@@ -517,7 +510,7 @@ export default function AddProperty() {
   return (
     <div className="w-full">
       <div className="max-w-5xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-8">
+        <div className="bg-white rounded-xl border shadow-sm px-3 py-4 sm:p-6 lg:p-8">
           <h1 className="text-2xl font-semibold text-gray-800 mb-2">
             Add New Property
           </h1>
@@ -643,8 +636,8 @@ export default function AddProperty() {
                         {city.name || "Unnamed City"}
                       </SelectItem>
                     ))}
-                    {/* Admin only: POST /cities is behind AdminGuard. */}
-                    {isAdmin && (
+                    {/* Anyone listing can add a missing city — the API reuses one that exists. */}
+                    {Boolean(user) && (
                       <div
                         className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
                         onClick={(e) => {
@@ -688,7 +681,7 @@ export default function AddProperty() {
                         {area.name || "Unnamed Area"}
                       </SelectItem>
                     ))}
-                    {cityId && isAdmin && (
+                    {cityId && (
                       <div
                         className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
                         onClick={(e) => {
@@ -706,14 +699,9 @@ export default function AddProperty() {
                     Please select a city first
                   </p>
                 ) : (
-                  !isAdmin && (
-                    // Agents cannot create areas (AdminGuard), so say what to
-                    // do instead of leaving them hunting for a + button.
-                    <p className="text-xs text-gray-500 mt-1">
-                      Area missing? Ask an admin to add it, or pick the nearest
-                      one and write the exact address below.
-                    </p>
-                  )
+                  <p className="text-xs text-gray-500 mt-1">
+                    Area not in the list? Open the list and tap <b>Add New Area</b> at the end — just its name, e.g. &quot;DHA Phase 6&quot;.
+                  </p>
                 )}
               </div>
             </div>

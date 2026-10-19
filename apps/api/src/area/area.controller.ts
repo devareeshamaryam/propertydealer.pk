@@ -11,6 +11,7 @@ import {
   ValidationPipe,
   Query,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AreaService } from './area.service';
 import { CreateAreaDto } from '@rent-ghar/dtos/area/createarea.dto';
@@ -72,6 +73,13 @@ export class AreaController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async setAreaHidden(@Param('id') id: string, @Body('hidden') hidden: boolean) {
     return this.areaService.setAreaHidden(id, hidden !== false);
+  }
+
+  /** Any signed-in agent: the area their listing is in, added if it is missing (no duplicates). */
+  @Post('suggest')
+  @UseGuards(JwtAuthGuard)
+  async suggestArea(@Body('city') city: string, @Body('name') name: string, @Request() req: any) {
+    return this.areaService.suggestArea(city, name, req.user?.userId);
   }
 
   @Get(':id')

@@ -140,7 +140,8 @@ async function flushCache() {
   const now = new Date();
   for (const c of plan.cities) {
     const cityAreas = all.filter((a) => String(a.city) === c.cityId);
-    const names = new Set(cityAreas.map((a) => String(a.name).toLowerCase()));
+    // Names in use: a duplicate already merged away no longer holds its name (it redirects).
+    const names = new Set(cityAreas.filter((a) => !a.mergedInto).map((a) => String(a.name).toLowerCase()));
     const slugs = new Set(cityAreas.map((a) => a.areaSlug));
     const log = [];
 
@@ -149,13 +150,6 @@ async function flushCache() {
       if (!a || Number.isFinite(a.lat)) continue;
       totals.coords++;
       if (APPLY) await Areas.updateOne({ _id: a._id }, { $set: { lat: x.lat, lng: x.lng } });
-    }
-    for (const x of c.rename) {
-      const a = byId.get(x.id);
-      if (!a || String(a.name) !== x.from || names.has(x.to)) { totals.skipped++; continue; }
-      totals.rename++;
-      names.add(x.to);
-      if (APPLY) await Areas.updateOne({ _id: a._id }, { $set: { name: x.to, updatedAt: now } });
     }
     for (const x of c.hide) {
       const a = byId.get(x.id);
@@ -180,6 +174,12 @@ async function flushCache() {
       log.push(`  keep ${slugOf(keep)} (${order[0].n})  ←  ${order.slice(1).map((o) => `${slugOf(o.a)} (${o.n})`).join(', ')}`);
       totals.merged += order.length - 1;
       totals.moved += order.slice(1).reduce((s, o) => s + o.n, 0);
+      // From here on (dry run too) the duplicates are merged: their names are free.
+      for (const { a } of order.slice(1)) {
+        a.mergedInto = keep._id;
+        names.delete(String(a.name).toLowerCase());
+      }
+      names.add(String(keep.name).toLowerCase());
       if (APPLY) {
         if (Object.keys(fill).length) await Areas.updateOne({ _id: keep._id }, { $set: fill });
         for (const { a } of order.slice(1)) {
@@ -190,6 +190,16 @@ async function flushCache() {
         }
       }
     }
+    // Renames after the merges, so a name freed by a merged duplicate can be taken.
+    for (const x of c.rename) {
+      const a = byId.get(x.id);
+      if (!a || a.mergedInto || String(a.name) !== x.from || (names.has(x.to) && String(a.name).toLowerCase() !== x.to)) { totals.skipped++; continue; }
+      totals.rename++;
+      names.delete(String(a.name).toLowerCase());
+      names.add(x.to);
+      if (APPLY) await Areas.updateOne({ _id: a._id }, { $set: { name: x.to, updatedAt: now } });
+    }
+
     const cityId = oid(c.cityId);
     for (const x of c.add) {
       if (names.has(x.name) || slugs.has(x.slug)) { totals.skipped++; continue; }

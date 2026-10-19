@@ -1,6 +1,7 @@
  import PropertiesListing from '@/components/PropertiesListing';
 import SocietyMapBanner from '@/components/society-map/SocietyMapBanner';
 import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import { serverApi, fetchInitialListings, isNotFoundError } from '@/lib/server-api';
 import { toTitleCase } from '@/lib/utils';
@@ -189,6 +190,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function SalePage({ params }: PageProps) {
   const { segments = [] } = await params;
   const { cityData, citySlug, areaData, areaSlug, propertyType, marla } = await resolve(segments);
+  // An area segment that is not an area (unknown, or a hidden empty one) is a real 404, not an empty page.
+  if (cityData && areaSlug && !areaData) notFound();
 
   const listingType = propertyType || 'all';
   const areaId      = areaData?._id;

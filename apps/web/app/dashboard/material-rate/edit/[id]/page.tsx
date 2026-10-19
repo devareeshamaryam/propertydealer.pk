@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { materialTypeApi } from "@/lib/api/material-type.api";
+import type { MaterialTypeAdmin } from "@/lib/materials";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,15 +29,6 @@ const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ),
 });
 
-const MATERIAL_TYPES = [
-  "Door",
-  "Wood",
-  "Sand",
-  "Tile",
-  "Bajri",
-  "Steel",
-  "Bricks",
-];
 const UNITS = [
   "Per Unit",
   "Per Sq Ft",
@@ -58,13 +51,18 @@ function getFullUrl(image: string): string {
 export default function EditMaterialRatePage() {
   const router = useRouter();
   const params = useParams();
+  // The materials added under Dashboard → Materials.
+  const [types, setTypes] = useState<MaterialTypeAdmin[]>([]);
+  useEffect(() => {
+    materialTypeApi.list().then(setTypes).catch(() => undefined);
+  }, []);
   const id = params?.id as string;
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
   const [form, setForm] = useState({
-    materialType: "Door",
+    materialType: "",
     brand: "",
     price: "",
     change: "0",
@@ -89,10 +87,7 @@ export default function EditMaterialRatePage() {
       .getRateById(id)
       .then((rate) => {
         setForm({
-          materialType: rate.materialType
-            ? rate.materialType.charAt(0).toUpperCase() +
-              rate.materialType.slice(1)
-            : "Door",
+          materialType: rate.materialType ?? "",
           brand: rate.brand ?? "",
           price: String(rate.price ?? ""),
           change: String(rate.change ?? 0),
@@ -124,7 +119,7 @@ export default function EditMaterialRatePage() {
       fd.append("price", form.price);
       fd.append("change", form.change);
       fd.append("city", form.city.trim());
-      fd.append("materialType", form.materialType.toLowerCase());
+      fd.append("materialType", form.materialType);
       fd.append("unit", form.unit);
       fd.append("isActive", form.isActive);
       if (form.category.trim()) fd.append("category", form.category.trim());
@@ -168,7 +163,7 @@ export default function EditMaterialRatePage() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border p-8">
+      <div className="bg-white rounded-xl shadow-sm border px-3 py-4 sm:p-6 lg:p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-1">
           Edit Material Rate
         </h1>
@@ -188,9 +183,10 @@ export default function EditMaterialRatePage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {MATERIAL_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
+                {types.map((t) => (
+                  <SelectItem key={t.slug} value={t.slug}>
+                    {t.name}
+                    {t.isActive ? "" : " (off)"}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -150,7 +150,7 @@ export default function PlanCards({
                   <span className="text-[30px] font-extrabold leading-none tracking-tight">{price.amount}</span>
                   {price.per && <span className="text-[13px] font-medium text-slate-500">/ {price.per}</span>}
                 </p>
-                <p className="mt-1 text-[12px] text-slate-500">{free ? 'No card, no expiry' : `Valid ${planDuration(p)}`}</p>
+                <p className="mt-1 text-[12px] text-slate-500">{free ? 'No card needed · renew free each month' : `Valid ${planDuration(p)}`}</p>
               </div>
 
               <div className="mt-4">

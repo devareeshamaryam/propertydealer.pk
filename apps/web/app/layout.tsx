@@ -9,6 +9,8 @@ import StructuredData from "@/components/StructuredData";
 import ChunkReloadGuard from "@/components/ChunkReloadGuard";
 import ScrollRestorer from "@/components/ScrollRestorer";
 import { SiteSettingsProvider } from "@/components/SiteSettingsProvider";
+import { MaterialTypesProvider } from "@/components/MaterialTypesProvider";
+import { getMaterialTypes } from "@/lib/materials";
 import { getSiteSettings } from "@/lib/site-settings.server";
 import { isHex, themeStyle } from "@/lib/site-settings";
 
@@ -126,7 +128,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const settings = await getSiteSettings();
+  const [settings, materialTypes] = await Promise.all([getSiteSettings(), getMaterialTypes()]);
   const fontVariables = [geistSans, inter, poppins, roboto, openSans].map((f) => f.variable).join(" ");
 
   return (
@@ -142,8 +144,10 @@ export default async function RootLayout({
           <AuthProvider>
             <TooltipProvider>
               <SiteSettingsProvider value={settings}>
-                <StructuredData />
-                {children}
+                <MaterialTypesProvider value={materialTypes}>
+                  <StructuredData />
+                  {children}
+                </MaterialTypesProvider>
               </SiteSettingsProvider>
               <Sonner />
             </TooltipProvider>

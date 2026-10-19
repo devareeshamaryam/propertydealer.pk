@@ -2,6 +2,8 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getSiteName } from "@/lib/site-settings.server";
+import { getMaterialRates, getMaterialType, materialSlugFromPage } from '@/lib/materials';
+import CustomMaterialClient from '@/components/MaterialRate/CustomMaterialClient';
 
 
 /* CMS pages: rendered on first visit, then cached; the API revalidates them on edit. */
@@ -28,6 +30,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // ✅ Static file request aaye toh metadata nahi banao
   if (isStaticFile(slug)) {
     return { title: `${site}` };
+  }
+
+  // /today-<material>-rate-in-pakistan of a material added from the dashboard.
+  const material = materialSlugFromPage(slug);
+  if (material) {
+    const t = await getMaterialType(material).catch(() => null);
+    if (t) {
+      const year = new Date().getFullYear();
+      const title = t.metaTitle || `Today ${t.name} Rate in Pakistan ${year} | ${site}`;
+      const description = t.metaDescription || `Check today's ${t.name.toLowerCase()} rates in Pakistan — prices from the main brands and suppliers, updated daily.`;
+      return { title, description, alternates: { canonical: `/${slug}` }, openGraph: { title, description, type: 'website' } };
+    }
   }
 
   try {
@@ -63,6 +77,16 @@ export default async function CustomPage({ params }: PageProps) {
   // ✅ Static file request aaye toh 404 karo
   if (isStaticFile(slug)) {
     notFound();
+  }
+
+  const material = materialSlugFromPage(slug);
+  if (material) {
+    // An API that is down throws (the cached page stays); no such material falls through to the CMS pages.
+    const t = await getMaterialType(material);
+    if (t) {
+      const rates = await getMaterialRates(t.slug);
+      return <CustomMaterialClient slug={t.slug} rates={rates} heading={`Today ${t.name} Rate in Pakistan`} content={t.content} />;
+    }
   }
 
   try {

@@ -42,9 +42,9 @@ export const PERK_LABELS: { key: keyof Plan; label: string; hint: string }[] = [
   { key: 'socialLinks', label: 'Social links', hint: 'Facebook, Instagram, YouTube, TikTok and website on your profile' },
 ];
 
-/** "1 month", "1 year", "45 days" — or "No expiry" for the free plan. */
+/** "1 month", "1 year", "45 days" — the free plan's is per listing (renewed for free). */
 export function planDuration(p: Pick<Plan, 'price' | 'duration'>): string {
-  if (!p.price) return 'No expiry';
+  if (!p.price) return '1 month per listing';
   if (p.duration === 30 || p.duration === 31) return '1 month';
   if (p.duration === 365) return '1 year';
   return `${p.duration} days`;
@@ -69,7 +69,7 @@ export function planBenefits(p: Plan): PlanBenefit[] {
   const team = p.teamMembers ?? 0;
   const featured = p.featuredListings ?? 0;
   return [
-    { key: 'listings', on: true, label: n(p.propertyLimit, 'live listing', 'live listings'), hint: team > 0 ? 'Shared by your team' : 'Live at the same time' },
+    { key: 'listings', on: true, label: n(p.propertyLimit, 'live listing', 'live listings'), hint: !p.price ? 'Live for a month at a time — renew for free' : team > 0 ? 'Shared by you and your agents' : 'Live at the same time' },
     { key: 'featured', on: featured > 0, label: featured > 0 ? n(featured, 'featured listing', 'featured listings') : 'Featured listings', hint: 'Shown first in search, with a Featured tag' },
     { key: 'verified', on: !!p.verifiedBadge, label: 'Verified badge', hint: 'On your profile, listings and listing cards' },
     { key: 'instant', on: !!p.autoPublish, label: 'Instant publishing', hint: 'Listings go live without waiting for review' },

@@ -18,6 +18,8 @@ import {
 import { DiscordService, DISCORD_COLORS } from '../notify/discord.service';
 import { RevalidateService } from '../revalidate/revalidate.service';
 import { SiteSettingsService } from '../site-settings/site-settings.service';
+import { MaterialType } from '@rent-ghar/db/schemas/material-type.schema';
+import { MaterialRate } from '@rent-ghar/db/schemas/material-rate.schema';
 
 /*
  * The construction-materials shop.
@@ -45,8 +47,15 @@ const TYPE_META: Record<ProductType, { label: string; path: string; tag: string 
   tile: { label: 'Tiles', path: 'today-tile-rate-in-pakistan', tag: 'tile-rates' },
 };
 
+/** A material added from the dashboard: its slug is its product type. */
+type AnyType = ProductType | string;
+interface CustomType {
+  slug: string;
+  name: string;
+}
+
 export interface ShopProduct {
-  type: ProductType;
+  type: AnyType;
   typeLabel: string;
   id: string;
   brand: string;
@@ -111,14 +120,32 @@ export class ShopService {
     private readonly discord: DiscordService,
     private readonly revalidate: RevalidateService,
     private readonly settings: SiteSettingsService,
+    @InjectModel(MaterialType.name) private readonly materialTypes: Model<any>,
+    @InjectModel(MaterialRate.name) private readonly materialRates: Model<any>,
   ) {
     this.models = { cement, steel, bricks, sand, bajri, wood, door, tile };
   }
 
   // ── Catalogue ─────────────────────────────────────────────────────────
 
-  private toProduct(type: ProductType, doc: any): ShopProduct {
-    const meta = TYPE_META[type];
+  private customCache: { at: number; list: CustomType[] } | null = null;
+
+  /** Active materials added from the dashboard (cached for a minute). */
+  private async customTypes(): Promise<CustomType[]> {
+    if (this.customCache && Date.now() - this.customCache.at < 60_000) return this.customCache.list;
+    const rows = await this.materialTypes.find({ isActive: true }).select('slug name').sort({ order: 1, name: 1 }).lean().exec();
+    const list = rows.map((r: any) => ({ slug: String(r.slug), name: String(r.name) }));
+    this.customCache = { at: Date.now(), list };
+    return list;
+  }
+
+  private metaOf(type: AnyType, custom?: CustomType): { label: string; path: string; tag: string } {
+    if ((PRODUCT_TYPES as readonly string[]).includes(type)) return TYPE_META[type as ProductType];
+    return { label: custom?.name ?? String(type), path: `today-${type}-rate-in-pakistan`, tag: 'material-rates' };
+  }
+
+  private toProduct(type: AnyType, doc: any, custom?: CustomType): ShopProduct {
+    const meta = this.metaOf(type, custom);
     const unit = type === 'cement' ? `${doc.weightKg ?? 50} kg bag` : doc.unit || 'Per unit';
     return {
       type,
@@ -143,6 +170,7 @@ export class ShopService {
   async listProducts(opts: { type?: string; includeInactive?: boolean; search?: string } = {}): Promise<ShopProduct[]> {
     const types = PRODUCT_TYPES.filter((t) => !opts.type || t === opts.type);
     const search = opts.search ? new RegExp(opts.search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') : null;
+    const customs = (await this.customTypes()).filter((c) => !opts.type || c.slug === opts.type);
     const lists = await Promise.all(
       types.map(async (type) => {
         const query: Record<string, unknown> = opts.includeInactive ? {} : { isActive: { $ne: false } };
@@ -156,12 +184,27 @@ export class ShopService {
         return docs.map((d) => this.toProduct(type, d));
       }),
     );
-    return lists.flat();
+    const customLists = await Promise.all(
+      customs.map(async (c) => {
+        const query: Record<string, unknown> = { materialType: c.slug, ...(opts.includeInactive ? {} : { isActive: { $ne: false } }) };
+        if (search) query.$or = [{ brand: search }, { title: search }, { city: search }, { category: search }];
+        const docs = await this.materialRates
+          .find(query)
+          .select('brand title slug price change unit city category image images isActive updatedAt')
+          .sort({ brand: 1 })
+          .lean()
+          .exec();
+        return docs.map((d) => this.toProduct(c.slug, d, c));
+      }),
+    );
+    return [...lists.flat(), ...customLists.flat()];
   }
 
   /** Quick edit from the admin rates board: today's price, the change, on/off. */
   async updateProduct(type: string, id: string, input: { price?: unknown; change?: unknown; isActive?: unknown }) {
-    if (!PRODUCT_TYPES.includes(type as ProductType)) throw new BadRequestException('Unknown product type');
+    const builtIn = PRODUCT_TYPES.includes(type as ProductType);
+    const custom = builtIn ? undefined : (await this.customTypes()).find((c) => c.slug === type);
+    if (!builtIn && !custom) throw new BadRequestException('Unknown product type');
     if (!Types.ObjectId.isValid(id)) throw new BadRequestException('Invalid product id');
     const set: Record<string, unknown> = {};
     if (input.price !== undefined) {
@@ -177,15 +220,16 @@ export class ShopService {
     if (input.isActive !== undefined) set.isActive = input.isActive === true || input.isActive === 'true';
     if (Object.keys(set).length === 0) throw new BadRequestException('Nothing to update');
 
-    const model = this.models[type as ProductType];
-    const doc = await model.findByIdAndUpdate(id, { $set: set }, { new: true }).lean().exec();
+    const doc = builtIn
+      ? await this.models[type as ProductType].findByIdAndUpdate(id, { $set: set }, { new: true }).lean().exec()
+      : await this.materialRates.findOneAndUpdate({ _id: id, materialType: type }, { $set: set }, { new: true }).lean().exec();
     if (!doc) throw new NotFoundException('Product not found');
 
-    const meta = TYPE_META[type as ProductType];
+    const meta = this.metaOf(type, custom);
     const paths = [`/${meta.path}`];
     if ((doc as any).slug) paths.push(`/${meta.path}/${(doc as any).slug}`);
     await this.revalidate.revalidate({ tags: [meta.tag, 'material-rates'], paths });
-    return this.toProduct(type as ProductType, doc);
+    return this.toProduct(type, doc, custom);
   }
 
   // ── Orders ────────────────────────────────────────────────────────────
@@ -235,13 +279,18 @@ export class ShopService {
     // Price every line from the database — the browser only says what and how many.
     const items: CementOrder['items'] = [];
     for (const raw of rawItems as Array<Record<string, unknown>>) {
-      const type = String(raw?.type ?? 'cement') as ProductType;
+      const type = String(raw?.type ?? 'cement');
       const id = String(raw?.id ?? raw?.productId ?? '');
       const quantity = Math.min(100_000, Math.max(1, Math.round(Number(raw?.quantity) || 0)));
-      if (!PRODUCT_TYPES.includes(type) || !Types.ObjectId.isValid(id)) continue;
-      const doc = await this.models[type].findById(id).lean().exec();
+      if (!Types.ObjectId.isValid(id)) continue;
+      const builtIn = PRODUCT_TYPES.includes(type as ProductType);
+      const custom = builtIn ? undefined : (await this.customTypes()).find((c) => c.slug === type);
+      if (!builtIn && !custom) continue;
+      const doc = builtIn
+        ? await this.models[type as ProductType].findById(id).lean().exec()
+        : await this.materialRates.findOne({ _id: id, materialType: type }).lean().exec();
       if (!doc || (doc as any).isActive === false) continue;
-      const p = this.toProduct(type, doc);
+      const p = this.toProduct(type, doc, custom);
       items.push({
         type,
         productId: p.id,

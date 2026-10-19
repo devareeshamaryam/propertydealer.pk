@@ -38,6 +38,8 @@ import materialRateApi, {
   type MaterialRateData,
 } from "@/lib/api/material-rate/material-rate.api";
 import { cn } from "@/lib/utils";
+import { materialTypeApi } from "@/lib/api/material-type.api";
+import type { MaterialTypeAdmin } from "@/lib/materials";
 import {
   ConfirmDialog,
   DataCard,
@@ -54,18 +56,8 @@ import {
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 
-const MATERIAL_TYPES = [
-  "All",
-  "Door",
-  "Wood",
-  "Sand",
-  "Tile",
-  "Bajri",
-  "Steel",
-  "Bricks",
-] as const;
-
-type MaterialType = (typeof MATERIAL_TYPES)[number];
+/** "All", or the slug of a material added under Dashboard → Materials. */
+type MaterialType = string;
 
 const COLUMN_COUNT = 9;
 
@@ -97,6 +89,14 @@ export default function MaterialRatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [materialType, setMaterialType] = useState<MaterialType>("All");
+  // The materials added under Dashboard → Materials; ?type= opens on one.
+  const [types, setTypes] = useState<MaterialTypeAdmin[]>([]);
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get("type");
+    if (wanted) setMaterialType(wanted);
+    materialTypeApi.list().then(setTypes).catch(() => undefined);
+  }, []);
+  const typeName = (slug: string) => types.find((t) => t.slug === slug)?.name ?? slug;
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const { confirm, dialogProps } = useConfirm();
@@ -105,8 +105,7 @@ export default function MaterialRatesPage() {
     try {
       setLoading(true);
       setError(null);
-      const type =
-        materialType === "All" ? undefined : materialType.toLowerCase();
+      const type = materialType === "All" ? undefined : materialType;
       const data = await materialRateApi.getAllRates(type);
       setRates(Array.isArray(data) ? data : []);
     } catch (err) {
@@ -199,7 +198,7 @@ export default function MaterialRatesPage() {
 
   const addButton = (
     <Button asChild>
-      <Link href="/dashboard/material-rate/add">
+      <Link href={materialType === "All" ? "/dashboard/material-rate/add" : `/dashboard/material-rate/add?type=${encodeURIComponent(materialType)}`}>
         <PlusCircle className="mr-2 h-4 w-4" />
         Add Material Rate
       </Link>
@@ -209,8 +208,8 @@ export default function MaterialRatesPage() {
   return (
     <div className="mx-auto w-full max-w-[1600px] space-y-5">
       <PageHeader
-        title="Material Rates (Unified)"
-        description="A single collection covering all seven material types."
+        title={materialType === "All" ? "Rates of added materials" : `${typeName(materialType)} rates`}
+        description="Rates of the materials added under Materials. Each one has its own page on the site, like the built-in materials."
         actions={
           <>
             <Button
@@ -270,9 +269,9 @@ export default function MaterialRatesPage() {
             aria-label="Filter by material type"
             value={materialType}
             onChange={setMaterialType}
-            options={MATERIAL_TYPES.map((type) => ({
+            options={["All", ...types.map((t) => t.slug)].map((type) => ({
               value: type,
-              label: type,
+              label: type === "All" ? "All" : typeName(type),
               count:
                 type === "All"
                   ? materialType === "All"
@@ -328,9 +327,9 @@ export default function MaterialRatesPage() {
                   title={
                     materialType === "All"
                       ? "No material rates yet"
-                      : `No ${materialType.toLowerCase()} rates yet`
+                      : `No ${typeName(materialType).toLowerCase()} rates yet`
                   }
-                  description="Nothing has been added to the unified rates table."
+                  description={types.length ? "Add the first rate — it shows on the material's page and in the shop." : "Add a material under Materials first, then its rates here."}
                   action={addButton}
                 />
               ) : table.matchedCount === 0 ? (

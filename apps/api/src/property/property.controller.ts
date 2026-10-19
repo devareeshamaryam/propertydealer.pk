@@ -524,6 +524,13 @@ export class PropertyController {
     );
   }
 
+  /** Another month for a Free-plan listing, or an expired one back on the site. */
+  @Post(':id/renew')
+  @UseGuards(JwtAuthGuard)
+  async renew(@Param('id') id: string, @Request() req) {
+    return await this.propertyService.renew(id, req.user?.userId, req.user?.role);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   async delete(@Param('id') id: string, @Request() req) {

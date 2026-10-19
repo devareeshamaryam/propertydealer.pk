@@ -9,6 +9,7 @@ import { DialogTitle } from '@/components/ui/dialog';
 import SearchBar from '@/components/SearchBar';
 import { BrandLogo } from '@/components/BrandLogo';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
+import { useMaterialTypes } from '@/components/MaterialTypesProvider';
 import { useAuth } from '@/context/auth-context';
 import {
   DropdownMenu,
@@ -103,6 +104,9 @@ const linkClass = (active: boolean) =>
   );
 
 const Navbar = () => {
+  // The built-in materials, then any added from the dashboard (Dashboard → Materials).
+  const customMaterials = useMaterialTypes();
+  const rateLinks = [...RATE_LINKS, ...customMaterials.map((m) => ({ name: m.name, path: m.path }))];
   const pathname = usePathname() || '';
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -168,7 +172,7 @@ const Navbar = () => {
               <ChevronDown className="h-3.5 w-3.5 opacity-50" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
-              {RATE_LINKS.map((rate) => (
+              {rateLinks.map((rate) => (
                 <DropdownMenuItem key={rate.path} asChild>
                   <Link href={rate.path} className="cursor-pointer">
                     {rate.name}
@@ -270,7 +274,7 @@ const Navbar = () => {
               <p className="mt-3 px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Construction rates
               </p>
-              {RATE_LINKS.map((rate) => (
+              {rateLinks.map((rate) => (
                 <Link
                   key={rate.path}
                   href={rate.path}

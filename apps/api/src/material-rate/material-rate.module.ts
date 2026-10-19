@@ -4,6 +4,7 @@ import { MaterialRate, MaterialRateSchema } from '@rent-ghar/db/schemas/material
 import { MaterialRateService } from './material-rate.service';
 import { MaterialRateController } from './material-rate.controller';
 import { StorageModule } from '@rent-ghar/storage';
+import { MaterialTypeModule } from '../material-type/material-type.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { StorageModule } from '@rent-ghar/storage';
       { name: MaterialRate.name, schema: MaterialRateSchema },
     ]),
     StorageModule,
+    MaterialTypeModule,
   ],
   providers: [MaterialRateService],
   controllers: [MaterialRateController],

@@ -47,6 +47,12 @@ export interface UpdateCityData {
 }
 
 export const cityApi = {
+  /** Any signed-in agent: the city of their listing, added if missing (an existing one is reused). */
+  suggest: async (name: string): Promise<{ _id: string; name: string; created: boolean }> => {
+    const response = await api.post('/cities/suggest', { name });
+    return response.data;
+  },
+
   create: async (data: CreateCityData) => {
     const response = await api.post('/cities', data);
     return response.data;

@@ -16,7 +16,7 @@ export function DataCard({ children, className, flush }: DataCardProps) {
     <div
       className={cn(
         "rounded-xl border bg-card shadow-sm",
-        !flush && "p-5",
+        !flush && "p-4 sm:p-5",
         className,
       )}
     >

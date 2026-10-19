@@ -1,6 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { materialTypeApi } from "@/lib/api/material-type.api";
+import type { MaterialTypeAdmin } from "@/lib/materials";
 import { toast } from "sonner";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,15 +29,6 @@ const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ),
 });
 
-const MATERIAL_TYPES = [
-  "Door",
-  "Wood",
-  "Sand",
-  "Tile",
-  "Bajri",
-  "Steel",
-  "Bricks",
-];
 const UNITS = [
   "Per Unit",
   "Per Sq Ft",
@@ -48,10 +41,23 @@ const UNITS = [
 
 export default function AddMaterialRatePage() {
   const router = useRouter();
+  // The materials added under Dashboard → Materials; ?type= picks one.
+  const [types, setTypes] = useState<MaterialTypeAdmin[]>([]);
+  useEffect(() => {
+    materialTypeApi
+      .list()
+      .then((list) => {
+        setTypes(list);
+        const wanted = new URLSearchParams(window.location.search).get("type");
+        const first = list.find((t) => t.slug === wanted) ?? list[0];
+        if (first) setForm((f) => ({ ...f, materialType: f.materialType || first.slug, unit: first.unit || f.unit }));
+      })
+      .catch(() => undefined);
+  }, []);
 
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
-    materialType: "Door",
+    materialType: "",
     brand: "",
     price: "",
     change: "0",
@@ -85,7 +91,8 @@ export default function AddMaterialRatePage() {
       fd.append("price", form.price);
       fd.append("change", form.change);
       fd.append("city", form.city.trim());
-      fd.append("materialType", form.materialType.toLowerCase());
+      if (!form.materialType) { setSubmitting(false); return toast.error("Choose the material — add one under Materials first"); }
+      fd.append("materialType", form.materialType);
       fd.append("unit", form.unit);
       fd.append("isActive", form.isActive);
       if (form.category.trim()) fd.append("category", form.category.trim());
@@ -97,7 +104,7 @@ export default function AddMaterialRatePage() {
 
       await materialRateApi.createRate(fd);
       toast.success("Material rate added successfully!");
-      router.push("/dashboard/material-rate");
+      router.push(`/dashboard/material-rate?type=${encodeURIComponent(form.materialType)}`);
     } catch (err) {
       toast.error("Error", {
         description:
@@ -121,7 +128,7 @@ export default function AddMaterialRatePage() {
         </Button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border p-8">
+      <div className="bg-white rounded-xl shadow-sm border px-3 py-4 sm:p-6 lg:p-8">
         <h1 className="text-2xl font-semibold text-gray-900 mb-1">
           Add Material Rate
         </h1>
@@ -138,12 +145,13 @@ export default function AddMaterialRatePage() {
               onValueChange={(v) => set("materialType", v)}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder={types.length ? "Choose the material" : "Add a material under Materials first"} />
               </SelectTrigger>
               <SelectContent>
-                {MATERIAL_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {t}
+                {types.map((t) => (
+                  <SelectItem key={t.slug} value={t.slug}>
+                    {t.name}
+                    {t.isActive ? "" : " (off)"}
                   </SelectItem>
                 ))}
               </SelectContent>

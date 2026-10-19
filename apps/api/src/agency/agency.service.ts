@@ -10,11 +10,13 @@ import { RedisCacheService } from '../redis-cache/redis-cache.service';
  * Who belongs to which agency, and who is verified — the one place every
  * other part of the API asks.
  *
- * An agency (an Agency Plus account) can create agent accounts. An agent's
- * user document carries `agencyId` = the owner's id. Then:
- *   - the agent lists under the owner's plan (limits are shared by the team),
- *   - the agent sees and edits only their own listings,
- *   - the owner sees and manages every listing of the team.
+ * An agency (a plan with agent accounts) can create agent accounts. An
+ * agent's user document carries `agencyId` = the owner's id. Then:
+ *   - the agent lists under the owner's plan (limits are shared by the team,
+ *     and the owner may give an agent a cap of their own),
+ *   - the agent sees, edits and marks sold only their own listings,
+ *   - the owner sees and manages every listing of the team, and alone
+ *     features and deletes them.
  *
  * "Verified" is not stored on the user: it is whoever holds a live plan with
  * the verified badge, plus that agency's agents — so it starts and stops with
@@ -78,6 +80,17 @@ export class AgencyService {
     if (!owner || !userId) return false;
     if (owner === sid(userId)) return true;
     return (await this.agencyOf(owner)) === sid(userId);
+  }
+
+  /**
+   * May this account feature or delete a listing owned by `listingOwner`?
+   * The agency keeps those for itself: the owner of the listing (when they
+   * are not someone's agent) or the agency the listing's agent belongs to.
+   * An agent posts, edits and marks their own listings sold — nothing more.
+   */
+  async canAdminister(listingOwner: unknown, userId: string): Promise<boolean> {
+    if (!userId || (await this.agencyOf(userId))) return false;
+    return this.canManage(listingOwner, userId);
   }
 
   /** Both stored forms of a list of ids, for raw-collection `$in` queries. */

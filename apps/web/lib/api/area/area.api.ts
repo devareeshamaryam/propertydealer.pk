@@ -43,6 +43,12 @@ export interface AreaOverview {
 }
 
 export const areaApi = {
+  /** Any signed-in agent: the area of their listing, added if missing (an existing one is reused). */
+  suggest: async (city: string, name: string): Promise<{ _id: string; name: string; areaSlug: string; created: boolean }> => {
+    const response = await api.post('/areas/suggest', { city, name });
+    return response.data;
+  },
+
   create: async (data: CreateAreaData) => {
     const response = await api.post('/areas', data);
     return response.data;

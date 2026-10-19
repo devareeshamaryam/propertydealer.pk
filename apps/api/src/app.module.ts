@@ -25,6 +25,7 @@ import { IndexNowModule } from './indexnow/indexnow.module';
 import { CementRateModule } from './cement-rate/cement-rate.module';
 import { CementOrderModule } from './cement-order/cement-order.module';
 import { MaterialRateModule } from './material-rate/material-rate.module';
+import { MaterialTypeModule } from './material-type/material-type.module';
 import { DoorRateModule } from './door-rate/door-rate.module';
 import { WoodRateModule } from './wood-rate/wood-rate.module';
 import { SandRateModule } from './sand-rate/sand-rate.module';
@@ -153,6 +154,7 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     CementRateModule,
     CementOrderModule,
     MaterialRateModule,
+    MaterialTypeModule,
     DoorRateModule,
     WoodRateModule,
     SandRateModule,

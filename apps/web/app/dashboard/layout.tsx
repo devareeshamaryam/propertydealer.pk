@@ -178,7 +178,7 @@ export default function DashboardLayout({
             </Breadcrumb>
           </header>
 
-          <main className="min-w-0 flex-1 bg-muted/30 p-4 sm:p-6">
+          <main className="min-w-0 flex-1 bg-muted/30 px-2 py-3 sm:p-6">
             {/*
               Render nothing on a route this role cannot open. The guard above
               redirects in an effect, so without this the restricted page would

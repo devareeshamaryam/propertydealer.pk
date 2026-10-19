@@ -16,7 +16,7 @@ import { planBenefits, planDuration, planPrice, type Plan } from '@/lib/plans';
 const FAQS = [
   {
     q: 'Do I need a package to post a property?',
-    a: 'No. Every account can keep one listing live for free, with no expiry. A package is for listing more, featuring listings and the agency benefits.',
+    a: 'No. Every account can keep one listing live for free. A free listing stays up for a month and you can renew it for free from My Listings. A package is for listing more (with no monthly renewing), featuring listings and the agency benefits.',
   },
   {
     q: 'What does the Verified badge do?',
@@ -28,7 +28,7 @@ const FAQS = [
   },
   {
     q: 'How do agent accounts work?',
-    a: "On a plan with agent accounts you create accounts for your agents from your dashboard. Each agent signs in with their own email, posts and manages their own listings, and shows as an agent of your agency. You see and manage every listing of the team, and the plan's listings are shared by the team.",
+    a: "On a plan with agent accounts you create accounts for your agents from My Team. Each agent signs in with their own email, posts and edits their own listings and marks them sold, and shows as an agent of your agency. You see every listing of the team and alone feature or delete them; you can give an agent a listing limit, reset their password, pause them, move their listings to someone else or remove them. The plan's listings are shared by the team.",
   },
   {
     q: 'How do I pay?',

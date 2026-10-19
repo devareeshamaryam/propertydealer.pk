@@ -469,7 +469,7 @@ export default function MySubscriptionPage() {
                     {freePlan?.name ?? "Free"}
                   </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Included with your account — no payment needed.
+                    Included with your account — no payment needed. A free listing stays live for 30 days; renew it for free from My Listings.
                   </p>
                 </div>
                 <Badge variant="secondary">Active</Badge>

@@ -144,8 +144,10 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     window.location.href = `tel:${property?.contactNumber ?? ''}`;
   }, [numberShown, backendProperty?._id, property?.contactNumber]);
 
-  const closed = property?.availability === 'sold' || property?.availability === 'rented';
-  const closedLabel = property?.availability === 'rented' ? 'Rented out' : 'Sold out';
+  // A Free-plan listing whose month ran out reads like a closed one: the page stays, the contact goes.
+  const expired = backendProperty?.status === 'expired';
+  const closed = expired || property?.availability === 'sold' || property?.availability === 'rented';
+  const closedLabel = expired ? 'Listing expired' : property?.availability === 'rented' ? 'Rented out' : 'Sold out';
 
   const openWhatsApp = useCallback(() => {
     trackContact(backendProperty?._id, 'whatsapp');
@@ -480,7 +482,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     <div className="rounded-xl border border-red-200 bg-red-50 p-3.5 text-[14px] text-red-900">
       <p className="font-semibold">{closedLabel}</p>
       <p className="mt-0.5 text-red-800/80">
-        This property is no longer available, so its contact details are hidden.
+        {expired
+          ? 'This listing has expired and is no longer shown in search, so its contact details are hidden.'
+          : 'This property is no longer available, so its contact details are hidden.'}
       </p>
       {citySlug && (
         <Link

@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { serverApi } from '@/lib/server-api';
+import { getMaterialRates, getMaterialTypes } from '@/lib/materials';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 
@@ -81,6 +82,24 @@ export async function GET() {
         }
       } catch (fetchErr) {
         console.error(`[sitemap-rates] ${category.fetchFn} failed:`, fetchErr);
+      }
+    }
+
+    // Materials added from the dashboard: their rates page and each product.
+    for (const m of await getMaterialTypes()) {
+      urls.push({ loc: `${BASE_URL}${m.path}`, lastmod: today, changefreq: 'daily', priority: '0.7' });
+      try {
+        for (const rate of await getMaterialRates(m.slug)) {
+          if (!rate?.slug || rate.isActive === false) continue;
+          urls.push({
+            loc: `${BASE_URL}${m.path}/${rate.slug}`,
+            lastmod: rate.updatedAt ? new Date(rate.updatedAt).toISOString().split('T')[0]! : today,
+            changefreq: 'daily',
+            priority: '0.6',
+          });
+        }
+      } catch (fetchErr) {
+        console.error(`[sitemap-rates] ${m.slug} failed:`, fetchErr);
       }
     }
 
