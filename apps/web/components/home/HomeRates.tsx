@@ -9,7 +9,8 @@ import { SectionHeading } from '@/components/SectionHeading';
  * Homepage: today's construction rates, under the packages. One photo card
  * per material — Cement, Steel… and every material added from the
  * dashboard — with its lowest price, how many brands, and whether prices
- * moved today. A row that scrolls on a phone, a grid on a desktop.
+ * moved today. Small app-style tiles in a scrolling row on a phone, photo
+ * cards in a grid from a tablet up.
  */
 
 const photo = (id: string) => `https://images.unsplash.com/${id}?w=600&h=450&fit=crop&q=70&auto=format`;
@@ -93,12 +94,48 @@ export default function HomeRates({ rates }: { rates: RateSummary[] }) {
           }
         />
 
-        <ul className="hide-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 lg:grid-cols-4 xl:grid-cols-5">
+        {/* Phone: small app-style tiles in a row that scrolls — photo, name, price. */}
+        <ul className="hide-scrollbar -mx-[var(--gutter)] flex snap-x scroll-px-3 gap-3 overflow-x-auto px-3 pb-1 sm:hidden">
+          {rates.map((r) => {
+            const label = isBuiltIn(r.type) ? TYPE_META[r.type].label : r.label;
+            const moved = r.up > 0 || r.down > 0;
+            return (
+              <li key={r.type} className="w-[27%] shrink-0 snap-start min-[420px]:w-[23%]">
+                <Link href={r.path} className="group block active:scale-[0.97] transition-transform">
+                  <span className="relative block aspect-square overflow-hidden rounded-2xl bg-slate-100 shadow-[0_2px_8px_-2px_rgba(15,23,42,0.25)] ring-1 ring-black/5">
+                    <Image
+                      src={photoFor(r)}
+                      alt={`${label} rate in Pakistan today`}
+                      fill
+                      sizes="30vw"
+                      className="object-cover"
+                      unoptimized={!photoFor(r).startsWith('https://images.unsplash.com/')}
+                    />
+                    {moved && (
+                      <span
+                        className={`absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-white shadow-sm ${r.up >= r.down ? 'text-emerald-600' : 'text-red-600'}`}
+                        aria-label={`${r.up} up, ${r.down} down today`}
+                      >
+                        {r.up >= r.down ? <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2.5} /> : <ArrowDownRight className="h-3.5 w-3.5" strokeWidth={2.5} />}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-1.5 block truncate text-center text-[12.5px] font-semibold leading-tight text-slate-900">{label}</span>
+                  <span className="block truncate text-center text-[11.5px] font-bold tabular-nums leading-tight text-primary">{rs(r.from)}</span>
+                  <span className="block truncate text-center text-[10px] leading-tight text-slate-500">{perUnit(r.unit)}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* Tablet and up: photo cards in a grid. */}
+        <ul className="hidden gap-4 sm:grid sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {rates.map((r) => {
             const label = isBuiltIn(r.type) ? TYPE_META[r.type].label : r.label;
             const src = photoFor(r);
             return (
-              <li key={r.type} className="w-[64%] shrink-0 snap-start min-[460px]:w-[44%] sm:w-auto">
+              <li key={r.type}>
                 <Link
                   href={r.path}
                   className="group flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[0_12px_30px_-14px_rgba(15,23,42,0.35)]"
@@ -108,15 +145,15 @@ export default function HomeRates({ rates }: { rates: RateSummary[] }) {
                       src={src}
                       alt={`${label} rate in Pakistan today`}
                       fill
-                      sizes="(min-width: 1280px) 240px, (min-width: 1024px) 25vw, (min-width: 640px) 33vw, 64vw"
+                      sizes="(min-width: 1280px) 240px, (min-width: 1024px) 25vw, 33vw"
                       className="object-cover transition-transform duration-500 group-hover:scale-105"
                       unoptimized={!src.startsWith('https://images.unsplash.com/')}
                     />
                     <span className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/75 via-black/30 to-transparent" />
                     <Moves up={r.up} down={r.down} />
                     <span className="absolute inset-x-3 bottom-2.5 text-white">
-                      <span className="block text-[17px] font-bold leading-tight drop-shadow-sm">{label}</span>
-                      <span className="block text-[12px] text-white/85">
+                      <span className="block truncate text-[17px] font-bold leading-tight drop-shadow-sm">{label}</span>
+                      <span className="block truncate text-[12px] text-white/85">
                         {r.products} {r.products === 1 ? 'product' : 'brands & sizes'}
                       </span>
                     </span>
