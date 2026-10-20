@@ -87,6 +87,7 @@ const FIELDS = {
   homeLatestCount: { kind: 'int', def: 8, min: 4, max: 16 },
   homeShowAgentBand: { kind: 'bool', def: true },
   homeShowPlans: { kind: 'bool', def: true },
+  homeShowRates: { kind: 'bool', def: true },
   homeShowAgencies: { kind: 'bool', def: true },
   homeShowExplore: { kind: 'bool', def: true },
   homeShowBlog: { kind: 'bool', def: true },

@@ -341,6 +341,31 @@ export async function getPlans(): Promise<import('./plans').Plan[]> {
   return Array.isArray(rows) ? rows : [];
 }
 
+/** A material's line on the homepage — see the API's GET /shop/summary. */
+export interface RateSummary {
+  type: string;
+  label: string;
+  path: string;
+  custom: boolean;
+  products: number;
+  unit: string;
+  from: number;
+  to: number;
+  up: number;
+  down: number;
+  image: string;
+  /** Set on a material added from the dashboard, when the admin gave it a photo. */
+  materialImage?: string;
+  updatedAt?: string;
+}
+
+/** Every material with products on sale, refreshed whenever a price changes. Empty on an API without the endpoint. */
+export async function getRatesSummary(): Promise<RateSummary[]> {
+  const tags = ['material-rates', 'material-types', 'cement-rates', 'steel-rates', 'bricks-rates', 'sand-rates', 'bajri-rates', 'wood-rates', 'door-rates', 'tile-rates'];
+  const res = await optionalGet<{ data?: RateSummary[] }>('/shop/summary', 600, tags);
+  return Array.isArray(res?.data) ? res.data : [];
+}
+
 export interface SpotlightAgency {
   _id: string;
   name: string;

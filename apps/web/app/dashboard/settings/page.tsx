@@ -41,7 +41,7 @@ const KEYS: (keyof SiteSettings)[] = [
   "footerAbout", "copyrightText",
   "seoTitle", "seoDescription", "ogImageUrl", "gaMeasurementId", "googleVerification",
   "announcementEnabled", "announcementText", "announcementLink",
-  "homeShowCities", "homeShowLatest", "homeLatestCount", "homeShowAgentBand", "homeShowPlans", "homeShowAgencies", "homeShowExplore", "homeShowBlog", "homeShowFaq",
+  "homeShowCities", "homeShowLatest", "homeLatestCount", "homeShowAgentBand", "homeShowPlans", "homeShowRates", "homeShowAgencies", "homeShowExplore", "homeShowBlog", "homeShowFaq",
   "defaultCity", "listingsPerPage", "soldGraceDays", "floatingWhatsapp",
 ];
 
@@ -139,6 +139,7 @@ export default function GeneralSettingsPage() {
                 )}
                 <ToggleRow label="“Selling or renting out?” band" checked={settings.homeShowAgentBand} onChange={(v) => set("homeShowAgentBand", v)} />
                 <ToggleRow label="Packages for agents" hint="The plan cards, the same as on /packages." checked={settings.homeShowPlans} onChange={(v) => set("homeShowPlans", v)} />
+                <ToggleRow label="Construction rates" hint="Today's price of every material, under the packages." checked={settings.homeShowRates} onChange={(v) => set("homeShowRates", v)} />
                 <ToggleRow label="Verified agencies" hint="Agencies on a plan with the spotlight benefit. Hidden while there are none." checked={settings.homeShowAgencies} onChange={(v) => set("homeShowAgencies", v)} />
                 <ToggleRow label="Explore more" checked={settings.homeShowExplore} onChange={(v) => set("homeShowExplore", v)} />
                 <ToggleRow label="Blog articles" checked={settings.homeShowBlog} onChange={(v) => set("homeShowBlog", v)} />

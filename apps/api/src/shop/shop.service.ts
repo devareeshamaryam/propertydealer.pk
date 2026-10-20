@@ -52,6 +52,7 @@ type AnyType = ProductType | string;
 interface CustomType {
   slug: string;
   name: string;
+  image?: string;
 }
 
 export interface ShopProduct {
@@ -133,8 +134,8 @@ export class ShopService {
   /** Active materials added from the dashboard (cached for a minute). */
   private async customTypes(): Promise<CustomType[]> {
     if (this.customCache && Date.now() - this.customCache.at < 60_000) return this.customCache.list;
-    const rows = await this.materialTypes.find({ isActive: true }).select('slug name').sort({ order: 1, name: 1 }).lean().exec();
-    const list = rows.map((r: any) => ({ slug: String(r.slug), name: String(r.name) }));
+    const rows = await this.materialTypes.find({ isActive: true }).select('slug name image').sort({ order: 1, name: 1 }).lean().exec();
+    const list = rows.map((r: any) => ({ slug: String(r.slug), name: String(r.name), image: r.image ? String(r.image) : '' }));
     this.customCache = { at: Date.now(), list };
     return list;
   }
@@ -201,6 +202,51 @@ export class ShopService {
   }
 
   /** Quick edit from the admin rates board: today's price, the change, on/off. */
+  /**
+   * One line per material that has products on sale — for the homepage's
+   * construction rates: the lowest price in its usual unit, how many
+   * products, and how many moved up or down today. Built-in materials first,
+   * then the ones added from the dashboard, in menu order.
+   */
+  async summary() {
+    const [products, customs] = await Promise.all([this.listProducts(), this.customTypes()]);
+    const order: AnyType[] = [...PRODUCT_TYPES, ...customs.map((c) => c.slug)];
+    const byType = new Map<AnyType, ShopProduct[]>();
+    for (const p of products) {
+      if (p.price <= 0) continue;
+      byType.set(p.type, [...(byType.get(p.type) ?? []), p]);
+    }
+    return order
+      .filter((t) => byType.has(t))
+      .map((type) => {
+        const list = byType.get(type)!;
+        const custom = customs.find((c) => c.slug === type);
+        const meta = this.metaOf(type, custom);
+        // The unit most of its products are priced in, and the lowest price in it.
+        const units = new Map<string, number>();
+        for (const p of list) units.set(p.unit, (units.get(p.unit) ?? 0) + 1);
+        const unit = [...units.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? list[0]!.unit;
+        const inUnit = list.filter((p) => p.unit === unit).map((p) => p.price);
+        const updated = list.reduce<Date | undefined>((m, p) => (p.updatedAt && (!m || p.updatedAt > m) ? p.updatedAt : m), undefined);
+        return {
+          type,
+          label: meta.label,
+          path: `/${meta.path}`,
+          custom: !!custom,
+          products: list.length,
+          unit,
+          from: Math.min(...inUnit),
+          to: Math.max(...inUnit),
+          up: list.filter((p) => p.change > 0).length,
+          down: list.filter((p) => p.change < 0).length,
+          // The admin's photo for the material (Dashboard → Materials), else a product's.
+          materialImage: custom?.image ?? '',
+          image: list.find((p) => p.image)?.image ?? '',
+          updatedAt: updated,
+        };
+      });
+  }
+
   async updateProduct(type: string, id: string, input: { price?: unknown; change?: unknown; isActive?: unknown }) {
     const builtIn = PRODUCT_TYPES.includes(type as ProductType);
     const custom = builtIn ? undefined : (await this.customTypes()).find((c) => c.slug === type);

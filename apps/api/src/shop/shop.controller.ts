@@ -23,6 +23,12 @@ export class ShopController {
     return { success: true, data: await this.shop.listProducts({ type, search }) };
   }
 
+  /** Homepage: each material's lowest price, product count and today's moves. */
+  @Get('summary')
+  async summary() {
+    return { success: true, data: await this.shop.summary() };
+  }
+
   @Get('quote')
   async quote(@Query('subTotal') subTotal?: string) {
     return { success: true, data: await this.shop.quote(Number(subTotal) || 0) };

@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+import { ImageField } from "@/components/media";
 import { materialTypeApi } from "@/lib/api/material-type.api";
 import type { MaterialTypeAdmin } from "@/lib/materials";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ export const MATERIAL_PRESETS: { name: string; unit: string; description: string
 const UNITS = ["Per unit", "Per piece", "Per sq ft", "Per sheet", "Per bag", "Per kg", "Per ton", "Per cubic foot", "Per foot", "Per coil", "Per gallon", "Per litre"];
 const toSlug = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
 
-type Form = { name: string; slug: string; unit: string; description: string; content: string; metaTitle: string; metaDescription: string; isActive: boolean };
+type Form = { name: string; slug: string; unit: string; description: string; content: string; metaTitle: string; metaDescription: string; image: string; isActive: boolean };
 
 export function MaterialTypeDialog({
   open,
@@ -54,7 +55,7 @@ export function MaterialTypeDialog({
   existing?: MaterialTypeAdmin[];
   onSaved: (material: MaterialTypeAdmin, created: boolean) => void;
 }) {
-  const blank: Form = { name: "", slug: "", unit: "Per unit", description: "", content: "", metaTitle: "", metaDescription: "", isActive: true };
+  const blank: Form = { name: "", slug: "", unit: "Per unit", description: "", content: "", metaTitle: "", metaDescription: "", image: "", isActive: true };
   const [form, setForm] = useState<Form>(blank);
   const [more, setMore] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -72,6 +73,7 @@ export function MaterialTypeDialog({
             content: editing.content ?? "",
             metaTitle: editing.metaTitle ?? "",
             metaDescription: editing.metaDescription ?? "",
+            image: editing.image ?? "",
             isActive: editing.isActive,
           }
         : blank,
@@ -87,7 +89,7 @@ export function MaterialTypeDialog({
     if (form.name.trim().length < 2) return toast.error('Enter the material name, e.g. "Marble"');
     setSaving(true);
     try {
-      const body = { name: form.name.trim(), unit: form.unit, description: form.description, content: form.content, metaTitle: form.metaTitle, metaDescription: form.metaDescription, isActive: form.isActive };
+      const body = { name: form.name.trim(), unit: form.unit, description: form.description, content: form.content, metaTitle: form.metaTitle, metaDescription: form.metaDescription, image: form.image, isActive: form.isActive };
       const saved = editing ? await materialTypeApi.update(editing._id, body) : await materialTypeApi.create({ ...body, slug });
       toast.success(editing ? `${form.name} saved` : `${form.name} added — now add its products`);
       onSaved({ ...(editing ?? {}), ...saved, _id: String(saved._id ?? editing?._id) } as MaterialTypeAdmin, !editing);
@@ -159,6 +161,17 @@ export function MaterialTypeDialog({
             <Input id="mt-desc" value={form.description} maxLength={300} placeholder="Shown under the page heading" onChange={(e) => set({ description: e.target.value })} />
           </div>
         </div>
+
+        <ImageField
+          label="Photo (optional)"
+          hint="Shown on its card on the homepage. Without one, a ready photo of the material is used."
+          value={form.image}
+          onChange={(url) => set({ image: url })}
+          folder="general"
+          context={form.name}
+          aspect="square"
+          allowUrl={false}
+        />
 
         <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
           Page: <span className="font-mono text-slate-700">/today-{slug || "…"}-rate-in-pakistan</span>

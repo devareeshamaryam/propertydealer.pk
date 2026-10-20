@@ -67,6 +67,7 @@ export interface SiteSettings {
   homeLatestCount: number;
   homeShowAgentBand: boolean;
   homeShowPlans: boolean;
+  homeShowRates: boolean;
   homeShowAgencies: boolean;
   homeShowExplore: boolean;
   homeShowBlog: boolean;
@@ -149,6 +150,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   homeLatestCount: 8,
   homeShowAgentBand: true,
   homeShowPlans: true,
+  homeShowRates: true,
   homeShowAgencies: true,
   homeShowExplore: true,
   homeShowBlog: true,
