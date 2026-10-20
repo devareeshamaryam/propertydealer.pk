@@ -48,7 +48,8 @@ export class MaterialRateService {
    * pick up the new prices on the next visit.
    */
   private async bustRateCaches(materialType?: string) {
-    const tags = [TAG_RATES];
+    // 'material-types': a material appears in the menu with its first product and leaves with its last.
+    const tags = [TAG_RATES, 'material-types'];
     const paths: string[] = [];
     if (materialType) {
       // Public pages live at /today-<material>-rate-in-pakistan

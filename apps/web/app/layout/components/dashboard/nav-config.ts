@@ -313,8 +313,8 @@ export const NAV_SECTIONS: NavSection[] = [
         items: [
           ...MATERIAL_RATE_ITEMS,
           // New materials (Marble, Glass…) without code: each gets its page, menu and shop place.
-          { title: "Add a material", href: "/dashboard/materials", exact: true, keywords: ["new material", "material type", "marble", "glass", "paint"] },
-          { title: "Added materials' rates", href: "/dashboard/material-rate", keywords: ["custom", "other materials"] },
+          { title: "+ Add a new material", href: "/dashboard/materials", exact: true, keywords: ["new material", "material type", "marble", "glass", "paint"] },
+          { title: "All added products", href: "/dashboard/material-rate", keywords: ["custom", "other materials", "added materials' rates"] },
         ],
       },
       {

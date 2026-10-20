@@ -228,7 +228,8 @@ export class ShopService {
     const meta = this.metaOf(type, custom);
     const paths = [`/${meta.path}`];
     if ((doc as any).slug) paths.push(`/${meta.path}/${(doc as any).slug}`);
-    await this.revalidate.revalidate({ tags: [meta.tag, 'material-rates'], paths });
+    await this.revalidate.revalidate({ tags: [meta.tag, 'material-rates', ...(builtIn ? [] : ['material-types'])], paths });
+    if (!builtIn) this.customCache = null;
     return this.toProduct(type, doc, custom);
   }
 

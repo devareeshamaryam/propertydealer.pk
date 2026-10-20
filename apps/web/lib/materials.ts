@@ -22,6 +22,10 @@ export interface MaterialTypeAdmin extends MaterialTypeInfo {
   image?: string;
   isActive: boolean;
   rates: number;
+  /** Products on sale (switched on). */
+  activeRates: number;
+  /** On the site: switched on and at least one product on sale. */
+  live: boolean;
   createdAt?: string;
 }
 

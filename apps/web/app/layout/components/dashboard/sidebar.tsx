@@ -51,6 +51,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
 import { subscriptionApi } from "@/lib/api";
+import { materialTypeApi } from "@/lib/api/material-type.api";
 import { cn } from "@/lib/utils";
 import { agentProfilePath } from "@/lib/agent";
 import {
@@ -102,6 +103,20 @@ export default function DashboardSidebar() {
       })
       .catch(() => undefined);
   }, [user]);
+  // Materials the admin added (Marble, Paint…): each gets its own link under Material Rates.
+  const [customMaterials, setCustomMaterials] = useState<NavLeaf[]>([]);
+  useEffect(() => {
+    if (user?.role !== "ADMIN") return;
+    materialTypeApi
+      .list()
+      .then((list) =>
+        setCustomMaterials(
+          list.map((m) => ({ title: m.name, href: `/dashboard/materials/${encodeURIComponent(m.slug)}`, keywords: ["material", m.slug, "rates", "products"] })),
+        ),
+      )
+      .catch(() => undefined);
+    // A material added or renamed shows up on the next page change.
+  }, [user, pathname]);
   const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
   const isActive = useIsActive();
   const isAdmin = user?.role === "ADMIN";
@@ -160,7 +175,16 @@ export default function DashboardSidebar() {
         .filter((entry) => !(teamAgent && !isGroup(entry) && entry.notForTeamAgents))
         .map((entry) => {
           if (!isGroup(entry)) return entry;
-          const items = entry.items
+          const base =
+            entry.id === "material-rates" && customMaterials.length > 0
+              ? [
+                  // Built-in materials, then the added ones, then "+ Add a new material".
+                  ...entry.items.filter((item) => item.href !== "/dashboard/materials" && item.href !== "/dashboard/material-rate"),
+                  ...customMaterials,
+                  ...entry.items.filter((item) => item.href === "/dashboard/materials" || item.href === "/dashboard/material-rate"),
+                ]
+              : entry.items;
+          const items = base
             .filter((item) => isAdmin || !item.adminOnly)
             .filter((item) => !(teamAgent && item.notForTeamAgents))
             .filter((item) =>
@@ -180,7 +204,7 @@ export default function DashboardSidebar() {
       if (entries.length > 0) sections.push({ label: section.label, entries });
     }
     return sections;
-  }, [isAdmin, term, teamAgent]);
+  }, [isAdmin, term, teamAgent, customMaterials]);
 
   const initials =
     (user?.name ?? user?.email ?? "?")

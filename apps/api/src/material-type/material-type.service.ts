@@ -55,13 +55,19 @@ export class MaterialTypeService {
       .catch(() => undefined);
   }
 
-  /** Active materials, in menu order — for the menu, footer, shop and sitemap. */
+  /** Slugs of materials with at least one product on sale — a material shows on the site only then. */
+  private async withProducts(): Promise<Set<string>> {
+    const slugs = await this.rates.distinct('materialType', { isActive: { $ne: false } });
+    return new Set(slugs.map(String));
+  }
+
+  /** Active materials that have products, in menu order — for the menu, footer, shop and sitemap. */
   async listPublic() {
     return this.cache.wrap(
       this.cache.buildKey('material-types:public', []),
       async () => {
-        const rows = await this.types.find({ isActive: true }).sort({ order: 1, name: 1 }).lean().exec();
-        return rows.map((t: any) => ({
+        const [rows, stocked] = await Promise.all([this.types.find({ isActive: true }).sort({ order: 1, name: 1 }).lean().exec(), this.withProducts()]);
+        return rows.filter((t: any) => stocked.has(t.slug)).map((t: any) => ({
           _id: String(t._id),
           name: t.name,
           slug: t.slug,
@@ -79,17 +85,32 @@ export class MaterialTypeService {
   async getPublic(slug: string) {
     const s = toSlug(String(slug ?? ''));
     const t: any = await this.types.findOne({ slug: s, isActive: true }).lean().exec();
-    if (!t) throw new NotFoundException('Material not found');
+    // No product on sale yet: no page (an empty rates page helps nobody).
+    if (!t || !(await this.withProducts()).has(t.slug)) throw new NotFoundException('Material not found');
     return { ...t, _id: String(t._id), path: MaterialTypeService.pagePath(t.slug) };
   }
 
   async listAdmin() {
     const [rows, counts] = await Promise.all([
       this.types.find().sort({ order: 1, name: 1 }).lean().exec(),
-      this.rates.aggregate([{ $group: { _id: '$materialType', n: { $sum: 1 } } }]).exec(),
+      this.rates
+        .aggregate([{ $group: { _id: '$materialType', n: { $sum: 1 }, active: { $sum: { $cond: [{ $ne: ['$isActive', false] }, 1, 0] } } } }])
+        .exec(),
     ]);
-    const n = new Map(counts.map((c: any) => [String(c._id), c.n as number]));
-    return rows.map((t: any) => ({ ...t, _id: String(t._id), path: MaterialTypeService.pagePath(t.slug), rates: n.get(t.slug) ?? 0 }));
+    const n = new Map(counts.map((c: any) => [String(c._id), c]));
+    return rows.map((t: any) => {
+      const c: any = n.get(t.slug);
+      const activeRates = c?.active ?? 0;
+      return {
+        ...t,
+        _id: String(t._id),
+        path: MaterialTypeService.pagePath(t.slug),
+        rates: c?.n ?? 0,
+        activeRates,
+        // On the site: switched on and at least one product on sale.
+        live: !!t.isActive && activeRates > 0,
+      };
+    });
   }
 
   private clean(input: MaterialTypeInput, creating: boolean) {
