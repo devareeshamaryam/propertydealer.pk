@@ -61,6 +61,13 @@ export class Package {
   /** Marked "Most popular" on the pricing cards. */
   @Prop({ default: false })
   highlight: boolean;
+
+  /**
+   * A public agent profile page (/agents/<name>-<id>) with a share link, and
+   * the links to it from the account's listings. Off: no page, no link.
+   */
+  @Prop({ default: true })
+  profilePage: boolean;
 }
 
 export const PackageSchema = SchemaFactory.createForClass(Package);

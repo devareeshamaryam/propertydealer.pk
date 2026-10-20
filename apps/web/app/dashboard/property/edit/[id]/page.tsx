@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
 import { GalleryField, VideoField } from "@/components/media";
+import { subscriptionApi } from "@/lib/api";
 import {
   AreaSizeField,
   FeaturesPicker,
@@ -141,6 +142,14 @@ export default function EditProperty() {
   // Photos in display order; the first is the cover. Already-uploaded URLs,
   // so there are no File objects to carry around.
   const [photos, setPhotos] = useState<string[]>([]);
+  // Photos per listing on the plan; a listing that already has more keeps them.
+  const [photoLimit, setPhotoLimit] = useState(20);
+  useEffect(() => {
+    subscriptionApi
+      .getMyPlan()
+      .then((p) => setPhotoLimit(p?.perks.photosPerProperty || 20))
+      .catch(() => undefined);
+  }, []);
   // One short walkthrough clip, shown as the last slide of the gallery.
   const [videoUrl, setVideoUrl] = useState("");
   const [videoPosterUrl, setVideoPosterUrl] = useState("");
@@ -1055,7 +1064,7 @@ export default function EditProperty() {
               onChange={setPhotos}
               folder="properties"
               context={title || "Property listing"}
-              max={20}
+              max={user?.role === "ADMIN" ? 50 : Math.max(photoLimit, photos.length)}
               hint="The first photo is the cover shown in search results. Drag to reorder."
             />
 

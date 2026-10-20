@@ -90,11 +90,16 @@ export default function DashboardSidebar() {
   const { user, logout } = useAuth();
   // An agency's agent: the plan and the team belong to the agency owner, so those links are hidden.
   const [teamAgent, setTeamAgent] = useState(false);
+  // No profile page on the plan: no "Visit my profile".
+  const [hasProfile, setHasProfile] = useState(true);
   useEffect(() => {
     if (!user || user.role === "ADMIN") return;
     subscriptionApi
       .getMyPlan()
-      .then((p) => setTeamAgent(p?.team.role === "agent"))
+      .then((p) => {
+        setTeamAgent(p?.team.role === "agent");
+        setHasProfile(p?.perks.profilePage !== false);
+      })
       .catch(() => undefined);
   }, [user]);
   const { state, isMobile, setOpen, setOpenMobile } = useSidebar();
@@ -398,7 +403,7 @@ export default function DashboardSidebar() {
                   through the agent card. The path carries the id, so it is
                   built per user and cannot live in the static nav config.
                 */}
-                {myProfilePath && (
+                {myProfilePath && hasProfile && (
                   <DropdownMenuItem asChild>
                     <Link
                       href={myProfilePath}

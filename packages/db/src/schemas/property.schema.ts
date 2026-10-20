@@ -123,6 +123,14 @@ export class Property extends Document {
   featuredAt?: Date
 
   /**
+   * Who pinned it: 'owner' (out of their plan's featured slots — taken back
+   * when the plan no longer has them) or 'admin' (editorial, never taken
+   * back automatically). Empty on listings featured before this was kept.
+   */
+  @Prop({ type: String, default: undefined })
+  featuredBy?: 'owner' | 'admin'
+
+  /**
    * 'expired': a listing on the Free plan whose month ran out (see expiresAt).
    * It leaves search, the city and area pages, the map and the sitemap, and
    * no longer counts against the plan; its own page keeps answering with an

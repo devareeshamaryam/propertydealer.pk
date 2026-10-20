@@ -417,7 +417,7 @@ export default function AccountPage() {
           <DataCardTitle hint="Shown on /agents — buyers reach it from your listings">
             Public profile
           </DataCardTitle>
-          {publicPath && (
+          {publicPath && plan?.perks.profilePage !== false && (
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -438,6 +438,12 @@ export default function AccountPage() {
                 </Link>
               </Button>
             </div>
+          )}
+          {plan?.perks.profilePage === false && (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Lock className="h-3.5 w-3.5" /> A public profile page comes with a paid plan.{" "}
+              <Link href="/dashboard/purchase-package" className="font-semibold text-primary underline">See plans</Link>
+            </p>
           )}
         </div>
 

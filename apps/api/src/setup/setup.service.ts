@@ -21,6 +21,9 @@ import { PLAN_BENEFITS, STATIC_PAGES } from './setup-content';
  *                    the agents have room. Numbers only ever go up — an
  *                    admin's higher figure stays — and prices are untouched.
  *                    Free's description now says a listing runs for a month.
+ *   plans-v4-profile the public profile page becomes a plan benefit: on for
+ *                    paid plans, off for Free (packages that already have the
+ *                    switch set are left alone).
  *   brand-name-v1    "PropertyDealer" written as two words, "Property Dealer":
  *                    the Site name setting (when it is still the old default),
  *                    the copyright line and default title, and the four
@@ -79,6 +82,19 @@ export class SetupService implements OnApplicationBootstrap {
     await this.job('static-pages-v1', () => this.staticPages());
     await this.job('brand-name-v1', () => this.brandName());
     await this.job('plans-v3', () => this.plansV3());
+    await this.job('plans-v4-profile', () => this.plansProfile());
+  }
+
+  /** The profile page as a plan benefit: on for the paid plans, off for Free — only where nobody has set it yet. */
+  private async plansProfile() {
+    const set: string[] = [];
+    for (const pkg of await this.packages.find({ profilePage: { $exists: false } }).exec()) {
+      (pkg as any).profilePage = Number((pkg as any).price ?? 0) > 0;
+      await pkg.save();
+      set.push(`${pkg.name}: ${(pkg as any).profilePage ? 'on' : 'off'}`);
+    }
+    void this.revalidate.revalidate({ tags: ['packages', 'agents'], paths: ['/', '/packages'] });
+    return { set };
   }
 
   private async plansV3() {

@@ -16,6 +16,7 @@ export interface PlanBenefits {
   brandedProfile: boolean;
   socialLinks: boolean;
   highlight: boolean;
+  profilePage: boolean;
   teamMembers: string;
 }
 
@@ -26,6 +27,7 @@ export const EMPTY_BENEFITS: PlanBenefits = {
   brandedProfile: false,
   socialLinks: false,
   highlight: false,
+  profilePage: true,
   teamMembers: "0",
 };
 
@@ -37,6 +39,8 @@ export function benefitsFrom(pkg: Partial<Record<keyof PlanBenefits, unknown>>):
     brandedProfile: Boolean(pkg.brandedProfile),
     socialLinks: Boolean(pkg.socialLinks),
     highlight: Boolean(pkg.highlight),
+    // Older packages have no value: the profile page was always there.
+    profilePage: pkg.profilePage !== false,
     teamMembers: String(Number(pkg.teamMembers) || 0),
   };
 }
@@ -49,6 +53,7 @@ const TOGGLES: { key: Exclude<keyof PlanBenefits, "teamMembers">; label: string;
   { key: "verifiedBadge", label: "Verified badge", hint: "On the profile, every listing and every listing card." },
   { key: "autoPublish", label: "Instant publishing", hint: "New listings go live without waiting for review." },
   { key: "spotlight", label: "Spotlight", hint: "Shown in “Verified agencies” on the homepage and /agents." },
+  { key: "profilePage", label: "Profile page", hint: "A public agent page with a share link, linked from each listing. Off: no page and no link." },
   { key: "brandedProfile", label: "Branded profile", hint: "Cover photo on the profile page." },
   { key: "socialLinks", label: "Social links", hint: "Facebook, Instagram, YouTube, TikTok, LinkedIn and website on the profile." },
   { key: "highlight", label: "“Most popular” ribbon", hint: "Highlights this card on the pricing pages." },

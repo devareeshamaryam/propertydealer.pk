@@ -12,6 +12,8 @@ export interface AgentProfile {
   whatsappNumber?: string;
   address?: string;
   createdAt?: string;
+  /** False when the account's plan has no profile page: the page then does not exist. */
+  profilePage?: boolean;
   /** On a plan with the verified badge (or an agent of such an agency). */
   verified?: boolean;
   /** Present when the plan includes social links. */

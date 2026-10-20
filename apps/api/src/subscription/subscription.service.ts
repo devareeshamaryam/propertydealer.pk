@@ -24,8 +24,13 @@ export interface PlanPerks {
   brandedProfile: boolean;
   autoPublish: boolean;
   spotlight: boolean;
+  /** A public profile page and the links to it. */
+  profilePage: boolean;
+  /** Photos a listing may have (cover + gallery). */
+  photosPerProperty: number;
 }
 
+/** Only when there is no Free package at all (a fresh install): the least an account gets. */
 export const NO_PERKS: PlanPerks = {
   verifiedBadge: false,
   teamMembers: 0,
@@ -33,6 +38,8 @@ export const NO_PERKS: PlanPerks = {
   brandedProfile: false,
   autoPublish: false,
   spotlight: false,
+  profilePage: false,
+  photosPerProperty: 20,
 };
 
 export function perksOf(pkg: any): PlanPerks {
@@ -44,6 +51,9 @@ export function perksOf(pkg: any): PlanPerks {
     brandedProfile: !!pkg.brandedProfile,
     autoPublish: !!pkg.autoPublish,
     spotlight: !!pkg.spotlight,
+    // Packages saved before the switch existed have no value: the profile stays as it was.
+    profilePage: pkg.profilePage !== false,
+    photosPerProperty: Math.max(1, Number(pkg.photosPerProperty) || 20),
   };
 }
 
@@ -78,6 +88,22 @@ export class SubscriptionService {
    * usable on day one while still leaving a reason to buy a package.
    */
   static readonly FREE_PROPERTY_LIMIT = 1;
+
+  private freeCache: { at: number; pkg: any } | null = null;
+
+  /**
+   * The Free package as the admin set it (Dashboard → Packages): what an
+   * account with no paid plan gets — its listing limit, featured slots,
+   * photos and switches. Cached for a minute. Before this, Free's numbers
+   * were fixed in code and editing the Free package changed nothing.
+   */
+  async freePackage(): Promise<any | null> {
+    if (this.freeCache && Date.now() - this.freeCache.at < 60_000) return this.freeCache.pkg;
+    const rows = await this.packageModel.find({ price: { $lte: 0 } }).sort({ isActive: -1, createdAt: 1 }).lean().exec();
+    const pkg = rows.find((p: any) => String(p.name).trim().toLowerCase() === 'free') ?? rows[0] ?? null;
+    this.freeCache = { at: Date.now(), pkg };
+    return pkg;
+  }
 
   async purchase(
     userId: string,
@@ -621,16 +647,17 @@ export class SubscriptionService {
     };
 
     if (!subscription) {
-      const propertyLimit = SubscriptionService.FREE_PROPERTY_LIMIT;
+      const freePkg = await this.freePackage().catch(() => null);
+      const propertyLimit = freePkg ? Math.max(0, Number(freePkg.propertyLimit) || 0) : SubscriptionService.FREE_PROPERTY_LIMIT;
       return {
         tier: 'free',
-        name: 'Free',
+        name: freePkg?.name ?? 'Free',
         propertyLimit,
         used,
         remaining: Math.max(0, propertyLimit - used),
         canCreate: used < propertyLimit,
-        featuredLimit: 0,
-        perks: NO_PERKS,
+        featuredLimit: freePkg ? Math.max(0, Number(freePkg.featuredListings) || 0) : 0,
+        perks: freePkg ? perksOf(freePkg) : NO_PERKS,
         endDate: null,
         team,
         subscription: null,
@@ -706,6 +733,20 @@ export class SubscriptionService {
       status: { $in: ['pending', 'approved'] },
     });
     return { limit, used };
+  }
+
+  private profileCache = new Map<string, { at: number; on: boolean }>();
+
+  /** Does this account's plan include a public profile page? Admins always do. Cached for five minutes. */
+  async hasProfilePage(userId: string): Promise<boolean> {
+    const id = String(userId ?? '');
+    if (!Types.ObjectId.isValid(id)) return false;
+    const hit = this.profileCache.get(id);
+    if (hit && Date.now() - hit.at < 300_000) return hit.on;
+    const u: any = await this.propertyModel.db.collection('users').findOne({ _id: new Types.ObjectId(id) }, { projection: { role: 1 } });
+    const on = u?.role === 'ADMIN' ? true : !!(await this.getEffectivePlan(id).catch(() => null))?.perks.profilePage;
+    this.profileCache.set(id, { at: Date.now(), on });
+    return on;
   }
 
   async decrementPropertyCount(subscriptionId: string): Promise<SubscriptionDocument | null> {

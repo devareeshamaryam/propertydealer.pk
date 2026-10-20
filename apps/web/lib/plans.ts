@@ -23,6 +23,8 @@ export interface Plan {
   autoPublish?: boolean;
   spotlight?: boolean;
   highlight?: boolean;
+  /** A public profile page with a share link (older packages: on). */
+  profilePage?: boolean;
 }
 
 /** "Rs 5,000 / month", "Free". */
@@ -70,11 +72,13 @@ export function planBenefits(p: Plan): PlanBenefit[] {
   const featured = p.featuredListings ?? 0;
   return [
     { key: 'listings', on: true, label: n(p.propertyLimit, 'live listing', 'live listings'), hint: !p.price ? 'Live for a month at a time — renew for free' : team > 0 ? 'Shared by you and your agents' : 'Live at the same time' },
+    { key: 'photos', on: true, label: `Up to ${p.photosPerProperty || 20} photos per listing`, hint: 'Plus a walkthrough video' },
     { key: 'featured', on: featured > 0, label: featured > 0 ? n(featured, 'featured listing', 'featured listings') : 'Featured listings', hint: 'Shown first in search, with a Featured tag' },
     { key: 'verified', on: !!p.verifiedBadge, label: 'Verified badge', hint: 'On your profile, listings and listing cards' },
     { key: 'instant', on: !!p.autoPublish, label: 'Instant publishing', hint: 'Listings go live without waiting for review' },
     { key: 'spotlight', on: !!p.spotlight, label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and agents page' },
     { key: 'team', on: team > 0, label: team > 0 ? n(team, 'agent account', 'agent accounts') : 'Agent accounts', hint: 'Your agents list under your agency' },
+    { key: 'profile', on: p.profilePage !== false, label: 'Profile page with share link', hint: 'All your listings on one page, linked from each listing' },
     { key: 'branded', on: !!p.brandedProfile, label: 'Cover photo on your profile', hint: 'A banner across the top of your agent page' },
     { key: 'social', on: !!p.socialLinks, label: 'Social links on your profile', hint: 'Facebook, Instagram, YouTube, TikTok, website' },
   ];
@@ -83,10 +87,9 @@ export function planBenefits(p: Plan): PlanBenefit[] {
 /** What every plan has, Free included — shown once instead of on every card. */
 export function sharedBenefits(): string[] {
   return [
-    'Photos and a video on every listing',
+    'A walkthrough video on every listing',
     'Call and WhatsApp buttons on every listing',
     'Your listings on the property map',
-    'Your own agent profile with a share link',
     'Views and enquiry stats',
   ];
 }

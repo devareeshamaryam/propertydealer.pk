@@ -106,8 +106,32 @@ export class ListingExpiryService implements OnApplicationBootstrap, OnModuleDes
           })
           .catch(() => undefined);
       }
-      if (dated || undated || expired) this.logger.log(`Listing expiry: ${dated} given a month, ${undated} made open-ended (paid plan), ${expired} expired`);
-      return { dated, undated, expired };
+      // Featured beyond what the plan now allows (it ended, or moved down): the newest stay, the rest are un-featured.
+      let unfeatured = 0;
+      // Only the account's own pins: the admin's editorial ones (and older ones of unknown origin) are left alone.
+      const featuredOwners = (await col.distinct('owner', { isFeatured: true, featuredBy: 'owner' })).map((o) => String(o ?? '')).filter((o) => Types.ObjectId.isValid(o));
+      const seenPlans = new Set<string>();
+      for (const owner of featuredOwners) {
+        if (admins.has(owner)) continue;
+        const planOwner = await this.agency.planOwnerOf(owner);
+        if (seenPlans.has(planOwner)) continue;
+        seenPlans.add(planOwner);
+        const plan = await this.subscriptions.getEffectivePlan(planOwner).catch(() => null);
+        if (!plan) continue;
+        const team = await this.agency.teamOf(planOwner);
+        const rows = await col
+          .find({ owner: { $in: AgencyService.anyIds(team) }, isFeatured: true, featuredBy: 'owner' }, { projection: { _id: 1, featuredAt: 1 } })
+          .sort({ featuredAt: -1, _id: -1 })
+          .toArray();
+        const extra = rows.slice(Math.max(0, plan.featuredLimit));
+        if (extra.length) {
+          unfeatured += (await col.updateMany({ _id: { $in: extra.map((r) => r._id) } }, { $set: { isFeatured: false, featuredAt: null } })).modifiedCount;
+        }
+      }
+      if (unfeatured) await this.revalidate.revalidate({ tags: ['properties'], paths: ['/', '/properties'] }).catch(() => undefined);
+
+      if (dated || undated || expired || unfeatured) this.logger.log(`Listing expiry: ${dated} given a month, ${undated} made open-ended (paid plan), ${expired} expired, ${unfeatured} un-featured (over the plan's limit)`);
+      return { dated, undated, expired, unfeatured };
     } finally {
       this.running = false;
     }

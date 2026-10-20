@@ -73,6 +73,8 @@ export class UserService {
           { $group: { _id: { $toString: '$owner' }, n: { $sum: 1 } } },
         ])
         .toArray();
+      // The badge only where the plan includes it — a spotlight plan need not.
+      const verified = await this.agency.verifiedIds().catch(() => new Set<string>());
       return users
         .map((u: any) => ({
           _id: String(u._id),
@@ -81,7 +83,7 @@ export class UserService {
           avatarUrl: u.avatarUrl ?? '',
           address: u.address ?? '',
           listings: counts.find((c: any) => c._id === String(u._id))?.n ?? 0,
-          verified: true,
+          verified: verified.has(String(u._id)),
         }))
         .sort((a, b) => b.listings - a.listings)
         .slice(0, limit);
@@ -200,6 +202,8 @@ export class UserService {
     return {
       ...rest,
       verified,
+      // The plan decides whether there is a public page at all (admins always have one).
+      profilePage: await this.subscriptions.hasProfilePage(String(user._id)).catch(() => true),
       // An agency's agents carry its branding and links.
       socialLinks: perks?.socialLinks ? socialLinks ?? {} : undefined,
       coverUrl: perks?.brandedProfile ? coverUrl || undefined : undefined,

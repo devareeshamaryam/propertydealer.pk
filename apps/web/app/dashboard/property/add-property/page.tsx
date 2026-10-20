@@ -111,6 +111,7 @@ export default function AddProperty() {
     used: number;
     propertyLimit: number;
     canCreate: boolean;
+    perks?: { photosPerProperty?: number };
   } | null>(null);
 
   // Form state
@@ -889,8 +890,8 @@ export default function AddProperty() {
               onChange={setPhotos}
               folder="properties"
               context={title || "Property listing"}
-              max={20}
-              hint="The first photo is the cover shown in search results. Drag to reorder."
+              max={planState?.perks?.photosPerProperty || 20}
+              hint={`Up to ${planState?.perks?.photosPerProperty || 20} photos on your plan. The first photo is the cover shown in search results. Drag to reorder.`}
             />
 
             <VideoField

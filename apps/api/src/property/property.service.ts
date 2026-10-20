@@ -330,6 +330,15 @@ export class PropertyService {
             if (plan?.perks.autoPublish && (brainVerdict?.score ?? 0) < 80) finalStatus = 'approved';
         }
 
+        // Photos per listing, as the plan says (the admin is not limited).
+        if (userRole !== 'ADMIN' && userId) {
+          const limit = (await this.subscriptionService.getEffectivePlan(userId).catch(() => null))?.perks.photosPerProperty ?? 0;
+          const photos = (mainPhotoUrl ? 1 : 0) + (additionalPhotosUrls?.length ?? 0);
+          if (limit > 0 && photos > limit) {
+            throw new BadRequestException(`Your plan allows ${limit} photos per listing — remove ${photos - limit} and try again.`);
+          }
+        }
+
         // Drafts do not consume subscription slots — they aren't published yet.
         const consumesSubscription = userRole !== 'ADMIN' && finalStatus !== 'draft';
 
@@ -1400,11 +1409,12 @@ export class PropertyService {
         });
         const doc = typeof found?.toObject === 'function' ? found.toObject() : found;
         const ownerId = String(doc?.owner?._id ?? doc?.owner ?? '');
-        const [ownerVerified, agencyId] = await Promise.all([
+        const [ownerVerified, agencyId, ownerProfile] = await Promise.all([
           this.agency.isVerified(ownerId).catch(() => false),
           this.agency.agencyOf(ownerId).catch(() => null),
+          this.subscriptionService.hasProfilePage(ownerId).catch(() => true),
         ]);
-        return { ...doc, ownerVerified, ownerAgencyId: agencyId };
+        return { ...doc, ownerVerified, ownerAgencyId: agencyId, ownerProfile };
       }
 
       private async findPropertyBySlugImpl(slug: string) {
@@ -1591,6 +1601,7 @@ export class PropertyService {
             {
               isFeatured,
               featuredAt: isFeatured ? new Date() : null,
+              featuredBy: isFeatured ? (userRole === 'ADMIN' ? 'admin' : 'owner') : null,
             },
             { new: true },
           )
@@ -1764,6 +1775,15 @@ export class PropertyService {
                  ...validExistingPhotos,
                  ...(additionalPhotosUrls || [])
              ];
+          }
+
+          if (userRole !== 'ADMIN' && userId) {
+            const limit = (await this.subscriptionService.getEffectivePlan(String(property.owner)).catch(() => null))?.perks.photosPerProperty ?? 0;
+            const before = (property.mainPhotoUrl ? 1 : 0) + (property.additionalPhotosUrls?.length ?? 0);
+            const after = ((updateData.mainPhotoUrl ?? property.mainPhotoUrl) ? 1 : 0) + ((updateData.additionalPhotosUrls ?? property.additionalPhotosUrls)?.length ?? 0);
+            if (limit > 0 && after > limit && after > before) {
+              throw new BadRequestException(`Your plan allows ${limit} photos per listing — remove ${after - Math.max(limit, before)} and save again.`);
+            }
           }
 
           /*

@@ -609,6 +609,8 @@ function PlanBenefitsCard({ plan }: { plan: EffectivePlan }) {
     brandedProfile: perks.brandedProfile,
     socialLinks: perks.socialLinks,
     teamMembers: perks.teamMembers,
+    profilePage: perks.profilePage,
+    photosPerProperty: perks.photosPerProperty,
   }).map((b) => [b.on, b.label, b.key === "listings" && plan.team.role ? "Shared across your agency" : b.hint]);
   return (
     <DataCard>

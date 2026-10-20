@@ -530,6 +530,10 @@ export interface PlanPerks {
   brandedProfile: boolean;
   autoPublish: boolean;
   spotlight: boolean;
+  /** A public profile page and the links to it. */
+  profilePage?: boolean;
+  /** Photos a listing may have. */
+  photosPerProperty?: number;
 }
 
 /** The plan in force for the signed-in account (an agency's agent: the agency's plan). */

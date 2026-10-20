@@ -29,13 +29,15 @@ function nestedPath(data: NonNullable<Awaited<ReturnType<typeof getAgent>>>): st
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const data = await getAgent(slug);
+  if (data?.profile.profilePage === false) return agentMetadata(null, `/agents/${slug}`);
   return agentMetadata(data, (data && (nestedPath(data) ?? agentProfilePath(data.profile))) || `/agents/${slug}`);
 }
 
 export default async function AgentProfilePage({ params }: PageProps) {
   const { slug } = await params;
   const data = await getAgent(slug);
-  if (!data) notFound();
+  // The plan has no profile page (Dashboard → Packages): there is no page.
+  if (!data || data.profile.profilePage === false) notFound();
   const nested = nestedPath(data);
   if (nested) permanentRedirect(nested);
   return <AgentProfileView data={data} path={agentProfilePath(data.profile) ?? `/agents/${slug}`} />;

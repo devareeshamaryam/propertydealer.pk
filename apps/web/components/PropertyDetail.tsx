@@ -267,7 +267,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     trackView(backendProperty?._id);
   }, [backendProperty?._id]);
 
-  const agentPath = agentProfilePath(backendProperty?.owner);
+  // No link when the poster's plan has no profile page.
+  const agentPath = (backendProperty as { ownerProfile?: boolean } | null)?.ownerProfile === false ? null : agentProfilePath(backendProperty?.owner);
   const agentName = agentDisplayName(backendProperty?.owner);
   const agentAvatar: string | undefined = backendProperty?.owner?.avatarUrl;
 

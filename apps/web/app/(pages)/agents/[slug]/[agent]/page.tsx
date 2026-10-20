@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function AgencyAgentPage({ params }: PageProps) {
   const { slug, agent } = await params;
   const { data, path, right } = await load(slug, agent);
-  if (!data) notFound();
+  if (!data || data.profile.profilePage === false) notFound();
   if (right) permanentRedirect(right);
   return <AgentProfileView data={data} path={path} />;
 }

@@ -109,12 +109,12 @@ export default function PackagesPublicPage() {
                 {planBenefits(sorted[0]!).map((row) => (
                   <tr key={row.key}>
                     <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-3 py-2.5 sm:px-4">
-                      <p className="font-medium text-slate-800">{row.key === 'listings' ? 'Live listings' : row.key === 'featured' ? 'Featured listings' : row.key === 'team' ? 'Agent accounts' : row.label}</p>
+                      <p className="font-medium text-slate-800">{row.key === 'listings' ? 'Live listings' : row.key === 'featured' ? 'Featured listings' : row.key === 'team' ? 'Agent accounts' : row.key === 'photos' ? 'Photos per listing' : row.label}</p>
                       <p className="hidden text-[12px] text-slate-400 sm:block">{row.hint}</p>
                     </td>
                     {sorted.map((p) => {
                       const b = planBenefits(p).find((x) => x.key === row.key)!;
-                      const count = row.key === 'listings' ? p.propertyLimit : row.key === 'featured' ? p.featuredListings : row.key === 'team' ? p.teamMembers ?? 0 : null;
+                      const count = row.key === 'listings' ? p.propertyLimit : row.key === 'featured' ? p.featuredListings : row.key === 'team' ? p.teamMembers ?? 0 : row.key === 'photos' ? p.photosPerProperty || 20 : null;
                       return (
                         <td key={p._id} className={cn('border-b border-slate-100 px-2 py-2.5 text-center', p.highlight && 'bg-primary/5')}>
                           {count !== null && count > 0 ? (
