@@ -195,3 +195,71 @@ export function propertySizeLabel(
 
   return "—";
 }
+
+/* ────────────────────────────── Cities ────────────────────────────── */
+
+/**
+ * Pakistan's most popular cities for property search, in priority order.
+ * Big metros and major real-estate hubs come first, followed by regional centres.
+ */
+export const POPULAR_CITIES = [
+  'lahore',
+  'karachi',
+  'islamabad',
+  'rawalpindi',
+  'faisalabad',
+  'faislabad',
+  'multan',
+  'peshawar',
+  'gujranwala',
+  'sialkot',
+  'bahawalpur',
+  'sahiwal',
+  'hyderabad',
+  'quetta',
+  'abbottabad',
+  'sargodha',
+  'gujrat',
+  'sheikhupura',
+  'jhelum',
+  'wah cantt',
+  'wah',
+  'rahim yar khan',
+  'mardan',
+  'kasur',
+  'sukkur',
+  'larkana',
+  'dera ghazi khan',
+  'dg khan',
+  'nawabshah',
+  'okara',
+  'mirpur',
+  'gwadar',
+  'murree',
+] as const;
+
+export function cityPopularityRank(name?: string | null): number {
+  if (!name) return 999;
+  const norm = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const idx = POPULAR_CITIES.findIndex(c => c.replace(/[^a-z0-9]/g, '') === norm);
+  return idx === -1 ? 999 : idx;
+}
+
+/**
+ * Sort any city objects or strings by popularity first, then by listings count (if available), then alphabetically.
+ */
+export function sortCitiesByPopularity<T extends { name?: string; count?: number } | string>(cities: T[]): T[] {
+  return [...cities].sort((a, b) => {
+    const nameA = typeof a === 'string' ? a : a.name ?? '';
+    const nameB = typeof b === 'string' ? b : b.name ?? '';
+    const countA = typeof a === 'object' && a && 'count' in a ? Number(a.count) || 0 : 0;
+    const countB = typeof b === 'object' && b && 'count' in b ? Number(b.count) || 0 : 0;
+
+    const rankA = cityPopularityRank(nameA);
+    const rankB = cityPopularityRank(nameB);
+
+    if (rankA !== rankB) return rankA - rankB;
+    if (countB !== countA) return countB - countA;
+    return nameA.localeCompare(nameB);
+  });
+}

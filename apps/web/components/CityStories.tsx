@@ -12,7 +12,7 @@ import { cn, toTitleCase } from '@/lib/utils';
  * Cities as a row of round "story" shortcuts — a photo in a ring of the
  * theme colour, the name underneath — the way apps show categories you can
  * tap through. Four fit across a phone and the rest scroll; a desktop shows
- * more. Sorted by how many live listings each city has.
+ * more. Sorted by popularity (major cities first), then live listings count.
  *
  * Homepage: the ten most popular and a "View all" circle. Results pages: all
  * of them, with the current city highlighted, linking within the same

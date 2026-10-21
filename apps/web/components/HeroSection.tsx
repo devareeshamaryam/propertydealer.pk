@@ -6,7 +6,7 @@ import { propertyApi, cityApi, areaApi } from '@/lib/api';
 import { mapBackendToFrontendProperty, BackendProperty, sortPropertyTypes } from '@/lib/types/property-utils';
 import { Property } from '@/lib/data';
 import { cn, toTitleCase } from '@/lib/utils';
-import { amountShort } from '@/lib/pk';
+import { amountShort, sortCitiesByPopularity } from '@/lib/pk';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import { resolved } from '@/lib/site-settings';
 import Image from 'next/image';
@@ -29,8 +29,6 @@ interface HeroSectionProps {
   initialProperties?: any[];
   initialTypes?: string[];
 }
-
-const CITY_ORDER = ['lahore', 'islamabad', 'karachi', 'multan', 'gujranwala', 'faisalabad'];
 
 const selectClass =
   'h-11 w-full appearance-none rounded-md border border-slate-300 bg-white pl-3 pr-9 text-[14px] text-slate-900 outline-none transition-colors hover:border-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400';
@@ -83,14 +81,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ initialCities, initialPropert
           propertyApi.getAll(),
           propertyApi.getTypes()
         ]);
-        const sortedCities = (citiesData as any[]).sort((a: any, b: any) => {
-          const aIndex = CITY_ORDER.indexOf(a.name.toLowerCase());
-          const bIndex = CITY_ORDER.indexOf(b.name.toLowerCase());
-          if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-          if (aIndex !== -1) return -1;
-          if (bIndex !== -1) return 1;
-          return a.name.localeCompare(b.name);
-        });
+        const sortedCities = sortCitiesByPopularity(citiesData as any[]);
         setCityList(sortedCities);
         const backendProperties = (propertiesData as any).properties || [] as BackendProperty[];
         setAllProperties(backendProperties.map(mapBackendToFrontendProperty));

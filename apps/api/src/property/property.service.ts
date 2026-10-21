@@ -606,6 +606,47 @@ export class PropertyService {
             this.cityModel.find().select('name thumbnail').lean().exec(),
           ]);
           const byCity = new Map<string, number>(counts.map((c: any) => [String(c._id), c.count]));
+          const POPULAR_CITIES = [
+            'lahore',
+            'karachi',
+            'islamabad',
+            'rawalpindi',
+            'faisalabad',
+            'faislabad',
+            'multan',
+            'peshawar',
+            'gujranwala',
+            'sialkot',
+            'bahawalpur',
+            'sahiwal',
+            'hyderabad',
+            'quetta',
+            'abbottabad',
+            'sargodha',
+            'gujrat',
+            'sheikhupura',
+            'jhelum',
+            'wah cantt',
+            'wah',
+            'rahim yar khan',
+            'mardan',
+            'kasur',
+            'sukkur',
+            'larkana',
+            'dera ghazi khan',
+            'dg khan',
+            'nawabshah',
+            'okara',
+            'mirpur',
+            'gwadar',
+            'murree',
+          ];
+          const rank = (name?: string | null) => {
+            if (!name) return 999;
+            const norm = name.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            const idx = POPULAR_CITIES.findIndex(c => c.replace(/[^a-z0-9]/g, '') === norm);
+            return idx === -1 ? 999 : idx;
+          };
           return cities
             .map((c: any) => ({
               _id: String(c._id),
@@ -614,7 +655,12 @@ export class PropertyService {
               thumbnail: c.thumbnail || undefined,
               count: byCity.get(String(c._id)) ?? 0,
             }))
-            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+            .sort((a, b) => {
+              const rA = rank(a.name);
+              const rB = rank(b.name);
+              if (rA !== rB) return rA - rB;
+              return b.count - a.count || a.name.localeCompare(b.name);
+            });
         }, { ttl: 600, tags: [TAG_PROPERTIES] });
       }
 

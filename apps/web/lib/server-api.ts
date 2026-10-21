@@ -1,6 +1,7 @@
  // lib/server-api.ts
 import { Blog } from './types/blog';
 import { BackendProperty } from './types/property-utils';
+import { sortCitiesByPopularity } from './pk';
 
 const RAW_API_URL =
   process.env.INTERNAL_API_URL ||
@@ -308,28 +309,27 @@ export async function fetchInitialListings(filters: {
 }
 
 /**
- * Cities for the round shortcuts, most listings first. Uses the API's
- * /properties/city-popularity; if that is not there (an older API) it falls
- * back to the plain city list with the big cities first. Never throws.
+ * Cities for the round shortcuts, popular cities first. Uses the API's
+ * /properties/city-popularity; falls back to the plain city list sorted by
+ * popularity. Never throws.
  */
 export async function getCityStories(): Promise<import('@/components/CityStories').CityStory[]> {
   const slug = (n: string) => n.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   try {
     const rows = await optionalGet<any[]>('/properties/city-popularity', 600, ['properties', 'cities']);
-    if (Array.isArray(rows) && rows.length) return rows;
+    if (Array.isArray(rows) && rows.length) return sortCitiesByPopularity(rows);
   } catch {
     // Older API — fall through.
   }
   try {
     const cities: any[] = await serverApi.getCities();
-    const big = ['lahore', 'karachi', 'islamabad', 'rawalpindi', 'multan', 'faisalabad', 'faislabad', 'gujranwala', 'sahiwal', 'peshawar', 'bahawalpur'];
-    const rank = (n: string) => {
-      const i = big.indexOf(n.trim().toLowerCase());
-      return i === -1 ? 999 : i;
-    };
-    return (cities ?? [])
-      .map((c: any) => ({ _id: String(c._id), name: c.name, slug: slug(c.name), thumbnail: c.thumbnail }))
-      .sort((a, b) => rank(a.name) - rank(b.name) || a.name.localeCompare(b.name));
+    const mapped = (cities ?? []).map((c: any) => ({
+      _id: String(c._id),
+      name: c.name,
+      slug: slug(c.name),
+      thumbnail: c.thumbnail,
+    }));
+    return sortCitiesByPopularity(mapped);
   } catch {
     return [];
   }

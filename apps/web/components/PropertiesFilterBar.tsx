@@ -11,6 +11,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { Search, Loader2, ChevronDown } from 'lucide-react';
 import { propertyApi, cityApi } from '@/lib/api';
 import { sortPropertyTypes } from '@/lib/types/property-utils';
+import { sortCitiesByPopularity } from '@/lib/pk';
 import { cn, toTitleCase } from '@/lib/utils';
 
 export default function PropertiesFilterBar() {
@@ -95,7 +96,7 @@ export default function PropertiesFilterBar() {
 
   // Extract unique cities and property types
   const cities = useMemo(
-    () => (allCities ?? []).map((c: any) => c.name as string).sort(),
+    () => sortCitiesByPopularity((allCities ?? []).map((c: any) => c.name as string)),
     [allCities],
   );
 

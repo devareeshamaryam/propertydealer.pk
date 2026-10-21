@@ -12,6 +12,7 @@ import VerifiedAgencies from "@/components/home/VerifiedAgencies";
 import { getSiteSettings } from "@/lib/site-settings.server";
 import { mapBackendToFrontendProperty, sortPropertyTypes } from "@/lib/types/property-utils";
 import { transformBlogsToPosts } from "@/lib/utils/blog-utils";
+import { sortCitiesByPopularity } from "@/lib/pk";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -125,13 +126,13 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListSchema) }}
       />
       <HeroSection
-        initialCities={citiesData
-          .map((c: any) => ({ _id: c._id, name: c.name }))
-          .sort((a: any, b: any) => a.name.localeCompare(b.name))}
+        initialCities={sortCitiesByPopularity(
+          citiesData.map((c: any) => ({ _id: c._id, name: c.name }))
+        )}
         initialProperties={transformedProperties}
         initialTypes={sortedProcessedTypes}
       />
-      {/* Cities as round shortcuts — the ten with most listings, then "View all". */}
+      {/* Cities as round shortcuts — the ten most popular, then "View all". */}
       {settings.homeShowCities && cityStories.length > 0 && (
         <section className="bg-white pb-2 pt-5 sm:pt-7">
           <div className="container mx-auto px-3 sm:px-4">
