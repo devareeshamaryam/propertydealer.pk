@@ -477,7 +477,8 @@ export default function MapExplorer({
   /** A city's page: the city is selected — its societies are listed beside the map. */
   city?: { slug: string; name: string } | null;
   /** `page`: shorter on phones, with the page's content below. */
-  mode?: 'full' | 'page';
+  /** full: the /emap app · page: top of a map page · embed: a box inside another page (a society guide, a city page). */
+  mode?: 'full' | 'page' | 'embed';
 }) {
   const router = useRouter();
   // The simple map by default everywhere; Satellite and Hybrid are a tap away in Layers.
@@ -844,7 +845,8 @@ export default function MapExplorer({
     [router],
   );
 
-  const Title = mode === 'page' ? 'p' : 'h1';
+  const Title = mode === 'full' ? 'h1' : 'p';
+  const inPage = mode === 'page' || mode === 'embed';
   const sponsor = society?.sponsor;
   const download = society?.layers.find((l) => l.downloadUrl)?.downloadUrl;
   const wa = sponsor?.whatsapp?.replace(/\D/g, '').replace(/^0/, '92');
@@ -855,13 +857,15 @@ export default function MapExplorer({
         'relative isolate flex w-full bg-slate-100',
         full
           ? 'fixed inset-0 z-[70] h-[100dvh]'
-          : mode === 'page'
-            ? 'h-[72dvh] min-h-[480px] lg:h-[calc(100dvh-64px)]'
-            : 'h-[calc(100dvh-64px)]',
+          : mode === 'embed'
+            ? 'h-[420px] overflow-hidden rounded-2xl ring-1 ring-slate-200 sm:h-[520px]'
+            : mode === 'page'
+              ? 'h-[72dvh] min-h-[480px] lg:h-[calc(100dvh-64px)]'
+              : 'h-[calc(100dvh-64px)]',
       )}
     >
       {/* Desktop list */}
-      <aside className="hidden w-[380px] shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
+      <aside className={cn('hidden w-[380px] shrink-0 flex-col border-r border-slate-200 bg-white', mode !== 'embed' && 'lg:flex')}>
         <div className="border-b border-slate-200 px-4 py-3">
           {society ? (
             <>
@@ -1269,7 +1273,7 @@ export default function MapExplorer({
           <button type="button" onClick={share} className={ctrl} aria-label="Share this view" title={copied ? 'Link copied' : 'Share'}>
             <Share2 className="h-5 w-5" />
           </button>
-          {mode === 'page' && (
+          {inPage && (
             <button type="button" onClick={() => setFull((v) => !v)} className={ctrl} aria-label={full ? 'Exit full screen' : 'Full screen'}>
               {full ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             </button>
@@ -1326,7 +1330,7 @@ export default function MapExplorer({
         <div
           className={cn(
             'absolute inset-x-0 z-[500] space-y-2 lg:bottom-4 lg:left-auto lg:right-4 lg:w-[380px]',
-            full ? 'bottom-[calc(1rem+env(safe-area-inset-bottom))]' : mode === 'page' ? 'bottom-3' : 'bottom-[calc(5.75rem+env(safe-area-inset-bottom))]',
+            full ? 'bottom-[calc(1rem+env(safe-area-inset-bottom))]' : inPage ? 'bottom-3' : 'bottom-[calc(5.75rem+env(safe-area-inset-bottom))]',
           )}
         >
           {sponsor && !selected && (

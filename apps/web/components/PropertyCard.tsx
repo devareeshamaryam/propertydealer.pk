@@ -88,7 +88,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
   const whatsapp = rawWhatsApp ? waDigits(rawWhatsApp) : '';
   const phoneHref = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : '';
   const waText = encodeURIComponent(
-    `Hi, I am interested in: ${property.name} (${typeof window !== 'undefined' ? window.location.origin : 'https://propertydealer.pk'}${href})`
+    `Hi, I am interested in: ${property.name} (${process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk'}${href})`
   );
   const waUrl = whatsapp ? `https://wa.me/${whatsapp}?text=${waText}` : '';
 

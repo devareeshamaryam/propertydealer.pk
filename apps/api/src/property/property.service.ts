@@ -785,6 +785,14 @@ export class PropertyService {
                // Ignore if conversion fails, though isValidObjectId should have caught it
             }
             
+            // A society's listings include its phases' (areas whose parent is this one).
+            const phaseIds = await this.areaModel.collection
+              .find({ parent: { $in: [new Types.ObjectId(filters.areaId), String(filters.areaId)] } }, { projection: { _id: 1 } })
+              .toArray();
+            if (phaseIds.length) {
+              areaOrConditions.push({ area: { $in: [...phaseIds.map((a) => a._id), ...phaseIds.map((a) => String(a._id))] } });
+            }
+
             if (areaDoc && areaDoc.name) {
                 // Escape regex special characters
                 const escapedName = areaDoc.name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -2076,7 +2084,7 @@ export class PropertyService {
 
                             {
                                     $group: {
-                                        _id: { name: '$areaDetails.name', id: '$areaDetails._id', slug: '$areaDetails.areaSlug' },
+                                        _id: { name: '$areaDetails.name', id: '$areaDetails._id', slug: '$areaDetails.areaSlug', kind: '$areaDetails.kind', parent: '$areaDetails.parent' },
                                         count: { $sum: 1 }
                                     }
                                 },
@@ -2086,6 +2094,8 @@ export class PropertyService {
                                         name: '$_id.name',
                                         id: '$_id.id',
                                         slug: '$_id.slug',
+                                        kind: '$_id.kind',
+                                        parent: '$_id.parent',
                                         count: 1,
                                         _id: 0
                                     }

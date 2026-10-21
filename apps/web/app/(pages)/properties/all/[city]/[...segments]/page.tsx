@@ -1,4 +1,5 @@
  import PropertiesListing from '@/components/PropertiesListing';
+import { AreaSocietyBox, CityAgenciesBox, CityExtras } from '@/components/societies/ArchiveBoxes';
 import { Suspense } from 'react';
 import { Metadata, ResolvingMetadata } from 'next';
 import { serverApi, fetchInitialListings } from '@/lib/server-api';
@@ -277,6 +278,13 @@ export default async function AllCitySegmentsPage(props: PageProps) {
           useCleanUrls={true}
           richDescription={richDescription}
           initialMarla={marla ?? undefined}
+          sidebar={cityData ? (
+            <>
+              {areaData && areaSlug ? <AreaSocietyBox citySlug={city} areaSlug={areaSlug} purpose="all" /> : null}
+              <CityAgenciesBox cityId={cityData._id} cityName={cityName} />
+            </>
+          ) : undefined}
+          extras={cityData && !areaData ? <CityExtras citySlug={city} cityId={cityData._id} cityName={cityName} /> : undefined}
         />
       </Suspense>
     </>

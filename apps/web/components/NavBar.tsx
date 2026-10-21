@@ -43,6 +43,7 @@ import { isPropertyDetail } from '@/lib/routes';
 const NAV_LINKS = [
   { name: 'Buy', path: '/properties/sale' },
   { name: 'Rent', path: '/properties/rent' },
+  { name: 'Societies', path: '/societies' },
 ];
 
 /** The construction-rate pages — the site's other half, and well ranked. */

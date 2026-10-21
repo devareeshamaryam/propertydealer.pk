@@ -382,6 +382,13 @@ export async function getSpotlightAgencies(): Promise<SpotlightAgency[]> {
   return Array.isArray(rows) ? rows : [];
 }
 
+/** Verified agencies and agents working in a city, for its listing pages. Empty on an API without the endpoint. */
+export async function getCityAgencies(cityId: string): Promise<SpotlightAgency[]> {
+  if (!cityId) return [];
+  const rows = await optionalGet<SpotlightAgency[]>(`/agents/city/${encodeURIComponent(cityId)}`, 600, ['subscriptions', 'agents']);
+  return Array.isArray(rows) ? rows : [];
+}
+
 /**
  * True when the API answered "not found" — a page should 404. Anything else
  * (timeout, 5xx, API restarting) is not the page's fault: throw it, and Next

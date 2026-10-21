@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
-import PropertiesFilterBar from "@/components/PropertiesFilterBar";
+import ArchiveSearchBar from "@/components/search/ArchiveSearchBar";
 import { Suspense } from "react";
 import { pageMetadata } from "@/lib/seo/page-seo";
-import { CityStoriesBar } from "@/components/CityStories";
-import { getCityStories } from "@/lib/server-api";
 
 /*
  * The search page's own metadata — and the fallback for everything under it.
@@ -37,14 +35,12 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
-export default async function PropertiesLayout({ children }: { children: React.ReactNode }) {
-    // Every city, most listings first, as round shortcuts above the results.
-    const cities = await getCityStories();
+export default function PropertiesLayout({ children }: { children: React.ReactNode }) {
+    // The search (as on the homepage) above every results page. The cities are on the homepage only.
     return (
         <>
-            <CityStoriesBar cities={cities} />
-            <Suspense fallback={<div className="hidden h-14 border-b border-slate-200 bg-white md:block" />}>
-                <PropertiesFilterBar />
+            <Suspense fallback={<div className="h-[65px] border-b border-slate-200 bg-white" />}>
+                <ArchiveSearchBar />
             </Suspense>
             {children}
         </>

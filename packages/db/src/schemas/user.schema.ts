@@ -59,6 +59,14 @@ export class User {
   @Prop()
   address?: string;
 
+  /**
+   * The city an agent or agency works in — they are shown on that city's
+   * pages (verified agencies, "agents in Lahore"). Older accounts without
+   * one are placed by where most of their listings are.
+   */
+  @Prop({ type: Types.ObjectId, ref: 'City', index: true, default: undefined })
+  city?: Types.ObjectId;
+
   @Prop({ default: true })
   isActive: boolean;
 

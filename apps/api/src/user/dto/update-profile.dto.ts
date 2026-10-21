@@ -79,6 +79,12 @@ export class UpdateProfileDto {
   @Length(0, 240)
   address?: string;
 
+  /** The city they work in (a city id) — they appear on that city's pages. Empty clears it. */
+  @IsOptional()
+  @IsString()
+  @Matches(/^([a-f0-9]{24})?$/i, { message: 'Choose your city from the list' })
+  city?: string;
+
   /**
    * A URL from the media library, not an upload: the image has already been
    * converted and stored by the time it gets here.

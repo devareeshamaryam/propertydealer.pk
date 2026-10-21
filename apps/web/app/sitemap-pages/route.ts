@@ -2,6 +2,7 @@
 // (city, and city + property type) — only those with listings.
 
 import { getSitemapData, sitemapXml, xmlResponse, SITE_URL } from '@/lib/sitemap-data';
+import { getSocieties } from '@/lib/societies';
 
 const STATIC_PAGES = [
   { url: '/',                                      priority: '1.0', changefreq: 'daily'   },
@@ -41,6 +42,17 @@ export async function GET() {
     }
   } catch (err) {
     console.error('[sitemap-pages]', err);
+  }
+  // Society guides (published only), and each city's list of them.
+  const societies = await getSocieties();
+  if (societies.length) {
+    rows.push({ loc: `${SITE_URL}/societies`, lastmod: today, changefreq: 'weekly', priority: '0.7' });
+    for (const city of [...new Set(societies.map((s) => s.citySlug))]) {
+      rows.push({ loc: `${SITE_URL}/societies/${city}`, lastmod: today, changefreq: 'weekly', priority: '0.7' });
+    }
+    for (const s of societies) {
+      rows.push({ loc: `${SITE_URL}/societies/${s.citySlug}/${s.slug}`, lastmod: today, changefreq: 'weekly', priority: '0.8' });
+    }
   }
   return xmlResponse(sitemapXml(rows));
 }

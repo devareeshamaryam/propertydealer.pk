@@ -834,7 +834,7 @@ export const areaApi = {
    * city. The full documents carry each area's SEO content. Falls back to the
    * full list on an API without /names.
    */
-  getNames: async (cityId?: string): Promise<{ _id: string; name: string; areaSlug?: string; city?: string }[]> => {
+  getNames: async (cityId?: string): Promise<{ _id: string; name: string; areaSlug?: string; city?: string; kind?: string; parent?: string }[]> => {
     try {
       const response = await api.get("/areas/names", { params: cityId ? { cityId } : {} });
       if (Array.isArray(response.data)) return response.data;
@@ -907,6 +907,8 @@ export const userApi = {
     bio?: string;
     experienceYears?: number;
     address?: string;
+    /** City id; empty clears it. */
+    city?: string;
     avatarUrl?: string;
     coverUrl?: string;
     socialLinks?: { facebook?: string; instagram?: string; youtube?: string; tiktok?: string; linkedin?: string; website?: string };

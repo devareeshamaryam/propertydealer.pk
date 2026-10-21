@@ -90,6 +90,57 @@ export class UserService {
     }, { ttl: 600, tags: ['subscriptions', 'properties'] });
   }
 
+  /**
+   * Verified agencies and agents of one city, for its listing pages: on a
+   * plan with the verified badge, and either with this city on their profile
+   * or — for accounts that have not chosen one yet — with live listings here.
+   * Most listings in the city first.
+   */
+  async cityAgencies(cityId: string, limit = 12) {
+    if (!Types.ObjectId.isValid(cityId)) return [];
+    return this.cache.wrap(this.cache.buildKey('agents:city', [cityId, limit]), async () => {
+      const db = this.userModel.db;
+      const verified = [...(await this.agency.verifiedIds().catch(() => new Set<string>()))].filter((i) => Types.ObjectId.isValid(i));
+      if (!verified.length) return [];
+      const users = await this.userModel
+        .find({ _id: { $in: verified }, isActive: { $ne: false } })
+        .select('name companyName avatarUrl address city agencyId')
+        .lean();
+      // Their live listings in this city (areas store `city` as an ObjectId or a string).
+      const areaIds = await db
+        .collection('areas')
+        .find({ city: { $in: [new Types.ObjectId(cityId), cityId] } }, { projection: { _id: 1 } })
+        .toArray();
+      const inCityAreas = [...areaIds.map((a) => a._id), ...areaIds.map((a) => String(a._id))];
+      const ids = users.map((u: any) => u._id);
+      const counts = inCityAreas.length
+        ? await db
+            .collection('properties')
+            .aggregate([
+              { $match: { owner: { $in: [...ids, ...ids.map(String)] }, status: 'approved', area: { $in: inCityAreas } } },
+              { $group: { _id: { $toString: '$owner' }, n: { $sum: 1 } } },
+            ])
+            .toArray()
+        : [];
+      const n = new Map(counts.map((c: any) => [String(c._id), c.n as number]));
+      return users
+        .filter((u: any) => (u.city ? String(u.city) === cityId : (n.get(String(u._id)) ?? 0) > 0))
+        // One card per agency: its own agents are on the agency's page.
+        .filter((u: any) => !u.agencyId || !verified.includes(String(u.agencyId)))
+        .map((u: any) => ({
+          _id: String(u._id),
+          name: u.companyName || u.name || 'Agency',
+          person: u.companyName ? u.name ?? '' : '',
+          avatarUrl: u.avatarUrl ?? '',
+          address: u.address ?? '',
+          listings: n.get(String(u._id)) ?? 0,
+          verified: true,
+        }))
+        .sort((a, b) => b.listings - a.listings)
+        .slice(0, limit);
+    }, { ttl: 600, tags: ['subscriptions', 'properties', 'agents'] });
+  }
+
   async findAll() {
     // 🚀 PERF: .lean() — the users table renders plain fields, so there is no
     // reason to hydrate full Mongoose documents for every row.

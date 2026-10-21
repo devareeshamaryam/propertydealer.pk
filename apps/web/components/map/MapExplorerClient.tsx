@@ -10,7 +10,7 @@ type Props = {
   focus?: { lat: number; lng: number; zoom: number } | null;
   society?: SocietyMapPage | null;
   city?: { slug: string; name: string } | null;
-  mode?: 'full' | 'page';
+  mode?: 'full' | 'page' | 'embed';
 };
 
 // Leaflet needs the browser.
@@ -21,7 +21,7 @@ const MapExplorer = dynamic(() => import('./MapExplorer'), {
 
 export default function MapExplorerClient(props: Props) {
   return (
-    <div className={cn(props.mode === 'page' ? 'min-h-[480px]' : '')}>
+    <div className={cn(props.mode === 'page' && 'min-h-[480px]')}>
       {/* A new map for each city / society, so choosing a city always opens on that city. */}
       <MapExplorer key={props.society ? `s:${props.society.citySlug}/${props.society.slug}` : props.city ? `c:${props.city.slug}` : 'all'} {...props} />
     </div>

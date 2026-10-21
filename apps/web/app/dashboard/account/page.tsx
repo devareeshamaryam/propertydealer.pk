@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { propertyApi, subscriptionApi, userApi, type MyPlan } from "@/lib/api";
+import { cityApi, propertyApi, subscriptionApi, userApi, type MyPlan } from "@/lib/api";
 import { BadgeCheck, Copy, Lock } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { DataCard, DataCardTitle, PageHeader } from "@/components/dashboard";
@@ -40,6 +40,8 @@ interface PublicProfileFields {
   bio?: string;
   experienceYears?: number | null;
   address?: string;
+  /** The city they work in (its id) — they are listed on that city's pages. */
+  city?: string | null;
   avatarUrl?: string;
   coverUrl?: string;
   socialLinks?: SocialLinks;
@@ -75,6 +77,8 @@ export default function AccountPage() {
   const [bio, setBio] = useState("");
   const [experienceYears, setExperienceYears] = useState("");
   const [address, setAddress] = useState("");
+  const [cityId, setCityId] = useState("");
+  const [cities, setCities] = useState<{ _id: string; name: string }[]>([]);
   const [avatarUrl, setAvatarUrl] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
   const [social, setSocial] = useState<SocialLinks>({});
@@ -116,6 +120,13 @@ export default function AccountPage() {
   }, [user]);
 
   useEffect(() => {
+    cityApi
+      .getNames()
+      .then((list) => setCities([...list].sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => setCities([]));
+  }, []);
+
+  useEffect(() => {
     if (!record) return;
     const profile = record;
     setName(record.name ?? "");
@@ -129,6 +140,7 @@ export default function AccountPage() {
         : String(profile.experienceYears),
     );
     setAddress(profile.address ?? "");
+    setCityId(profile.city ? String(profile.city) : "");
     setAvatarUrl(profile.avatarUrl ?? "");
     setCoverUrl(profile.coverUrl ?? "");
     setSocial(profile.socialLinks ?? {});
@@ -173,6 +185,7 @@ export default function AccountPage() {
           ? ""
           : String(profile.experienceYears)) ||
       address !== (profile.address ?? "") ||
+      cityId !== (profile.city ? String(profile.city) : "") ||
       avatarUrl !== (profile.avatarUrl ?? "") ||
       coverUrl !== (profile.coverUrl ?? "") ||
       JSON.stringify(SOCIAL_FIELDS.map(({ key }) => social[key] ?? "")) !==
@@ -192,6 +205,10 @@ export default function AccountPage() {
       toast.error("Name cannot be empty");
       return;
     }
+    if (user.role === "AGENT" && !cityId) {
+      toast.error("Choose your city", { description: "Agents and agencies are shown on their city's pages." });
+      return;
+    }
     try {
       setSaving(true);
       // PATCH /users/me — authenticated, not admin-only, and it accepts only
@@ -203,6 +220,7 @@ export default function AccountPage() {
         companyName: companyName.trim(),
         bio: bio.trim(),
         address: address.trim(),
+        city: cityId,
         avatarUrl: avatarUrl.trim(),
         coverUrl: coverUrl.trim(),
         socialLinks: Object.fromEntries(SOCIAL_FIELDS.map(({ key }) => [key, (social[key] ?? "").trim()])),
@@ -492,6 +510,26 @@ export default function AccountPage() {
               onChange={(event) => setExperienceYears(event.target.value)}
               placeholder="e.g. 8"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="account-city">
+              City {user.role === "AGENT" && <span className="text-destructive">*</span>}
+            </Label>
+            <select
+              id="account-city"
+              value={cityId}
+              onChange={(event) => setCityId(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Choose your city</option>
+              {cities.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.name.charAt(0).toUpperCase() + c.name.slice(1)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">Verified agencies are shown on their city&apos;s property pages.</p>
           </div>
 
           <div className="space-y-2">

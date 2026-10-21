@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import {
   Controller,
   Get,
@@ -69,6 +70,10 @@ export class UserController {
 
     if (dto.experienceYears !== undefined) {
       patch.experienceYears = dto.experienceYears;
+    }
+
+    if (dto.city !== undefined) {
+      patch.city = dto.city ? new Types.ObjectId(dto.city) : null;
     }
 
     if (dto.socialLinks) {

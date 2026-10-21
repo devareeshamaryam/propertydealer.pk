@@ -195,7 +195,7 @@ export const NAV_SECTIONS: NavSection[] = [
         // area.controller.ts guard every write with AdminGuard). Agents used to
         // see these four links and get a 403 on save.
         adminOnly: true,
-        matches: ["/dashboard/city", "/dashboard/area"],
+        matches: ["/dashboard/societies", "/dashboard/city", "/dashboard/area"],
         items: [
           { title: "Cities", href: "/dashboard/city", exact: true },
           { title: "Add City", href: "/dashboard/city/add-city" },
@@ -203,9 +203,11 @@ export const NAV_SECTIONS: NavSection[] = [
             title: "Areas",
             href: "/dashboard/area",
             exact: true,
-            keywords: ["society", "sector", "phase"],
+            keywords: ["mohalla", "sector", "locality"],
           },
           { title: "Add Area", href: "/dashboard/area/add-area" },
+          // A society: its guide page, its phases (areas under it), its map.
+          { title: "Societies", href: "/dashboard/societies", keywords: ["society", "housing scheme", "phase", "guide", "dha", "bahria"] },
         ],
       },
       {

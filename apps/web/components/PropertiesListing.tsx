@@ -3,18 +3,14 @@
 import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import SearchParamsBridge from '@/components/SearchParamsBridge';
-import { SlidersHorizontal, Loader2, X, MapPin, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, Loader2, MapPin, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import PropertyCard from '@/components/PropertyCard';
 import { propertyApi, cityApi } from '@/lib/api';
 import { areaApi } from '@/lib/api/area/area.api';
 import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/property-utils';
 import { Property } from '@/lib/data';
 import { toast } from 'sonner';
-import SearchSidebar from '@/components/SearchSidebar';
-import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn, toTitleCase } from '@/lib/utils';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 
@@ -34,6 +30,10 @@ interface PropertiesListingProps {
   cityId?: string;
   /** The page's H1 as the server worked it out (area and city names included). */
   heading?: string;
+  /** Beside the results on a desktop (under them on a phone): the society card, the city's agencies. */
+  sidebar?: React.ReactNode;
+  /** Under the results, before the page's text: the city's societies, agencies and map. */
+  extras?: React.ReactNode;
 }
 
 interface AreaOption {
@@ -41,6 +41,10 @@ interface AreaOption {
   name: string;
   slug?: string;
   count: number;
+  /** "society", "phase" or unset (a locality) — see the Area schema. */
+  kind?: string;
+  /** A phase's society. */
+  parent?: string;
 }
 
 const SIZE_OPTIONS: { label: string; marlaMin: number; marlaMax: number }[] = [
@@ -50,6 +54,23 @@ const SIZE_OPTIONS: { label: string; marlaMin: number; marlaMax: number }[] = [
   { label: '10 Marla', marlaMin: 10, marlaMax: 10 },
   { label: '1 Kanal',  marlaMin: 20, marlaMax: 20 },
 ];
+
+/** One location in the chips row: its name and how many listings it has. */
+function LocationChip({ area, selected, onClick }: { area: AreaOption; selected: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-3 text-[13px] font-medium transition-colors',
+        selected ? 'border-primary bg-primary/10 text-primary' : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400',
+        area.kind === 'society' && !selected && 'font-semibold text-slate-900',
+      )}
+    >
+      {toTitleCase(area.name)}
+      {area.count > 0 && <span className={cn('text-[12px] tabular-nums', selected ? 'opacity-70' : 'text-slate-400')}>{area.count}</span>}
+    </button>
+  );
+}
 
 export default function PropertiesListing({
   purpose,
@@ -64,6 +85,8 @@ export default function PropertiesListing({
   initialTotalPages,
   cityId: initialCityId,
   heading,
+  sidebar,
+  extras,
 }: PropertiesListingProps) {
   const router = useRouter();
   // The query string arrives through <SearchParamsBridge> (rendered below):
@@ -84,7 +107,6 @@ export default function PropertiesListing({
   const [isFetchingMore, setIsFetchingMore]     = useState(false);
   const [selectedMarla, setSelectedMarla]       = useState<number | null>(initialMarla ?? null);
 
-  const [isFilterSheetOpen,   setIsFilterSheetOpen]   = useState(false);
   const [isLocationPanelOpen, setIsLocationPanelOpen] = useState(false);
 
   const [mainAreas,        setMainAreas]        = useState<AreaOption[]>([]);
@@ -95,33 +117,13 @@ export default function PropertiesListing({
   // 🆕 Full area document (with rentContent/saleContent/sizeContents) for SEO content
   const [areaData, setAreaData] = useState<any>(null);
 
-  const [sheetCity,     setSheetCity]     = useState('');
-  const [sheetType,     setSheetType]     = useState('all');
-  const [sheetAreaId,   setSheetAreaId]   = useState('');
-  const [sheetAreaSlug, setSheetAreaSlug] = useState('');
-  const [sheetAreas,    setSheetAreas]    = useState<AreaOption[]>([]);
-  const [loadingAreas,  setLoadingAreas]  = useState(false);
-  const [showAllAreas,  setShowAllAreas]  = useState(false);
   const [showAllMainAreas, setShowAllMainAreas] = useState(false);
-  const AREAS_INITIAL_COUNT = 8;
-
-  const [sheetPriceMin, setSheetPriceMin] = useState('');
-  const [sheetPriceMax, setSheetPriceMax] = useState('');
-  const [sheetMarlaMin, setSheetMarlaMin] = useState('');
-  const [sheetMarlaMax, setSheetMarlaMax] = useState('');
-  const [sheetBeds,     setSheetBeds]     = useState<number | undefined>();
-  const [sheetBaths,    setSheetBaths]    = useState<number | undefined>();
 
   const [advancedFilters, setAdvancedFilters] = useState<{
     priceMin?: number; priceMax?: number;
     marlaMin?: number; marlaMax?: number;
     beds?: number;     baths?: number;
   }>(initialMarla ? { marlaMin: initialMarla, marlaMax: initialMarla } : {});
-
-  const handleFilterChange = (newFilters: any) => {
-    setAdvancedFilters(newFilters);
-    setCurrentPage(1);
-  };
 
   const cityToSlug = (name: string) =>
     name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -225,20 +227,35 @@ export default function PropertiesListing({
     }
   }, [type]);
 
+  /*
+   * Price, a size range, beds and baths come from the address (the search
+   * panel above the results puts them there); a size in the path is the
+   * default for the size range.
+   */
+  const filterKey = ['priceMin', 'priceMax', 'marlaMin', 'marlaMax', 'beds', 'baths'].map((k) => searchParams.get(k) ?? '').join('|');
   useEffect(() => {
+    const n = (k: string) => {
+      const v = Number(searchParams.get(k));
+      return v > 0 ? v : undefined;
+    };
     setSelectedMarla(initialMarla ?? null);
-    setAdvancedFilters(initialMarla
-      ? { marlaMin: initialMarla, marlaMax: initialMarla }
-      : {}
-    );
-  }, [initialMarla]);
+    setAdvancedFilters({
+      priceMin: n('priceMin'),
+      priceMax: n('priceMax'),
+      marlaMin: n('marlaMin') ?? initialMarla ?? undefined,
+      marlaMax: n('marlaMax') ?? initialMarla ?? undefined,
+      beds: n('beds'),
+      baths: n('baths'),
+    });
+    setCurrentPage(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMarla, filterKey]);
 
   /*
-   * Every area in the country is only needed by the location panel and the
-   * filter sheet when no city is chosen — so it is fetched when one of those
-   * opens, not on every results page.
+   * Every area in the country is only needed by the location panel when no
+   * city is chosen — so it is fetched when it opens, not on every results page.
    */
-  const needAllAreas = !matchedCity && (isLocationPanelOpen || (isFilterSheetOpen && !sheetCity));
+  const needAllAreas = !matchedCity && isLocationPanelOpen;
   const allAreasRequested = useRef(false);
   useEffect(() => {
     if (!needAllAreas || allAreasRequested.current) return;
@@ -280,23 +297,6 @@ export default function PropertiesListing({
   }, [initialAreaId, initialAreaSlug]);
 
   useEffect(() => {
-    if (!sheetCity) { setSheetAreas([]); return; }
-    (async () => {
-      setLoadingAreas(true);
-      try {
-        const pt = purpose === 'buy' ? 'sale' : purpose === 'rent' ? 'rent' : undefined;
-        const data = await propertyApi.getLocationStats(sheetCity, pt);
-        if (data?.locations) {
-          setSheetAreas(data.locations.map((l: any) => ({
-            id: l.id, name: l.name, slug: l.slug, count: l.count,
-          })));
-        }
-      } catch { setSheetAreas([]); }
-      finally { setLoadingAreas(false); }
-    })();
-  }, [sheetCity, purpose]);
-
-  useEffect(() => {
     if (!matchedCity) { setMainAreas([]); return; }
     setLoadingMainAreas(true);
     (async () => {
@@ -304,72 +304,35 @@ export default function PropertiesListing({
         const pt = purpose === 'buy' ? 'sale' : purpose === 'rent' ? 'rent' : undefined;
         const data = await propertyApi.getLocationStats(matchedCity, pt);
         if (data?.locations) {
-          setMainAreas(data.locations.map((l: any) => ({
-            id: l.id, name: l.name, slug: l.slug, count: l.count,
-          })));
+          const rows: AreaOption[] = data.locations.map((l: any) => ({
+            id: String(l.id), name: l.name, slug: l.slug, count: l.count,
+            kind: l.kind || undefined, parent: l.parent ? String(l.parent) : undefined,
+          }));
+          /*
+           * A society's listings are mostly in its phases, so the society
+           * itself may have none of its own and be missing here. Add it from
+           * the city's area names, and count its phases' listings as its own
+           * — its page shows them all.
+           */
+          const parents = [...new Set(rows.filter(r => r.parent).map(r => r.parent!))];
+          if (parents.length) {
+            const missing = parents.filter(id => !rows.some(r => r.id === id));
+            const names = missing.length && initialCityId ? await areaApi.getNames(initialCityId).catch(() => []) : [];
+            for (const id of missing) {
+              const a: any = (names as any[]).find(n => String(n._id) === id);
+              if (a) rows.push({ id, name: a.name, slug: a.areaSlug, count: 0, kind: 'society' });
+            }
+            for (const r of rows) {
+              if (r.kind === 'society') r.count += rows.filter(x => x.parent === r.id).reduce((n, x) => n + x.count, 0);
+            }
+          }
+          setMainAreas(rows);
         } else { setMainAreas([]); }
       } catch { setMainAreas([]); }
       finally { setLoadingMainAreas(false); }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchedCity, purpose]);
-
-  useEffect(() => {
-    if (!isFilterSheetOpen) return;
-    setSheetCity(matchedCity);
-    setSheetType(type);
-    setSheetAreaId(initialAreaId || searchParams.get('areaId') || '');
-    setSheetAreaSlug(initialAreaSlug || '');
-    setSheetPriceMin(advancedFilters.priceMin?.toString() || '');
-    setSheetPriceMax(advancedFilters.priceMax?.toString() || '');
-    setSheetMarlaMin(advancedFilters.marlaMin?.toString() || '');
-    setSheetMarlaMax(advancedFilters.marlaMax?.toString() || '');
-    setSheetBeds(advancedFilters.beds);
-    setSheetBaths(advancedFilters.baths);
-    setShowAllAreas(false);
-  }, [isFilterSheetOpen]);
-
-  const applySheetFilters = () => {
-    handleFilterChange({
-      priceMin: sheetPriceMin ? Number(sheetPriceMin) : undefined,
-      priceMax: sheetPriceMax ? Number(sheetPriceMax) : undefined,
-      marlaMin: sheetMarlaMin ? Number(sheetMarlaMin) : undefined,
-      marlaMax: sheetMarlaMax ? Number(sheetMarlaMax) : undefined,
-      beds: sheetBeds,
-      baths: sheetBaths,
-    });
-    const params = new URLSearchParams(searchParams.toString());
-    if (sheetAreaId) params.set('areaId', sheetAreaId); else params.delete('areaId');
-    if (useCleanUrls) {
-      params.delete('city'); params.delete('type'); params.delete('purpose');
-      const purposePath = purpose === 'buy' ? 'sale' : purpose;
-      const citySlug    = sheetCity ? cityToSlug(sheetCity) : '';
-      const typeSlug    = sheetType && sheetType !== 'all' ? `/${sheetType.toLowerCase()}` : '';
-      const qs          = params.toString();
-      const suffix      = qs ? `?${qs}` : '';
-      if (sheetAreaSlug && citySlug) {
-        router.push(`/properties/${purposePath}/${citySlug}/${sheetAreaSlug}${typeSlug}${suffix}`);
-      } else if (citySlug) {
-        router.push(`/properties/${purposePath}/${citySlug}${typeSlug}${suffix}`);
-      } else {
-        router.push(`/properties/${purposePath}${suffix}`);
-      }
-    } else {
-      if (sheetCity) params.set('city', sheetCity); else params.delete('city');
-      if (sheetType && sheetType !== 'all') params.set('type', sheetType); else params.delete('type');
-      const qs = params.toString();
-      router.push(qs ? `/properties?${qs}` : '/properties');
-    }
-    setIsFilterSheetOpen(false);
-  };
-
-  const resetSheetFilters = () => {
-    setSheetCity(matchedCity);
-    setSheetType('all');
-    setSheetAreaId(''); setSheetAreaSlug('');
-    setSheetPriceMin(''); setSheetPriceMax('');
-    setSheetMarlaMin(''); setSheetMarlaMax('');
-    setSheetBeds(undefined); setSheetBaths(undefined);
-  };
 
   /*
    * Cities and types fill the dropdowns and the SEO text. They used to be
@@ -406,7 +369,7 @@ export default function PropertiesListing({
    * one request; anything the visitor changes afterwards fetches as normal.
    */
   const serverKey = useRef<string | null>(
-    initialProperties?.length && !searchTerm && !searchParams.get('areaId') ? fetchKey : null,
+    initialProperties?.length && !searchTerm && !searchParams.get('areaId') && !filterKey.replace(/\|/g, '') ? fetchKey : null,
   );
 
   useEffect(() => {
@@ -683,9 +646,30 @@ export default function PropertiesListing({
     matchedCity ? `in ${matchedCity}` : '',
   ].filter(Boolean).join(' ');
 
-  const filterSheetAreaList    = sheetCity ? sheetAreas : allAreas;
-  const filterSheetAreaLoading = sheetCity ? loadingAreas : loadingAllAreas;
-  const visibleFilterAreas     = showAllAreas ? filterSheetAreaList : filterSheetAreaList.slice(0, 8);
+  /*
+   * The city's locations as a row of chips, shown like the size chips. On a
+   * society's page its phases come first; on a phase, its society and the
+   * other phases; elsewhere the busiest areas first.
+   */
+  const currentArea = mainAreas.find(a => a.id === currentAreaId || (!!initialAreaSlug && a.slug === initialAreaSlug));
+  const locationGroups = (() => {
+    if (!mainAreas.length) return { related: [] as AreaOption[], relatedTitle: '', others: [] as AreaOption[] };
+    const byCount = (a: AreaOption, b: AreaOption) => b.count - a.count || a.name.localeCompare(b.name);
+    const societyId = currentArea?.kind === 'society' ? currentArea.id : currentArea?.kind === 'phase' ? currentArea.parent : undefined;
+    const related = societyId
+      ? mainAreas
+          .filter(a => a.id === societyId || a.parent === societyId)
+          .sort((a, b) => (a.id === societyId ? -1 : b.id === societyId ? 1 : a.name.localeCompare(b.name, undefined, { numeric: true })))
+      : [];
+    const society = societyId ? mainAreas.find(a => a.id === societyId) : undefined;
+    const taken = new Set(related.map(a => a.id));
+    return {
+      related,
+      relatedTitle: society ? `${toTitleCase(society.name)} & its phases` : 'Phases',
+      others: mainAreas.filter(a => !taken.has(a.id)).sort(byCount),
+    };
+  })();
+  const LOCATION_CHIPS = 10;
 
   const showMarlaChips = type.toLowerCase() === 'house' || type.toLowerCase() === 'plot' || !!(matchedCity);
 
@@ -695,148 +679,10 @@ export default function PropertiesListing({
         <SearchParamsBridge onChange={setSearchParams} />
       </Suspense>
 
-      <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
-        <SheetContent side="bottom" className="h-screen w-full p-0 rounded-none border-0 lg:hidden flex flex-col">
-          <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200 bg-white shrink-0">
-            <SheetTitle className="text-base font-bold text-black">Filters</SheetTitle>
-            <button onClick={() => setIsFilterSheetOpen(false)} aria-label="Close" className="w-8 h-8 flex items-center justify-center rounded-md text-slate-500 hover:bg-slate-100">
-              <X className="w-4 h-4 text-black" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto bg-white">
-            <div className="p-4 space-y-6">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-black">City</Label>
-                <div className="relative">
-                  <select
-                    value={sheetCity}
-                    onChange={e => { setSheetCity(e.target.value); setSheetAreaId(''); setSheetAreaSlug(''); setShowAllAreas(false); }}
-                    className="w-full px-4 py-3 rounded-md border border-slate-300 bg-white text-sm font-medium appearance-none focus:border-primary focus:outline-none"
-                  >
-                    <option value="">All Cities</option>
-                    {cities.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-black">Property Type</Label>
-                <div className="flex flex-wrap gap-2">
-                  <button onClick={() => setSheetType('all')}
-                    className={`px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors ${sheetType === 'all' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
-                    All Types
-                  </button>
-                  {propertyTypes.map(t => (
-                    <button key={t}
-                      onClick={() => setSheetType(sheetType.toLowerCase() === t.toLowerCase() ? 'all' : t.toLowerCase())}
-                      className={`px-3 py-1.5 rounded-md text-[13px] font-medium border transition-colors ${sheetType.toLowerCase() === t.toLowerCase() ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-500'}`}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-black">
-                  Area
-                  {sheetAreaId && (
-                    <button onClick={() => { setSheetAreaId(''); setSheetAreaSlug(''); }} className="ml-2 text-xs text-gray-400 font-normal underline">Clear</button>
-                  )}
-                </Label>
-                {filterSheetAreaLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-400 py-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading areas…</div>
-                ) : filterSheetAreaList.length === 0 ? (
-                  <p className="text-sm text-gray-400 py-2">No areas found</p>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 gap-2">
-                      {visibleFilterAreas.map(area => (
-                        <button key={area.id}
-                          onClick={() => { if (sheetAreaId === area.id) { setSheetAreaId(''); setSheetAreaSlug(''); } else { setSheetAreaId(area.id); setSheetAreaSlug(area.slug || ''); } }}
-                          className={`flex items-center justify-between px-3 py-2.5 rounded-md border text-xs font-medium transition-colors text-left ${sheetAreaId === area.id ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'}`}>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <MapPin className="w-3 h-3 shrink-0 opacity-60" />
-                            <span className="truncate">{toTitleCase(area.name)}</span>
-                          </div>
-                          {area.count > 0 && <span className={`ml-1 shrink-0 text-[10px] ${sheetAreaId === area.id ? 'opacity-70' : 'text-gray-400'}`}>{area.count}</span>}
-                        </button>
-                      ))}
-                    </div>
-                    {filterSheetAreaList.length > 8 && (
-                      <button onClick={() => setShowAllAreas(v => !v)} className="flex items-center gap-1 text-xs text-gray-500 mt-1 hover:text-black transition-colors">
-                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAllAreas ? 'rotate-180' : ''}`} />
-                        {showAllAreas ? 'Show less' : `Show all ${filterSheetAreaList.length} areas`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="border-t border-gray-100" />
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-black">Price Range (PKR)</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input type="number" placeholder="Min" value={sheetPriceMin} onChange={e => setSheetPriceMin(e.target.value)} className="h-11 text-sm rounded-md border-gray-200 focus:border-primary" />
-                  <Input type="number" placeholder="Max" value={sheetPriceMax} onChange={e => setSheetPriceMax(e.target.value)} className="h-11 text-sm rounded-md border-gray-200 focus:border-primary" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-black">Area Size (Marla)</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input type="number" placeholder="Min" value={sheetMarlaMin} onChange={e => setSheetMarlaMin(e.target.value)} className="h-11 text-sm rounded-md border-gray-200 focus:border-primary" />
-                  <Input type="number" placeholder="Max" value={sheetMarlaMax} onChange={e => setSheetMarlaMax(e.target.value)} className="h-11 text-sm rounded-md border-gray-200 focus:border-primary" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-black">Bedrooms</Label>
-                <div className="flex gap-2 flex-wrap">
-                  {[1,2,3,4,5].map(n => (
-                    <button key={n} onClick={() => setSheetBeds(sheetBeds === n ? undefined : n)}
-                      className={`w-11 h-10 rounded-md text-sm font-medium border transition-colors ${sheetBeds === n ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'}`}>
-                      {n}{n === 5 ? '+' : ''}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold text-black">Bathrooms</Label>
-                <div className="flex gap-2 flex-wrap">
-                  {[1,2,3,4].map(n => (
-                    <button key={n} onClick={() => setSheetBaths(sheetBaths === n ? undefined : n)}
-                      className={`w-11 h-10 rounded-md text-sm font-medium border transition-colors ${sheetBaths === n ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-gray-500'}`}>
-                      {n}{n === 4 ? '+' : ''}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="h-4" />
-            </div>
-          </div>
-
-          <div className="shrink-0 border-t border-gray-200 bg-white px-4 py-3 flex gap-3">
-            <button onClick={resetSheetFilters} className="flex-1 h-11 rounded-md border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">Reset</button>
-            <button onClick={applySheetFilters} className="flex-[2] h-11 rounded-md bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors btn-shape">Show results</button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
       {/* ── Main listings section ─────────────────────────────────────────── */}
       <section className="flex-1 bg-slate-50 py-3 md:py-6">
         <div className="container mx-auto px-4">
           <div className="flex flex-col lg:flex-row gap-6">
-
-            <aside className="w-72 shrink-0 hidden lg:block">
-              <div className="sticky top-[136px]">
-                <SearchSidebar city={matchedCity} purpose={purpose} type={type} useCleanUrls={useCleanUrls} filters={advancedFilters} onFilterChange={handleFilterChange} />
-              </div>
-            </aside>
 
             <div className="min-w-0 flex-1 space-y-3 sm:space-y-4">
 
@@ -848,21 +694,54 @@ export default function PropertiesListing({
                 in {matchedCity || 'Pakistan'}</>}
               </h1>
 
-              <div className="lg:hidden flex h-10 overflow-hidden rounded-xl border border-slate-200 bg-white">
-                <button onClick={() => updateFilters(matchedCity, type, 'buy')}
-                  className={`flex-1 text-sm font-semibold transition-colors ${purpose === 'buy' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
-                  Buy
-                </button>
-                <button onClick={() => updateFilters(matchedCity, type, 'rent')}
-                  className={`flex-1 text-sm font-semibold transition-colors border-x border-slate-300 ${purpose === 'rent' ? 'bg-primary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
-                  Rent
-                </button>
-                <button onClick={() => setIsFilterSheetOpen(true)}
-                  className="px-4 bg-white hover:bg-slate-50 text-slate-900 text-sm font-semibold flex items-center gap-1.5 transition-colors">
-                  <SlidersHorizontal className="w-4 h-4" />
-                  Filters
-                </button>
-              </div>
+              {matchedCity && (loadingMainAreas || mainAreas.length > 0) && (
+                <div className="space-y-2.5 sm:rounded-lg sm:border sm:border-slate-200 sm:bg-white sm:p-3.5">
+                  {loadingMainAreas ? (
+                    <div className="flex items-center gap-2 text-sm text-slate-400">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Loading locations…
+                    </div>
+                  ) : (
+                    <>
+                      {locationGroups.related.length > 1 && (
+                        <div>
+                          <p className="mb-1.5 text-[12.5px] font-semibold text-slate-700">{locationGroups.relatedTitle}</p>
+                          <div className="hide-scrollbar -mx-[var(--gutter)] flex gap-2 overflow-x-auto px-[var(--gutter)] sm:mx-0 sm:flex-wrap sm:px-0">
+                            {locationGroups.related.map(area => (
+                              <LocationChip key={area.id} area={area} selected={currentArea?.id === area.id} onClick={() => navigateArea(area)} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {locationGroups.others.length > 0 && (
+                        <div>
+                          <p className="mb-1.5 flex items-center gap-1 text-[12.5px] font-semibold text-slate-700">
+                            <MapPin className="h-3.5 w-3.5 text-primary" />
+                            {locationGroups.related.length > 1 ? `Other locations in ${toTitleCase(matchedCity)}` : `Locations in ${toTitleCase(matchedCity)}`}
+                          </p>
+                          <div className="hide-scrollbar -mx-[var(--gutter)] flex gap-2 overflow-x-auto px-[var(--gutter)] sm:mx-0 sm:flex-wrap sm:px-0">
+                            {currentArea && locationGroups.related.length <= 1 && (
+                              <button onClick={() => navigateArea(currentArea)}
+                                className="h-8 shrink-0 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-[13px] font-semibold text-primary hover:border-slate-400">
+                                All of {toTitleCase(matchedCity)}
+                              </button>
+                            )}
+                            {(showAllMainAreas ? locationGroups.others : locationGroups.others.slice(0, LOCATION_CHIPS)).map(area => (
+                              <LocationChip key={area.id} area={area} selected={currentArea?.id === area.id} onClick={() => navigateArea(area)} />
+                            ))}
+                            {locationGroups.others.length > LOCATION_CHIPS && (
+                              <button onClick={() => setShowAllMainAreas(v => !v)}
+                                className="inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap px-1.5 text-[13px] font-semibold text-primary">
+                                {showAllMainAreas ? 'Show less' : `+${locationGroups.others.length - LOCATION_CHIPS} more`}
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showAllMainAreas ? 'rotate-180' : ''}`} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               <div className="lg:hidden relative">
                 {/*
@@ -884,11 +763,11 @@ export default function PropertiesListing({
                       </button>
                     );
                   })}
-                  <button onClick={() => setIsLocationPanelOpen(v => !v)}
+                  {!matchedCity && <button onClick={() => setIsLocationPanelOpen(v => !v)}
                     className={`inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3.5 text-[13px] font-medium transition-colors ${isLocationPanelOpen ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>
                     <MapPin className="h-3.5 w-3.5" />
                     {isLocationPanelOpen ? 'Close' : 'Locations'}
-                  </button>
+                  </button>}
                 </div>
 
                 {isLocationPanelOpen && (
@@ -931,58 +810,6 @@ export default function PropertiesListing({
                       {opt.label}
                     </button>
                   ))}
-                </div>
-              )}
-
-              {matchedCity && (
-                <div className="hidden lg:block space-y-2.5 rounded-lg border border-slate-200 p-4">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-[14px] font-semibold text-slate-900">
-                      Popular locations in {toTitleCase(matchedCity)}
-                    </h2>
-                  </div>
-                  {loadingMainAreas ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Loading areas...
-                    </div>
-                  ) : mainAreas.length > 0 ? (
-                    <>
-                      <div className="flex flex-wrap gap-2">
-                        {(showAllMainAreas ? mainAreas : mainAreas.slice(0, AREAS_INITIAL_COUNT)).map(area => {
-                          const isSelected = currentAreaId === area.id;
-                          return (
-                            <button
-                              key={area.id}
-                              onClick={() => navigateArea(area)}
-                              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[13px] border transition-colors ${
-                                isSelected
-                                  ? 'border-primary bg-primary/10 text-primary'
-                                  : 'bg-white text-slate-700 border-slate-200 hover:border-slate-400'
-                              }`}
-                            >
-                              {toTitleCase(area.name)}
-                              {area.count > 0 && (
-                                <span className={`text-[12px] ${isSelected ? 'opacity-70' : 'text-slate-400'}`}>
-                                  ({area.count})
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {mainAreas.length > AREAS_INITIAL_COUNT && (
-                        <button
-                          onClick={() => setShowAllMainAreas(v => !v)}
-                          className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors mt-1"
-                        >
-                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAllMainAreas ? 'rotate-180' : ''}`} />
-                          {showAllMainAreas
-                            ? 'Show less'
-                            : `${mainAreas.length - AREAS_INITIAL_COUNT} more locations`}
-                        </button>
-                      )}
-                    </>
-                  ) : null}
                 </div>
               )}
 
@@ -1032,9 +859,17 @@ export default function PropertiesListing({
                 )}
               </div>
             </div>
+
+            {sidebar && (
+              <aside className="w-full shrink-0 space-y-4 lg:w-80 xl:w-[340px]">
+                <div className="space-y-4 lg:sticky lg:top-[140px]">{sidebar}</div>
+              </aside>
+            )}
           </div>
         </div>
       </section>
+
+      {extras}
 
       {effectiveRichDescription && (
         <section className="border-t border-slate-200 bg-slate-50 py-8">

@@ -136,7 +136,7 @@ export default async function Home() {
       {settings.homeShowCities && cityStories.length > 0 && (
         <section className="bg-white pb-2 pt-5 sm:pt-7">
           <div className="container mx-auto px-3 sm:px-4">
-            <CityStories cities={cityStories} limit={10} viewAllHref="/properties" />
+            <CityStories cities={cityStories} />
           </div>
         </section>
       )}

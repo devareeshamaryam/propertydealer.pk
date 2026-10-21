@@ -5,6 +5,39 @@ import { Document } from 'mongoose';
 
 export type AreaDocument = Area & Document;
 
+/** A society guide — the admin's write-up shown on /societies/<city>/<slug>. A phase may carry a short one too. */
+export interface SocietyGuide {
+  /** Shown on the site only once published. */
+  published?: boolean;
+  /** Featured image: the guide's cover and the society's card. */
+  image?: string;
+  gallery?: string[];
+  /** One line under the name ("Gated community on Raiwind Road"). */
+  tagline?: string;
+  /** The main write-up (HTML). */
+  overview?: string;
+  developer?: string;
+  /** Who approved it — LDA, RDA, CDA, TMA… */
+  approvedBy?: string;
+  approval?: 'approved' | 'in-process' | 'not-approved' | '';
+  totalArea?: string;
+  launched?: string;
+  possession?: string;
+  plotSizes?: string;
+  /** Where it is ("Main Raiwind Road, 5 km from Thokar Niaz Baig"). */
+  address?: string;
+  /** What is nearby — hospitals, schools, motorway access… */
+  nearby?: string[];
+  amenities?: string[];
+  /** Payment plan / booking details (HTML). */
+  paymentPlan?: string;
+  phone?: string;
+  website?: string;
+  faqs?: { q: string; a: string }[];
+  metaTitle?: string;
+  metaDescription?: string;
+}
+
 @Schema({ timestamps: true })
 export class Area {
   @Prop({ required: true, lowercase: true, trim: true })
@@ -88,6 +121,25 @@ export class Area {
   /** Where an added area came from ("osm" = OpenStreetMap import) and its id there. */
   @Prop({ trim: true }) source?: string;
   @Prop({ trim: true }) sourceId?: string;
+
+  // ── Societies (all optional: an area without them is an ordinary locality) ──
+
+  /**
+   * What the place is. A locality or mohalla ("area", the default when
+   * unset), a housing society with its own guide page, or one phase / block /
+   * sector of a society. Every kind keeps its listing pages as they are.
+   */
+  @Prop({ enum: ['area', 'society', 'phase'], default: undefined }) kind?: 'area' | 'society' | 'phase';
+
+  /** A phase's society. A society's listing pages include its phases' listings. */
+  @Prop({ type: Types.ObjectId, ref: 'Area', default: undefined, index: true }) parent?: Types.ObjectId;
+
+  /** Order of a phase within its society (Phase 1, Phase 2…). */
+  @Prop() order?: number;
+
+  /** A society's guide page (/societies/<city>/<slug>), written in the dashboard. */
+  @Prop({ type: Object, default: undefined })
+  guide?: SocietyGuide;
 
   // Properties are optional - an area can exist without properties initially
   // Properties will reference the area, not the other way around

@@ -20,6 +20,13 @@ export class PublicProfileController {
     return this.userService.spotlight();
   }
 
+  /** Verified agencies and agents working in a city — for that city's pages. Before ':id'. */
+  @Get('city/:cityId')
+  @Header('Cache-Control', 'public, max-age=300, s-maxage=600')
+  async inCity(@Param('cityId') cityId: string) {
+    return this.userService.cityAgencies(cityId);
+  }
+
   @Get(':id')
   // A profile changes rarely; let the CDN and the browser hold it briefly.
   @Header('Cache-Control', 'public, max-age=300, s-maxage=900, stale-while-revalidate=86400')

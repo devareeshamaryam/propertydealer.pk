@@ -505,7 +505,7 @@ export default function EditBlogPage() {
           form.setValue("featuredImage", url, { shouldValidate: true });
         }}
         title="Select Featured Image"
-        description="Choose an existing image from the gallery to use as the featured image for this blog post."
+        description="Upload one from your device, or pick an image you have already uploaded."
       />
     </>
   );

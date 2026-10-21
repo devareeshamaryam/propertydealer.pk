@@ -1,4 +1,5 @@
  import PropertiesListing from '@/components/PropertiesListing';
+import { AreaSocietyBox, CityAgenciesBox, CityExtras } from '@/components/societies/ArchiveBoxes';
 import SocietyMapBanner from '@/components/society-map/SocietyMapBanner';
 import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
@@ -283,6 +284,13 @@ export default async function RentPage({ params }: PageProps) {
           useCleanUrls={true}
           richDescription={richDescription}
           initialMarla={marla ?? undefined}
+          sidebar={cityData ? (
+            <>
+              {areaData && areaSlug ? <AreaSocietyBox citySlug={citySlug} areaSlug={areaSlug!} purpose="rent" /> : null}
+              <CityAgenciesBox cityId={cityData?._id} cityName={toTitleCase(cityData.name)} />
+            </>
+          ) : undefined}
+          extras={cityData && !(areaData && areaSlug) ? <CityExtras citySlug={citySlug} cityId={cityData?._id} cityName={toTitleCase(cityData.name)} /> : undefined}
           heading={pageTitle}
         />
       </Suspense>

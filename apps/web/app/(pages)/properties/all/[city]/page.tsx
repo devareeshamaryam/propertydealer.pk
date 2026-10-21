@@ -1,4 +1,5 @@
  import PropertiesListing from '@/components/PropertiesListing';
+import { CityAgenciesBox, CityExtras } from '@/components/societies/ArchiveBoxes';
 import { Suspense } from 'react';
 import { Metadata, ResolvingMetadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -145,6 +146,8 @@ export default async function AllCityPage(props: PageProps) {
           type={type || 'all'}
           useCleanUrls={true}
           richDescription={richDescription}
+          sidebar={cityDetails ? <CityAgenciesBox cityId={cityDetails._id} cityName={cityName} /> : undefined}
+          extras={cityDetails ? <CityExtras citySlug={city} cityId={cityDetails._id} cityName={cityName} /> : undefined}
         />
       </Suspense>
     </>
