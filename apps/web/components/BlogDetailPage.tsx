@@ -2,6 +2,7 @@
 import { Calendar, User, ArrowLeft, Share2, Facebook, Twitter, Linkedin } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import AdSlot from '@/components/ads/AdSlot';
 
 // Import BlogPost type for type safety
 import { BlogPost } from '@/lib/utils/blog-utils';
@@ -110,6 +111,7 @@ const BlogDetailPage = ({ post, relatedPosts = [] }: BlogDetailPageProps) => {
                 className="prose prose-lg max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary prose-strong:text-foreground"
                 dangerouslySetInnerHTML={{ __html: post.content }}
               />
+              <AdSlot placement="BlogContent" className="mt-8" />
             </div>
 
             {/* Sidebar */}

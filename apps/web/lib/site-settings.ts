@@ -1,3 +1,5 @@
+import { DEFAULT_AD_SETTINGS, type AdSettings } from './ads';
+
 /**
  * Site-wide settings, as saved in Admin → Settings (General, Appearance, Shop).
  *
@@ -17,7 +19,7 @@ export const SITE_FONTS = [
 
 export type SiteFont = (typeof SITE_FONTS)[number]['value'];
 
-export interface SiteSettings {
+export interface SiteSettings extends AdSettings {
   // Appearance
   primaryColor: string;
   darkColor: string;
@@ -166,6 +168,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   shopCodEnabled: true,
   shopOrderNote: '',
   shopWhatsapp: '',
+  ...DEFAULT_AD_SETTINGS,
 };
 
 /** Social links the footer shows until the admin enters their own. */

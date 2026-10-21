@@ -8,6 +8,7 @@ import FAQSection from "@/components/FAQSection";
 import { serverApi, getCityStories, getPlans, getRatesSummary, getSpotlightAgencies } from "@/lib/server-api";
 import HomePlans from "@/components/home/HomePlans";
 import HomeRates from "@/components/home/HomeRates";
+import AdSlot from "@/components/ads/AdSlot";
 import VerifiedAgencies from "@/components/home/VerifiedAgencies";
 import { getSiteSettings } from "@/lib/site-settings.server";
 import { mapBackendToFrontendProperty, sortPropertyTypes } from "@/lib/types/property-utils";
@@ -140,9 +141,16 @@ export default async function Home() {
           </div>
         </section>
       )}
+      {/* Ads: each placement is switched on and off in Settings → Ads. */}
+      <div className="container mx-auto px-[var(--gutter)] sm:px-4">
+        <AdSlot placement="HomeTop" variant="banner" className="my-4" />
+      </div>
       {settings.homeShowLatest && (
         <FeaturedSection initialProperties={transformedProperties} count={settings.homeLatestCount} />
       )}
+      <div className="container mx-auto px-[var(--gutter)] sm:px-4">
+        <AdSlot placement="HomeMiddle" className="my-6" />
+      </div>
       {settings.homeShowAgencies && <VerifiedAgencies agencies={agencies} />}
       {settings.homeShowAgentBand && <AgentSignupSection />}
       {settings.homeShowPlans && <HomePlans plans={plans} />}
@@ -157,6 +165,9 @@ export default async function Home() {
       */}
       {settings.homeShowBlog && <BlogSection initialPosts={processedBlogs} />}
       {settings.homeShowFaq && <FAQSection />}
+      <div className="container mx-auto px-[var(--gutter)] sm:px-4">
+        <AdSlot placement="HomeBottom" variant="banner" className="my-6" />
+      </div>
     </>
   );
 }

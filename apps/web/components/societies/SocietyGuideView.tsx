@@ -20,6 +20,7 @@ import {
   Store,
 } from 'lucide-react';
 import MapEmbed from '@/components/societies/MapEmbed';
+import AdSlot from '@/components/ads/AdSlot';
 import PropertyCard from '@/components/PropertyCard';
 import ExpandableHtml from '@/components/societies/ExpandableHtml';
 import SocietyCard from '@/components/societies/SocietyCard';
@@ -276,6 +277,8 @@ export default function SocietyGuideView({ s, map, listings, preview = false }: 
             <p className="mt-2 text-[12.5px] text-slate-500">From the listings on Property Dealer right now — prices change as new ones are added.</p>
           </Section>
         )}
+
+        <AdSlot placement="SocietyContent" />
 
         {s.phases.length > 0 && (
           <Section id="phases" title={`Phases of ${name}`}>

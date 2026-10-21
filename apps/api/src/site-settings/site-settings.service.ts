@@ -25,7 +25,9 @@ type Field =
   | { kind: 'bool'; def: boolean }
   | { kind: 'enum'; def: string; options: readonly string[] }
   | { kind: 'email'; def: string }
-  | { kind: 'ga'; def: string };
+  | { kind: 'ga'; def: string }
+  | { kind: 'adclient'; def: string }
+  | { kind: 'adslot'; def: string };
 
 const FIELDS = {
   // ── Appearance ──
@@ -107,6 +109,42 @@ const FIELDS = {
   shopCodEnabled: { kind: 'bool', def: true },
   shopOrderNote: { kind: 'text', def: '', max: 300 },
   shopWhatsapp: { kind: 'text', def: '', max: 30 },
+
+  // ── Ads (Google AdSense) — off until the admin turns them on ──
+  adsEnabled: { kind: 'bool', def: false },
+  /** ca-pub-XXXXXXXXXXXXXXXX */
+  adsClient: { kind: 'adclient', def: '' },
+  /** The ad unit every placement uses unless it has its own. */
+  adsSlot: { kind: 'adslot', def: '' },
+  /** Inside the results: an ad after every this many listings. */
+  adsArchiveEvery: { kind: 'int', def: 6, min: 3, max: 24 },
+  // Each placement: on/off, and its own ad unit (empty = the one above).
+  adsHomeTop: { kind: 'bool', def: false },
+  adsHomeTopSlot: { kind: 'adslot', def: '' },
+  adsHomeMiddle: { kind: 'bool', def: true },
+  adsHomeMiddleSlot: { kind: 'adslot', def: '' },
+  adsHomeBottom: { kind: 'bool', def: false },
+  adsHomeBottomSlot: { kind: 'adslot', def: '' },
+  adsArchiveTop: { kind: 'bool', def: false },
+  adsArchiveTopSlot: { kind: 'adslot', def: '' },
+  adsArchiveFeed: { kind: 'bool', def: true },
+  adsArchiveFeedSlot: { kind: 'adslot', def: '' },
+  adsArchiveSidebar: { kind: 'bool', def: true },
+  adsArchiveSidebarSlot: { kind: 'adslot', def: '' },
+  adsArchiveBottom: { kind: 'bool', def: false },
+  adsArchiveBottomSlot: { kind: 'adslot', def: '' },
+  adsListingTop: { kind: 'bool', def: false },
+  adsListingTopSlot: { kind: 'adslot', def: '' },
+  adsListingContent: { kind: 'bool', def: true },
+  adsListingContentSlot: { kind: 'adslot', def: '' },
+  adsListingSidebar: { kind: 'bool', def: true },
+  adsListingSidebarSlot: { kind: 'adslot', def: '' },
+  adsListingBottom: { kind: 'bool', def: false },
+  adsListingBottomSlot: { kind: 'adslot', def: '' },
+  adsSocietyContent: { kind: 'bool', def: true },
+  adsSocietyContentSlot: { kind: 'adslot', def: '' },
+  adsBlogContent: { kind: 'bool', def: true },
+  adsBlogContentSlot: { kind: 'adslot', def: '' },
 } as const satisfies Record<string, Field>;
 
 type FieldKey = keyof typeof FIELDS;
@@ -151,6 +189,16 @@ function coerce(field: Field, value: unknown): string | number | boolean {
     case 'email': {
       const v = String(raw ?? '');
       return !v || /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(v) ? v.slice(0, 120) : field.def;
+    }
+    case 'adclient': {
+      // "ca-pub-" and 16 digits; a bare "pub-…" or the digits alone are accepted too.
+      const digits = String(raw ?? '').replace(/^ca-/i, '').replace(/^pub-/i, '').trim();
+      if (!digits) return '';
+      return /^\d{10,20}$/.test(digits) ? `ca-pub-${digits}` : field.def;
+    }
+    case 'adslot': {
+      const v = String(raw ?? '').trim();
+      return !v || /^\d{5,20}$/.test(v) ? v : field.def;
     }
     case 'ga': {
       const v = String(raw ?? '').toUpperCase();

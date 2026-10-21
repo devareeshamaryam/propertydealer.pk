@@ -1,5 +1,6 @@
 import {
   Banknote,
+  Megaphone,
   BarChart3,
   BookOpen,
   Flag,
@@ -416,6 +417,12 @@ export const NAV_SECTIONS: NavSection[] = [
         adminOnly: true,
         keywords: ["theme", "colour", "color", "brand", "logo", "font", "favicon", "design", "hero", "background"],
       },
+      {
+        title: "Ads",
+        href: "/dashboard/ads",
+        adminOnly: true,
+        keywords: ["adsense", "google ads", "advertisement", "monetize", "ad slot", "publisher"],
+      },
     ],
   },
 ];
@@ -439,6 +446,7 @@ export const LEAF_ICONS: Record<
   "/dashboard/shop-products": Tags,
   "/dashboard/shop-settings": Store,
   "/dashboard/settings": Settings,
+  "/dashboard/ads": Megaphone,
 };
 
 /**

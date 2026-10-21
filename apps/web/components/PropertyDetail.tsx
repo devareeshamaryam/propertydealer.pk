@@ -21,6 +21,7 @@ import { resolved, waDigits } from '@/lib/site-settings';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import dynamic from 'next/dynamic';
 import PropertyGallery from '@/components/property/PropertyGallery';
+import AdSlot from '@/components/ads/AdSlot';
 import RelatedCarousel from '@/components/property/RelatedCarousel';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { ReportButton } from '@/components/property/ReportButton';
@@ -689,6 +690,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               </div>
             )}
 
+            <AdSlot placement="ListingTop" variant="banner" className="px-2 md:px-0" />
+
             {/* Section nav */}
             <nav
               aria-label="Sections"
@@ -745,6 +748,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                   </button>
                 )}
               </section>
+
+              <AdSlot placement="ListingContent" />
 
               {/* Features, grouped */}
               <section id="features-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -875,9 +880,12 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               <div className="px-1">
                 <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
               </div>
+              <AdSlot placement="ListingSidebar" />
             </div>
           </aside>
         </div>
+
+        <AdSlot placement="ListingBottom" variant="banner" className="mt-6 px-[var(--gutter)] md:px-0" />
 
         {/* ── Similar properties ─────────────────────────────────── */}
         {related.map(({ list, title, href }) =>

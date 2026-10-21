@@ -1,6 +1,6 @@
  'use client'
 
-import { useState, useMemo, useEffect, useRef, Suspense } from 'react';
+import { useState, useMemo, useEffect, useRef, Suspense, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import SearchParamsBridge from '@/components/SearchParamsBridge';
 import { SlidersHorizontal, Loader2, MapPin, ChevronDown } from 'lucide-react';
@@ -13,6 +13,8 @@ import { Property } from '@/lib/data';
 import { toast } from 'sonner';
 import { cn, toTitleCase } from '@/lib/utils';
 import { chipClass } from '@/lib/chip';
+import { adUnit } from '@/lib/ads';
+import AdSlot from '@/components/ads/AdSlot';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 
 interface PropertiesListingProps {
@@ -90,7 +92,12 @@ export default function PropertiesListing({
   // useSearchParams() here made Next render this whole list in the browser
   // only, so the results pages' HTML was a spinner. Empty until it arrives.
   const [searchParams, setSearchParams] = useState<URLSearchParams>(() => new URLSearchParams());
-  const { listingsPerPage } = useSiteSettings();
+  const siteSettings = useSiteSettings();
+  const { listingsPerPage } = siteSettings;
+  // Ads (Settings → Ads): one between every few listings, and one beside them on a desktop.
+  const feedAds = !!adUnit(siteSettings, 'ArchiveFeed');
+  const feedEvery = Math.max(3, siteSettings.adsArchiveEvery || 6);
+  const sidebarAd = !!adUnit(siteSettings, 'ArchiveSidebar');
 
   const [properties, setProperties]             = useState<Property[]>(initialProperties ?? []);
   const [allCities, setAllCities]               = useState<any[]>([]);
@@ -810,6 +817,8 @@ export default function PropertiesListing({
                 </div>
               )}
 
+              <AdSlot placement="ArchiveTop" variant="banner" />
+
               <div>
                 {loading && properties.length === 0 ? (
                   <div className="grid grid-cols-1 gap-2.5 sm:gap-3" aria-busy="true" aria-label="Loading properties">
@@ -828,7 +837,12 @@ export default function PropertiesListing({
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 gap-2.5 sm:gap-3">
                       {properties.map((property, index) => (
-                        <PropertyCard key={`${property.id}-${index}`} property={property} />
+                        <Fragment key={`${property.id}-${index}`}>
+                          <PropertyCard property={property} />
+                          {feedAds && (index + 1) % feedEvery === 0 && index < properties.length - 1 && (
+                            <AdSlot placement="ArchiveFeed" className="rounded-lg border border-slate-200 bg-white p-2" />
+                          )}
+                        </Fragment>
                       ))}
                     </div>
 
@@ -840,6 +854,7 @@ export default function PropertiesListing({
                         </Button>
                       </div>
                     )}
+                    <AdSlot placement="ArchiveBottom" variant="banner" />
                   </div>
                 ) : (
                   <div className="rounded-lg border border-slate-200 px-4 py-12 text-center">
@@ -857,9 +872,12 @@ export default function PropertiesListing({
               </div>
             </div>
 
-            {sidebar && (
-              <aside className="w-full shrink-0 space-y-4 lg:w-80 xl:w-[340px]">
-                <div className="space-y-4 lg:sticky lg:top-[140px]">{sidebar}</div>
+            {(sidebar || sidebarAd) && (
+              <aside className={cn('w-full shrink-0 space-y-4 lg:w-80 xl:w-[340px]', !sidebar && 'hidden lg:block')}>
+                <div className="space-y-4 lg:sticky lg:top-[140px]">
+                  {sidebar}
+                  <AdSlot placement="ArchiveSidebar" className="hidden lg:block" />
+                </div>
               </aside>
             )}
           </div>
