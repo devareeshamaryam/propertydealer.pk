@@ -72,13 +72,13 @@ export default function FeaturedSection({ initialProperties, count = 8 }: Featur
         />
 
         {loading ? (
-          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-3">
+          <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2 lg:gap-3">
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="h-[118px] animate-pulse rounded-lg bg-slate-100 sm:h-[172px]" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-3">
+          <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2 lg:gap-3">
             {properties.slice(0, count).map((property, index) => (
               <PropertyCard key={property.slug || property.id || `property-${index}`} property={property} />
             ))}
