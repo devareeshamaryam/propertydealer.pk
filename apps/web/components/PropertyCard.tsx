@@ -104,7 +104,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
       <Link href={href} className="absolute inset-0 z-10 rounded-lg" aria-label={property.name} />
 
       {/* ── Photo ── */}
-      <div className="relative h-[100px] w-[112px] shrink-0 overflow-hidden rounded-md bg-slate-100 sm:h-[150px] sm:w-[210px]">
+      <div className="relative w-[112px] shrink-0 self-stretch min-h-[110px] overflow-hidden rounded-md bg-slate-100 sm:w-[210px] sm:min-h-[150px]">
         {poster ? (
           <Image
             src={poster}
@@ -184,70 +184,75 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
           </p>
         )}
 
-        <div className="mt-auto flex items-end justify-between gap-2 pt-1.5">
-          <ul className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11.5px] text-slate-600 sm:gap-x-3.5 sm:text-[13px]">
-            {property.bedrooms > 0 && (
-              <li className="inline-flex items-center gap-1">
-                <BedDouble className="h-3.5 w-3.5 text-slate-400" />
-                {property.bedrooms}
-                <span className="hidden sm:inline">{property.bedrooms === 1 ? 'Bed' : 'Beds'}</span>
-              </li>
-            )}
-            {property.bathrooms > 0 && (
-              <li className="inline-flex items-center gap-1">
-                <Bath className="h-3.5 w-3.5 text-slate-400" />
-                {property.bathrooms}
-                <span className="hidden sm:inline">{property.bathrooms === 1 ? 'Bath' : 'Baths'}</span>
-              </li>
-            )}
-            {size && size !== '—' && (
-              <li className="inline-flex items-center gap-1">
-                <Ruler className="h-3.5 w-3.5 text-slate-400" />
-                {size}
-              </li>
-            )}
-          </ul>
-          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            {ago && <span className="hidden text-[10.5px] text-slate-400 sm:inline sm:text-[12px]">{ago}</span>}
-            {!closed && (phone || whatsapp) && (
-              <div className="relative z-20 flex items-center gap-1 sm:gap-1.5">
-                {phone && (
-                  <a
-                    href={phoneHref}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      trackContact(property.id, 'phone');
-                    }}
-                    className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 shadow-xs transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-primary active:scale-95 sm:h-7 sm:w-auto sm:px-2 sm:gap-1 text-[11px] font-medium"
-                    title={`Call: ${phone}`}
-                    aria-label={`Call ${property.name}`}
-                  >
-                    <Phone className="h-3 w-3 text-slate-600 sm:text-slate-700" />
-                    <span className="hidden sm:inline">Call</span>
-                  </a>
-                )}
-                {whatsapp && (
-                  <a
-                    href={waUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      trackContact(property.id, 'whatsapp');
-                    }}
-                    className="inline-flex h-6.5 w-6.5 items-center justify-center rounded-md bg-[#25D366] text-white shadow-xs transition-colors hover:bg-[#20ba59] active:scale-95 sm:h-7 sm:w-auto sm:px-2 sm:gap-1 text-[11px] font-medium"
-                    title={`WhatsApp: ${whatsapp}`}
-                    aria-label={`WhatsApp about ${property.name}`}
-                  >
-                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-current" aria-hidden="true">
-                      <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.06 2.88 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.7.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.88 9.88zm8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z" />
-                    </svg>
-                    <span className="hidden sm:inline">WhatsApp</span>
-                  </a>
-                )}
-              </div>
+        <div className="mt-auto pt-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11.5px] text-slate-600 sm:text-[13px]">
+            <ul className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 sm:gap-x-3.5">
+              {property.bedrooms > 0 && (
+                <li className="inline-flex items-center gap-1">
+                  <BedDouble className="h-3.5 w-3.5 text-slate-400" />
+                  {property.bedrooms}
+                  <span className="hidden sm:inline">{property.bedrooms === 1 ? 'Bed' : 'Beds'}</span>
+                </li>
+              )}
+              {property.bathrooms > 0 && (
+                <li className="inline-flex items-center gap-1">
+                  <Bath className="h-3.5 w-3.5 text-slate-400" />
+                  {property.bathrooms}
+                  <span className="hidden sm:inline">{property.bathrooms === 1 ? 'Bath' : 'Baths'}</span>
+                </li>
+              )}
+              {size && size !== '—' && (
+                <li className="inline-flex items-center gap-1">
+                  <Ruler className="h-3.5 w-3.5 text-slate-400" />
+                  {size}
+                </li>
+              )}
+            </ul>
+            {ago && (
+              <span className="text-[10.5px] text-slate-400 sm:text-[11.5px]">
+                Added: {ago}
+              </span>
             )}
           </div>
+
+          {!closed && (phone || whatsapp) && (
+            <div className="relative z-20 mt-2 flex items-center gap-2">
+              {phone && (
+                <a
+                  href={phoneHref}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    trackContact(property.id, 'phone');
+                  }}
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-[#16a34a] px-3.5 text-[12px] font-bold uppercase tracking-wide text-white shadow-xs transition-colors hover:bg-[#15803d] active:scale-95"
+                  title={`Call: ${phone}`}
+                  aria-label={`Call ${property.name}`}
+                >
+                  <Phone className="h-3.5 w-3.5 fill-current" />
+                  <span>CALL</span>
+                </a>
+              )}
+              {whatsapp && (
+                <a
+                  href={waUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    trackContact(property.id, 'whatsapp');
+                  }}
+                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-[#25D366] px-2.5 sm:px-3 text-[12px] font-bold text-white shadow-xs transition-colors hover:bg-[#20ba59] active:scale-95"
+                  title={`WhatsApp: ${whatsapp}`}
+                  aria-label={`WhatsApp about ${property.name}`}
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4 fill-current" aria-hidden="true">
+                    <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.06 2.88 1.21 3.07.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.7.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.05 21.79h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.88 9.88zm8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.48-8.42z" />
+                  </svg>
+                  <span className="hidden sm:inline">WhatsApp</span>
+                </a>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </article>
