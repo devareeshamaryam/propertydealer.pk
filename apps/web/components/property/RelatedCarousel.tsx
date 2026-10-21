@@ -110,7 +110,7 @@ function MiniCard({ property }: { property: Property }) {
                     e.stopPropagation();
                     trackContact(property.id, 'phone');
                   }}
-                  className="inline-flex h-7 items-center justify-center gap-1 rounded-md bg-[#16a34a] px-2 text-[11px] font-bold uppercase text-white shadow-xs transition-colors hover:bg-[#15803d] active:scale-95"
+                  className="inline-flex h-7 items-center justify-center gap-1 rounded-md border border-[#16a34a] bg-white px-2 text-[11px] font-bold uppercase text-[#16a34a] shadow-xs transition-colors hover:bg-emerald-50/60 active:scale-95"
                   title={`Call: ${phone}`}
                   aria-label={`Call ${property.name}`}
                 >

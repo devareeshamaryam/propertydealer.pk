@@ -216,7 +216,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
           </div>
 
           {!closed && (phone || whatsapp) && (
-            <div className="relative z-20 mt-2 flex items-center gap-2">
+            <div className="relative z-20 mt-2 flex w-full items-center gap-2">
               {phone && (
                 <a
                   href={phoneHref}
@@ -224,7 +224,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
                     e.stopPropagation();
                     trackContact(property.id, 'phone');
                   }}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-[#16a34a] px-3 sm:px-3.5 text-[11.5px] sm:text-[12px] font-bold uppercase tracking-wide text-white shadow-xs transition-colors hover:bg-[#15803d] active:scale-95"
+                  className="inline-flex h-8.5 flex-1 min-w-0 sm:flex-initial items-center justify-center gap-1.5 rounded-md border border-[#16a34a] bg-white px-3 sm:px-4 text-[12px] font-bold uppercase tracking-wide text-[#16a34a] shadow-xs transition-colors hover:bg-emerald-50/60 hover:border-[#15803d] hover:text-[#15803d] active:scale-95"
                   title={`Call: ${phone}`}
                   aria-label={`Call ${property.name}`}
                 >
@@ -241,7 +241,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
                     e.stopPropagation();
                     trackContact(property.id, 'whatsapp');
                   }}
-                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-md bg-[#25D366] px-3 text-[11.5px] sm:text-[12px] font-bold text-white shadow-xs transition-colors hover:bg-[#20ba59] active:scale-95"
+                  className="inline-flex h-8.5 flex-1 min-w-0 sm:flex-initial items-center justify-center gap-1.5 rounded-md bg-[#25D366] px-3 sm:px-4 text-[12px] font-bold text-white shadow-xs transition-colors hover:bg-[#20ba59] active:scale-95"
                   title={`WhatsApp: ${whatsapp}`}
                   aria-label={`WhatsApp about ${property.name}`}
                 >
