@@ -12,6 +12,7 @@ import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/prope
 import { Property } from '@/lib/data';
 import { toast } from 'sonner';
 import { cn, toTitleCase } from '@/lib/utils';
+import { chipClass } from '@/lib/chip';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 
 interface PropertiesListingProps {
@@ -60,11 +61,7 @@ function LocationChip({ area, selected, onClick }: { area: AreaOption; selected:
   return (
     <button
       onClick={onClick}
-      className={cn(
-        'inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-md border px-3 text-[13px] font-medium transition-colors',
-        selected ? 'border-primary bg-primary/10 text-primary' : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400',
-        area.kind === 'society' && !selected && 'font-semibold text-slate-900',
-      )}
+      className={chipClass(selected, area.kind === 'society' && !selected ? 'font-semibold text-slate-900' : undefined)}
     >
       {toTitleCase(area.name)}
       {area.count > 0 && <span className={cn('text-[12px] tabular-nums', selected ? 'opacity-70' : 'text-slate-400')}>{area.count}</span>}
@@ -721,7 +718,7 @@ export default function PropertiesListing({
                           <div className="hide-scrollbar -mx-[var(--gutter)] flex gap-2 overflow-x-auto px-[var(--gutter)] sm:mx-0 sm:flex-wrap sm:px-0">
                             {currentArea && locationGroups.related.length <= 1 && (
                               <button onClick={() => navigateArea(currentArea)}
-                                className="h-8 shrink-0 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 text-[13px] font-semibold text-primary hover:border-slate-400">
+                                className={chipClass(false, 'font-semibold text-primary')}>
                                 All of {toTitleCase(matchedCity)}
                               </button>
                             )}
@@ -758,13 +755,13 @@ export default function PropertiesListing({
                       : type.toLowerCase() === tab.key;
                     return (
                       <button key={tab.key} onClick={() => navigateType(tab.key)}
-                        className={`h-8 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13px] font-medium transition-colors ${isActive ? 'bg-primary text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>
+                        className={chipClass(isActive)}>
                         {tab.key === 'all' ? 'All' : tab.label}
                       </button>
                     );
                   })}
                   {!matchedCity && <button onClick={() => setIsLocationPanelOpen(v => !v)}
-                    className={`inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3.5 text-[13px] font-medium transition-colors ${isLocationPanelOpen ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'}`}>
+                    className={chipClass(isLocationPanelOpen)}>
                     <MapPin className="h-3.5 w-3.5" />
                     {isLocationPanelOpen ? 'Close' : 'Locations'}
                   </button>}
@@ -806,7 +803,7 @@ export default function PropertiesListing({
                 <div className="hide-scrollbar -mx-[var(--gutter)] flex gap-2 overflow-x-auto px-[var(--gutter)] sm:mx-0 sm:flex-wrap sm:px-0">
                   {SIZE_OPTIONS.map(opt => (
                     <button key={opt.marlaMin} onClick={() => handleMarlaClick(opt.marlaMin)}
-                      className={`h-8 shrink-0 whitespace-nowrap px-3 rounded-md text-[13px] font-medium border transition-colors ${selectedMarla === opt.marlaMin ? 'border-primary bg-primary/10 text-primary' : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400'}`}>
+                      className={chipClass(selectedMarla === opt.marlaMin)}>
                       {opt.label}
                     </button>
                   ))}

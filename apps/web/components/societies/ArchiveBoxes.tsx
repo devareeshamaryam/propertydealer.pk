@@ -6,7 +6,8 @@ import { agentProfilePath } from '@/lib/agent';
 import { getCityAgencies, type SpotlightAgency } from '@/lib/server-api';
 import { getAreaSociety, getSocieties } from '@/lib/societies';
 import { CITIES, getCityBySlug } from '@/app/(pages)/emap/cities-data';
-import { cn, toTitleCase } from '@/lib/utils';
+import { toTitleCase } from '@/lib/utils';
+import { chipClass } from '@/lib/chip';
 
 /*
  * The boxes around the results on listing pages: on an area that is a
@@ -40,7 +41,7 @@ export async function AreaSocietyBox({ citySlug, areaSlug, purpose }: { citySlug
             <div className="flex flex-wrap gap-1.5">
               <Link
                 href={`${base}/${soc.slug}`}
-                className={cn('rounded-full border px-2.5 py-1 text-[12.5px] font-medium', areaSlug === soc.slug ? 'border-primary bg-primary text-white' : 'border-slate-200 text-slate-700 hover:border-primary hover:text-primary')}
+                className={chipClass(areaSlug === soc.slug)}
               >
                 All of {toTitleCase(soc.name)}
               </Link>
@@ -48,7 +49,7 @@ export async function AreaSocietyBox({ citySlug, areaSlug, purpose }: { citySlug
                 <Link
                   key={p.slug}
                   href={`${base}/${p.slug}`}
-                  className={cn('rounded-full border px-2.5 py-1 text-[12.5px] font-medium capitalize', areaSlug === p.slug ? 'border-primary bg-primary text-white' : 'border-slate-200 text-slate-700 hover:border-primary hover:text-primary')}
+                  className={chipClass(areaSlug === p.slug, 'capitalize')}
                 >
                   {p.name}
                 </Link>
