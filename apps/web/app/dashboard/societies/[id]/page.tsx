@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Building2,
+  ChevronDown,
   CheckCircle2,
   CircleDashed,
   ExternalLink,
@@ -18,6 +19,7 @@ import {
   Plus,
   Save,
   Search,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -68,7 +70,46 @@ const AMENITIES = [
   "Backup power",
 ];
 
+const PLOT_SIZES = ["3 Marla", "5 Marla", "7 Marla", "8 Marla", "10 Marla", "1 Kanal", "2 Kanal"];
+const AUTHORITIES = ["LDA", "RDA", "CDA", "MDA", "FDA", "GDA", "KDA", "Cantonment Board", "TMA"];
+const APPROVALS: { value: NonNullable<SocietyGuide["approval"]>; label: string }[] = [
+  { value: "approved", label: "Approved" },
+  { value: "in-process", label: "In process" },
+  { value: "not-approved", label: "Not approved" },
+  { value: "", label: "Don't show" },
+];
+
 type Phase = SocietyAreaRow;
+
+/** A tap-to-pick chip. */
+function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn("rounded-full border px-3 py-1.5 text-[13px] transition-colors", on ? "border-primary bg-primary text-white" : "bg-white hover:border-primary hover:text-primary")}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * A first overview from what has been picked — the admin can keep it, edit
+ * it, or write their own. Plain and factual; nothing is made up.
+ */
+function draftOverview(name: string, city: string, g: SocietyGuide, phases: Phase[]): string {
+  const p: string[] = [];
+  const by = g.approvedBy ? ` by ${g.approvedBy}` : "";
+  const status =
+    g.approval === "approved" ? `an approved housing society${by}` : g.approval === "in-process" ? `a housing society whose approval${by} is in process` : "a housing society";
+  p.push(`<p>${name} is ${status} in ${city}${g.address ? `, located at ${g.address}` : ""}.${g.developer ? ` It is developed by ${g.developer}.` : ""}${g.launched ? ` It was launched in ${g.launched}.` : ""}</p>`);
+  if (phases.length) p.push(`<p>The society is divided into ${phases.length} ${phases.length === 1 ? "phase" : "phases"}: ${phases.map((x) => toTitleCase(x.name)).join(", ")}.</p>`);
+  if (g.plotSizes || g.possession) p.push(`<p>${g.plotSizes ? `Plots and houses are available in ${g.plotSizes} sizes.` : ""}${g.possession ? ` Possession: ${g.possession}.` : ""}</p>`);
+  if (g.amenities?.length) p.push(`<p>Residents have ${g.amenities.slice(0, -1).join(", ").toLowerCase()}${g.amenities.length > 1 ? " and " : ""}${g.amenities.slice(-1)[0]!.toLowerCase()}.</p>`);
+  p.push(`<p>Below you can see the current house and plot prices in ${name}, its phases, its map and the properties for sale and rent.</p>`);
+  return p.join("\n");
+}
 
 function Card({ title, description, children, className }: { title: string; description?: string; children: React.ReactNode; className?: string }) {
   return (
@@ -290,44 +331,82 @@ export default function SocietyEditorPage() {
         }
       />
 
-      <Card title="Cover & introduction" description="The featured photo is the guide's cover and the society's card on city pages.">
+      <Card title="The basics" description="Enough to publish — the rest is optional, below. Prices, listings and nearby societies fill in by themselves.">
         <div className="grid gap-4 md:grid-cols-[260px_1fr]">
           <ImageField label="Featured photo" value={guide.image} onChange={(url) => set({ image: url })} folder="areas" context={`${name} ${doc.cityName}`} aspect="wide" />
-          <div className="space-y-3">
+          <div className="space-y-4">
             <Text id="g-tagline" label="One line about it" value={guide.tagline} onChange={(v) => set({ tagline: v })} placeholder="Gated community on Main Raiwind Road" />
-            <Text id="g-address" label="Location" value={guide.address} onChange={(v) => set({ address: v })} placeholder="Main Raiwind Road, 5 km from Thokar Niaz Baig" />
+            <div className="space-y-1.5">
+              <Label>Approval</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {APPROVALS.map((a) => (
+                  <Chip key={a.label} on={(guide.approval ?? "") === a.value} onClick={() => set({ approval: a.value })}>
+                    {a.label}
+                  </Chip>
+                ))}
+              </div>
+              {guide.approval && guide.approval !== "not-approved" && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  <span className="self-center text-xs text-muted-foreground">by</span>
+                  {AUTHORITIES.map((a) => (
+                    <Chip key={a} on={guide.approvedBy === a} onClick={() => set({ approvedBy: guide.approvedBy === a ? "" : a })}>
+                      {a}
+                    </Chip>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="space-y-1.5">
-          <Label>Overview</Label>
-          <RichEditor value={guide.overview ?? ""} onChange={(v) => set({ overview: v })} placeholder={`What is ${name}? Who built it, where it is, who it suits, how it is laid out…`} minHeight="220px" imageContext={`${name} ${doc.cityName}`} />
-        </div>
-      </Card>
-
-      <Card title="Key facts" description="Shown beside the overview. Leave out what you do not know.">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Text id="g-dev" label="Developer" value={guide.developer} onChange={(v) => set({ developer: v })} placeholder="Habib Rafiq (Pvt) Ltd" />
-          <div className="space-y-1.5">
-            <Label htmlFor="g-approval">Approval</Label>
-            <select
-              id="g-approval"
-              value={guide.approval ?? ""}
-              onChange={(e) => set({ approval: e.target.value as SocietyGuide["approval"] })}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Not shown</option>
-              <option value="approved">Approved</option>
-              <option value="in-process">Approval in process</option>
-              <option value="not-approved">Not approved</option>
-            </select>
+          <Label>Plot sizes</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {PLOT_SIZES.map((sz) => {
+              const list = (guide.plotSizes ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+              const on = list.includes(sz);
+              return (
+                <Chip key={sz} on={on} onClick={() => set({ plotSizes: (on ? list.filter((x) => x !== sz) : PLOT_SIZES.filter((x) => x === sz || list.includes(x))).join(", ") })}>
+                  {sz}
+                </Chip>
+              );
+            })}
           </div>
-          <Text id="g-by" label="Approved by" value={guide.approvedBy} onChange={(v) => set({ approvedBy: v })} placeholder="LDA, RDA, CDA, MDA…" />
-          <Text id="g-area" label="Total area" value={guide.totalArea} onChange={(v) => set({ totalArea: v })} placeholder="12,000 Kanal" />
-          <Text id="g-sizes" label="Plot sizes" value={guide.plotSizes} onChange={(v) => set({ plotSizes: v })} placeholder="5 Marla, 10 Marla, 1 Kanal" />
-          <Text id="g-launch" label="Launched" value={guide.launched} onChange={(v) => set({ launched: v })} placeholder="2014" />
-          <Text id="g-poss" label="Possession" value={guide.possession} onChange={(v) => set({ possession: v })} placeholder="Phase 1 & 2 possession given" />
-          <Text id="g-phone" label="Office phone" value={guide.phone} onChange={(v) => set({ phone: v })} placeholder="042 111 000 000" />
-          <Text id="g-web" label="Official website" value={guide.website} onChange={(v) => set({ website: v })} placeholder="https://…" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>What it has</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {AMENITIES.map((a) => (
+              <Chip key={a} on={!!guide.amenities?.includes(a)} onClick={() => toggleAmenity(a)}>
+                {a}
+              </Chip>
+            ))}
+            {(guide.amenities ?? [])
+              .filter((a) => !AMENITIES.includes(a))
+              .map((a) => (
+                <Chip key={a} on onClick={() => toggleAmenity(a)}>
+                  {a} ×
+                </Chip>
+              ))}
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Label>Overview</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const write = () => set({ overview: draftOverview(name, doc.cityName, guide, phases) });
+                if ((guide.overview ?? "").replace(/<[^>]+>/g, "").trim()) {
+                  confirm({ title: "Replace the overview?", description: "A new one is written from what you picked above. What is there now is replaced.", confirmLabel: "Write it", onConfirm: write });
+                } else write();
+              }}
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Write it for me
+            </Button>
+          </div>
+          <RichEditor value={guide.overview ?? ""} onChange={(v) => set({ overview: v })} placeholder={`Tap "Write it for me" for a first draft from what you picked above — then add anything you know about ${name}.`} minHeight="180px" imageContext={`${name} ${doc.cityName}`} />
         </div>
       </Card>
 
@@ -407,103 +486,102 @@ export default function SocietyEditorPage() {
         </div>
       </Card>
 
-      <Card title="Amenities & nearby" description="What is inside the society, and what is close to it.">
-        <div className="flex flex-wrap gap-1.5">
-          {AMENITIES.map((a) => {
-            const on = guide.amenities?.includes(a);
-            return (
-              <button
-                key={a}
-                type="button"
-                onClick={() => toggleAmenity(a)}
-                className={cn("rounded-full border px-3 py-1.5 text-[13px] transition-colors", on ? "border-primary bg-primary text-white" : "bg-white hover:border-primary hover:text-primary")}
+      <details className="group rounded-xl border bg-white">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5">
+          <span>
+            <span className="block font-semibold">More details (optional)</span>
+            <span className="block text-xs text-muted-foreground">Location, developer, possession, nearby places, photos, payment plan, FAQs, search title — add them when you have them.</span>
+          </span>
+          <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="space-y-6 border-t px-4 py-5">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <Text id="g-address" label="Location" value={guide.address} onChange={(v) => set({ address: v })} placeholder="Main Raiwind Road, Lahore" />
+            <Text id="g-dev" label="Developer" value={guide.developer} onChange={(v) => set({ developer: v })} placeholder="Habib Rafiq (Pvt) Ltd" />
+            <Text id="g-area" label="Total area" value={guide.totalArea} onChange={(v) => set({ totalArea: v })} placeholder="12,000 Kanal" />
+            <Text id="g-launch" label="Launched" value={guide.launched} onChange={(v) => set({ launched: v })} placeholder="2014" />
+            <Text id="g-poss" label="Possession" value={guide.possession} onChange={(v) => set({ possession: v })} placeholder="Possession given" />
+            <Text id="g-phone" label="Office phone" value={guide.phone} onChange={(v) => set({ phone: v })} placeholder="042 111 000 000" />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="g-amenity">Another amenity</Label>
+            <div className="flex gap-2">
+              <Input
+                id="g-amenity"
+                value={amenity}
+                onChange={(e) => setAmenity(e.target.value)}
+                placeholder="e.g. Cinema"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && amenity.trim()) {
+                    e.preventDefault();
+                    set({ amenities: [...new Set([...(guide.amenities ?? []), amenity.trim()])] });
+                    setAmenity("");
+                  }
+                }}
+              />
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!amenity.trim()) return;
+                  set({ amenities: [...new Set([...(guide.amenities ?? []), amenity.trim()])] });
+                  setAmenity("");
+                }}
               >
-                {a}
-              </button>
-            );
-          })}
-          {(guide.amenities ?? [])
-            .filter((a) => !AMENITIES.includes(a))
-            .map((a) => (
-              <button key={a} type="button" onClick={() => toggleAmenity(a)} className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary px-3 py-1.5 text-[13px] text-white">
-                {a} <X className="h-3 w-3" />
-              </button>
-            ))}
-        </div>
-        <div className="flex gap-2">
-          <Input
-            value={amenity}
-            onChange={(e) => setAmenity(e.target.value)}
-            placeholder="Another amenity — e.g. Cinema"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && amenity.trim()) {
-                e.preventDefault();
-                set({ amenities: [...new Set([...(guide.amenities ?? []), amenity.trim()])] });
-                setAmenity("");
-              }
-            }}
-          />
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (!amenity.trim()) return;
-              set({ amenities: [...new Set([...(guide.amenities ?? []), amenity.trim()])] });
-              setAmenity("");
-            }}
-          >
-            Add
-          </Button>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="g-nearby">Nearby — one per line</Label>
-          <Textarea
-            id="g-nearby"
-            rows={4}
-            value={(guide.nearby ?? []).join("\n")}
-            placeholder={"Ring Road — 5 minutes\nAllama Iqbal International Airport — 20 minutes\nEmporium Mall — 10 minutes"}
-            onChange={(e) => set({ nearby: e.target.value.split("\n") })}
-          />
-        </div>
-      </Card>
-
-      <Card title="Photos" description="Gates, parks, the main boulevard, houses — shown as a gallery on the guide.">
-        <GalleryField value={guide.gallery ?? []} onChange={(urls) => set({ gallery: urls })} folder="areas" context={`${name} ${doc.cityName}`} max={30} />
-      </Card>
-
-      <Card title="Payment plan & booking (optional)">
-        <RichEditor value={guide.paymentPlan ?? ""} onChange={(v) => set({ paymentPlan: v })} placeholder="Booking amount, instalments, possession charges…" minHeight="140px" />
-      </Card>
-
-      <Card title="Questions people ask" description="Shown as FAQs on the guide — Google can show them in results.">
-        <div className="space-y-2">
-          {(guide.faqs ?? []).map((f, i) => (
-            <div key={i} className="space-y-2 rounded-xl border p-3">
-              <div className="flex gap-2">
-                <Input
-                  value={f.q}
-                  placeholder="Is DHA Multan approved?"
-                  onChange={(e) => set({ faqs: guide.faqs!.map((x, j) => (j === i ? { ...x, q: e.target.value } : x)) })}
-                />
-                <Button variant="ghost" size="icon" onClick={() => set({ faqs: guide.faqs!.filter((_, j) => j !== i) })} aria-label="Remove question">
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-              <Textarea rows={2} value={f.a} placeholder="The answer" onChange={(e) => set({ faqs: guide.faqs!.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)) })} />
+                Add
+              </Button>
             </div>
-          ))}
-          <Button variant="outline" onClick={() => set({ faqs: [...(guide.faqs ?? []), { q: "", a: "" }] })}>
-            <Plus className="mr-1.5 h-4 w-4" /> Add a question
-          </Button>
-        </div>
-      </Card>
+          </div>
 
-      <Card title="Search engines (optional)" description="Written for you when empty: “<Society> <City> — Prices, Map, Phases & Guide”.">
-        <Text id="g-mt" label="Title" value={guide.metaTitle} onChange={(v) => set({ metaTitle: v })} placeholder={`${name} ${doc.cityName} — Prices, Map, Phases & Guide`} />
-        <div className="space-y-1.5">
-          <Label htmlFor="g-md">Description</Label>
-          <Textarea id="g-md" rows={2} maxLength={300} value={guide.metaDescription ?? ""} onChange={(e) => set({ metaDescription: e.target.value })} />
+          <div className="space-y-1.5">
+            <Label htmlFor="g-nearby">Nearby — one per line</Label>
+            <Textarea
+              id="g-nearby"
+              rows={3}
+              value={(guide.nearby ?? []).join("\n")}
+              placeholder={"Ring Road — 5 minutes\nAllama Iqbal International Airport — 20 minutes"}
+              onChange={(e) => set({ nearby: e.target.value.split("\n") })}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Photos</Label>
+            <GalleryField value={guide.gallery ?? []} onChange={(urls) => set({ gallery: urls })} folder="areas" context={`${name} ${doc.cityName}`} max={30} />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Payment plan &amp; booking</Label>
+            <RichEditor value={guide.paymentPlan ?? ""} onChange={(v) => set({ paymentPlan: v })} placeholder="Booking amount, instalments, possession charges…" minHeight="120px" />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Questions people ask</Label>
+            <p className="text-xs text-muted-foreground">Leave empty and the guide asks and answers the common ones by itself — prices, approval, phases.</p>
+            {(guide.faqs ?? []).map((f, i) => (
+              <div key={i} className="space-y-2 rounded-xl border p-3">
+                <div className="flex gap-2">
+                  <Input value={f.q} placeholder={`Is ${name} approved?`} onChange={(e) => set({ faqs: guide.faqs!.map((x, j) => (j === i ? { ...x, q: e.target.value } : x)) })} />
+                  <Button variant="ghost" size="icon" onClick={() => set({ faqs: guide.faqs!.filter((_, j) => j !== i) })} aria-label="Remove question">
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <Textarea rows={2} value={f.a} placeholder="The answer" onChange={(e) => set({ faqs: guide.faqs!.map((x, j) => (j === i ? { ...x, a: e.target.value } : x)) })} />
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => set({ faqs: [...(guide.faqs ?? []), { q: "", a: "" }] })}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add a question
+            </Button>
+          </div>
+
+          <div className="grid gap-3">
+            <Text id="g-mt" label="Search title" value={guide.metaTitle} onChange={(v) => set({ metaTitle: v })} placeholder={`${name} ${doc.cityName} — Prices, Map, Phases & Guide`} hint="Written for you when empty." />
+            <div className="space-y-1.5">
+              <Label htmlFor="g-md">Search description</Label>
+              <Textarea id="g-md" rows={2} maxLength={300} value={guide.metaDescription ?? ""} onChange={(e) => set({ metaDescription: e.target.value })} />
+            </div>
+          </div>
         </div>
-      </Card>
+      </details>
 
       {doc.kind === "society" && (
         <DataCard className="flex flex-wrap items-center justify-between gap-3 border-destructive/30">

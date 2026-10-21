@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import SocietyGuideView from '@/components/societies/SocietyGuideView';
 import { fetchInitialListings } from '@/lib/server-api';
 import { getSocietyMap } from '@/lib/society-map';
-import { getSocietyPage, pkPrice } from '@/lib/societies';
+import { getSocietyPage, guideFaqs, pkPrice } from '@/lib/societies';
 import { toTitleCase } from '@/lib/utils';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
@@ -78,12 +78,12 @@ export default async function SocietyGuidePage({ params }: Params) {
         { '@type': 'ListItem', position: 4, name: toTitleCase(s.name), item: url },
       ],
     },
-    ...(s.guide.faqs?.length
+    ...(guideFaqs(s).length
       ? [
           {
             '@context': 'https://schema.org',
             '@type': 'FAQPage',
-            mainEntity: s.guide.faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+            mainEntity: guideFaqs(s).map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
           },
         ]
       : []),

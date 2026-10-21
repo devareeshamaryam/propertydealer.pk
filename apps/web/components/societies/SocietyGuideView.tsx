@@ -8,7 +8,6 @@ import {
   Check,
   ChevronRight,
   ClipboardCheck,
-  Globe,
   Home,
   KeyRound,
   Layers,
@@ -27,7 +26,7 @@ import SocietyCard from '@/components/societies/SocietyCard';
 import { CITIES, getCityBySlug } from '@/app/(pages)/emap/cities-data';
 import type { Property } from '@/lib/data';
 import type { SocietyMapPage } from '@/lib/society-map';
-import { APPROVAL_LABELS, pkPrice, type PriceRow, type SocietyPage } from '@/lib/societies';
+import { APPROVAL_LABELS, guideFaqs, pkPrice, type PriceRow, type SocietyPage } from '@/lib/societies';
 import { cn, toTitleCase } from '@/lib/utils';
 
 /*
@@ -109,6 +108,7 @@ export default function SocietyGuideView({ s, map, listings, preview = false }: 
   const name = toTitleCase(s.name);
   const city = s.city;
   const approval = APPROVAL_LABELS[g.approval ?? ''];
+  const faqs = guideFaqs(s);
   const saleBase = `/properties/sale/${city.slug}/${s.slug}`;
   const rentBase = `/properties/rent/${city.slug}/${s.slug}`;
   const cover = g.image || s.map?.thumb || '';
@@ -125,7 +125,7 @@ export default function SocietyGuideView({ s, map, listings, preview = false }: 
     g.amenities?.length || g.nearby?.length ? ['amenities', 'Amenities'] : null,
     g.paymentPlan ? ['payment', 'Payment plan'] : null,
     listings.length ? ['listings', 'Listings'] : null,
-    g.faqs?.length ? ['faqs', 'FAQs'] : null,
+    faqs.length ? ['faqs', 'FAQs'] : null,
   ].filter(Boolean) as [string, string][];
 
   const highlights = [
@@ -246,18 +246,11 @@ export default function SocietyGuideView({ s, map, listings, preview = false }: 
               <Fact icon={CalendarDays} label="Launched" value={g.launched} />
               <Fact icon={KeyRound} label="Possession" value={g.possession} />
               <Fact icon={MapPin} label="Location" value={g.address} />
-              {(g.phone || g.website) && (
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {g.phone && (
-                    <a href={`tel:${g.phone.replace(/\s/g, '')}`} className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-[13.5px] font-semibold text-slate-800">
-                      <Phone className="h-4 w-4" /> {g.phone}
-                    </a>
-                  )}
-                  {g.website && (
-                    <a href={g.website} target="_blank" rel="noopener nofollow" className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-[13.5px] font-semibold text-slate-800">
-                      <Globe className="h-4 w-4" /> Website
-                    </a>
-                  )}
+              {g.phone && (
+                <div className="pt-1">
+                  <a href={`tel:${g.phone.replace(/\s/g, '')}`} className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-[13.5px] font-semibold text-slate-800">
+                    <Phone className="h-4 w-4" /> {g.phone}
+                  </a>
                 </div>
               )}
             </div>
@@ -410,10 +403,10 @@ export default function SocietyGuideView({ s, map, listings, preview = false }: 
           </Section>
         )}
 
-        {g.faqs?.length ? (
+        {faqs.length ? (
           <Section id="faqs" title={`${name} — questions people ask`}>
             <div className="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-              {g.faqs.map((f) => (
+              {faqs.map((f) => (
                 <details key={f.q} className="group px-4 py-3.5 sm:px-5">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[15px] font-semibold text-slate-900">
                     {f.q}

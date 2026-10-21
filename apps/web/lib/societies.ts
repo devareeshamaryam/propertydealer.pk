@@ -110,6 +110,31 @@ export function pkPrice(n: number): string {
 
 export const societyPath = (citySlug: string, slug: string) => `/societies/${citySlug}/${slug}`;
 
+const title = (t: string) => t.replace(/\b\w/g, (c) => c.toUpperCase());
+
+/**
+ * The guide's questions: the admin's own, or — when there are none — the
+ * common ones, answered from what the guide already knows (approval,
+ * phases, plot sizes, today's listings). Nothing is guessed.
+ */
+export function guideFaqs(s: SocietyPage): { q: string; a: string }[] {
+  if (s.guide.faqs?.length) return s.guide.faqs;
+  const name = `${title(s.name)} ${s.city.name}`;
+  const g = s.guide;
+  const out: { q: string; a: string }[] = [];
+  if (g.approval === 'approved') out.push({ q: `Is ${name} approved?`, a: `Yes. ${name} is approved${g.approvedBy ? ` by ${g.approvedBy}` : ''}.` });
+  else if (g.approval === 'in-process') out.push({ q: `Is ${name} approved?`, a: `Its approval${g.approvedBy ? ` from ${g.approvedBy}` : ''} is in process. Check the latest status with the authority before buying.` });
+  else if (g.approval === 'not-approved') out.push({ q: `Is ${name} approved?`, a: `${name} is not approved${g.approvedBy ? ` by ${g.approvedBy}` : ''}. Check the status with the authority before buying.` });
+  const range = (r: { min: number; max: number } | null) => (r ? (r.min === r.max ? `PKR ${pkPrice(r.min)}` : `PKR ${pkPrice(r.min)} to ${pkPrice(r.max)}`) : '');
+  if (s.stats.house) out.push({ q: `What is the price of a house in ${name}?`, a: `Houses for sale in ${name} are listed from ${range(s.stats.house)} right now, depending on size and location.` });
+  if (s.stats.plot) out.push({ q: `What is the price of a plot in ${name}?`, a: `Plots for sale in ${name} are listed from ${range(s.stats.plot)} right now.` });
+  if (s.stats.houseRent) out.push({ q: `What is the rent of a house in ${name}?`, a: `Houses for rent in ${name} are listed at ${range(s.stats.houseRent)} a month right now.` });
+  if (s.phases.length) out.push({ q: `How many phases does ${name} have?`, a: `${name} has ${s.phases.length} ${s.phases.length === 1 ? 'phase' : 'phases'}: ${s.phases.map((p) => title(p.name)).join(', ')}.` });
+  if (g.plotSizes) out.push({ q: `What plot sizes are available in ${name}?`, a: `${g.plotSizes}.` });
+  if (g.developer) out.push({ q: `Who is the developer of ${name}?`, a: `${name} is developed by ${g.developer}.` });
+  return out;
+}
+
 // ── Server reads ────────────────────────────────────────────────────────
 
 const RAW = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3005';
