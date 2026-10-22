@@ -3,6 +3,7 @@
 
 import { getSitemapData, sitemapXml, xmlResponse, SITE_URL } from '@/lib/sitemap-data';
 import { getSocieties } from '@/lib/societies';
+import { TOOLS } from '@/lib/tools';
 
 const STATIC_PAGES = [
   { url: '/',                                      priority: '1.0', changefreq: 'daily'   },
@@ -26,6 +27,8 @@ const STATIC_PAGES = [
   { url: '/today-door-rate-in-pakistan',           priority: '0.8', changefreq: 'daily'   },
   { url: '/today-tile-rate-in-pakistan',           priority: '0.8', changefreq: 'daily'   },
   { url: '/today-wood-rate-in-pakistan',           priority: '0.8', changefreq: 'daily'   },
+  { url: '/tools',                                 priority: '0.7', changefreq: 'monthly' },
+  ...TOOLS.map((t) => ({ url: `/tools/${t.slug}`, priority: t.slug === 'construction-cost-calculator' ? '0.8' : '0.7', changefreq: t.slug === 'construction-cost-calculator' ? 'daily' : 'monthly' })),
 ];
 
 export async function GET() {

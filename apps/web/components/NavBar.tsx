@@ -22,6 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 import { resolved } from '@/lib/site-settings';
 import { CartButton } from '@/components/shop/CartSheet';
+import AreaUnitPicker from '@/components/area-unit/AreaUnitPicker';
 import { isPropertyDetail } from '@/lib/routes';
 
 /*
@@ -44,6 +45,7 @@ const NAV_LINKS = [
   { name: 'Buy', path: '/properties/sale' },
   { name: 'Rent', path: '/properties/rent' },
   { name: 'Societies', path: '/societies' },
+  { name: 'Tools', path: '/tools' },
 ];
 
 /** The construction-rate pages — the site's other half, and well ranked. */
@@ -186,6 +188,7 @@ const Navbar = () => {
 
         {/* Desktop actions */}
         <div className="ml-auto hidden items-center gap-1 md:flex">
+          <AreaUnitPicker />
           <CartButton />
           {mounted &&
             (isAuthenticated ? (
@@ -271,6 +274,10 @@ const Navbar = () => {
                   {link.name}
                 </Link>
               ))}
+
+              <div className="mt-2 border-t border-slate-100 pt-2">
+                <AreaUnitPicker variant="row" onDone={() => setMobileOpen(false)} />
+              </div>
 
               <p className="mt-3 px-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
                 Construction rates

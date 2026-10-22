@@ -13,6 +13,7 @@ export interface Property {
   areaSlug?: string;
   marla?: number;
   kanal?: number;
+  marlaSqft?: number;
   purpose: 'rent' | 'buy';
   image: string;
   featured?: boolean;

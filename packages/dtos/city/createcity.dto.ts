@@ -82,6 +82,10 @@ export class CreateCityDto {
     @IsString()
     thumbnail?: string;
 
+    /** Square feet in one marla in this city: 225, 250 or 272.25. */
+    @IsOptional()
+    marlaSqft?: number;
+
     @IsOptional()
     typeContents?: {
         propertyType: string;

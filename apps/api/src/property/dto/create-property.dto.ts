@@ -86,6 +86,12 @@ export class CreatePropertyDto {
   @Min(0)
   kanal?: number;
 
+  /** Square feet in the marla the size was entered in: 225, 250 or 272.25. */
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  marlaSqft?: number;
+
   @IsString()
   description: string;
 

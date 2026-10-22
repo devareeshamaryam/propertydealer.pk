@@ -104,30 +104,41 @@ export function unitLabel(unit: AreaUnit): string {
   return AREA_UNITS.find((entry) => entry.value === unit)?.short ?? unit;
 }
 
-export function toSquareFeet(value: number | string, unit: AreaUnit): number {
-  const size = typeof value === "string" ? Number(value) : value;
-  if (!Number.isFinite(size) || size <= 0) return 0;
-  return Math.round(size * SQFT_PER_UNIT[unit]);
+/**
+ * Square feet in one unit. Marla and kanal follow the marla in use — a city
+ * can use 250 or 272.25 sq ft instead of the standard 225.
+ */
+export function sqftPer(unit: AreaUnit, marlaSqft = SQFT_PER_UNIT.marla): number {
+  if (unit === "marla") return marlaSqft;
+  if (unit === "kanal") return marlaSqft * 20;
+  return SQFT_PER_UNIT[unit];
 }
 
-export function fromSquareFeet(sqft: number | string, unit: AreaUnit): number {
+export function toSquareFeet(value: number | string, unit: AreaUnit, marlaSqft?: number): number {
+  const size = typeof value === "string" ? Number(value) : value;
+  if (!Number.isFinite(size) || size <= 0) return 0;
+  return Math.round(size * sqftPer(unit, marlaSqft));
+}
+
+export function fromSquareFeet(sqft: number | string, unit: AreaUnit, marlaSqft?: number): number {
   const size = typeof sqft === "string" ? Number(sqft) : sqft;
   if (!Number.isFinite(size) || size <= 0) return 0;
   // Two decimals: 1,130 sq ft is 5.02 marla, and rounding it to 5 would quietly
   // change the listing's size.
-  return Number((size / SQFT_PER_UNIT[unit]).toFixed(2));
+  return Number((size / sqftPer(unit, marlaSqft)).toFixed(2));
 }
 
 /**
  * Pick the unit a size is most naturally quoted in — how a Pakistani listing
  * would print it. Used when an existing listing only has square feet stored.
  */
-export function naturalAreaUnit(sqft: number): AreaUnit {
+export function naturalAreaUnit(sqft: number, marlaSqft?: number): AreaUnit {
   if (!Number.isFinite(sqft) || sqft <= 0) return "marla";
+  const kanal = sqftPer("kanal", marlaSqft);
   if (sqft >= SQFT_PER_UNIT.acre) return "acre";
-  if (sqft % SQFT_PER_UNIT.kanal === 0 && sqft >= SQFT_PER_UNIT.kanal) return "kanal";
-  if (sqft >= SQFT_PER_UNIT.kanal * 2) return "kanal";
-  if (sqft % SQFT_PER_UNIT.marla === 0) return "marla";
+  // Whole kanals, allowing for the rounding of a 272.25 sq ft marla.
+  if (sqft >= kanal && Math.abs(sqft / kanal - Math.round(sqft / kanal)) < 0.001) return "kanal";
+  if (sqft >= kanal * 2) return "kanal";
   return "marla";
 }
 
@@ -147,11 +158,12 @@ export function areaInWords(sqft: number): string {
  * The marla / kanal columns the schema keeps alongside areaSize, so the
  * existing size filters and area pages ("5 marla houses in DHA") keep working.
  */
-export function marlaKanalFor(sqft: number): { marla: number; kanal: number } {
+export function marlaKanalFor(sqft: number, marlaSqft?: number): { marla: number; kanal: number } {
   if (!Number.isFinite(sqft) || sqft <= 0) return { marla: 0, kanal: 0 };
-  const kanal = sqft / SQFT_PER_UNIT.kanal;
+  const marla = Number((sqft / sqftPer("marla", marlaSqft)).toFixed(2));
+  const kanal = marla / 20;
   return {
-    marla: Number((sqft / SQFT_PER_UNIT.marla).toFixed(2)),
+    marla,
     // Only a whole-kanal plot is described in kanal; 7 marla is not "0.35 kanal".
     kanal: Number.isInteger(kanal) ? kanal : 0,
   };

@@ -390,6 +390,8 @@ export class PropertyService {
               price: Number(dto.price),
               marla: dto.marla ? Number(dto.marla) : 0,
               kanal: dto.kanal ? Number(dto.kanal) : 0,
+              // Only a city with a marla other than 225 stores it.
+              ...([250, 272.25].includes(Number(dto.marlaSqft)) ? { marlaSqft: Number(dto.marlaSqft) } : {}),
               description: dto.description,
               contactNumber: dto.contactNumber,
               /*
@@ -1800,6 +1802,7 @@ export class PropertyService {
             price: Number(dto.price),
             marla: dto.marla ? Number(dto.marla) : 0,
             kanal: dto.kanal ? Number(dto.kanal) : 0,
+            ...([225, 250, 272.25].includes(Number(dto.marlaSqft)) ? { marlaSqft: Number(dto.marlaSqft) } : {}),
             description: dto.description,
             contactNumber: dto.contactNumber,
             whatsappNumber: dto.whatsappNumber || dto.contactNumber,

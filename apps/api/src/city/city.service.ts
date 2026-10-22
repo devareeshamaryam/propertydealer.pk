@@ -88,6 +88,7 @@ export class CityService {
             if (createCityDto.saleContent)        cityData.saleContent        = createCityDto.saleContent;
             if (createCityDto.buyContent)         cityData.buyContent         = createCityDto.buyContent;
             if (createCityDto.thumbnail)          cityData.thumbnail          = createCityDto.thumbnail;
+            if (CityService.marla(createCityDto.marlaSqft)) cityData.marlaSqft = CityService.marla(createCityDto.marlaSqft);
             if (createCityDto.typeContents)       cityData.typeContents       = createCityDto.typeContents;
             if (createCityDto.sizeContents)       cityData.sizeContents       = createCityDto.sizeContents; // 🆕
 
@@ -110,13 +111,19 @@ export class CityService {
      * carries every city's SEO content and is about a megabyte; a dropdown
      * needs a few kilobytes.
      */
-    async findCityNames(): Promise<Array<{ _id: string; name: string; thumbnail?: string; state?: string; country?: string; createdAt?: Date }>> {
+    /** A marla size this site knows (225, 250 or 272.25 sq ft), or 0. */
+    static marla(v: unknown): number {
+        const n = Number(v);
+        return [225, 250, 272.25].includes(n) ? n : 0;
+    }
+
+    async findCityNames(): Promise<Array<{ _id: string; name: string; thumbnail?: string; state?: string; country?: string; createdAt?: Date; marlaSqft?: number }>> {
         return this.cache.wrap(
             this.cache.buildKey('cities:names:v2', []),
             async () => {
                 // Everything a list or dropdown shows — and none of the SEO text.
-                const rows = await this.cityModel.find().select('name thumbnail state country createdAt').sort({ name: 1 }).lean().exec();
-                return rows.map((c: any) => ({ _id: String(c._id), name: c.name, thumbnail: c.thumbnail || undefined, state: c.state, country: c.country, createdAt: c.createdAt }));
+                const rows = await this.cityModel.find().select('name thumbnail state country createdAt marlaSqft').sort({ name: 1 }).lean().exec();
+                return rows.map((c: any) => ({ _id: String(c._id), name: c.name, thumbnail: c.thumbnail || undefined, state: c.state, country: c.country, createdAt: c.createdAt, ...(c.marlaSqft ? { marlaSqft: c.marlaSqft } : {}) }));
             },
             { ttl: 3600, tags: [TAG_CITIES] },
         );
@@ -204,6 +211,7 @@ export class CityService {
             if (updateCityDto.saleContent         !== undefined) updateData.saleContent        = updateCityDto.saleContent;
             if (updateCityDto.buyContent          !== undefined) updateData.buyContent         = updateCityDto.buyContent;
             if (updateCityDto.thumbnail           !== undefined) updateData.thumbnail          = updateCityDto.thumbnail;
+            if (updateCityDto.marlaSqft           !== undefined) updateData.marlaSqft          = CityService.marla(updateCityDto.marlaSqft) || 225;
             if (updateCityDto.typeContents        !== undefined) updateData.typeContents       = updateCityDto.typeContents;
             if (updateCityDto.sizeContents        !== undefined) updateData.sizeContents       = updateCityDto.sizeContents; // 🆕
 

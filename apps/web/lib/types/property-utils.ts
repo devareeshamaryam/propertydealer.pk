@@ -40,6 +40,8 @@ export interface BackendProperty {
   price: number;
   marla?: number;
   kanal?: number;
+  /** The marla (sq ft) the size was entered in — its city's; 225 when absent. */
+  marlaSqft?: number;
   description: string;
   contactNumber: string;
   whatsappNumber?: string;
@@ -207,6 +209,7 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
     areaSlug: areaSlug,
     marla: backend.marla,
     kanal: backend.kanal,
+    marlaSqft: backend.marlaSqft,
     purpose: purposeMap[backend.listingType] || 'rent',
     image: displayImage,
     // Shown as a camera count on the card, as every listing portal does.

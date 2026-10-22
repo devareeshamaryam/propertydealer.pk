@@ -397,3 +397,11 @@ export async function getCityAgencies(cityId: string): Promise<SpotlightAgency[]
 export function isNotFoundError(error: unknown): boolean {
   return /API Error: 404\b/.test(String((error as Error)?.message ?? ''));
 }
+
+/** Rates and settings for the construction cost calculator; null when the API is unreachable. */
+export async function getConstructionData(): Promise<import('./tools').ConstructionData | null> {
+  const tags = ['construction', 'cement-rates', 'steel-rates', 'bricks-rates', 'sand-rates', 'bajri-rates'];
+  const res = await optionalGet<import('./tools').ConstructionData>('/tools/construction', 300, tags);
+  const { withDefaults } = await import('./tools');
+  return res && Array.isArray(res.rates) && res.config ? withDefaults(res) : null;
+}

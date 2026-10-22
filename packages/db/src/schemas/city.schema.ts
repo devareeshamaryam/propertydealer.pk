@@ -92,6 +92,14 @@ export class City {
 
   @Prop({ trim: true })
   thumbnail?: string; // City Image URL
+
+  /**
+   * Square feet in one marla here: 225 (societies and every portal — the
+   * default when unset), 250, or 272.25 (the revenue marla of old city
+   * areas). New listings in the city are sized on it.
+   */
+  @Prop()
+  marlaSqft?: number;
 }
 
 export const CitySchema = SchemaFactory.createForClass(City);

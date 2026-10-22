@@ -25,6 +25,7 @@ const EXPLORE = [
   { name: 'Agent Packages', href: '/packages' },
   { name: 'Blog', href: '/blog' },
   { name: 'Verified Agencies', href: '/agents' },
+  { name: 'Property Tools', href: '/tools' },
   { name: 'About Us', href: '/about' },
   { name: 'Contact Us', href: '/contact' },
 ];
@@ -49,6 +50,7 @@ const RATES = [
   { name: 'Tile Rates', href: '/today-tile-rate-in-pakistan' },
   { name: 'Wood Rates', href: '/today-wood-rate-in-pakistan' },
   { name: 'Door Rates', href: '/today-door-rate-in-pakistan' },
+  { name: 'Construction Cost Calculator', href: '/tools/construction-cost-calculator' },
 ];
 
 

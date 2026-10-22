@@ -13,6 +13,8 @@ import { SiteSettingsModule } from '../site-settings/site-settings.module';
 import { MaterialTypeModule } from '../material-type/material-type.module';
 import { ShopService } from './shop.service';
 import { ShopController } from './shop.controller';
+import { ConstructionService } from './construction.service';
+import { ConstructionController } from './construction.controller';
 
 @Module({
   imports: [
@@ -30,7 +32,7 @@ import { ShopController } from './shop.controller';
     SiteSettingsModule,
     MaterialTypeModule,
   ],
-  providers: [ShopService],
-  controllers: [ShopController],
+  providers: [ShopService, ConstructionService],
+  controllers: [ShopController, ConstructionController],
 })
 export class ShopModule {}

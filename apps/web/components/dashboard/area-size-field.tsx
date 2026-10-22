@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Label } from "@/components/ui/label";
 import {
@@ -27,6 +27,8 @@ interface AreaSizeFieldProps {
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  /** Square feet in one marla in the listing's city (225 unless the city says otherwise). */
+  marlaSqft?: number;
 }
 
 const QUICK_MARLA = [3, 5, 7, 10];
@@ -51,37 +53,50 @@ export function AreaSizeField({
   required,
   disabled,
   className,
+  marlaSqft = 225,
 }: AreaSizeFieldProps) {
   const squareFeet = Number(value) || 0;
 
-  const [unit, setUnit] = useState<AreaUnit>(() => naturalAreaUnit(squareFeet));
+  const [unit, setUnit] = useState<AreaUnit>(() => naturalAreaUnit(squareFeet, marlaSqft));
   const [shown, setShown] = useState(() =>
-    squareFeet > 0 ? String(fromSquareFeet(squareFeet, naturalAreaUnit(squareFeet))) : "",
+    squareFeet > 0 ? String(fromSquareFeet(squareFeet, naturalAreaUnit(squareFeet, marlaSqft), marlaSqft)) : "",
   );
+  const typed = useRef(false);
+  const lastMarla = useRef(marlaSqft);
 
   // An edit form loads its property after this mounts: re-derive the unit and
   // the displayed number once the real size arrives, but never while the user
-  // is the one typing (that would fight the cursor).
+  // is the one typing (that would fight the cursor). When the city — and so
+  // the marla — changes after the user typed "5 marla", it stays 5 marla and
+  // the square feet follow.
   useEffect(() => {
+    const marlaChanged = lastMarla.current !== marlaSqft;
+    lastMarla.current = marlaSqft;
+    if (marlaChanged && typed.current && Number(shown) > 0) {
+      const sqft = toSquareFeet(shown, unit, marlaSqft);
+      if (sqft !== squareFeet) onChange(String(sqft));
+      return;
+    }
     if (squareFeet <= 0) return;
-    const currentlyShowing = toSquareFeet(shown || "0", unit);
+    const currentlyShowing = toSquareFeet(shown || "0", unit, marlaSqft);
     if (currentlyShowing === squareFeet) return;
 
-    const next = naturalAreaUnit(squareFeet);
+    const next = naturalAreaUnit(squareFeet, marlaSqft);
     setUnit(next);
-    setShown(String(fromSquareFeet(squareFeet, next)));
+    setShown(String(fromSquareFeet(squareFeet, next, marlaSqft)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [squareFeet]);
+  }, [squareFeet, marlaSqft]);
 
   const push = (size: string, nextUnit: AreaUnit) => {
+    typed.current = true;
     setShown(size);
     setUnit(nextUnit);
-    const sqft = toSquareFeet(size, nextUnit);
+    const sqft = toSquareFeet(size, nextUnit, marlaSqft);
     onChange(sqft > 0 ? String(sqft) : "");
   };
 
   const quick = unit === "kanal" ? QUICK_KANAL : unit === "marla" ? QUICK_MARLA : [];
-  const derived = toSquareFeet(shown || "0", unit);
+  const derived = toSquareFeet(shown || "0", unit, marlaSqft);
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -120,10 +135,15 @@ export function AreaSizeField({
         </Select>
       </div>
 
-      <div className="flex min-h-5 items-center text-sm">
+      <div className="flex min-h-5 flex-wrap items-center gap-x-2 text-sm">
         {derived > 0 && unit !== "sqft" ? (
           <span className="tabular-nums text-gray-500">
             = {derived.toLocaleString("en-PK")} sq ft
+            {marlaSqft !== 225 && (unit === "marla" || unit === "kanal") && (
+              <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                1 Marla = {marlaSqft} sq ft in this city
+              </span>
+            )}
           </span>
         ) : (
           <span className="text-xs text-gray-400">

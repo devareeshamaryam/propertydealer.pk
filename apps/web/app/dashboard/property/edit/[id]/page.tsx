@@ -61,6 +61,8 @@ interface City {
   name: string;
   state: string;
   country: string;
+  /** Square feet in one marla here; 225 when unset. */
+  marlaSqft?: number;
 }
 
 interface Area {
@@ -172,6 +174,7 @@ export default function EditProperty() {
     areaSize: string;
     marla?: number;
     kanal?: number;
+    marlaSqft: number;
   } | null>(null);
 
   /** Set when the listing's saved city/area could not be resolved. */
@@ -323,6 +326,7 @@ export default function EditProperty() {
           areaSize: property.areaSize?.toString() || "0",
           marla: property.marla,
           kanal: property.kanal,
+          marlaSqft: Number((property as { marlaSqft?: number }).marlaSqft) || 225,
         });
         setPrice(property.price?.toString() || "0");
         setDescription(property.description || "");
@@ -424,6 +428,15 @@ export default function EditProperty() {
   /** The chosen city and area by name, for the map search box. */
   const selectedCityName =
     cityOptions.find((c) => String(c._id) === cityId)?.name ?? "";
+  /*
+   * The marla the size is read in: the listing's own (what it was entered in;
+   * 225 for every older listing) — only a move to another city switches to
+   * that city's. Nothing already listed is re-based.
+   */
+  const cityMarla =
+    cityChoice === null
+      ? originalSize?.marlaSqft ?? 225
+      : Number(cityOptions.find((c) => String(c._id) === cityId)?.marlaSqft) || 225;
   const selectedAreaName =
     areaOptions.find((a) => String(a._id) === areaId)?.name ?? "";
 
@@ -562,12 +575,14 @@ export default function EditProperty() {
        * actually changed — otherwise the values already on the listing are
        * sent back untouched.
        */
-      const sizeUnchanged = originalSize?.areaSize === areaSize;
+      const sizeUnchanged =
+        originalSize?.areaSize === areaSize && originalSize?.marlaSqft === cityMarla;
       const { marla, kanal } = sizeUnchanged
         ? { marla: originalSize?.marla ?? 0, kanal: originalSize?.kanal ?? 0 }
-        : marlaKanalFor(Number(areaSize));
+        : marlaKanalFor(Number(areaSize), cityMarla);
       if (marla > 0) formData.append("marla", String(marla));
       if (kanal > 0) formData.append("kanal", String(kanal));
+      formData.append("marlaSqft", String(cityMarla));
       formData.append("description", description);
       formData.append("contactNumber", contactNumber);
       formData.append("whatsappNumber", whatsappNumber || contactNumber);
@@ -1040,6 +1055,7 @@ export default function EditProperty() {
                 label="Property size"
                 required
                 disabled={isLoading}
+                marlaSqft={cityMarla}
               />
             </div>
 

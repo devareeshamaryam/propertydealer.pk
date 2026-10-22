@@ -2,6 +2,7 @@ import {
   Banknote,
   Megaphone,
   BellRing,
+  Calculator,
   BarChart3,
   BookOpen,
   Flag,
@@ -306,6 +307,12 @@ export const NAV_SECTIONS: NavSection[] = [
         keywords: ["delivery", "cod", "minimum order", "checkout"],
       },
       {
+        title: "Construction Calculator",
+        href: "/dashboard/construction-calculator",
+        adminOnly: true,
+        keywords: ["construction cost", "calculator", "grey structure", "labour", "finishing", "per sq ft", "tools"],
+      },
+      {
         id: "material-rates",
         title: "Material Rates",
         icon: Layers,
@@ -455,6 +462,7 @@ export const LEAF_ICONS: Record<
   "/dashboard/settings": Settings,
   "/dashboard/ads": Megaphone,
   "/dashboard/notifications": BellRing,
+  "/dashboard/construction-calculator": Calculator,
 };
 
 /**

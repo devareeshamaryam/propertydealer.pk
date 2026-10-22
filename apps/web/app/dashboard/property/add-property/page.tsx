@@ -61,6 +61,8 @@ interface City {
   name: string;
   state: string;
   country: string;
+  /** Square feet in one marla here; 225 when unset. */
+  marlaSqft?: number;
 }
 
 interface Area {
@@ -257,6 +259,7 @@ export default function AddProperty() {
   /** The chosen city and area by name, for the map search box. */
   const selectedCityName =
     cities.find((c) => String(c._id) === cityId)?.name ?? "";
+  const cityMarla = Number(cities.find((c) => String(c._id) === cityId)?.marlaSqft) || 225;
   const selectedAreaName =
     areas.find((a) => String(a._id) === areaId)?.name ?? "";
 
@@ -397,9 +400,10 @@ export default function AddProperty() {
       formData.append("price", price);
       // Kept in step with the size: these two columns drive the marla/kanal
       // size filters and the area landing pages.
-      const { marla, kanal } = marlaKanalFor(Number(areaSize));
+      const { marla, kanal } = marlaKanalFor(Number(areaSize), cityMarla);
       if (marla > 0) formData.append("marla", String(marla));
       if (kanal > 0) formData.append("kanal", String(kanal));
+      if (cityMarla !== 225) formData.append("marlaSqft", String(cityMarla));
       formData.append("description", description);
       formData.append("contactNumber", contactNumber);
       formData.append("whatsappNumber", whatsappNumber || contactNumber);
@@ -855,6 +859,7 @@ export default function AddProperty() {
                 label="Property size"
                 required
                 disabled={isLoading}
+                marlaSqft={cityMarla}
               />
             </div>
 

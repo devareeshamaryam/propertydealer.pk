@@ -12,7 +12,9 @@ import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/prope
 import { Property } from '@/lib/data';
 import { toast } from 'sonner';
 import { cn, toTitleCase } from '@/lib/utils';
-import { amountShort, amountWithSeparators, propertySizeLabel } from '@/lib/pk';
+import { amountShort, amountWithSeparators } from '@/lib/pk';
+import { useAreaUnit } from '@/components/area-unit/AreaUnitProvider';
+import { marlaNote, sizeIn } from '@/lib/area-units';
 import { agentDisplayName, agentProfilePath } from '@/lib/agent';
 import { trackContact, trackView } from '@/lib/analytics';
 import { maskPhone } from '@/lib/auth-intent';
@@ -98,6 +100,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const site = resolved(settings);
   const resolvedSlug = (slug || (params?.slug as string) || (params?.id as string))?.trim();
 
+  // The visitor's area unit (header → area unit). Read before any early return.
+  const { unit: areaUnit } = useAreaUnit();
   const [property, setProperty] = useState<Property | null>(
     initialProperty ? mapBackendToFrontendProperty(initialProperty) : null
   );
@@ -349,7 +353,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   const purposeSlug = isRent ? 'rent' : 'sale';
   const purposeLabel = isRent ? 'For Rent' : 'For Sale';
   const priceShort = amountShort(property.price) || amountWithSeparators(property.price) || '—';
-  const size = propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) });
+  const size = sizeIn({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area), marlaSqft: property.marlaSqft }, areaUnit);
   const areaLabel = toTitleCase(property.areaName || property.location || '');
   const cityLabel = toTitleCase(property.city || '');
   const place = [areaLabel, cityLabel]
@@ -375,6 +379,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     { label: 'Type', value: toTitleCase(property.type) },
     { label: 'Purpose', value: purposeLabel },
     { label: 'Area', value: size },
+    ...(marlaNote({ marlaSqft: property.marlaSqft }) ? [{ label: 'Marla size', value: marlaNote({ marlaSqft: property.marlaSqft })! }] : []),
     ...(property.bedrooms > 0 ? [{ label: 'Bedrooms', value: String(property.bedrooms) }] : []),
     ...(property.bathrooms > 0 ? [{ label: 'Bathrooms', value: String(property.bathrooms) }] : []),
     { label: 'Location', value: toTitleCase(property.location) },

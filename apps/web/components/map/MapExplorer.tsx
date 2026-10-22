@@ -36,7 +36,8 @@ import {
 } from 'lucide-react';
 import api from '@/lib/api';
 import { CLEAN_TILES, EMAP_TILES, type MapStyle } from '@/lib/map-tiles';
-import { amountShort, propertySizeLabel } from '@/lib/pk';
+import { amountShort } from '@/lib/pk';
+import { useSize } from '@/components/area-unit/AreaUnitProvider';
 import { cn, toTitleCase } from '@/lib/utils';
 import {
   POI_ICONS,
@@ -297,7 +298,7 @@ const streetView = (p: [number, number]) => `https://www.google.com/maps/@?api=1
 const directions = (p: [number, number]) => `https://www.google.com/maps/dir/?api=1&destination=${p[0]},${p[1]}`;
 
 function ListingCard({ item, compact, onClose }: { item: MapListing; compact?: boolean; onClose?: () => void }) {
-  const size = propertySizeLabel({ marla: item.marla, kanal: item.kanal, areaSize: item.areaSize });
+  const size = useSize({ marla: item.marla, kanal: item.kanal, areaSize: item.areaSize, marlaSqft: (item as { marlaSqft?: number }).marlaSqft });
   return (
     <div className="relative flex gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
       <Link href={`/properties/${item.slug}`} className="absolute inset-0 z-0 rounded-2xl" aria-label={item.title} />

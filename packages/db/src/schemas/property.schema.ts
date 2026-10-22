@@ -41,6 +41,10 @@ export class Property extends Document {
   @Prop({ type: Number, default: 0 })
   kanal?: number
 
+  /** Square feet in the marla this listing was sized in (its city's). Unset = 225. */
+  @Prop({ type: Number })
+  marlaSqft?: number
+
   @Prop({ required: true })
   description: string
 

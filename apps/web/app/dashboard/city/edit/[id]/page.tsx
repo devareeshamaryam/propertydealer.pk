@@ -35,6 +35,7 @@ import areaApi, {
 } from "@/lib/api/area/area.api";
 import { propertyApi } from "@/lib/api";
 import { toTitleCase } from "@/lib/utils";
+import { MARLA_STANDARDS } from "@/lib/area-units";
 import {
   Select,
   SelectContent,
@@ -76,6 +77,7 @@ const formSchema = z.object({
   saleContent: z.string().optional(),
   buyContent: z.string().optional(),
   thumbnail: z.string().optional(),
+  marlaSqft: z.string().optional(),
   typeContents: z
     .array(
       z.object({
@@ -134,6 +136,7 @@ export default function EditCityPage() {
       saleContent: "",
       buyContent: "",
       thumbnail: "",
+      marlaSqft: "225",
       typeContents: [],
       sizeContents: [],
     },
@@ -169,6 +172,7 @@ export default function EditCityPage() {
           saleContent: city.saleContent || "",
           buyContent: city.buyContent || "",
           thumbnail: city.thumbnail || "",
+          marlaSqft: String(city.marlaSqft || 225),
           typeContents: city.typeContents || [],
           sizeContents: city.sizeContents || [],
         });
@@ -331,6 +335,7 @@ export default function EditCityPage() {
         name: toTitleCase(values.name.trim()),
         state: toTitleCase(values.state.trim()),
         country: toTitleCase(values.country.trim()),
+        marlaSqft: Number(values.marlaSqft) || 225,
       };
       await cityApi.update(cityId, payload);
       toast.success("City updated successfully!");
@@ -421,6 +426,34 @@ export default function EditCityPage() {
                       context={cityName || "City"}
                       aspect="wide"
                     />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="marlaSqft"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Marla size in this city</FormLabel>
+                    <Select value={field.value || "225"} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="w-full sm:w-[360px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {MARLA_STANDARDS.map((m) => (
+                          <SelectItem key={m.sqft} value={String(m.sqft)}>
+                            {m.label} — {m.hint}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-slate-500">
+                      New listings in this city are sized on it. Listings already posted keep the size they were entered with.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -5,7 +5,8 @@ import Image from 'next/image';
 import { Bath, BedDouble, Camera, MapPin, Phone, Play, Ruler } from 'lucide-react';
 import { Property } from '@/lib/data';
 import { cn, toTitleCase } from '@/lib/utils';
-import { amountShort, propertySizeLabel } from '@/lib/pk';
+import { amountShort } from '@/lib/pk';
+import { useSize } from '@/components/area-unit/AreaUnitProvider';
 import { useImpression } from '@/components/analytics/impression';
 import { trackContact } from '@/lib/analytics';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
@@ -77,7 +78,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
     .map((part) => toTitleCase(String(part)))
     .filter((part, i, all) => all.findIndex((p) => p.toLowerCase() === part.toLowerCase()) === i)
     .join(', ');
-  const size = propertySizeLabel({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area) });
+  const size = useSize({ marla: property.marla, kanal: property.kanal, areaSize: Number(property.area), marlaSqft: property.marlaSqft });
   const photos = property.photoCount ?? 0;
   const ago = postedAgo(property.postedAt);
 
