@@ -107,6 +107,16 @@ export class ReportService {
           : reason,
         url: '/dashboard/reports',
         color: DISCORD_COLORS.report,
+        category: 'Reports',
+        who: [
+          ...(reportedUser ? [{ label: '🎯 Reported agent', id: reportedUser }] : []),
+          { label: '🙋 Reported by', id: reporterId },
+        ],
+        links: [
+          { label: 'Reports', url: '/dashboard/reports' },
+          ...(property?.slug ? [{ label: 'Listing', url: `/properties/${property.slug}` }] : []),
+          ...(property?._id ? [{ label: 'Edit listing', url: `/dashboard/property/edit/${property._id}` }] : []),
+        ],
         fields: [
           { name: 'Reason', value: reason },
           {
@@ -116,25 +126,6 @@ export class ReportService {
           ...(doc.message
             ? [{ name: 'What they said', value: doc.message.slice(0, 500), inline: false }]
             : []),
-          ...(property?.slug
-            ? [
-                {
-                  name: 'Listing',
-                  value: this.discord.link(`/properties/${property.slug}`),
-                  inline: false,
-                },
-              ]
-            : []),
-          ...(reportedUser
-            ? [
-                {
-                  name: 'Agent',
-                  value: `\`${reportedUser}\` · ${this.discord.link(`/agents/${reportedUser}`)}`,
-                  inline: false,
-                },
-              ]
-            : []),
-          { name: 'Reported by', value: `\`${reporterId}\``, inline: false },
         ],
       });
 

@@ -99,13 +99,11 @@ export class AuthService {
     this.discord.send({
       title: '👤 New account',
       description: `${user.name || 'No name'} — ${user.email}`,
-      url: '/dashboard/users',
+      url: `/dashboard/users?q=${encodeURIComponent(user.email)}`,
       color: DISCORD_COLORS.account,
-      fields: [
-        { name: 'Role', value: String(user.role || 'USER') },
-        { name: 'Signed up with', value: 'Email + password' },
-        { name: 'User id', value: `\`${user._id.toString()}\``, inline: false },
-      ],
+      category: 'Accounts',
+      fields: [{ name: 'Signed up with', value: 'Email + password' }],
+      who: [{ label: '👤 Who', id: user._id }],
     });
 
     /*
@@ -165,6 +163,15 @@ export class AuthService {
       if (user.loginAttempts >= 5) {
         user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
         await user.save();
+        // Someone guessing a password — worth knowing, once per account per lock.
+        this.discord.sendOnce(`lock:${user._id}`, 15, {
+          title: '🔒 Account locked — 5 wrong passwords',
+          description: `${user.email} cannot sign in for 15 minutes.`,
+          url: `/dashboard/users?q=${encodeURIComponent(user.email)}`,
+          color: DISCORD_COLORS.security,
+          category: 'Security',
+          who: [{ label: '👤 Account', id: user._id }],
+        });
         throw new UnauthorizedException(
           'Account locked due to too many failed login attempts. Please try again in 15 minutes.'
         );
@@ -261,13 +268,11 @@ export class AuthService {
       this.discord.send({
         title: '👤 New account (Google)',
         description: `${profile.name || 'No name'} — ${profile.email}`,
-        url: '/dashboard/users',
+        url: `/dashboard/users?q=${encodeURIComponent(profile.email)}`,
         color: DISCORD_COLORS.account,
-        fields: [
-          { name: 'Role', value: String(user.role || 'USER') },
-          { name: 'Signed up with', value: 'Continue with Google' },
-          { name: 'User id', value: `\`${user._id.toString()}\``, inline: false },
-        ],
+        category: 'Accounts',
+        fields: [{ name: 'Signed up with', value: 'Continue with Google' }],
+        who: [{ label: '👤 Who', id: user._id }],
       });
     } else if (!user.googleId) {
       // Existing password account using the button for the first time.

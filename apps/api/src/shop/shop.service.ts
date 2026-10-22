@@ -397,6 +397,12 @@ export class ShopService {
       description: `${customerName} — ${DiscordService.money(saved.total)}`,
       url: '/dashboard/cement-order',
       color: DISCORD_COLORS.order,
+      category: 'Orders',
+      ...(userId ? { who: [{ label: '👤 Signed-in customer', id: userId }] } : {}),
+      links: [
+        { label: 'Orders', url: '/dashboard/cement-order' },
+        ...(customerPhone ? [{ label: 'WhatsApp the customer', url: `https://wa.me/${String(customerPhone).replace(/\D/g, '').replace(/^0/, '92')}` }] : []),
+      ],
       fields: [
         { name: 'Phone', value: customerPhone || '—' },
         { name: 'City', value: customerCity || items[0]?.city || '—' },

@@ -8,6 +8,7 @@ import { cleanPlaceName } from '../common/place-name';
 import { UpdateAreaDto } from '@rent-ghar/dtos/area/updatearea.dto';
 import { RedisCacheService } from '../redis-cache/redis-cache.service';
 import { RevalidateService } from '../revalidate/revalidate.service';
+import { DISCORD_COLORS, DiscordService } from '../notify/discord.service';
 
 const TAG_AREAS = 'areas';
 
@@ -26,6 +27,7 @@ export class AreaService {
     @InjectModel(Area.name) private areaModel: Model<AreaDocument>,
     private readonly cache: RedisCacheService,
     private readonly revalidate: RevalidateService,
+    private readonly discord: DiscordService,
   ) {}
 
   private async bustAreaCaches() {
@@ -419,6 +421,21 @@ export class AreaService {
     };
     const r = await col.insertOne(doc as any);
     this.bustAreaCaches().catch(() => {});
+    // Agents type areas in: the admin checks the spelling, or merges it into the right one.
+    const cityDoc: any = await this.areaModel.db.collection('cities').findOne({ _id: new Types.ObjectId(cityId) }, { projection: { name: 1 } }).catch(() => null);
+    const citySlug = String(cityDoc?.name ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    this.discord.send({
+      title: '📍 New area added by an agent',
+      description: `**${name}**, ${cityDoc?.name ?? 'city'} — check the spelling, or merge it into an existing area.`,
+      url: '/dashboard/area',
+      color: DISCORD_COLORS.info,
+      category: 'Places',
+      who: userId ? [{ label: '🧑‍💼 Added by', id: userId }] : [],
+      links: [
+        { label: 'Areas', url: '/dashboard/area' },
+        ...(citySlug ? [{ label: 'Its page', url: `/properties/sale/${citySlug}/${slug}` }] : []),
+      ],
+    });
     return { _id: String(r.insertedId), name, areaSlug: slug, city: cityId, created: true };
   }
 

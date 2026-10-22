@@ -145,6 +145,20 @@ const FIELDS = {
   adsSocietyContentSlot: { kind: 'adslot', def: '' },
   adsBlogContent: { kind: 'bool', def: true },
   adsBlogContentSlot: { kind: 'adslot', def: '' },
+
+  // ── Discord alerts: each kind on or off (Settings → Notifications) ──
+  notifyAccounts: { kind: 'bool', def: true },
+  notifyListings: { kind: 'bool', def: true },
+  notifyListingsAuto: { kind: 'bool', def: true },
+  notifyListingChanges: { kind: 'bool', def: true },
+  notifyReports: { kind: 'bool', def: true },
+  notifyOrders: { kind: 'bool', def: true },
+  notifyPayments: { kind: 'bool', def: true },
+  notifyTeam: { kind: 'bool', def: true },
+  notifyPlaces: { kind: 'bool', def: true },
+  notifySecurity: { kind: 'bool', def: true },
+  notifyErrors: { kind: 'bool', def: true },
+  notifyDigest: { kind: 'bool', def: true },
 } as const satisfies Record<string, Field>;
 
 type FieldKey = keyof typeof FIELDS;

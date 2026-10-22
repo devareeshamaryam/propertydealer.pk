@@ -6,6 +6,7 @@ import { Property } from '@rent-ghar/db/schemas/property.schema';
 import { SubscriptionService } from '../subscription/subscription.service';
 import { AgencyService } from '../agency/agency.service';
 import { emailQuery } from '../auth/auth.service';
+import { DISCORD_COLORS, DiscordService } from '../notify/discord.service';
 
 /*
  * An agency's own agent accounts (the agency plans: Agency and Agency Plus).
@@ -45,6 +46,7 @@ export class TeamService {
     @InjectModel(Property.name) private readonly properties: Model<Property>,
     private readonly subscriptions: SubscriptionService,
     private readonly agency: AgencyService,
+    private readonly discord: DiscordService,
   ) {}
 
   /** The caller must be an account that can own a team (not an agent of someone else's). */
@@ -161,6 +163,17 @@ export class TeamService {
     }).save();
     this.agency.forget(String(member._id));
     void this.agency.refreshVerified();
+    this.discord.send({
+      title: '👥 Agency added an agent',
+      description: `${name} — ${email}${phone ? ` · ${phone}` : ''} (${count + 1} of ${limit} agent accounts used)`,
+      url: '/dashboard/users',
+      color: DISCORD_COLORS.account,
+      category: 'Team',
+      who: [
+        { label: '🏢 Agency', id: ownerId },
+        { label: '🧑‍💼 New agent', id: member._id },
+      ],
+    });
     return { _id: String(member._id), name, email, phone, isActive: true, createdAt: (member as any).createdAt };
   }
 
@@ -247,6 +260,13 @@ export class TeamService {
     await this.users.deleteOne({ _id: member._id });
     this.agency.forget(String(member._id));
     void this.agency.refreshVerified();
+    this.discord.send({
+      title: '👥 Agency removed an agent',
+      description: `${(member as any).name || 'Agent'} — ${(member as any).email ?? ''} · ${moved.modifiedCount} listings moved to the team`,
+      color: DISCORD_COLORS.info,
+      category: 'Team',
+      who: [{ label: '🏢 Agency', id: ownerId }],
+    });
     return { removed: true, listingsMoved: moved.modifiedCount };
   }
 }

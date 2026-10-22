@@ -1,6 +1,7 @@
 import {
   Banknote,
   Megaphone,
+  BellRing,
   BarChart3,
   BookOpen,
   Flag,
@@ -418,6 +419,12 @@ export const NAV_SECTIONS: NavSection[] = [
         keywords: ["theme", "colour", "color", "brand", "logo", "font", "favicon", "design", "hero", "background"],
       },
       {
+        title: "Notifications",
+        href: "/dashboard/notifications",
+        adminOnly: true,
+        keywords: ["discord", "alerts", "notify", "daily report", "digest"],
+      },
+      {
         title: "Ads",
         href: "/dashboard/ads",
         adminOnly: true,
@@ -447,6 +454,7 @@ export const LEAF_ICONS: Record<
   "/dashboard/shop-settings": Store,
   "/dashboard/settings": Settings,
   "/dashboard/ads": Megaphone,
+  "/dashboard/notifications": BellRing,
 };
 
 /**

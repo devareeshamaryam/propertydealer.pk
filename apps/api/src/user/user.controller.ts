@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UserService } from './user.service';
+import { DISCORD_COLORS, DiscordService } from '../notify/discord.service';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
@@ -36,7 +37,10 @@ interface AuthedRequest {
 @Controller('users')
 @UseGuards(AuthGuard('jwt'))
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly discord: DiscordService,
+  ) {}
 
   @Get('me')
   async getMe(@Req() req: AuthedRequest) {
@@ -138,7 +142,7 @@ export class UserController {
 
   @Patch(':id')
   @UseGuards(AdminGuard)
-  update(
+  async update(
     @Param('id') id: string,
     @Body()
     updateData: {
@@ -157,15 +161,46 @@ export class UserController {
         'Use /users/me to change your own profile; role and status cannot be self-edited.',
       );
     }
-    return this.userService.update(id, updateData);
+    const before: any = await this.userService.findOne(id).catch(() => null);
+    const after: any = await this.userService.update(id, updateData);
+    const changes = [
+      updateData.role !== undefined && before && before.role !== after.role ? `Role: **${before.role}** → **${after.role}**` : '',
+      updateData.isActive !== undefined && before && (before.isActive !== false) !== (after.isActive !== false)
+        ? after.isActive === false ? 'Account **deactivated**' : 'Account **re-activated**'
+        : '',
+    ].filter(Boolean);
+    if (changes.length) {
+      this.discord.send({
+        title: after.role === 'ADMIN' && before?.role !== 'ADMIN' ? '👑 New admin' : '🛡️ Account changed by an admin',
+        description: changes.join('\n'),
+        url: `/dashboard/users?q=${encodeURIComponent(String(after.email ?? ''))}`,
+        color: DISCORD_COLORS.security,
+        category: 'Security',
+        who: [
+          { label: '👤 Account', id: id },
+          { label: '🛡️ Changed by', id: req.user?.userId },
+        ],
+      });
+    }
+    return after;
   }
 
   @Delete(':id')
   @UseGuards(AdminGuard)
-  remove(@Param('id') id: string, @Req() req: AuthedRequest) {
+  async remove(@Param('id') id: string, @Req() req: AuthedRequest) {
     if (id === req.user?.userId) {
       throw new BadRequestException('You cannot delete your own account.');
     }
-    return this.userService.remove(id);
+    const before: any = await this.userService.findOne(id).catch(() => null);
+    const result = await this.userService.remove(id);
+    this.discord.send({
+      title: '🗑️ Account deleted by an admin',
+      description: before ? `${before.name || 'No name'}${before.companyName ? ` (${before.companyName})` : ''} — ${before.email}${before.phone ? ` · ${before.phone}` : ''}` : `\`${id}\``,
+      url: '/dashboard/users',
+      color: DISCORD_COLORS.security,
+      category: 'Security',
+      who: [{ label: '🛡️ Deleted by', id: req.user?.userId }],
+    });
+    return result;
   }
 }

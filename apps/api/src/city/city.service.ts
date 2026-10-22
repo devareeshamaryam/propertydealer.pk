@@ -7,6 +7,7 @@ import { UpdateCityDto } from '@rent-ghar/dtos/city/updatecity.dto';
 import { RedisCacheService } from '../redis-cache/redis-cache.service';
 import { RevalidateService } from '../revalidate/revalidate.service';
 import { cleanPlaceName } from '../common/place-name';
+import { DISCORD_COLORS, DiscordService } from '../notify/discord.service';
 
 const TAG_CITIES = 'cities';
 
@@ -16,6 +17,7 @@ export class CityService {
         @InjectModel(City.name) private cityModel: Model<CityDocument>,
         private readonly cache: RedisCacheService,
         private readonly revalidate: RevalidateService,
+        private readonly discord: DiscordService,
     ) {}
 
     private async bustCityCaches() {
@@ -44,6 +46,14 @@ export class CityService {
         const now = new Date();
         const r = await this.cityModel.collection.insertOne({ name, source: 'agent', createdAt: now, updatedAt: now } as any);
         this.bustCityCaches().catch(() => {});
+        this.discord.send({
+            title: '🏙️ New city added by an agent',
+            description: `**${name}** — check the spelling in Cities.`,
+            url: '/dashboard/city',
+            color: DISCORD_COLORS.info,
+            category: 'Places',
+            links: [{ label: 'Cities', url: '/dashboard/city' }],
+        });
         return { _id: String(r.insertedId), name, created: true };
     }
 

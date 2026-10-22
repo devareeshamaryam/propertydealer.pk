@@ -244,12 +244,13 @@ export class SubscriptionService {
       description: `${packageDoc.name} · ${DiscordService.money(packageDoc.price)}`,
       url: '/dashboard/subscriptions',
       color: DISCORD_COLORS.money,
+      category: 'Payments',
       fields: [
         { name: 'Listings included', value: String(packageDoc.propertyLimit ?? '—') },
         { name: 'Duration', value: packageDoc.duration ? `${packageDoc.duration} days` : '—' },
-        { name: 'Buyer id', value: `\`${userId}\``, inline: false },
-        { name: 'Subscription id', value: `\`${saved._id.toString()}\``, inline: false },
       ],
+      who: [{ label: '💳 Buyer', id: userId }],
+      links: [{ label: 'Subscriptions', url: '/dashboard/subscriptions' }],
     });
 
     return saved;
@@ -360,11 +361,13 @@ export class SubscriptionService {
       description: `${packageDoc.name} · ${packageDoc.duration} days · ${packageDoc.propertyLimit} listings`,
       url: '/dashboard/subscriptions',
       color: DISCORD_COLORS.approved,
-      fields: [
-        { name: 'Agent id', value: String(userId), inline: false },
-        { name: 'Granted by', value: String(adminId ?? 'admin'), inline: false },
-        { name: 'Ends', value: endDate.toDateString() },
+      category: 'Payments',
+      fields: [{ name: 'Ends', value: endDate.toLocaleDateString('en-PK') }],
+      who: [
+        { label: '🎁 Given to', id: userId },
+        ...(adminId ? [{ label: '🛡️ Granted by', id: adminId }] : []),
       ],
+      links: [{ label: 'Subscriptions', url: '/dashboard/subscriptions' }],
     });
 
     return saved;
@@ -425,10 +428,13 @@ export class SubscriptionService {
       description: `${saved.invoiceNumber ?? ''} · ${saved.planName ?? 'Plan'} · ${DiscordService.money(saved.amount)}`,
       url: '/dashboard/subscriptions',
       color: DISCORD_COLORS.approved,
+      category: 'Payments',
       fields: [
         { name: 'Listings', value: String(saved.planPropertyLimit ?? '—') },
         { name: 'Active until', value: endDate.toLocaleDateString('en-PK') },
       ],
+      who: [{ label: '👤 Agent', id: saved.userId }],
+      links: [{ label: 'Subscriptions', url: '/dashboard/subscriptions' }],
     });
 
     return saved;
@@ -476,10 +482,12 @@ export class SubscriptionService {
         description: `${saved.planName ?? 'Plan'} · ${saved.invoiceNumber ?? ''}`,
         url: '/dashboard/subscriptions',
         color: DISCORD_COLORS.review,
-        fields: [
-          { name: 'Agent id', value: String(saved.userId), inline: false },
-          { name: 'Cancelled by', value: String(userId), inline: false },
+        category: 'Payments',
+        who: [
+          { label: '👤 Agent', id: saved.userId },
+          { label: '🛡️ Cancelled by', id: userId },
         ],
+        links: [{ label: 'Subscriptions', url: '/dashboard/subscriptions' }],
       });
     }
 
@@ -572,12 +580,14 @@ export class SubscriptionService {
       description: `${saved.invoiceNumber ?? ''} · ${saved.planName ?? 'Plan'} · ${DiscordService.money(saved.amount)}`,
       url: '/dashboard/subscriptions',
       color: DISCORD_COLORS.money,
+      category: 'Payments',
+      image: screenshot,
       fields: [
         { name: 'Paid via', value: saved.paymentMethod || '—' },
         { name: 'Reference', value: saved.paymentNote || '—' },
-        { name: 'Screenshot', value: this.discord.link(screenshot), inline: false },
-        { name: 'Buyer id', value: `\`${userId}\``, inline: false },
       ],
+      who: [{ label: '💳 Paid by', id: userId }],
+      links: [{ label: 'Verify payment', url: '/dashboard/subscriptions' }, { label: 'Screenshot', url: screenshot }],
     });
 
     return saved;
@@ -604,11 +614,15 @@ export class SubscriptionService {
     this.discord.send({
       title: '🚫 Payment rejected',
       description: `${saved.invoiceNumber ?? ''} · ${saved.planName ?? 'Plan'}`,
+      url: '/dashboard/subscriptions',
       color: DISCORD_COLORS.report,
-      fields: [
-        { name: 'Reason', value: saved.rejectionReason || '—', inline: false },
-        { name: 'Reviewed by', value: `\`${adminId}\``, inline: false },
+      category: 'Payments',
+      fields: [{ name: 'Reason', value: saved.rejectionReason || '—', inline: false }],
+      who: [
+        { label: '👤 Agent', id: saved.userId },
+        { label: '🛡️ Reviewed by', id: adminId },
       ],
+      links: [{ label: 'Subscriptions', url: '/dashboard/subscriptions' }],
     });
 
     return saved;

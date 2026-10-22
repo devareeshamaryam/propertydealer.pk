@@ -1,5 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { DiscordService } from './discord.service';
+import { DigestService } from './digest.service';
+import { NotifyController } from './notify.controller';
 
 /**
  * Global, like the cache module: admin alerts are cross-cutting — a listing, a
@@ -8,7 +10,8 @@ import { DiscordService } from './discord.service';
  */
 @Global()
 @Module({
-  providers: [DiscordService],
+  providers: [DiscordService, DigestService],
+  controllers: [NotifyController],
   exports: [DiscordService],
 })
 export class NotifyModule {}

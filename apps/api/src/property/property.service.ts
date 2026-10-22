@@ -1301,18 +1301,32 @@ export class PropertyService {
                 ? `/properties/${saved.slug}`
                 : '/dashboard/property',
             color: held ? DISCORD_COLORS.review : DISCORD_COLORS.approved,
+            category: held ? 'Listings' : 'ListingsAuto',
+            image: saved.mainPhotoUrl || undefined,
             fields: [
               { name: 'Price', value: `${price}${saved.listingType === 'rent' ? ' / month' : ''}` },
-              { name: 'Where', value: String(saved.location || '—').slice(0, 120) },
+              { name: 'For', value: saved.listingType === 'rent' ? 'Rent' : 'Sale' },
               { name: 'Type', value: String(saved.propertyType || '—') },
+              { name: 'Where', value: String(saved.location || '—').slice(0, 120), inline: false },
+              {
+                name: 'Size',
+                value: [saved.marla ? `${saved.marla} marla` : '', saved.bedrooms ? `${saved.bedrooms} beds` : '', saved.bathrooms ? `${saved.bathrooms} baths` : ''].filter(Boolean).join(' · ') || '—',
+              },
+              { name: 'Photos', value: String((saved.additionalPhotosUrls?.length ?? 0) + (saved.mainPhotoUrl ? 1 : 0)) },
               {
                 name: 'Risk score',
                 value: verdict ? `${verdict.score}/100 (${verdict.source ?? 'rules'})` : 'not scored',
               },
-              { name: 'Agent', value: `\`${ownerId}\``, inline: false },
+              ...(saved.contactNumber ? [{ name: 'Contact on listing', value: String(saved.contactNumber) }] : []),
               ...(verdict?.reasons.length
                 ? [{ name: 'Why held', value: verdict.reasons.slice(0, 6).map((r) => `• ${r}`).join('\n'), inline: false }]
                 : []),
+            ],
+            who: [{ label: '🧑‍💼 Posted by', id: ownerId }],
+            links: [
+              ...(held ? [{ label: 'Review queue', url: '/dashboard/property?status=pending' }] : []),
+              { label: 'Edit', url: `/dashboard/property/edit/${saved._id}` },
+              ...(saved.slug ? [{ label: held ? 'Preview' : 'Open on site', url: `/properties/${saved.slug}` }] : []),
             ],
           });
         } catch {
@@ -1729,6 +1743,22 @@ export class PropertyService {
 
         this.bustPropertyCaches(property?.slug ?? undefined).catch(() => {});
 
+        if (availability !== existing.availability) {
+            this.discord.send({
+                title: availability === 'available' ? '↩️ Listing back on the market' : availability === 'sold' ? '🤝 Listing marked sold' : '🔑 Listing marked rented',
+                description: String(property?.title ?? '').slice(0, 300),
+                url: property?.slug ? `/properties/${property.slug}` : undefined,
+                color: availability === 'available' ? DISCORD_COLORS.info : DISCORD_COLORS.approved,
+                category: 'ListingChanges',
+                fields: [{ name: 'Price', value: DiscordService.money(property?.price) }],
+                who: [{ label: '🧑‍💼 Agent', id: existing.owner }],
+                links: [
+                    ...(property?.slug ? [{ label: 'Open', url: `/properties/${property.slug}` }] : []),
+                    { label: 'Edit', url: `/dashboard/property/edit/${id}` },
+                ],
+            });
+        }
+
         return {
             success: true,
             message:
@@ -1894,14 +1924,22 @@ export class PropertyService {
                 description: String(updateData.title ?? property.title ?? '').slice(0, 300),
                 url: '/dashboard/property?status=pending',
                 color: DISCORD_COLORS.review,
+                category: 'Listings',
                 fields: [
                   { name: 'Risk score', value: `${verdict.score}/100` },
-                  { name: 'Listing id', value: `\`${id}\`` },
+                  { name: 'Price', value: DiscordService.money(Number(updateData.price ?? property.price)) },
+                  { name: 'Where', value: String(updateData.location ?? property.location ?? '—').slice(0, 120) },
                   {
                     name: 'Why',
                     value: verdict.reasons.slice(0, 6).map((reason) => `• ${reason}`).join('\n') || '—',
                     inline: false,
                   },
+                ],
+                who: [{ label: '🧑‍💼 Agent', id: property.owner }],
+                links: [
+                  { label: 'Review queue', url: '/dashboard/property?status=pending' },
+                  { label: 'Edit', url: `/dashboard/property/edit/${id}` },
+                  ...(property.slug ? [{ label: 'Preview', url: `/properties/${property.slug}` }] : []),
                 ],
               });
             }
@@ -1972,6 +2010,22 @@ export class PropertyService {
           }
 
           await this.propertyModel.findByIdAndDelete(id).exec();
+
+          this.discord.send({
+            title: '🗑️ Listing deleted',
+            description: String(property.title ?? '').slice(0, 300),
+            color: DISCORD_COLORS.info,
+            category: 'ListingChanges',
+            fields: [
+              { name: 'Price', value: DiscordService.money(property.price) },
+              { name: 'Was', value: String(property.status ?? '—') },
+              { name: 'Where', value: String(property.location ?? '—').slice(0, 120), inline: false },
+            ],
+            who: [
+              { label: '🧑‍💼 Owner', id: property.owner },
+              ...(String(userId ?? '') !== String(property.owner ?? '') ? [{ label: '🗑️ Deleted by', id: userId }] : []),
+            ],
+          });
 
           // Even if the listing wasn't approved, bust caches conservatively
           // so any stale list pages refresh immediately.

@@ -1,4 +1,5 @@
 import { DEFAULT_AD_SETTINGS, type AdSettings } from './ads';
+import { DEFAULT_NOTIFY_SETTINGS, type NotifySettings } from './notify';
 
 /**
  * Site-wide settings, as saved in Admin → Settings (General, Appearance, Shop).
@@ -19,7 +20,7 @@ export const SITE_FONTS = [
 
 export type SiteFont = (typeof SITE_FONTS)[number]['value'];
 
-export interface SiteSettings extends AdSettings {
+export interface SiteSettings extends AdSettings, NotifySettings {
   // Appearance
   primaryColor: string;
   darkColor: string;
@@ -169,6 +170,7 @@ export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   shopOrderNote: '',
   shopWhatsapp: '',
   ...DEFAULT_AD_SETTINGS,
+  ...DEFAULT_NOTIFY_SETTINGS,
 };
 
 /** Social links the footer shows until the admin enters their own. */

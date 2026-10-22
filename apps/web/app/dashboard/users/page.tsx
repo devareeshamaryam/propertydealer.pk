@@ -246,6 +246,13 @@ export default function UserManagementPage() {
     initialSortDirection: "desc",
   });
 
+  // A link from a Discord alert opens the account: /dashboard/users?q=<email>.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) table.setSearch(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     table.setPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps

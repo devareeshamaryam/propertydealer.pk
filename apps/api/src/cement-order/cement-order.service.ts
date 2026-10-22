@@ -41,6 +41,11 @@ export class CementOrderService {
       description: `${saved.customerName} — ${DiscordService.money(saved.total)}`,
       url: '/dashboard/cement-order',
       color: DISCORD_COLORS.order,
+      category: 'Orders',
+      links: [
+        { label: 'Orders', url: '/dashboard/cement-order' },
+        ...(saved.customerPhone ? [{ label: 'WhatsApp the customer', url: `https://wa.me/${String(saved.customerPhone).replace(/\D/g, '').replace(/^0/, '92')}` }] : []),
+      ],
       fields: [
         { name: 'Phone', value: saved.customerPhone || '—' },
         { name: 'City', value: saved.items?.[0]?.city || '—' },

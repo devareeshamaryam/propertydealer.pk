@@ -1,3 +1,6 @@
+import { HttpAdapterHost } from '@nestjs/core';
+import { DiscordService } from './notify/discord.service';
+import { ErrorAlertFilter } from './notify/error-alert.filter';
 import 'reflect-metadata';
 import 'tsconfig-paths/register';
 import { NestFactory } from '@nestjs/core';
@@ -131,6 +134,9 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
+  // A server error (500) is announced in Discord, once per 30 minutes per error.
+  app.useGlobalFilters(new ErrorAlertFilter(app.get(DiscordService), app.get(HttpAdapterHost).httpAdapter));
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
