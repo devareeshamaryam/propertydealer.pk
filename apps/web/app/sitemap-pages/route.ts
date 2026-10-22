@@ -3,7 +3,9 @@
 
 import { getSitemapData, sitemapXml, xmlResponse, SITE_URL } from '@/lib/sitemap-data';
 import { getSocieties } from '@/lib/societies';
-import { TOOLS } from '@/lib/tools';
+import { TOOLS, withDefaults } from '@/lib/tools';
+import { CC_SIZES, ccHref, pageCities } from '@/lib/construction-pages';
+import { getConstructionData } from '@/lib/server-api';
 
 const STATIC_PAGES = [
   { url: '/',                                      priority: '1.0', changefreq: 'daily'   },
@@ -55,6 +57,15 @@ export async function GET() {
     }
     for (const s of societies) {
       rows.push({ loc: `${SITE_URL}/societies/${s.citySlug}/${s.slug}`, lastmod: today, changefreq: 'weekly', priority: '0.8' });
+    }
+  }
+  // Ready-made construction cost pages: every size, both kinds, in each main city.
+  const construction = (await getConstructionData()) ?? withDefaults(null);
+  for (const c of pageCities(construction)) {
+    for (const size of CC_SIZES) {
+      for (const kind of ['house', 'grey'] as const) {
+        rows.push({ loc: `${SITE_URL}${ccHref(size, kind, c.name)}`, lastmod: today, changefreq: 'weekly', priority: size.v === 5 || size.v === 10 ? '0.7' : '0.6' });
+      }
     }
   }
   return xmlResponse(sitemapXml(rows));

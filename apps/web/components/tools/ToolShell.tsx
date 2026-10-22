@@ -22,7 +22,10 @@ export default function ToolShell({
   children,
   guide,
   faqs = [],
+  page,
 }: {
+  /** A page under the tool (a ready-made estimate): its title and path. */
+  page?: { title: string; path: string };
   tool: ToolInfo;
   heading?: string;
   intro: string;
@@ -30,12 +33,13 @@ export default function ToolShell({
   guide?: React.ReactNode;
   faqs?: Faq[];
 }) {
-  const url = `${BASE_URL}/tools/${tool.slug}`;
+  const toolUrl = `${BASE_URL}/tools/${tool.slug}`;
+  const url = page ? `${BASE_URL}${page.path}` : toolUrl;
   const schema = [
     {
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
-      name: tool.title,
+      name: page?.title ?? tool.title,
       url,
       description: tool.description,
       applicationCategory: 'UtilitiesApplication',
@@ -48,7 +52,8 @@ export default function ToolShell({
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
         { '@type': 'ListItem', position: 2, name: 'Tools', item: `${BASE_URL}/tools` },
-        { '@type': 'ListItem', position: 3, name: tool.title, item: url },
+        { '@type': 'ListItem', position: 3, name: tool.title, item: toolUrl },
+        ...(page ? [{ '@type': 'ListItem', position: 4, name: page.title, item: url }] : []),
       ],
     },
     ...(faqs.length
@@ -73,7 +78,17 @@ export default function ToolShell({
             <ChevronRight className="h-3.5 w-3.5" />
             <Link href="/tools" className="hover:text-primary">Tools</Link>
             <ChevronRight className="h-3.5 w-3.5" />
-            <span className="truncate text-slate-700">{tool.title}</span>
+            {page ? (
+              <>
+                <Link href={`/tools/${tool.slug}`} className="shrink-0 hover:text-primary">
+                  {tool.title}
+                </Link>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate text-slate-700">{page.title}</span>
+              </>
+            ) : (
+              <span className="truncate text-slate-700">{tool.title}</span>
+            )}
           </nav>
           <h1 className="mt-2 text-[25px] font-extrabold leading-tight tracking-tight text-slate-900 sm:text-[34px]">{heading ?? tool.title}</h1>
           <p className="mt-1.5 max-w-3xl text-[15px] text-slate-600">{intro}</p>

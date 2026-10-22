@@ -3,80 +3,61 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Building2, ChevronDown, Clock, ExternalLink, Info, Link2, Minus, Plus, Printer, Share2 } from 'lucide-react';
+import { ChevronDown, Clock, ExternalLink, Info, Link2, Minus, Plus, Printer, Share2, SlidersHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
-import { amountShort } from '@/lib/pk';
-import {
-  QUALITY,
-  coveredAreas,
-  estimate,
-  rupees,
-  usualRooms,
-  type ConstructionData,
-  type EstimateGroup,
-  type Quality,
-} from '@/lib/tools';
+import { CC_SIZES } from '@/lib/construction-pages';
+import { MATERIAL_LABEL, QUALITY, rsShort, coveredAreas, estimate, rupees, usualRooms, type ConstructionData, type EstimatePart, type Material, type Quality } from '@/lib/tools';
 import { cn } from '@/lib/utils';
 
 type SizeUnit = 'marla' | 'kanal' | 'sqft' | 'sqyd';
-const SIZE_UNITS: { key: SizeUnit; label: string; sqft: number }[] = [
-  { key: 'marla', label: 'Marla', sqft: 225 },
-  { key: 'kanal', label: 'Kanal', sqft: 4500 },
-  { key: 'sqyd', label: 'Sq yd', sqft: 9 },
-  { key: 'sqft', label: 'Sq ft', sqft: 1 },
+const UNIT_SQFT: Record<SizeUnit, number> = { marla: 225, kanal: 4500, sqyd: 9, sqft: 1 };
+const QTY_UNIT: Record<Material, string> = { cement: 'bags', steel: 'kg', bricks: 'bricks', sand: 'cft', crush: 'cft' };
+const STOREYS = [
+  { v: 1, label: 'Single storey' },
+  { v: 2, label: 'Double storey' },
+  { v: 3, label: 'Triple storey' },
 ];
-const QUICK_SIZES: { v: number; u: SizeUnit; label: string }[] = [
-  { v: 3, u: 'marla', label: '3 Marla' },
-  { v: 5, u: 'marla', label: '5 Marla' },
-  { v: 7, u: 'marla', label: '7 Marla' },
-  { v: 8, u: 'marla', label: '8 Marla' },
-  { v: 10, u: 'marla', label: '10 Marla' },
-  { v: 1, u: 'kanal', label: '1 Kanal' },
-  { v: 2, u: 'kanal', label: '2 Kanal' },
-];
-const QTY_UNIT: Record<string, string> = { cement: 'bags', steel: 'kg', bricks: 'bricks', sand: 'cft', crush: 'cft' };
-const SOURCE: Record<string, { label: string; cls: string }> = {
-  shop: { label: 'Live rate', cls: 'bg-emerald-50 text-emerald-700' },
-  office: { label: 'Our rate', cls: 'bg-sky-50 text-sky-700' },
-  default: { label: 'Estimate', cls: 'bg-slate-100 text-slate-600' },
+
+const n0 = (v: string | null, d: number) => {
+  const n = Number(v);
+  return v !== null && Number.isFinite(n) && n >= 0 ? n : d;
 };
 
-const field =
-  'h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-[16px] tabular-nums text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20';
-
-function Segmented<T extends string | number>({
+/** A labelled dropdown — the phone's own picker. */
+function Field<T extends string | number>({
+  label,
   value,
   onChange,
   options,
   className,
 }: {
+  label: string;
   value: T;
   onChange: (v: T) => void;
-  options: { key: T; label: string; sub?: string }[];
+  options: { v: T; label: string }[];
   className?: string;
 }) {
   return (
-    <div className={cn('grid gap-1.5', className)} role="radiogroup">
-      {options.map((o) => {
-        const on = o.key === value;
-        return (
-          <button
-            key={String(o.key)}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            onClick={() => onChange(o.key)}
-            className={cn(
-              'btn-shape rounded-xl border px-2 py-2.5 text-center transition-colors',
-              on ? 'border-primary bg-primary text-white shadow-sm' : 'border-slate-200 bg-white text-slate-700 hover:border-primary/50',
-            )}
-          >
-            <span className="block text-[14px] font-bold leading-tight">{o.label}</span>
-            {o.sub && <span className={cn('mt-0.5 block text-[11px] leading-tight', on ? 'text-white/80' : 'text-slate-400')}>{o.sub}</span>}
-          </button>
-        );
-      })}
-    </div>
+    <label className={cn('block min-w-0', className)}>
+      <span className="mb-1 block text-[12.5px] font-semibold text-slate-500">{label}</span>
+      <span className="relative block">
+        <select
+          value={String(value)}
+          onChange={(e) => {
+            const o = options.find((x) => String(x.v) === e.target.value);
+            if (o) onChange(o.v);
+          }}
+          className="h-11 w-full appearance-none truncate rounded-xl border border-slate-300 bg-white pl-3 pr-8 text-[15px] font-semibold text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+        >
+          {options.map((o) => (
+            <option key={String(o.v)} value={String(o.v)}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+      </span>
+    </label>
   );
 }
 
@@ -97,39 +78,47 @@ function Stepper({ label, value, onChange }: { label: string; value: number; onC
   );
 }
 
-const num = (v: string | null, d: number) => {
-  const n = Number(v);
-  return v !== null && Number.isFinite(n) && n >= 0 ? n : d;
-};
+export interface CalculatorStart {
+  city?: string;
+  size?: string; // a CC_SIZES key
+  kind?: 'grey' | 'complete';
+}
 
-export default function ConstructionCalculator({ data }: { data: ConstructionData }) {
+export default function ConstructionCalculator({ data, start }: { data: ConstructionData; start?: CalculatorStart }) {
   const params = useSearchParams();
   const cities = data.config.cities;
 
   const [city, setCity] = useState(() => {
-    const c = params.get('city');
-    return cities.find((x) => x.name.toLowerCase() === c?.toLowerCase())?.name ?? cities[0]?.name ?? 'Other';
+    const c = params.get('city') ?? start?.city;
+    return cities.find((x) => x.name.toLowerCase() === c?.toLowerCase())?.name ?? cities[0]?.name ?? 'Lahore';
   });
-  const [size, setSize] = useState(() => params.get('size') ?? '5');
-  const [unit, setUnit] = useState<SizeUnit>(() => (SIZE_UNITS.some((u) => u.key === params.get('unit')) ? (params.get('unit') as SizeUnit) : 'marla'));
-  const [byCovered, setByCovered] = useState(() => !!params.get('covered'));
-  const [covered, setCovered] = useState(() => params.get('covered') ?? '');
-  const [floors, setFloors] = useState(() => Math.min(3, Math.max(1, num(params.get('floors'), 2))));
-  const [basement, setBasement] = useState(() => params.get('basement') === '1');
-  const [kind, setKind] = useState<'grey' | 'complete'>(() => (params.get('type') === 'grey' ? 'grey' : 'complete'));
+  // A listed size ("5-marla"), or "custom" with its own number and unit.
+  const [sizeKey, setSizeKey] = useState(() => {
+    const v = params.get('size');
+    const u = params.get('unit');
+    if (v) return CC_SIZES.find((s) => s.v === Number(v) && s.u === u)?.key ?? 'custom';
+    return start?.size && CC_SIZES.some((s) => s.key === start.size) ? start.size : '5-marla';
+  });
+  const [customSize, setCustomSize] = useState(() => params.get('size') ?? '5');
+  const [customUnit, setCustomUnit] = useState<SizeUnit>(() => (params.get('unit') && params.get('unit')! in UNIT_SQFT ? (params.get('unit') as SizeUnit) : 'marla'));
+  const [floors, setFloors] = useState(() => Math.min(3, Math.max(1, n0(params.get('floors'), 2))));
+  const [kind, setKind] = useState<'grey' | 'complete'>(() => (params.get('type') === 'grey' || (!params.get('type') && start?.kind === 'grey') ? 'grey' : 'complete'));
   const [quality, setQuality] = useState<Quality>(() => (QUALITY.some((q) => q.key === params.get('quality')) ? (params.get('quality') as Quality) : 'standard'));
   const [mode, setMode] = useState<'full' | 'labour'>(() => (params.get('mode') === 'labour' ? 'labour' : 'full'));
-  // Rooms are worked out from the size until the visitor changes them.
-  const [baths, setBaths] = useState<number | null>(() => (params.get('baths') ? num(params.get('baths'), 0) : null));
-  const [kitchens, setKitchens] = useState<number | null>(() => (params.get('kitchens') ? num(params.get('kitchens'), 0) : null));
+  const [basement, setBasement] = useState(() => params.get('basement') === '1');
+  const [covered, setCovered] = useState(() => params.get('covered') ?? '');
+  const [baths, setBaths] = useState<number | null>(() => (params.get('baths') ? n0(params.get('baths'), 0) : null));
+  const [kitchens, setKitchens] = useState<number | null>(() => (params.get('kitchens') ? n0(params.get('kitchens'), 0) : null));
+  const [more, setMore] = useState(() => ['mode', 'basement', 'covered', 'baths', 'kitchens'].some((k) => params.get(k)));
 
-  const plotSqft = (Number(size) || 0) * (SIZE_UNITS.find((u) => u.key === unit)?.sqft ?? 225);
+  const listed = CC_SIZES.find((s) => s.key === sizeKey);
+  const plotSqft = listed ? listed.sqft : (Number(customSize) || 0) * UNIT_SQFT[customUnit];
   const floorsList = useMemo(() => coveredAreas(plotSqft, { floors, basement }), [plotSqft, floors, basement]);
-  const above = byCovered ? Number(covered) || 0 : floorsList.filter((f) => !f.basement).reduce((s, f) => s + f.sqft, 0);
-  const below = byCovered ? 0 : floorsList.filter((f) => f.basement).reduce((s, f) => s + f.sqft, 0);
-  const cityInfo = cities.find((c) => c.name === city);
-  const cityFactor = cityInfo?.factor ?? 1;
-  const auto = usualRooms(above, byCovered ? 2 : floors);
+  const coveredOverride = Number(covered) || 0;
+  const above = coveredOverride || floorsList.filter((f) => !f.basement).reduce((s, f) => s + f.sqft, 0);
+  const below = coveredOverride ? 0 : floorsList.filter((f) => f.basement).reduce((s, f) => s + f.sqft, 0);
+  const cityFactor = cities.find((c) => c.name === city)?.factor ?? 1;
+  const auto = usualRooms(above, floors);
   const bathrooms = baths ?? auto.bathrooms;
   const kitchenCount = kitchens ?? auto.kitchens;
 
@@ -143,384 +132,325 @@ export default function ConstructionCalculator({ data }: { data: ConstructionDat
   );
   const has = est.area > 0;
   const q = QUALITY.find((x) => x.key === quality)!;
+  const sizeLabel = listed ? listed.label : `${customSize} ${customUnit === 'sqft' ? 'sq ft' : customUnit === 'sqyd' ? 'sq yd' : customUnit === 'kanal' ? 'Kanal' : 'Marla'}`;
 
   const shareUrl = () => {
-    const p = new URLSearchParams({ city, type: kind, quality, mode });
-    if (byCovered) p.set('covered', String(above));
-    else {
-      p.set('size', size);
-      p.set('unit', unit);
-      p.set('floors', String(floors));
-      if (basement) p.set('basement', '1');
+    const p = new URLSearchParams({ city, type: kind, quality, floors: String(floors) });
+    if (listed) {
+      p.set('size', String(listed.v));
+      p.set('unit', listed.u);
+    } else {
+      p.set('size', customSize);
+      p.set('unit', customUnit);
     }
+    if (mode === 'labour') p.set('mode', 'labour');
+    if (basement) p.set('basement', '1');
+    if (coveredOverride) p.set('covered', String(coveredOverride));
     if (baths !== null) p.set('baths', String(baths));
     if (kitchens !== null) p.set('kitchens', String(kitchens));
-    return `${window.location.origin}${window.location.pathname}?${p.toString()}`;
+    return `${window.location.origin}/tools/construction-cost-calculator?${p.toString()}`;
   };
-  const sizeText = byCovered
-    ? `${above.toLocaleString('en-PK')} sq ft covered`
-    : `${size} ${SIZE_UNITS.find((u) => u.key === unit)?.label} ${floors === 1 ? 'single' : floors === 2 ? 'double' : 'triple'} storey`;
   const share = () => {
-    const text = `${kind === 'grey' ? 'Grey structure' : 'Complete house'} (${q.label}) — ${sizeText} in ${city}: about ${rupees(est.total)} (${amountShort(est.total)}), ${rupees(est.perSqft)}/sq ft.\n${shareUrl()}`;
+    const text = `${sizeLabel} ${STOREYS[floors - 1]!.label.toLowerCase()} ${kind === 'grey' ? 'grey structure' : 'house'} in ${city} (${q.label}): about ${rupees(est.total)} (${rsShort(est.total)}), ${rupees(est.perSqft)} per sq ft.\n${shareUrl()}`;
     if (navigator.share) navigator.share({ title: 'Construction cost estimate', text }).catch(() => undefined);
     else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   };
   const copyLink = () => navigator.clipboard?.writeText(shareUrl()).then(() => toast.success('Link copied'), () => undefined);
 
+  const materials = est.groups.find((g) => g.key === 'structure')?.lines.filter((l) => l.key in QTY_UNIT) ?? [];
   const shopDate = [...(data.cityRates?.[city] ?? []), ...data.rates].find((r) => r.source === 'shop')?.updatedAt;
-  const split = [
-    { label: 'Material', amount: est.materials, cls: 'bg-primary' },
-    { label: 'Labour', amount: est.labour, cls: 'bg-amber-400' },
-    ...(est.contractor ? [{ label: 'Contractor', amount: est.contractor, cls: 'bg-slate-400' }] : []),
-  ];
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:items-start">
-      {/* ── Inputs ── */}
-      <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 lg:sticky lg:top-20 print:hidden">
-        <div>
-          <label htmlFor="cc-city" className="mb-1.5 block text-[13px] font-semibold text-slate-600">
-            City
-          </label>
-          <select id="cc-city" value={city} onChange={(e) => setCity(e.target.value)} className={field}>
-            {cities.map((c) => (
-              <option key={c.name} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-            {!cities.some((c) => c.name === 'Other') && <option value="Other">Other city</option>}
-          </select>
+    <div className="space-y-5">
+      {/* ── The question ── */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 print:hidden">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <Field label="Plot size" value={sizeKey} onChange={setSizeKey} options={[...CC_SIZES.map((x) => ({ v: x.key, label: x.label })), { v: 'custom', label: 'Other size…' }]} />
+          <Field label="Storeys" value={floors} onChange={setFloors} options={STOREYS.map((x) => ({ v: x.v, label: x.label }))} />
+          <Field
+            label="Build"
+            value={kind}
+            onChange={setKind}
+            options={[
+              { v: 'complete', label: 'Complete house' },
+              { v: 'grey', label: 'Grey structure' },
+            ]}
+          />
+          <Field label="City" value={city} onChange={setCity} options={cities.map((c) => ({ v: c.name, label: c.name }))} />
+          <Field label="Quality" value={quality} onChange={setQuality} options={QUALITY.map((x) => ({ v: x.key, label: x.label }))} className="col-span-2 md:col-span-1" />
         </div>
+        <p className="mt-2 text-[12.5px] text-slate-500">{q.label}: {q.hint}.</p>
 
-        {!byCovered ? (
-          <div>
-            <label htmlFor="cc-size" className="mb-1.5 block text-[13px] font-semibold text-slate-600">
-              Plot size
-            </label>
-            <div className="flex gap-2">
-              <input id="cc-size" type="number" inputMode="decimal" min="0" step="any" value={size} onChange={(e) => setSize(e.target.value)} className={field} />
-              <select value={unit} onChange={(e) => setUnit(e.target.value as SizeUnit)} className={cn(field, 'w-[120px] shrink-0')} aria-label="Unit">
-                {SIZE_UNITS.map((u) => (
-                  <option key={u.key} value={u.key}>
-                    {u.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="hide-scrollbar -mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-              {QUICK_SIZES.map((s) => (
-                <button
-                  key={s.label}
-                  type="button"
-                  onClick={() => {
-                    setSize(String(s.v));
-                    setUnit(s.u);
-                  }}
-                  className={cn(
-                    'btn-shape shrink-0 rounded-full border px-3 py-1 text-[12.5px] font-semibold',
-                    Number(size) === s.v && unit === s.u ? 'border-primary bg-primary text-white' : 'border-slate-200 text-slate-600 hover:border-primary/50',
-                  )}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-            <p className="mb-1.5 mt-4 text-[13px] font-semibold text-slate-600">Storeys</p>
-            <Segmented
-              value={floors}
-              onChange={setFloors}
-              className="grid-cols-3"
-              options={[
-                { key: 1, label: 'Single', sub: 'Ground' },
-                { key: 2, label: 'Double', sub: 'Ground + 1' },
-                { key: 3, label: 'Triple', sub: 'Ground + 2' },
-              ]}
+        {sizeKey === 'custom' && (
+          <div className="mt-3 flex max-w-sm gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              value={customSize}
+              onChange={(e) => setCustomSize(e.target.value)}
+              aria-label="Plot size"
+              className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[16px] tabular-nums outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              autoFocus
             />
-            <label className={cn('mt-2 flex cursor-pointer items-center gap-2.5 rounded-xl border px-3 py-2.5', basement ? 'border-primary/40 bg-primary/5' : 'border-slate-200')}>
-              <input type="checkbox" checked={basement} onChange={(e) => setBasement(e.target.checked)} className="h-4 w-4 accent-primary" />
-              <span className="text-[14px] font-semibold text-slate-800">With basement</span>
-            </label>
-            <button type="button" onClick={() => setByCovered(true)} className="mt-2 text-[13px] font-semibold text-primary hover:underline">
-              I know my covered area →
-            </button>
-          </div>
-        ) : (
-          <div>
-            <label htmlFor="cc-covered" className="mb-1.5 block text-[13px] font-semibold text-slate-600">
-              Total covered area (sq ft)
-            </label>
-            <input id="cc-covered" type="number" inputMode="numeric" min="0" value={covered} onChange={(e) => setCovered(e.target.value)} placeholder="e.g. 2250" className={field} autoFocus />
-            <p className="mt-1 text-[12px] text-slate-500">All floors added together, from your map.</p>
-            <button type="button" onClick={() => setByCovered(false)} className="mt-1 text-[13px] font-semibold text-primary hover:underline">
-              ← Work it out from plot size
-            </button>
+            <select
+              value={customUnit}
+              onChange={(e) => setCustomUnit(e.target.value as SizeUnit)}
+              aria-label="Unit"
+              className="h-11 w-[120px] shrink-0 rounded-xl border border-slate-300 bg-white px-2 text-[15px] outline-none focus:border-primary"
+            >
+              <option value="marla">Marla</option>
+              <option value="kanal">Kanal</option>
+              <option value="sqyd">Sq yd</option>
+              <option value="sqft">Sq ft</option>
+            </select>
           </div>
         )}
 
-        <div>
-          <p className="mb-1.5 text-[13px] font-semibold text-slate-600">What to build</p>
-          <Segmented
-            value={kind}
-            onChange={setKind}
-            className="grid-cols-2"
-            options={[
-              { key: 'grey', label: 'Grey structure', sub: 'Frame, walls, roofs, pipes' },
-              { key: 'complete', label: 'Complete house', sub: 'Ready to live in' },
-            ]}
-          />
-        </div>
-
-        <div>
-          <p className="mb-1.5 text-[13px] font-semibold text-slate-600">Quality</p>
-          <Segmented value={quality} onChange={setQuality} className="grid-cols-2 sm:grid-cols-4 lg:grid-cols-2" options={QUALITY.map((x) => ({ key: x.key, label: x.label }))} />
-          <p className="mt-1.5 text-[12px] text-slate-500">{q.hint}</p>
-        </div>
-
-        <div>
-          <p className="mb-1.5 text-[13px] font-semibold text-slate-600">Contract</p>
-          <Segmented
-            value={mode}
-            onChange={setMode}
-            className="grid-cols-2"
-            options={[
-              { key: 'full', label: 'Full contract', sub: 'Contractor buys material' },
-              { key: 'labour', label: 'Labour contract', sub: 'You buy material' },
-            ]}
-          />
-        </div>
-
-        {kind === 'complete' && (
-          <div>
-            <p className="mb-1.5 flex items-baseline justify-between text-[13px] font-semibold text-slate-600">
-              Rooms
-              {(baths !== null || kitchens !== null) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBaths(null);
-                    setKitchens(null);
-                  }}
-                  className="text-[12px] font-semibold text-primary hover:underline"
-                >
-                  Reset
-                </button>
-              )}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
-              <Stepper label="Bathrooms" value={bathrooms} onChange={setBaths} />
-              <Stepper label="Kitchens" value={kitchenCount} onChange={setKitchens} />
+        <button type="button" onClick={() => setMore((v) => !v)} className="mt-3 inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary hover:underline" aria-expanded={more}>
+          <SlidersHorizontal className="h-4 w-4" /> {more ? 'Fewer options' : 'More options'}
+        </button>
+        {more && (
+          <div className="mt-3 grid gap-4 border-t border-slate-100 pt-4 md:grid-cols-2 xl:grid-cols-4">
+            <div>
+              <p className="mb-1.5 text-[13px] font-semibold text-slate-600">Who buys the material?</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    ['full', 'Contractor', 'Full contract'],
+                    ['labour', 'Me', 'Labour contract'],
+                  ] as const
+                ).map(([k, t, sub]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setMode(k)}
+                    aria-pressed={mode === k}
+                    className={cn('btn-shape rounded-xl border px-2 py-2 text-center', mode === k ? 'border-primary bg-primary text-white' : 'border-slate-200 text-slate-700 hover:border-primary/50')}
+                  >
+                    <span className="block text-[14px] font-bold">{t}</span>
+                    <span className={cn('block text-[11px]', mode === k ? 'text-white/80' : 'text-slate-400')}>{sub}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            {baths === null && kitchens === null && <p className="mt-1 text-[12px] text-slate-500">Worked out from the size — change them if your map differs.</p>}
+            <div>
+              <p className="mb-1.5 text-[13px] font-semibold text-slate-600">Covered area (from your map)</p>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={covered}
+                onChange={(e) => setCovered(e.target.value)}
+                placeholder={`About ${Math.round(floorsList.filter((f) => !f.basement).reduce((s, f) => s + f.sqft, 0)).toLocaleString('en-PK')} sq ft`}
+                className="h-11 w-full rounded-xl border border-slate-300 px-3 text-[16px] tabular-nums outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-[14px] font-medium text-slate-700">
+                <input type="checkbox" checked={basement} onChange={(e) => setBasement(e.target.checked)} className="h-4 w-4 accent-primary" disabled={!!coveredOverride} />
+                With basement
+              </label>
+            </div>
+            {kind === 'complete' && (
+              <div className="md:col-span-2">
+                <p className="mb-1.5 flex items-baseline justify-between text-[13px] font-semibold text-slate-600">
+                  Rooms {baths === null && kitchens === null ? <span className="font-normal text-slate-400">usual for this size</span> : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBaths(null);
+                        setKitchens(null);
+                      }}
+                      className="text-[12px] font-semibold text-primary hover:underline"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Stepper label="Bathrooms" value={bathrooms} onChange={setBaths} />
+                  <Stepper label="Kitchens" value={kitchenCount} onChange={setKitchens} />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </section>
 
-      {/* ── Results ── */}
-      <section className="min-w-0 space-y-4">
-        <div className="overflow-hidden rounded-2xl bg-slate-900 p-5 text-white shadow-sm sm:p-6">
-          <p className="text-[13px] font-semibold uppercase tracking-wide text-white/60">
-            {kind === 'grey' ? 'Grey structure' : 'Complete house'} · {q.label} · {city}
-          </p>
-          <p className="mt-1 text-[34px] font-extrabold leading-tight tabular-nums sm:text-[44px]">{has ? rupees(est.total) : '—'}</p>
-          {has && (
-            <>
-              <p className="text-[16px] font-semibold text-white/80">
-                {amountShort(est.total)} · likely {amountShort(est.low)} – {amountShort(est.high)}
+      {has ? (
+        <>
+          {/* ── The answer ── */}
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <p className="text-[13px] font-semibold text-slate-500">Estimated cost</p>
+              <p className="mt-0.5 text-[36px] font-extrabold leading-tight tracking-tight tabular-nums text-slate-900 sm:text-[44px]">{rsShort(est.total)}</p>
+              <p className="text-[15px] tabular-nums text-slate-600">
+                {rupees(est.total)} · usually between {rsShort(est.low)} and {rsShort(est.high)}
               </p>
-              <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/10 pt-4 text-center">
-                <div>
-                  <p className="text-[11.5px] text-white/60">Per sq ft</p>
-                  <p className="text-[17px] font-bold tabular-nums">{rupees(est.perSqft)}</p>
+
+              <dl className="mt-5 grid grid-cols-3 gap-2">
+                {[
+                  ['Per sq ft', rupees(est.perSqft)],
+                  ['Covered area', `${Math.round(est.area).toLocaleString('en-PK')} ft²`],
+                  ['Time', `~${est.months.grey + est.months.finishing} months`],
+                ].map(([k, v]) => (
+                  <div key={k} className="rounded-xl bg-slate-50 px-2 py-2.5 text-center">
+                    <dt className="text-[11.5px] text-slate-500">{k}</dt>
+                    <dd className="text-[15px] font-bold tabular-nums text-slate-900 sm:text-[16px]">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {kind === 'complete' && (
+                <div className="mt-4 space-y-1.5 text-[14px]">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-600">Grey structure</span>
+                    <b className="tabular-nums text-slate-900">{rsShort((est.greyTotal * est.total) / (est.greyTotal + est.finishingTotal))}</b>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-600">+ Finishing</span>
+                    <b className="tabular-nums text-slate-900">{rsShort((est.finishingTotal * est.total) / (est.greyTotal + est.finishingTotal))}</b>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-[11.5px] text-white/60">Covered area</p>
-                  <p className="text-[17px] font-bold tabular-nums">{Math.round(est.area).toLocaleString('en-PK')} ft²</p>
-                </div>
-                <div>
-                  <p className="text-[11.5px] text-white/60">Time</p>
-                  <p className="text-[17px] font-bold">~{est.months.grey + est.months.finishing} months</p>
-                </div>
+              )}
+
+              {!coveredOverride && (
+                <p className="mt-4 text-[12.5px] text-slate-500">
+                  {floorsList.map((f) => `${f.label} ${f.sqft.toLocaleString('en-PK')}`).join(' + ')} sq ft — the usual for this plot after setbacks.
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap gap-2 print:hidden">
+                <button type="button" onClick={share} className="btn-shape inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-[14px] font-bold text-white hover:bg-primary/90">
+                  <Share2 className="h-4 w-4" /> Share
+                </button>
+                <button type="button" onClick={copyLink} className="btn-shape inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[14px] font-semibold text-slate-700 hover:bg-slate-50">
+                  <Link2 className="h-4 w-4" /> Copy link
+                </button>
+                <button type="button" onClick={() => window.print()} className="btn-shape inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-[14px] font-semibold text-slate-700 hover:bg-slate-50">
+                  <Printer className="h-4 w-4" /> Print
+                </button>
               </div>
-              <div className="mt-4 flex h-2.5 overflow-hidden rounded-full bg-white/10" aria-hidden>
-                {split.map((s) => (
-                  <div key={s.label} className={s.cls} style={{ width: `${(s.amount / est.total) * 100}%` }} />
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+              <h2 className="text-[17px] font-bold text-slate-900">Where the money goes</h2>
+              <div className="mt-3 flex h-3 gap-[2px] overflow-hidden rounded-full" aria-hidden>
+                {est.parts.map((p, i) => (
+                  <div key={p.key} style={{ width: `${(p.amount / est.total) * 100}%`, background: DOT[i % DOT.length] }} />
                 ))}
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-white/80">
-                {split.map((s) => (
-                  <span key={s.label} className="inline-flex items-center gap-1.5">
-                    <i className={cn('h-2 w-2 rounded-full', s.cls)} /> {s.label} {amountShort(s.amount)}
-                  </span>
+              <ul className="mt-3 divide-y divide-slate-100">
+                {est.parts.map((p, i) => (
+                  <PartRow key={p.key} part={p} total={est.total} color={DOT[i % DOT.length]!} />
                 ))}
-              </div>
-            </>
-          )}
-          <div className="mt-4 flex flex-wrap gap-2 print:hidden">
-            <button type="button" onClick={share} disabled={!has} className="btn-shape inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-2 text-[13.5px] font-bold text-slate-900 disabled:opacity-50">
-              <Share2 className="h-4 w-4" /> Share
-            </button>
-            <button type="button" onClick={copyLink} disabled={!has} className="btn-shape inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-[13.5px] font-semibold disabled:opacity-50">
-              <Link2 className="h-4 w-4" /> Copy link
-            </button>
-            <button type="button" onClick={() => window.print()} disabled={!has} className="btn-shape inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-[13.5px] font-semibold disabled:opacity-50">
-              <Printer className="h-4 w-4" /> Print
-            </button>
+              </ul>
+            </section>
           </div>
-        </div>
 
-        {has && mode === 'labour' && (
-          <p className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-[14px] leading-relaxed text-sky-900">
-            Pay the contractor about <b>{rupees(est.labour)}</b> for labour, and buy material worth about <b>{rupees(est.materials)}</b> yourself — the
-            list below is your shopping list.
-          </p>
-        )}
+          {mode === 'labour' && (
+            <p className="rounded-2xl border border-sky-200 bg-sky-50 p-4 text-[14.5px] leading-relaxed text-sky-900">
+              You pay the contractor about <b>{rsShort(est.labour)}</b> for labour, and buy material worth about <b>{rsShort(est.materials)}</b> yourself.
+            </p>
+          )}
 
-        {has && !byCovered && floorsList.length > 0 && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-            <h3 className="flex items-center gap-2 text-[16px] font-bold text-slate-900">
-              <Building2 className="h-4.5 w-4.5 text-primary" /> Covered area
-            </h3>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {floorsList.map((f) => (
-                <span key={f.label} className="rounded-lg bg-slate-50 px-2.5 py-1.5 text-[13px] text-slate-700">
-                  {f.label} <b className="tabular-nums text-slate-900">{f.sqft.toLocaleString('en-PK')}</b> ft²
-                </span>
+          {/* ── Shopping list ── */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <h2 className="text-[17px] font-bold text-slate-900">Material you will need</h2>
+            <p className="text-[13.5px] text-slate-500">For the grey structure, at today&apos;s {city} rates.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+              {materials.map((m) => (
+                <Link key={m.key} href={m.href || '#'} className="group rounded-xl border border-slate-200 p-3.5 transition-colors hover:border-primary/50">
+                  <span className="flex items-center justify-between text-[13px] font-semibold text-slate-500">
+                    {MATERIAL_LABEL[m.key as Material]}
+                    <ExternalLink className="h-3.5 w-3.5 text-slate-300 group-hover:text-primary" />
+                  </span>
+                  <span className="mt-1 block text-[20px] font-extrabold leading-tight tabular-nums text-slate-900">
+                    {m.key === 'steel' && m.qty ? `${(m.qty / 1000).toFixed(1)} ton` : `${m.qty?.toLocaleString('en-PK')} ${QTY_UNIT[m.key as Material]}`}
+                  </span>
+                  <span className="mt-1 block text-[12.5px] tabular-nums text-slate-500">
+                    {rupees(m.rate ?? 0)} per {m.unit} · <b className="text-slate-700">{rsShort(m.amount)}</b>
+                  </span>
+                </Link>
               ))}
             </div>
-            <p className="mt-2 text-[12px] text-slate-500">The usual coverage for this plot size after setbacks. Your map differs? Enter your covered area instead.</p>
-          </div>
-        )}
+          </section>
 
-        {has && est.groups.map((g, i) => <Group key={g.key} group={g} open={i < 1} />)}
-
-        {has && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-            <h3 className="flex items-center gap-2 text-[16px] font-bold text-slate-900">
-              <Clock className="h-4.5 w-4.5 text-primary" /> Money needed, stage by stage
-            </h3>
-            <ol className="mt-3 space-y-2.5">
+          {/* ── When the money is needed ── */}
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <h2 className="flex items-center gap-2 text-[17px] font-bold text-slate-900">
+              <Clock className="h-5 w-5 text-primary" /> When you will need the money
+            </h2>
+            <ol className="mt-4 grid gap-3 md:grid-cols-[repeat(auto-fit,minmax(150px,1fr))]">
               {est.stages.map((s, i) => (
-                <li key={s.label}>
-                  <div className="flex items-baseline justify-between gap-3 text-[14px]">
-                    <span className="text-slate-700">
-                      {i + 1}. {s.label}
-                    </span>
-                    <span className="shrink-0 font-semibold tabular-nums text-slate-900">{rupees(s.amount)}</span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(1, (s.amount / est.total) * 100)}%` }} />
-                  </div>
+                <li key={s.label} className="relative flex gap-3 md:block">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary/10 text-[14px] font-bold text-primary">{i + 1}</span>
+                  <span className="md:mt-2 md:block">
+                    <span className="block text-[14px] font-semibold text-slate-800">{s.label}</span>
+                    <span className="block text-[15px] font-bold tabular-nums text-slate-900">{rsShort(s.amount)}</span>
+                  </span>
                 </li>
               ))}
             </ol>
-            <p className="mt-3 text-[12.5px] text-slate-500">
-              Grey structure usually takes about {est.months.grey} months
-              {est.months.finishing ? `, and finishing another ${est.months.finishing}` : ''}.
+            <p className="mt-4 text-[13px] text-slate-500">
+              Grey structure takes about {est.months.grey} months{est.months.finishing ? `, finishing about ${est.months.finishing} more` : ''}.
             </p>
-          </div>
-        )}
+          </section>
+        </>
+      ) : (
+        <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-slate-500">Choose a plot size to see the cost.</p>
+      )}
 
-        <div className="flex gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-[13px] leading-relaxed text-amber-900">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            An estimate to plan with, not a quote. Material prices are today&apos;s rates from our{' '}
-            <Link href="/today-cement-rate-in-pakistan" className="font-semibold underline">
-              rates pages
-            </Link>
-            {shopDate ? ` (updated ${new Date(shopDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})` : ''}; labour, other
-            works and finishing are typical {city} prices. Not included: the plot, architect and map approval fees, boundary walls, utility connections,
-            solar and furniture.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 print:hidden">
-          {(['cement', 'steel', 'bricks', 'sand', 'crush'] as const).map((m) => {
-            const r = data.cityRates?.[city]?.find((x) => x.material === m) ?? data.rates.find((x) => x.material === m);
-            if (!r) return null;
-            return (
-              <Link key={m} href={r.href} className="group rounded-xl border border-slate-200 bg-white p-3 hover:border-primary/40">
-                <span className="flex items-center justify-between text-[12px] font-semibold text-slate-500">
-                  {m === 'crush' ? 'Crush' : m[0]!.toUpperCase() + m.slice(1)}
-                  <ExternalLink className="h-3 w-3 text-slate-300 group-hover:text-primary" />
-                </span>
-                <span className="block text-[16px] font-extrabold tabular-nums text-slate-900">{rupees(r.mid)}</span>
-                <span className="block text-[11px] text-slate-400">per {r.unit}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
+      <p className="flex gap-2 text-[13px] leading-relaxed text-slate-500">
+        <Info className="mt-0.5 h-4 w-4 shrink-0" />
+        <span>
+          An estimate to plan with, not a quote. Material prices are today&apos;s from our{' '}
+          <Link href="/today-cement-rate-in-pakistan" className="font-semibold text-primary hover:underline">
+            rates pages
+          </Link>
+          {shopDate ? ` (updated ${new Date(shopDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })})` : ''}. Not included: the plot,
+          map approval, boundary walls, utility connections, solar and furniture.
+        </span>
+      </p>
     </div>
   );
 }
 
-function Group({ group, open }: { group: EstimateGroup; open: boolean }) {
-  const hasQty = group.lines.some((l) => l.qty !== undefined);
+const DOT = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100'];
+
+function PartRow({ part, total, color }: { part: EstimatePart; total: number; color: string }) {
+  const [open, setOpen] = useState(false);
+  const pct = total ? Math.round((part.amount / total) * 100) : 0;
   return (
-    <details open={open} className="group rounded-2xl border border-slate-200 bg-white [&_summary::-webkit-details-marker]:hidden">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 sm:px-5">
-        <span className="text-[16px] font-bold text-slate-900">{group.title}</span>
-        <span className="flex items-center gap-2">
-          <span className="text-[16px] font-extrabold tabular-nums text-slate-900">{rupees(group.total)}</span>
-          <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" />
+    <li className="py-2.5">
+      <button type="button" onClick={() => setOpen((v) => !v)} disabled={!part.lines.length} className="flex w-full items-start gap-2.5 text-left" aria-expanded={open}>
+        <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ background: color }} />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline justify-between gap-3">
+            <span className="text-[15px] font-semibold text-slate-900">{part.title}</span>
+            <span className="shrink-0 text-[15px] font-bold tabular-nums text-slate-900">
+              {rsShort(part.amount)} <span className="text-[12.5px] font-semibold text-slate-400">{pct}%</span>
+            </span>
+          </span>
+          <span className="mt-0.5 flex items-start justify-between gap-3 text-[13px] leading-snug text-slate-500">
+            {part.blurb}
+            {part.lines.length > 0 && <ChevronDown className={cn('mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform print:hidden', open && 'rotate-180')} />}
+          </span>
         </span>
-      </summary>
-      <div className="-mt-1 px-4 pb-4 sm:px-5">
-        {hasQty ? (
-          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-            <table className="w-full min-w-[460px] text-[14px]">
-              <tbody className="tabular-nums">
-                {group.lines.map((l) => (
-                  <tr key={l.key} className="border-t border-slate-100">
-                    <td className="py-2.5 pr-2">
-                      {l.href ? (
-                        <Link href={l.href} className="font-semibold text-slate-800 hover:text-primary">
-                          {l.label}
-                        </Link>
-                      ) : (
-                        <span className={cn(l.qty !== undefined ? 'font-semibold text-slate-800' : 'text-slate-700')}>{l.label}</span>
-                      )}
-                      {l.source && <span className={cn('ml-1.5 rounded px-1.5 py-0.5 text-[10.5px] font-semibold', SOURCE[l.source]?.cls)}>{SOURCE[l.source]?.label}</span>}
-                    </td>
-                    <td className="py-2.5 pr-2 text-right text-slate-600">
-                      {l.qty !== undefined && (
-                        <>
-                          {l.qty.toLocaleString('en-PK')} {QTY_UNIT[l.key] ?? `${l.unit}${l.qty === 1 ? '' : 's'}`}
-                          {l.key === 'steel' && l.qty ? <span className="block text-[11.5px] text-slate-400">≈ {(l.qty / 1000).toFixed(1)} ton</span> : null}
-                        </>
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-2 text-right text-slate-500">
-                      {l.rate !== undefined && (
-                        <>
-                          {rupees(l.rate)}
-                          <span className="block text-[11.5px] text-slate-400">per {l.unit}</span>
-                        </>
-                      )}
-                    </td>
-                    <td className="py-2.5 text-right font-semibold">{rupees(l.amount)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <ul>
-            {group.lines.map((l) => (
-              <li key={l.key} className="flex items-baseline justify-between gap-3 border-t border-slate-100 py-2.5 text-[14px]">
-                {l.href ? (
-                  <Link href={l.href} className="text-slate-700 hover:text-primary">
-                    {l.label}
-                  </Link>
-                ) : (
-                  <span className="text-slate-700">{l.label}</span>
-                )}
-                <span className="shrink-0 font-semibold tabular-nums text-slate-900">{rupees(l.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </details>
+      </button>
+      {part.lines.length > 0 && (
+        <ul className={cn('ml-5 mt-2 space-y-1 rounded-xl bg-slate-50 p-3', open ? 'block' : 'hidden print:block')}>
+          {part.lines.map((l) => (
+            <li key={l.key} className="flex items-baseline justify-between gap-3 text-[13px]">
+              <span className="text-slate-600">
+                {l.label}
+                {l.qty !== undefined && !(l.key in QTY_UNIT) && <span className="text-slate-400"> × {l.qty}</span>}
+              </span>
+              <span className="shrink-0 font-semibold tabular-nums text-slate-800">{rsShort(l.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }

@@ -142,25 +142,24 @@ export default function AreaConverter() {
         </div>
 
         {/* Which marla */}
-        <div className="mt-5 rounded-xl bg-slate-50 p-3 sm:p-4">
-          <p className="text-[13px] font-semibold text-slate-700">1 Marla =</p>
-          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <span className="shrink-0 text-[13px] font-semibold text-slate-600">1 Marla =</span>
+          <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Marla size">
             {MARLA_STANDARDS.map((m) => (
               <button
                 key={m.sqft}
                 type="button"
+                role="radio"
+                aria-checked={marla === m.sqft}
                 onClick={() => setMarla(m.sqft)}
-                aria-pressed={marla === m.sqft}
-                className={cn(
-                  'rounded-xl border px-3 py-2.5 text-left transition-colors',
-                  marla === m.sqft ? 'border-primary bg-white ring-2 ring-primary/20' : 'border-slate-200 bg-white/60 hover:bg-white',
-                )}
+                title={m.hint}
+                className={cn('rounded-lg px-3 py-1.5 text-[13.5px] font-bold tabular-nums transition-colors', marla === m.sqft ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-900')}
               >
-                <span className="block text-[15px] font-bold text-slate-900">{m.label}</span>
-                <span className="block text-[12px] leading-snug text-slate-500">{m.hint}</span>
+                {m.label}
               </button>
             ))}
           </div>
+          <span className="text-[12px] text-slate-500">{MARLA_STANDARDS.find((m) => m.sqft === marla)?.hint}</span>
         </div>
       </section>
 
@@ -192,7 +191,7 @@ export default function AreaConverter() {
         </div>
       </section>
 
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
         {/* Length × width */}
         <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
           <h2 className="text-[18px] font-bold text-slate-900">Plot size from length × width</h2>

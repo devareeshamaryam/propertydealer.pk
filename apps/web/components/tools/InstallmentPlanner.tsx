@@ -1,10 +1,9 @@
 'use client';
 
 import { useMemo, useState, useSyncExternalStore } from 'react';
-import { amountShort } from '@/lib/pk';
-import { installmentPlan, rupees, type Frequency } from '@/lib/tools';
+import { installmentPlan, rsShort, rupees, type Frequency } from '@/lib/tools';
 import { cn } from '@/lib/utils';
-import { MoneyField, NumberField, Panel, Stat } from './fields';
+import { Answer, MoneyField, More, NumberField, Panel } from './fields';
 
 const EVERY: { key: Frequency; label: string; word: string }[] = [
   { key: 1, label: 'Monthly', word: 'month' },
@@ -41,7 +40,7 @@ export default function InstallmentPlanner() {
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:items-start">
-      <Panel className="space-y-4">
+      <Panel className="space-y-4 lg:sticky lg:top-20">
         <MoneyField id="ip-price" label="Total price" value={price} onChange={setPrice} />
         <div className="grid grid-cols-2 gap-3">
           <NumberField id="ip-down" label="Down payment" value={downPct} onChange={setDownPct} suffix="%" max={100} />
@@ -77,18 +76,34 @@ export default function InstallmentPlanner() {
         {plan.error ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-[14px] text-red-700">{plan.error}</p>
         ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Stat strong label={`Instalment every ${word}`} value={rupees(plan.instalment)} sub={`${plan.count} instalments`} />
-            <Stat label="Down payment" value={rupees(plan.down)} sub={amountShort(plan.down)} />
-            <Stat label={`${balloons} balloon payment${balloons === 1 ? '' : 's'}`} value={rupees(plan.balloon)} sub={balloons ? 'each' : 'none'} />
-            <Stat label="On possession" value={rupees(plan.possession)} sub={amountShort(plan.possession) || '—'} />
-          </div>
+          <>
+            <Answer
+              label={`Every ${word}`}
+              value={rupees(plan.instalment)}
+              sentence={
+                <>
+                  Pay <b>{rsShort(plan.down)}</b> now, then <b>{rupees(plan.instalment)}</b> every {word} for {plan.count} instalments
+                  {balloons > 0 && plan.balloon > 0 ? (
+                    <>
+                      , plus {balloons} balloon payment{balloons === 1 ? '' : 's'} of <b>{rsShort(plan.balloon)}</b>
+                    </>
+                  ) : null}
+                  {plan.possession > 0 ? (
+                    <>
+                      {' '}
+                      and <b>{rsShort(plan.possession)}</b> on possession
+                    </>
+                  ) : null}
+                  .
+                </>
+              }
+            />
+          </>
         )}
 
         {plan.rows.length > 0 && (
-          <Panel>
-            <h3 className="text-[16px] font-bold text-slate-900">Payment schedule</h3>
-            <div className="-mx-4 mt-2 max-h-[520px] overflow-auto px-4 sm:mx-0 sm:px-0">
+          <More title={`Payment schedule — ${plan.rows.length} payments`}>
+            <div className="-mx-4 max-h-[520px] overflow-auto px-4 sm:mx-0 sm:px-0">
               <table className="w-full min-w-[420px] text-[13.5px] tabular-nums">
                 <thead className="sticky top-0 bg-white">
                   <tr className="border-b border-slate-200 text-left text-[11.5px] uppercase tracking-wide text-slate-500">
@@ -112,7 +127,7 @@ export default function InstallmentPlanner() {
                 </tbody>
               </table>
             </div>
-          </Panel>
+          </More>
         )}
       </div>
     </div>

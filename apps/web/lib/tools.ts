@@ -51,6 +51,20 @@ export const TOOLS: ToolInfo[] = [
 
 export const toolBySlug = (slug: string) => TOOLS.find((t) => t.slug === slug)!;
 
+/** "Rs 1.12 Crore", "Rs 85 Thousand". */
+export function rsShort(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return 'Rs 0';
+  if (n < 1000) return `Rs ${Math.round(n)}`;
+  const units: [number, string][] = [
+    [1e9, 'Arab'],
+    [1e7, 'Crore'],
+    [1e5, 'Lakh'],
+    [1e3, 'Thousand'],
+  ];
+  const [d, w] = units.find(([d]) => n >= d)!;
+  return `Rs ${Number((n / d).toFixed(2))} ${w}`;
+}
+
 /** Rs 1,23,45,678 — the Pakistani grouping. */
 export function rupees(n: number): string {
   if (!Number.isFinite(n)) return 'Rs 0';
@@ -265,9 +279,20 @@ export interface EstimateGroup {
   lines: EstimateLine[];
 }
 
+export interface EstimatePart {
+  key: 'grey' | 'finishing' | 'labour' | 'contractor';
+  title: string;
+  /** What it covers, in plain words. */
+  blurb: string;
+  amount: number;
+  lines: EstimateLine[];
+}
+
 export interface Estimate {
   area: number;
   groups: EstimateGroup[];
+  /** Where the money goes: grey material, finishing material, labour, contractor. */
+  parts: EstimatePart[];
   materials: number;
   labour: number;
   contractor: number;
@@ -360,9 +385,54 @@ export function estimate(input: EstimateInput, data: ConstructionData): Estimate
   const total = materials + labour + contractor;
   const share = (n: number) => (greyTotal + finishingTotal ? n * (total / (greyTotal + finishingTotal)) : 0);
 
+  const pick = (keys: string[], labour: boolean) =>
+    groups.filter((g) => keys.includes(g.key)).flatMap((g) => g.lines).filter((l) => !!l.labour === labour);
+  const greyLines = pick(['structure', 'services'], false);
+  const finLines = pick(['finishing', 'fittings'], false);
+  const labLines = groups.flatMap((g) => g.lines).filter((l) => l.labour);
+  const parts: EstimatePart[] = [
+    {
+      key: 'grey',
+      title: 'Grey structure material',
+      blurb: 'Cement, steel, bricks, sand and crush, digging, shuttering, waterproofing, and the pipes and conduits inside the walls.',
+      amount: sum(greyLines),
+      lines: greyLines,
+    },
+    ...(finLines.length
+      ? [
+          {
+            key: 'finishing' as const,
+            title: 'Finishing material',
+            blurb: 'Tiles, doors and windows, wiring, lights and fans, paint, woodwork, bathrooms and kitchens.',
+            amount: sum(finLines),
+            lines: finLines,
+          },
+        ]
+      : []),
+    {
+      key: 'labour',
+      title: 'Labour',
+      blurb: input.kind === 'complete' ? 'Masons, steel fixers and shuttering crew, then tile fixers, carpenters, painters, electricians and plumbers.' : 'Masons, steel fixers and the shuttering crew.',
+      amount: labour,
+      lines: labLines,
+    },
+    ...(contractor
+      ? [
+          {
+            key: 'contractor' as const,
+            title: "Contractor's margin",
+            blurb: `His overhead and profit on a full contract (${c.contractorPct}%). On a labour contract you buy the material yourself and keep this.`,
+            amount: contractor,
+            lines: [],
+          },
+        ]
+      : []),
+  ];
+
   return {
     area,
     groups,
+    parts,
     materials,
     labour,
     contractor,

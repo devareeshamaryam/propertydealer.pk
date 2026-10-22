@@ -96,3 +96,29 @@ export function Stat({ label, value, sub, strong }: { label: string; value: stri
 export function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
   return <section className={cn('rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5', className)}>{children}</section>;
 }
+
+/** The headline result: what it comes to, then one plain sentence. */
+export function Answer({ label, value, sentence, children }: { label: string; value: string; sentence: React.ReactNode; children?: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <p className="text-[13px] font-semibold text-slate-500">{label}</p>
+      <p className="mt-0.5 text-[34px] font-extrabold leading-tight tracking-tight tabular-nums text-slate-900 [overflow-wrap:anywhere] sm:text-[42px]">{value}</p>
+      <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{sentence}</p>
+      {children}
+    </section>
+  );
+}
+
+/** A section that opens on demand — for long tables. */
+export function More({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <details className="group rounded-2xl border border-slate-200 bg-white [&_summary::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 text-[15px] font-bold text-slate-900 sm:px-5">
+        {title}
+        <span className="text-[13px] font-semibold text-primary group-open:hidden">Show</span>
+        <span className="hidden text-[13px] font-semibold text-primary group-open:inline">Hide</span>
+      </summary>
+      <div className="px-4 pb-4 sm:px-5">{children}</div>
+    </details>
+  );
+}
