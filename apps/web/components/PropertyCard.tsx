@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { photoLoader } from '@/lib/img';
 import { Bath, BedDouble, Camera, MapPin, Phone, Play, Ruler } from 'lucide-react';
 import { Property } from '@/lib/data';
 import { cn, toTitleCase } from '@/lib/utils';
@@ -109,6 +110,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
         {poster ? (
           <Image
             src={poster}
+            loader={photoLoader}
             alt={property.name}
             fill
             className="object-cover"

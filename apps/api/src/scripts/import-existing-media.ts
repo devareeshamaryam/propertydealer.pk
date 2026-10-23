@@ -25,7 +25,7 @@ import { User } from '@rent-ghar/db/schemas/user.schema';
  */
 
 /** Files the library should not show. */
-const SKIP = /(-thumb\.webp|\.meta\.json|\.DS_Store|thumbs\.db)$/i;
+const SKIP = /(^\.thumbs\/|-thumb\.webp|\.meta\.json|\.DS_Store|thumbs\.db)$/i;
 const IMAGE_EXT = /\.(jpe?g|png|webp|gif|avif|bmp|tiff?)$/i;
 
 /** "property-photos/5-marla-house-dha.jpg" -> "5 marla house dha" */

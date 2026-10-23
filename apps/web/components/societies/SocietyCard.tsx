@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { BadgeCheck, Building2, Layers } from 'lucide-react';
 import { APPROVAL_LABELS, pkPrice, societyPath, type SocietyCard as Card } from '@/lib/societies';
 import { cn } from '@/lib/utils';
+import { photo } from '@/lib/img';
 
 /** A society's card: its featured image, name, approval, phases, listings and starting price. */
 export default function SocietyCard({ s, className }: { s: Card; className?: string }) {
@@ -17,7 +18,7 @@ export default function SocietyCard({ s, className }: { s: Card; className?: str
       <span className="relative block aspect-[16/10] overflow-hidden bg-slate-100">
         {s.image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={s.image} alt={`${s.name} ${s.cityName}`} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          <img src={photo(s.image, 640)} alt={`${s.name} ${s.cityName}`} loading="lazy" className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
         ) : (
           <span className="grid h-full w-full place-items-center bg-gradient-to-br from-primary/15 to-primary/5">
             <Building2 className="h-10 w-10 text-primary/50" />

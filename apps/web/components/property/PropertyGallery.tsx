@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { photo, photoSrcSet } from "@/lib/img";
 
 /**
  * The listing gallery.
@@ -341,7 +342,7 @@ export default function PropertyGallery({
                     {/* A blurred copy fills the letterbox. */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={item.url}
+                      src={photo(item.url, 96)}
                       alt=""
                       aria-hidden
                       draggable={false}
@@ -351,7 +352,9 @@ export default function PropertyGallery({
                     />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={item.url}
+                      src={photo(item.url, 1080)}
+                      srcSet={photoSrcSet(item.url, [480, 640, 828, 1080, 1280, 1600])}
+                      sizes="(max-width: 1024px) 100vw, 820px"
                       alt={item.alt}
                       draggable={false}
                       loading={index === 0 ? "eager" : "lazy"}
@@ -476,7 +479,7 @@ export default function PropertyGallery({
                       {item.poster && (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img
-                          src={item.poster}
+                          src={photo(item.poster, 160)}
                           alt=""
                           className="absolute inset-0 h-full w-full object-cover opacity-60"
                         />
@@ -486,7 +489,7 @@ export default function PropertyGallery({
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
                     <img
-                      src={item.url}
+                      src={photo(item.url, 160)}
                       alt=""
                       className="pointer-events-none h-full w-full object-cover"
                       loading="lazy"
@@ -557,7 +560,7 @@ export default function PropertyGallery({
               ) : (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
-                  src={current?.url}
+                  src={photo(current?.url, 1600)}
                   alt={current?.alt}
                   className="max-h-[82vh] w-auto max-w-full object-contain"
                 />
@@ -596,7 +599,7 @@ export default function PropertyGallery({
                     </span>
                   ) : (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={item.url} alt="" className="h-full w-full object-cover" />
+                    <img src={photo(item.url, 256)} alt="" className="h-full w-full object-cover" loading="lazy" />
                   )}
                 </button>
               ))}

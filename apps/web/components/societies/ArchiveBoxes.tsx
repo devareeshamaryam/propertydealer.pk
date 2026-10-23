@@ -8,6 +8,7 @@ import { getAreaSociety, getSocieties } from '@/lib/societies';
 import { CITIES, getCityBySlug } from '@/app/(pages)/emap/cities-data';
 import { toTitleCase } from '@/lib/utils';
 import { chipClass } from '@/lib/chip';
+import { photo } from '@/lib/img';
 
 /*
  * The boxes around the results on listing pages: on an area that is a
@@ -26,7 +27,7 @@ export async function AreaSocietyBox({ citySlug, areaSlug, purpose }: { citySlug
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       {soc.image && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={soc.image} alt={soc.name} className="aspect-[16/9] w-full object-cover" loading="lazy" />
+        <img src={photo(soc.image, 640)} alt={soc.name} className="aspect-[16/9] w-full object-cover" loading="lazy" />
       )}
       <div className="p-4">
         <p className="text-[11.5px] font-semibold uppercase tracking-wider text-primary">{soc.isPhase ? 'Part of' : 'Housing society'}</p>
@@ -74,7 +75,7 @@ function AgencyRow({ a }: { a: SpotlightAgency }) {
       <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-100">
         {a.avatarUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={a.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+          <img src={photo(a.avatarUrl, 96)} alt="" className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <Building2 className="h-5 w-5 text-slate-400" />
         )}

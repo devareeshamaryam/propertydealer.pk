@@ -7,6 +7,7 @@ import { cartKey, useCart } from '@/components/shop/CartProvider';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import { imageSrc, rs, type ShopProduct } from '@/lib/shop';
 import { cn } from '@/lib/utils';
+import { photo } from '@/lib/img';
 
 /** Today's change against yesterday, the way rate boards show it. */
 export function PriceChange({ change, className }: { change: number; className?: string }) {
@@ -26,7 +27,7 @@ export function ProductImage({ product, className }: { product: ShopProduct; cla
     <div className={cn('grid place-items-center overflow-hidden bg-gradient-to-b from-slate-50 to-slate-100', className)}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={product.title} loading="lazy" className="h-full w-full object-contain p-2" />
+        <img src={photo(src, 640)} alt={product.title} loading="lazy" className="h-full w-full object-contain p-2" />
       ) : (
         <span className="text-center">
           <span className="block text-2xl font-black tracking-tight text-slate-300">{product.brand.slice(0, 2).toUpperCase()}</span>

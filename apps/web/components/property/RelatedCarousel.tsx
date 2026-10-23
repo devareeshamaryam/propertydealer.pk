@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { photoLoader } from '@/lib/img';
 import { Bath, BedDouble, ChevronLeft, ChevronRight, MapPin, Phone, Play, Ruler } from 'lucide-react';
 import { Property } from '@/lib/data';
 import { cn, toTitleCase } from '@/lib/utils';
@@ -52,7 +53,7 @@ function MiniCard({ property }: { property: Property }) {
       <Link href={`/properties/${property.slug}`} className="absolute inset-0 z-10" aria-label={property.name} />
       <div className="relative aspect-[4/3] bg-slate-100">
         {poster ? (
-          <Image src={poster} alt={property.name} fill className="object-cover" sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px" />
+          <Image src={poster} loader={photoLoader} alt={property.name} fill className="object-cover" sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 260px" />
         ) : (
           <div className="grid h-full w-full place-items-center text-[11px] text-slate-400">No photo</div>
         )}

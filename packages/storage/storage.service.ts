@@ -195,6 +195,8 @@ export class StorageService {
             const relativePath = baseFolder ? path.join(baseFolder, entry.name) : entry.name;
             
             if (entry.isDirectory()) {
+              // .thumbs holds resized copies made by /img — not files anyone uploaded.
+              if (entry.name.startsWith('.')) continue;
               await scanDirectory(fullPath, relativePath);
             } else if (entry.isFile()) {
               const stats = await fs.stat(fullPath);

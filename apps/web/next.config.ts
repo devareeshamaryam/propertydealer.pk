@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60 * 60 * 24 * 60,
+    // The same widths the API's /img makes (lib/img.ts), so every srcset entry is one cached file.
+    deviceSizes: [480, 640, 828, 1080, 1280, 1600],
+    imageSizes: [96, 160, 256, 384],
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'placehold.co' },
@@ -85,10 +88,20 @@ const nextConfig: NextConfig = {
         { source: '/sitemap-maps.xml',       destination: '/sitemap-maps'       },
         { source: '/sitemap-cities.xml',     destination: '/sitemap-cities'     },
         { source: '/sitemap-city-:slug.xml', destination: '/sitemap-city-:slug' },
+        // A city's archive filtered by type (/properties/all/lahore?type=house):
+        // served by its own cached route, so the plain city page needs no
+        // query string and is cached too. The address in the browser is unchanged.
+        {
+          source: '/properties/all/:city',
+          has: [{ type: 'query', key: 'type', value: '(?<ptype>[A-Za-z][A-Za-z-]{0,30})' }],
+          destination: '/properties/all/:city/by-type/:ptype',
+        },
       ],
       afterFiles: [
         { source: '/api/:path*',     destination: `${baseUrl}/api/:path*`     },
         { source: '/uploads/:path*', destination: `${baseUrl}/uploads/:path*` },
+        // Resized photos (see lib/img.ts): made once by the API, then cached by Cloudflare.
+        { source: '/img/:path*',     destination: `${baseUrl}/img/:path*`     },
       ],
       fallback: [],
     };

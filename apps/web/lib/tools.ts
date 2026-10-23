@@ -115,6 +115,8 @@ export interface ConstructionData {
     bathroom: Record<Quality, number>;
     kitchen: Record<Quality, number>;
     contractorPct: number;
+    /** Kept aside for wastage, transport and small extras (percent). */
+    contingencyPct: number;
     basementFactor: number;
     cities: { name: string; factor: number; source?: string }[];
     updatedAt?: string;
@@ -131,9 +133,9 @@ export interface ConstructionData {
 export const CONSTRUCTION_FALLBACK: ConstructionData = {
   config: {
     qty: { cement: 0.27, steel: 1.6, bricks: 27, sand: 1.6, crush: 0.75 },
-    greyWorks: { excavation: 110, shuttering: 150, waterproofing: 45, plumbing: 260, electrical: 100 },
-    labour: { grey: 480, finishing: 450 },
-    finishing: { economy: 1400, standard: 2250, premium: 3600, luxury: 5900 },
+    greyWorks: { excavation: 110, shuttering: 170, waterproofing: 45, plumbing: 300, electrical: 100 },
+    labour: { grey: 480, finishing: 200 },
+    finishing: { economy: 900, standard: 1350, premium: 2400, luxury: 4200 },
     finishSplit: [
       { key: 'tiles', label: 'Tiles, marble & flooring', pct: 30, shop: 'tile' },
       { key: 'doors', label: 'Doors & windows', pct: 20, shop: 'door' },
@@ -142,9 +144,10 @@ export const CONSTRUCTION_FALLBACK: ConstructionData = {
       { key: 'wardrobes', label: 'Wardrobes & woodwork', pct: 10, shop: 'wood' },
       { key: 'metal', label: 'Railings, grills, gate & metal works', pct: 10 },
     ],
-    bathroom: { economy: 70000, standard: 140000, premium: 300000, luxury: 600000 },
-    kitchen: { economy: 150000, standard: 350000, premium: 800000, luxury: 1500000 },
+    bathroom: { economy: 60000, standard: 100000, premium: 220000, luxury: 450000 },
+    kitchen: { economy: 100000, standard: 180000, premium: 450000, luxury: 900000 },
     contractorPct: 10,
+    contingencyPct: 5,
     basementFactor: 1.35,
     cities: [
       { name: 'Lahore', factor: 1 },
@@ -184,6 +187,7 @@ export function withDefaults(raw: Partial<ConstructionData> | null | undefined):
       bathroom: n(d.config.bathroom, c.bathroom),
       kitchen: n(d.config.kitchen, c.kitchen),
       contractorPct: Number.isFinite(Number(c.contractorPct)) ? Number(c.contractorPct) : d.config.contractorPct,
+      contingencyPct: c.contingencyPct !== undefined && Number.isFinite(Number(c.contingencyPct)) ? Number(c.contingencyPct) : d.config.contingencyPct,
       basementFactor: Number(c.basementFactor) > 0 ? Number(c.basementFactor) : d.config.basementFactor,
       cities: Array.isArray(c.cities) && c.cities.length ? c.cities : d.config.cities,
       updatedAt: c.updatedAt,
@@ -376,7 +380,7 @@ export interface EstimateGroup {
 }
 
 export interface EstimatePart {
-  key: 'grey' | 'finishing' | 'labour' | 'contractor';
+  key: 'grey' | 'finishing' | 'labour' | 'contractor' | 'contingency';
   title: string;
   /** What it covers, in plain words. */
   blurb: string;
@@ -392,6 +396,8 @@ export interface Estimate {
   materials: number;
   labour: number;
   contractor: number;
+  /** Set aside for wastage, transport and small extras. */
+  contingency: number;
   greyTotal: number;
   finishingTotal: number;
   total: number;
@@ -428,7 +434,10 @@ export function estimate(input: EstimateInput, data: ConstructionData): Estimate
   const structure: EstimateLine[] = (['cement', 'steel', 'bricks', 'sand', 'crush'] as Material[]).map((m) => {
     const rate = rateOf(m);
     const qty = Math.round(c.qty[m] * greyArea);
-    const price = rate[t.rate];
+    // Rates from the city's own shops are used as they are; national rates
+    // carry half the city's cost level (transport and local supply).
+    const own = !!input.cityRates?.some((r) => r.material === m);
+    const price = Math.round(rate[t.rate] * (own ? 1 : 1 + (f - 1) * 0.5));
     return { key: m, label: MATERIAL_LABEL[m], qty, unit: rate.unit, rate: price, amount: qty * price, href: rate.href, source: rate.source };
   });
   for (const w of ['excavation', 'shuttering', 'waterproofing'] as GreyWork[]) {
@@ -489,7 +498,9 @@ export function estimate(input: EstimateInput, data: ConstructionData): Estimate
   const labour = sum(all.filter((l) => l.labour));
   const materials = sum(all) - labour;
   const contractor = input.mode === 'full' ? Math.round(((materials + labour) * c.contractorPct) / 100) : 0;
-  const total = materials + labour + contractor;
+  // A little kept aside, so the estimate errs on the high side rather than leaving you short.
+  const contingency = Math.round(((materials + labour) * (c.contingencyPct ?? 0)) / 100);
+  const total = materials + labour + contractor + contingency;
   const share = (n: number) => (greyTotal + finishingTotal ? n * (total / (greyTotal + finishingTotal)) : 0);
 
   const pick = (keys: string[], labour: boolean) =>
@@ -534,6 +545,17 @@ export function estimate(input: EstimateInput, data: ConstructionData): Estimate
           },
         ]
       : []),
+    ...(contingency
+      ? [
+          {
+            key: 'contingency' as const,
+            title: 'Kept aside',
+            blurb: `${c.contingencyPct}% for wastage, transport, breakages and the small things every build needs — so you are not caught short.`,
+            amount: contingency,
+            lines: [],
+          },
+        ]
+      : []),
   ];
 
   return {
@@ -543,6 +565,7 @@ export function estimate(input: EstimateInput, data: ConstructionData): Estimate
     materials,
     labour,
     contractor,
+    contingency,
     greyTotal,
     finishingTotal,
     total,

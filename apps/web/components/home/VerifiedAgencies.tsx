@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { BadgeCheck, Building2 } from 'lucide-react';
 import { agentProfilePath } from '@/lib/agent';
 import type { SpotlightAgency } from '@/lib/server-api';
+import { photo } from '@/lib/img';
 
 /* Homepage: agencies on a plan with the spotlight benefit. Hidden when there are none. */
 export default function VerifiedAgencies({ agencies }: { agencies: SpotlightAgency[] }) {
@@ -24,7 +25,7 @@ export default function VerifiedAgencies({ agencies }: { agencies: SpotlightAgen
             <span className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-slate-100">
               {a.avatarUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={a.avatarUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                <img src={photo(a.avatarUrl, 96)} alt="" className="h-full w-full object-cover" loading="lazy" />
               ) : (
                 <Building2 className="h-7 w-7 text-slate-400" />
               )}

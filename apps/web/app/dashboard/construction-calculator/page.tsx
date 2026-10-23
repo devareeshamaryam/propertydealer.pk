@@ -46,6 +46,7 @@ interface Config {
   bathroom: Record<Quality, number>;
   kitchen: Record<Quality, number>;
   contractorPct: number;
+  contingencyPct: number;
   basementFactor: number;
   cities: { name: string; factor: number }[];
   autoIndex: boolean;
@@ -350,6 +351,10 @@ export default function ConstructionCalculatorSettings() {
                   <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                     Contractor margin (%)
                     <Num value={form.contractorPct} onChange={(n) => patch((c) => void (c.contractorPct = n))} />
+                  </label>
+                  <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                    Kept aside — contingency (%)
+                    <Num value={form.contingencyPct} onChange={(n) => patch((c) => void (c.contingencyPct = n))} />
                   </label>
                   <label className="space-y-1.5 text-xs font-medium text-muted-foreground">
                     Basement multiplier

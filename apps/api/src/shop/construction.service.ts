@@ -60,6 +60,8 @@ export interface ConstructionConfig {
   kitchen: Record<Quality, number>;
   /** A contractor's overhead and profit on a full (material + labour) contract. */
   contractorPct: number;
+  /** Kept aside for wastage, transport and small extras, so the estimate errs high. */
+  contingencyPct: number;
   /** A basement costs this much more per sq ft (retaining walls, waterproofing, digging). */
   basementFactor: number;
   /** City factors the office typed. Every other city is worked out. */
@@ -85,13 +87,13 @@ export const CONSTRUCTION_DEFAULTS: ConstructionConfig = {
   fallback: { cement: 1600, steel: 270, bricks: 18, sand: 70, crush: 125 },
   greyWorks: {
     excavation: 110,
-    shuttering: 150,
+    shuttering: 170,
     waterproofing: 45,
-    plumbing: 260,
+    plumbing: 300,
     electrical: 100,
   },
-  labour: { grey: 480, finishing: 450 },
-  finishing: { economy: 1400, standard: 2250, premium: 3600, luxury: 5900 },
+  labour: { grey: 480, finishing: 200 },
+  finishing: { economy: 900, standard: 1350, premium: 2400, luxury: 4200 },
   finishSplit: [
     { key: 'tiles', label: 'Tiles, marble & flooring', pct: 30, shop: 'tile' },
     { key: 'doors', label: 'Doors & windows', pct: 20, shop: 'door' },
@@ -101,18 +103,19 @@ export const CONSTRUCTION_DEFAULTS: ConstructionConfig = {
     { key: 'metal', label: 'Railings, grills, gate & metal works', pct: 10 },
   ],
   bathroom: {
-    economy: 70_000,
-    standard: 140_000,
-    premium: 300_000,
-    luxury: 600_000,
+    economy: 60_000,
+    standard: 100_000,
+    premium: 220_000,
+    luxury: 450_000,
   },
   kitchen: {
-    economy: 150_000,
-    standard: 350_000,
-    premium: 800_000,
-    luxury: 1_500_000,
+    economy: 100_000,
+    standard: 180_000,
+    premium: 450_000,
+    luxury: 900_000,
   },
   contractorPct: 10,
+  contingencyPct: 5,
   basementFactor: 1.35,
   cities: [],
   autoIndex: true,
@@ -131,14 +134,14 @@ const KNOWN_CITIES: [string, number][] = [
   ['Karachi', 1.05],
   ['Islamabad', 1.1],
   ['Rawalpindi', 1.05],
-  ['Faisalabad', 0.95],
-  ['Multan', 0.95],
+  ['Faisalabad', 0.93],
+  ['Multan', 0.92],
   ['Peshawar', 1],
   ['Gujranwala', 0.95],
   ['Sialkot', 0.97],
   ['Hyderabad', 0.97],
   ['Quetta', 1.05],
-  ['Bahawalpur', 0.93],
+  ['Bahawalpur', 0.9],
 ];
 
 /** For any other city: its province. */
@@ -283,6 +286,7 @@ export class ConstructionService {
       bathroom: { ...d.bathroom, ...(saved.bathroom ?? {}) },
       kitchen: { ...d.kitchen, ...(saved.kitchen ?? {}) },
       contractorPct: saved.contractorPct ?? d.contractorPct,
+      contingencyPct: saved.contingencyPct ?? d.contingencyPct,
       finishSplit: saved.finishSplit?.length
         ? saved.finishSplit
         : d.finishSplit,
@@ -458,6 +462,7 @@ export class ConstructionService {
         bathroom: scale(config.bathroom, index),
         kitchen: scale(config.kitchen, index),
         contractorPct: config.contractorPct,
+        contingencyPct: config.contingencyPct,
         finishSplit: config.finishSplit,
         basementFactor: config.basementFactor,
         cities: cities.map(({ name, factor, source }) => ({
@@ -579,6 +584,7 @@ export class ConstructionService {
       bathroom,
       kitchen,
       contractorPct: num(input.contractorPct, 0, 40, d.contractorPct),
+      contingencyPct: num(input.contingencyPct, 0, 25, d.contingencyPct),
       finishSplit: split,
       basementFactor: num(input.basementFactor, 1, 3, d.basementFactor),
       cities,

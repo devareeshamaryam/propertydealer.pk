@@ -11,6 +11,8 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import cookieParser from 'cookie-parser';
 import compression from 'compression';
 import helmet from 'helmet';
+import * as path from 'path';
+import { thumbsMiddleware } from './media/thumbs';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -75,6 +77,22 @@ async function bootstrap() {
     next();
   });
 
+  // Resized photos at /img/<width>/<path under /uploads> — cached on disk and at Cloudflare.
+  {
+    const cwd = process.cwd();
+    const inApi =
+      cwd.includes(path.join('apps', 'api')) ||
+      cwd.endsWith(path.join('apps', 'api'));
+    app.use(
+      '/img',
+      thumbsMiddleware(
+        inApi
+          ? path.join(cwd, '..', '..', 'uploads')
+          : path.join(cwd, 'uploads'),
+      ),
+    );
+  }
+
   // NOTE: HTTPS redirect removed — Nginx handles HTTPS, NestJS runs on HTTP internally
 
   // Serve static files for local storage - handled by ServeStaticModule in AppModule
@@ -135,7 +153,12 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
   // A server error (500) is announced in Discord, once per 30 minutes per error.
-  app.useGlobalFilters(new ErrorAlertFilter(app.get(DiscordService), app.get(HttpAdapterHost).httpAdapter));
+  app.useGlobalFilters(
+    new ErrorAlertFilter(
+      app.get(DiscordService),
+      app.get(HttpAdapterHost).httpAdapter,
+    ),
+  );
 
   app.useGlobalPipes(
     new ValidationPipe({
