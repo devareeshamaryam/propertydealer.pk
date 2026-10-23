@@ -110,7 +110,7 @@ export default function LoanCalculator() {
                 <div className="-mx-1 overflow-x-auto">
                   <table className="w-full min-w-[400px] text-[13.5px] tabular-nums">
                     <thead>
-                      <tr className="text-left text-[11.5px] uppercase tracking-wide text-slate-400">
+                      <tr className="text-left text-[11.5px] uppercase tracking-wide text-slate-600">
                         <th className="py-2 pr-2 font-semibold">Year</th>
                         <th className="py-2 pr-2 text-right font-semibold">Loan repaid</th>
                         <th className="py-2 pr-2 text-right font-semibold">Profit</th>
@@ -122,7 +122,7 @@ export default function LoanCalculator() {
                         <tr key={r.year} className="border-t border-slate-100">
                           <td className="py-2 pr-2 font-semibold text-slate-700">{r.year}</td>
                           <td className="py-2 pr-2 text-right">{rsShort(r.principal)}</td>
-                          <td className="py-2 pr-2 text-right text-slate-500">{rsShort(r.interest)}</td>
+                          <td className="py-2 pr-2 text-right text-slate-600">{rsShort(r.interest)}</td>
                           <td className="py-2 text-right">{rsShort(r.balance)}</td>
                         </tr>
                       ))}

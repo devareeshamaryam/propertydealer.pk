@@ -27,10 +27,10 @@ export default function YieldCalculator() {
   const r = rentalYield({ price, buyingCostPct, rent, vacancyMonths, expenses, growthPct, rentGrowthPct, years, bankPct });
   const verdict =
     r.net >= 6
-      ? { t: 'A strong rental return', c: 'bg-emerald-50 text-emerald-800 ring-emerald-200' }
+      ? { t: 'A strong rental return', c: 'bg-emerald-50 text-emerald-800 border-emerald-300' }
       : r.net >= 4
-        ? { t: 'A fair rental return', c: 'bg-sky-50 text-sky-800 ring-sky-200' }
-        : { t: 'The rent is low for the price', c: 'bg-amber-50 text-amber-900 ring-amber-200' };
+        ? { t: 'A fair rental return', c: 'bg-sky-50 text-sky-800 border-sky-300' }
+        : { t: 'The rent is low for the price', c: 'bg-amber-50 text-amber-900 border-amber-300' };
 
   // What would make it a fair (5% net) deal.
   const occupied = Math.max(0, 12 - vacancyMonths);
@@ -91,7 +91,7 @@ export default function YieldCalculator() {
             </ResultHero>
 
             {price > 0 && rent > 0 && (
-              <p className={cn('rounded-2xl px-4 py-3 text-[14px] ring-1', verdict.c)}>
+              <p className={cn('rounded-lg px-4 py-3 text-[14px] border', verdict.c)}>
                 <b>{verdict.t}.</b> Homes in Pakistan usually earn 3–6% a year from rent.
               </p>
             )}
@@ -104,7 +104,7 @@ export default function YieldCalculator() {
             </Card>
 
             <Card title={`After ${years} years`}>
-              <p className="-mt-2 mb-3 text-[13px] text-slate-500">What you gain on {rsShort(r.invested)}, against a bank deposit.</p>
+              <p className="-mt-2 mb-3 text-[13px] text-slate-600">What you gain on {rsShort(r.invested)}, against a bank deposit.</p>
               <div className="space-y-4">
                 {bars.map((b) => (
                   <div key={b.label}>
@@ -127,7 +127,7 @@ export default function YieldCalculator() {
                   </li>
                 ))}
               </ul>
-              <p className={cn('mt-4 rounded-2xl px-4 py-3 text-[14px] font-semibold', r.gain > r.bank ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900')}>
+              <p className={cn('mt-4 rounded-lg px-4 py-3 text-[14px] font-semibold', r.gain > r.bank ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900')}>
                 {r.gain > r.bank
                   ? `The property earns ${rsShort(r.gain - r.bank)} more than a bank deposit.`
                   : `A bank deposit would earn ${rsShort(r.bank - r.gain)} more.`}

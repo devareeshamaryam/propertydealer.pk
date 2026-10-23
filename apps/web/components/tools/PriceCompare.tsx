@@ -66,7 +66,7 @@ export default function PriceCompare() {
                 }
                 action={
                   opts.length > 1 ? (
-                    <button type="button" onClick={() => setOpts((x) => x.filter((_, j) => j !== i))} className="grid h-8 w-8 place-items-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200" aria-label={`Remove ${NAMES[i]}`}>
+                    <button type="button" onClick={() => setOpts((x) => x.filter((_, j) => j !== i))} className="grid h-8 w-8 place-items-center rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-100" aria-label={`Remove ${NAMES[i]}`}>
                       <X className="h-4 w-4" />
                     </button>
                   ) : undefined
@@ -84,7 +84,7 @@ export default function PriceCompare() {
                       value={o.size}
                       onChange={(e) => set(i, { size: e.target.value })}
                       aria-label="Size"
-                      className="mb-2 h-[52px] w-full rounded-2xl bg-slate-50 px-4 text-[20px] font-bold tabular-nums text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/40"
+                      className="mb-2 h-[52px] w-full rounded-lg bg-white px-4 text-[20px] font-bold tabular-nums text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                     <Segment value={o.unit} onChange={(unit) => set(i, { unit })} options={SIZE_UNITS} />
                   </div>
@@ -95,7 +95,7 @@ export default function PriceCompare() {
               <button
                 type="button"
                 onClick={() => setOpts((x) => [...x, { price: 0, size: x[x.length - 1]?.size ?? '5', unit: x[x.length - 1]?.unit ?? 'marla' }])}
-                className="flex w-full items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-slate-300 py-4 text-[15px] font-bold text-slate-600 hover:border-primary hover:text-primary"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 py-4 text-[15px] font-bold text-slate-600 hover:border-primary hover:text-primary"
               >
                 <Plus className="h-5 w-5" /> Compare with another plot
               </button>
@@ -108,7 +108,7 @@ export default function PriceCompare() {
         results={
           <>
             {!top ? (
-              <p className="rounded-3xl bg-white p-6 text-center text-[15px] text-slate-500 ring-1 ring-slate-200/70">Enter a price and a size.</p>
+              <p className="rounded-xl bg-white p-6 text-center text-[15px] text-slate-600 border border-slate-300">Enter a price and a size.</p>
             ) : comparing ? (
               <ResultHero
                 heroRef={heroRef}
@@ -139,7 +139,7 @@ export default function PriceCompare() {
             )}
 
             {comparing && (
-              <Card title="Side by side" action={<span className="text-[12px] text-slate-400">Price per marla</span>}>
+              <Card title="Side by side" action={<span className="text-[12px] text-slate-600">Price per marla</span>}>
                 <div className="space-y-3.5">
                   {rows.map((r) => (
                     <div key={r.i}>
@@ -150,10 +150,10 @@ export default function PriceCompare() {
                         </span>
                         <b className="tabular-nums text-slate-900">{r.ok ? rsShort(r.perMarla) : '—'}</b>
                       </div>
-                      <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-slate-100">
+                      <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-slate-200">
                         <div className="h-full rounded-full" style={{ width: r.ok && worst ? `${(r.perMarla / worst.perMarla) * 100}%` : '0%', background: COLORS[r.i] }} />
                       </div>
-                      <p className="mt-1 text-[12px] tabular-nums text-slate-500">
+                      <p className="mt-1 text-[12px] tabular-nums text-slate-600">
                         {r.ok ? `${rsShort(opts[r.i]!.price)} for ${nice(r.sqft / marla)} marla · ${rupees(r.perSqft)}/sq ft` : 'Add its price and size'}
                       </p>
                     </div>
@@ -173,7 +173,7 @@ export default function PriceCompare() {
                 </div>
               </Card>
             )}
-            <p className={cn('px-1 text-[12.5px] leading-relaxed text-slate-500')}>
+            <p className={cn('px-1 text-[12.5px] leading-relaxed text-slate-600')}>
               Compare like with like: a corner, park-facing or main-road plot, or one in a better block, usually costs more per marla.
             </p>
           </>

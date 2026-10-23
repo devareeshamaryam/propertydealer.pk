@@ -98,14 +98,14 @@ export default function AreaConverter() {
                       onChange={(e) => setValue(e.target.value)}
                       placeholder="0"
                       aria-label="Size"
-                      className="h-14 min-w-0 flex-1 rounded-2xl bg-slate-50 px-4 text-[24px] font-extrabold tabular-nums text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/40"
+                      className="h-14 min-w-0 flex-1 rounded-lg bg-white px-4 text-[24px] font-extrabold tabular-nums text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                     <span className="relative w-[44%] max-w-[180px] shrink-0">
                       <select
                         value={from}
                         onChange={(e) => setFrom(e.target.value as UnitKey)}
                         aria-label="Unit"
-                        className="h-14 w-full appearance-none rounded-2xl bg-slate-50 pl-3.5 pr-8 text-[15px] font-bold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-primary/40"
+                        className="h-14 w-full appearance-none rounded-lg bg-white pl-3.5 pr-8 text-[15px] font-bold text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
                       >
                         {UNITS.map((u) => (
                           <option key={u.key} value={u.key}>
@@ -113,7 +113,7 @@ export default function AreaConverter() {
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
                     </span>
                   </div>
                   <div className="hide-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1">
@@ -125,7 +125,7 @@ export default function AreaConverter() {
                           setValue(String(q.v));
                           setFrom(q.u);
                         }}
-                        className={cn('shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-semibold', n === q.v && from === q.u ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}
+                        className={cn('shrink-0 rounded-md px-3 py-1.5 text-[12.5px] font-semibold', n === q.v && from === q.u ? 'border border-primary bg-primary text-white' : 'border border-slate-300 bg-white text-slate-800 hover:border-slate-500')}
                       >
                         {q.label}
                       </button>
@@ -140,18 +140,18 @@ export default function AreaConverter() {
                       [wid, setWid, 'Depth'],
                     ].map(([v, set, l], i) => (
                       <label key={l as string} className={cn('block', i === 1 && 'col-start-3')}>
-                        <span className="mb-1 block text-[12.5px] font-semibold text-slate-500">{l as string}</span>
+                        <span className="mb-1 block text-[13.5px] font-semibold text-slate-800">{l as string}</span>
                         <input
                           type="number"
                           inputMode="decimal"
                           min="0"
                           value={v as string}
                           onChange={(e) => (set as (s: string) => void)(e.target.value)}
-                          className="h-14 w-full rounded-2xl bg-slate-50 px-4 text-[22px] font-extrabold tabular-nums text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/40"
+                          className="h-14 w-full rounded-lg bg-white px-4 text-[22px] font-extrabold tabular-nums text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
                         />
                       </label>
                     ))}
-                    <span className="col-start-2 row-start-1 self-end pb-4 text-[20px] font-bold text-slate-300">×</span>
+                    <span className="col-start-2 row-start-1 self-end pb-4 text-[20px] font-bold text-slate-600">×</span>
                   </div>
                   <Segment value={lenUnit} onChange={setLenUnit} options={(Object.keys(LEN_UNITS) as LenUnit[]).map((k) => ({ v: k, label: LEN_UNITS[k].label }))} />
                   <div className="flex flex-wrap gap-1.5">
@@ -164,7 +164,7 @@ export default function AreaConverter() {
                           setWid(String(b));
                           setLenUnit('ft');
                         }}
-                        className="rounded-full bg-slate-100 px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 hover:bg-slate-200"
+                        className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[13.5px] font-semibold text-slate-800 hover:border-slate-500"
                       >
                         {a} × {b} ft
                       </button>
@@ -175,24 +175,24 @@ export default function AreaConverter() {
             </Card>
             <Card>
               <Segment label="1 Marla =" value={marla} onChange={setMarla} options={MARLA_STANDARDS.map((m) => ({ v: m.sqft, label: `${nice(m.sqft)} ft²` }))} />
-              <p className="mt-2 text-[12.5px] leading-snug text-slate-500">{std.hint}</p>
+              <p className="mt-2 text-[12.5px] leading-snug text-slate-600">{std.hint}</p>
             </Card>
           </>
         }
         results={
           <>
             <ResultHero heroRef={heroRef} label={headline} value={sqft > 0 ? `${nice(inUnit('marla'))} Marla` : '—'} sub={sqft > 0 ? `${nice(sqft)} square feet` : 'Enter a size'}>
-              <dl className="mt-4 grid grid-cols-2 gap-2">
+              <dl className="grid grid-cols-2 gap-2">
                 {HEADLINE.map((u) => (
-                  <button key={u} type="button" onClick={() => sqft > 0 && copy(`${nice(inUnit(u))} ${unitDef(u).short}`)} className="rounded-2xl bg-white/12 px-3 py-2.5 text-left ring-1 ring-white/15 hover:bg-white/20">
-                    <dt className="text-[11.5px] font-medium text-white/70">{unitDef(u).label}</dt>
+                  <button key={u} type="button" onClick={() => sqft > 0 && copy(`${nice(inUnit(u))} ${unitDef(u).short}`)} className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-left text-slate-900 hover:border-primary">
+                    <dt className="text-[12.5px] font-semibold text-slate-600">{unitDef(u).label}</dt>
                     <dd className="text-[19px] font-extrabold tabular-nums">{sqft > 0 ? nice(inUnit(u)) : '—'}</dd>
                   </button>
                 ))}
               </dl>
             </ResultHero>
 
-            <Card title="Every unit" action={<span className="text-[12px] text-slate-400">Tap to convert from it</span>}>
+            <Card title="Every unit" action={<span className="text-[12px] text-slate-600">Tap to convert from it</span>}>
               <ul className="divide-y divide-slate-100">
                 {UNITS.filter((u) => !HEADLINE.includes(u.key)).map((u) => {
                   const v = inUnit(u.key);
@@ -210,11 +210,11 @@ export default function AreaConverter() {
                       >
                         <span className="min-w-0">
                           <span className="block text-[14.5px] font-semibold text-slate-800">{u.label}</span>
-                          {(u.hint || (u.local && marla !== 225)) && <span className="block text-[12px] text-slate-400">{u.local && marla !== 225 ? `on the ${nice(marla)} ft² marla` : u.hint}</span>}
+                          {(u.hint || (u.local && marla !== 225)) && <span className="block text-[12px] text-slate-600">{u.local && marla !== 225 ? `on the ${nice(marla)} ft² marla` : u.hint}</span>}
                         </span>
                         <span className="shrink-0 text-[16px] font-bold tabular-nums text-slate-900">{v > 0 ? nice(v) : '—'}</span>
                       </button>
-                      <button type="button" onClick={() => v > 0 && copy(`${nice(v)} ${u.short}`)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-primary" aria-label={`Copy ${u.label}`}>
+                      <button type="button" onClick={() => v > 0 && copy(`${nice(v)} ${u.short}`)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-600 hover:bg-slate-100 hover:text-primary" aria-label={`Copy ${u.label}`}>
                         <Copy className="h-4 w-4" />
                       </button>
                     </li>
@@ -227,7 +227,7 @@ export default function AreaConverter() {
               <div className="-mx-1 overflow-x-auto">
                 <table className="w-full min-w-[320px] text-[14px] tabular-nums">
                   <thead>
-                    <tr className="text-left text-[11.5px] uppercase tracking-wide text-slate-400">
+                    <tr className="text-left text-[11.5px] uppercase tracking-wide text-slate-600">
                       <th className="py-2 pr-2 font-semibold">Size</th>
                       <th className="py-2 pr-2 text-right font-semibold">Sq ft</th>
                       <th className="py-2 pr-2 text-right font-semibold">Sq yd</th>

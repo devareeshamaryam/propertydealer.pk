@@ -6,12 +6,13 @@ import { rsShort } from '@/lib/tools';
 import { cn } from '@/lib/utils';
 
 /*
- * The tools' own small app kit — big touch targets, one idea per card, the
- * answer always in sight. Every tool is built from these, so they all look
- * and behave alike.
+ * The tools' own kit. Plain and solid: white panels with a clear border,
+ * dark readable text, one strong brand colour for what is chosen and for the
+ * answer — no glows, gradients or see-through layers. Every tool is built
+ * from these, so they all look and behave alike.
  */
 
-/** A rounded card with an optional title row. */
+/** A panel: a title bar (when given) over its content. */
 export function Card({
   title,
   action,
@@ -24,19 +25,19 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={cn('rounded-3xl bg-white p-4 shadow-[0_1px_2px_rgba(15,23,42,0.05),0_10px_30px_-18px_rgba(15,23,42,0.25)] ring-1 ring-slate-200/70 sm:p-5', className)}>
+    <section className={cn('overflow-hidden rounded-xl border border-slate-300 bg-white', className)}>
       {(title || action) && (
-        <header className="mb-3 flex items-center justify-between gap-3">
-          {title && <h2 className="text-[16px] font-bold tracking-tight text-slate-900">{title}</h2>}
-          {action}
+        <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50 px-4 py-3">
+          {title && <h2 className="text-[16px] font-bold text-slate-900">{title}</h2>}
+          {action && <span className="text-[13px] font-medium text-slate-600">{action}</span>}
         </header>
       )}
-      {children}
+      <div className="p-4">{children}</div>
     </section>
   );
 }
 
-/** iOS-style segmented control. */
+/** A row of options, the chosen one filled in the brand colour. */
 export function Segment<T extends string | number>({
   value,
   onChange,
@@ -52,9 +53,14 @@ export function Segment<T extends string | number>({
 }) {
   return (
     <div className={className}>
-      {label && <p className="mb-1.5 text-[13px] font-semibold text-slate-500">{label}</p>}
-      <div className="grid gap-1 rounded-2xl bg-slate-100 p-1" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label={label}>
-        {options.map((o) => {
+      {label && <p className="mb-2 text-[14px] font-semibold text-slate-800">{label}</p>}
+      <div
+        className="grid overflow-hidden rounded-lg border border-slate-400"
+        style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+        role="radiogroup"
+        aria-label={label}
+      >
+        {options.map((o, i) => {
           const on = o.v === value;
           return (
             <button
@@ -64,12 +70,13 @@ export function Segment<T extends string | number>({
               aria-checked={on}
               onClick={() => onChange(o.v)}
               className={cn(
-                'min-h-[40px] rounded-xl px-1.5 py-1.5 text-center transition-all',
-                on ? 'bg-white text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.15)]' : 'text-slate-500 hover:text-slate-800',
+                'min-h-[46px] px-1.5 py-2 text-center transition-colors',
+                i > 0 && 'border-l border-slate-400',
+                on ? 'bg-primary text-white' : 'bg-white text-slate-800 hover:bg-slate-100',
               )}
             >
-              <span className="block truncate text-[13.5px] font-bold leading-tight">{o.label}</span>
-              {o.sub && <span className={cn('block truncate text-[11px] leading-tight', on ? 'text-slate-500' : 'text-slate-400')}>{o.sub}</span>}
+              <span className="block truncate text-[14px] font-bold leading-tight">{o.label}</span>
+              {o.sub && <span className={cn('mt-0.5 block truncate text-[12px] leading-tight', on ? 'text-white' : 'text-slate-600')}>{o.sub}</span>}
             </button>
           );
         })}
@@ -80,19 +87,20 @@ export function Segment<T extends string | number>({
 
 /** – n + */
 export function Stepper({ label, value, onChange, min = 0, max = 20, sub }: { label: string; value: number; onChange: (n: number) => void; min?: number; max?: number; sub?: string }) {
+  const btn = 'grid h-10 w-10 place-items-center rounded-lg border border-slate-400 bg-white text-slate-900 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40';
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3.5 py-2.5">
+    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3.5 py-2.5">
       <span className="min-w-0">
-        <span className="block text-[14px] font-semibold text-slate-800">{label}</span>
-        {sub && <span className="block text-[12px] text-slate-500">{sub}</span>}
+        <span className="block text-[15px] font-semibold text-slate-900">{label}</span>
+        {sub && <span className="block text-[13px] text-slate-600">{sub}</span>}
       </span>
       <span className="flex shrink-0 items-center gap-2">
-        <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} className="grid h-9 w-9 place-items-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 disabled:opacity-40" aria-label={`Less: ${label}`}>
-          <Minus className="h-4 w-4" />
+        <button type="button" onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} className={btn} aria-label={`Less: ${label}`}>
+          <Minus className="h-4 w-4" strokeWidth={2.5} />
         </button>
-        <span className="w-7 text-center text-[17px] font-bold tabular-nums text-slate-900">{value}</span>
-        <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} className="grid h-9 w-9 place-items-center rounded-full bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 disabled:opacity-40" aria-label={`More: ${label}`}>
-          <Plus className="h-4 w-4" />
+        <span className="w-8 text-center text-[18px] font-bold tabular-nums text-slate-900">{value}</span>
+        <button type="button" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} className={btn} aria-label={`More: ${label}`}>
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
         </button>
       </span>
     </div>
@@ -100,8 +108,8 @@ export function Stepper({ label, value, onChange, min = 0, max = 20, sub }: { la
 }
 
 /**
- * A number with a slider under it — drag for a quick answer, or tap the
- * number and type an exact one.
+ * A number with a slider under it — drag for a quick answer, or type an
+ * exact one in the box.
  */
 export function SliderField({
   label,
@@ -132,8 +140,8 @@ export function SliderField({
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
-        <label className="text-[14px] font-semibold text-slate-700">{label}</label>
-        <span className="flex items-center gap-1 rounded-xl bg-slate-50 px-2.5 py-1 ring-1 ring-slate-200 focus-within:ring-2 focus-within:ring-primary/40">
+        <label className="text-[14px] font-semibold text-slate-800">{label}</label>
+        <span className="flex items-center gap-1 rounded-lg border border-slate-400 bg-white px-2.5 py-1.5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
           <input
             type="number"
             inputMode="decimal"
@@ -148,9 +156,9 @@ export function SliderField({
               if (e.target.value !== '' && Number.isFinite(n)) onChange(Math.min(max, Math.max(min, n)));
             }}
             onBlur={() => setText(String(value))}
-            className="w-16 bg-transparent text-right text-[15px] font-bold tabular-nums text-slate-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-16 bg-transparent text-right text-[16px] font-bold tabular-nums text-slate-900 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
           />
-          {suffix && <span className="text-[13px] font-semibold text-slate-500">{suffix}</span>}
+          {suffix && <span className="text-[14px] font-semibold text-slate-700">{suffix}</span>}
         </span>
       </div>
       <input
@@ -161,12 +169,12 @@ export function SliderField({
         value={Math.min(max, Math.max(min, value))}
         onChange={(e) => onChange(Number(e.target.value))}
         aria-label={`${label} slider`}
-        className="tool-range mt-3 h-2 w-full cursor-pointer appearance-none rounded-full"
-        style={{ background: `linear-gradient(to right, var(--primary) ${pct}%, #e2e8f0 ${pct}%)` }}
+        className="tool-range mt-3.5 h-2 w-full cursor-pointer appearance-none rounded-full"
+        style={{ background: `linear-gradient(to right, var(--primary) ${pct}%, #cbd5e1 ${pct}%)` }}
       />
-      <div className="mt-1 flex justify-between text-[11.5px] text-slate-400">
+      <div className="mt-1.5 flex justify-between gap-2 text-[12.5px] font-medium text-slate-600">
         <span>{f(min)}</span>
-        {hint ? <span className="text-center text-slate-500">{hint}</span> : null}
+        {hint ? <span className="text-center font-semibold text-slate-800">{hint}</span> : null}
         <span>{f(max)}</span>
       </div>
     </div>
@@ -189,18 +197,18 @@ export function MoneyField({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-[14px] font-semibold text-slate-700">{label}</label>
-      <div className="flex items-center gap-2 rounded-2xl bg-slate-50 px-3.5 ring-1 ring-slate-200 focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/40">
-        <span className="text-[15px] font-bold text-slate-400">Rs</span>
+      <label className="mb-2 block text-[14px] font-semibold text-slate-800">{label}</label>
+      <div className="flex items-center gap-2 rounded-lg border border-slate-400 bg-white px-3.5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+        <span className="text-[16px] font-bold text-slate-600">Rs</span>
         <input
           inputMode="numeric"
           value={value ? value.toLocaleString('en-PK') : ''}
           onChange={(e) => onChange(Number(e.target.value.replace(/[^\d]/g, '').slice(0, 13)) || 0)}
           placeholder="0"
           aria-label={label}
-          className="h-[52px] min-w-0 flex-1 bg-transparent text-[20px] font-bold tabular-nums text-slate-900 outline-none"
+          className="h-[52px] min-w-0 flex-1 bg-transparent text-[20px] font-bold tabular-nums text-slate-900 outline-none placeholder:text-slate-400"
         />
-        {value > 0 && <span className="shrink-0 text-[13px] font-bold text-primary">{rsShort(value).replace('Rs ', '')}</span>}
+        {value > 0 && <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[13px] font-bold text-slate-900">{rsShort(value).replace('Rs ', '')}</span>}
       </div>
       {chips.length > 0 && (
         <div className="hide-scrollbar -mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1">
@@ -210,8 +218,8 @@ export function MoneyField({
               type="button"
               onClick={() => onChange(c)}
               className={cn(
-                'shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-semibold transition-colors',
-                value === c ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                'shrink-0 rounded-md border px-3 py-1.5 text-[13px] font-semibold transition-colors',
+                value === c ? 'border-primary bg-primary text-white' : 'border-slate-300 bg-white text-slate-800 hover:border-slate-500',
               )}
             >
               {rsShort(c).replace('Rs ', '')}
@@ -219,12 +227,12 @@ export function MoneyField({
           ))}
         </div>
       )}
-      {hint && <p className="mt-1.5 text-[12.5px] text-slate-500">{hint}</p>}
+      {hint && <p className="mt-1.5 text-[13px] text-slate-600">{hint}</p>}
     </div>
   );
 }
 
-/** The answer, in the brand colour. */
+/** The answer: a solid brand-colour band with the figure, details beneath on white. */
 export function ResultHero({
   label,
   value,
@@ -239,24 +247,26 @@ export function ResultHero({
   heroRef?: React.Ref<HTMLElement>;
 }) {
   return (
-    <section ref={heroRef} className="overflow-hidden rounded-3xl bg-primary p-5 text-white shadow-[0_18px_40px_-20px_var(--primary)] sm:p-6">
-      <p className="text-[13px] font-semibold text-white/75">{label}</p>
-      <p className="mt-0.5 text-[34px] font-extrabold leading-tight tracking-tight tabular-nums [overflow-wrap:anywhere] sm:text-[40px]">{value}</p>
-      {sub && <p className="mt-1 text-[14.5px] leading-relaxed text-white/85">{sub}</p>}
-      {children}
+    <section ref={heroRef} className="overflow-hidden rounded-xl border border-primary bg-white">
+      <div className="bg-primary px-4 py-4 text-white sm:px-5">
+        <p className="text-[14px] font-semibold text-white">{label}</p>
+        <p className="mt-0.5 text-[34px] font-extrabold leading-tight tabular-nums [overflow-wrap:anywhere] sm:text-[40px]">{value}</p>
+        {sub && <p className="mt-0.5 text-[15px] font-medium leading-relaxed text-white">{sub}</p>}
+      </div>
+      {children && <div className="p-3 sm:p-4">{children}</div>}
     </section>
   );
 }
 
-/** Small figures under the answer: white-on-brand inside a hero, or grey tiles. */
-export function Tiles({ items, onBrand }: { items: { label: string; value: string; hint?: string }[]; onBrand?: boolean }) {
+/** Small figures: white boxes with a border. */
+export function Tiles({ items }: { items: { label: string; value: string; hint?: string }[]; onBrand?: boolean }) {
   return (
-    <dl className={cn('grid gap-2', items.length === 2 ? 'grid-cols-2' : items.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3', onBrand && 'mt-4')}>
+    <dl className={cn('grid gap-2', items.length === 2 ? 'grid-cols-2' : items.length === 4 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3')}>
       {items.map((t) => (
-        <div key={t.label} className={cn('rounded-2xl px-2.5 py-2.5 text-center', onBrand ? 'bg-white/12 ring-1 ring-white/15' : 'bg-slate-50')}>
-          <dt className={cn('text-[11.5px] font-medium', onBrand ? 'text-white/70' : 'text-slate-500')}>{t.label}</dt>
-          <dd className={cn('text-[15px] font-bold tabular-nums [overflow-wrap:anywhere]', onBrand ? 'text-white' : 'text-slate-900')}>{t.value}</dd>
-          {t.hint && <p className={cn('text-[11px]', onBrand ? 'text-white/60' : 'text-slate-400')}>{t.hint}</p>}
+        <div key={t.label} className="rounded-lg border border-slate-300 bg-white px-2 py-2.5 text-center">
+          <dt className="text-[12.5px] font-semibold text-slate-600">{t.label}</dt>
+          <dd className="mt-0.5 text-[16px] font-bold tabular-nums text-slate-900 [overflow-wrap:anywhere]">{t.value}</dd>
+          {t.hint && <p className="text-[12px] text-slate-600">{t.hint}</p>}
         </div>
       ))}
     </dl>
@@ -266,12 +276,12 @@ export function Tiles({ items, onBrand }: { items: { label: string; value: strin
 /** A row of a list: label (and a note) on the left, the figure on the right. */
 export function Row({ label, value, note, strong }: { label: React.ReactNode; value: React.ReactNode; note?: React.ReactNode; strong?: boolean }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-2.5">
+    <div className="flex items-baseline justify-between gap-3 py-3">
       <span className="min-w-0">
-        <span className={cn('block text-[14px]', strong ? 'font-bold text-slate-900' : 'text-slate-600')}>{label}</span>
-        {note && <span className="block text-[12px] text-slate-400">{note}</span>}
+        <span className={cn('block text-[15px]', strong ? 'font-bold text-slate-900' : 'font-medium text-slate-800')}>{label}</span>
+        {note && <span className="block text-[13px] text-slate-600">{note}</span>}
       </span>
-      <span className={cn('shrink-0 text-right tabular-nums', strong ? 'text-[16px] font-extrabold text-slate-900' : 'text-[14.5px] font-semibold text-slate-900')}>{value}</span>
+      <span className={cn('shrink-0 text-right tabular-nums text-slate-900', strong ? 'text-[17px] font-extrabold' : 'text-[15px] font-bold')}>{value}</span>
     </div>
   );
 }
@@ -280,17 +290,15 @@ export function Row({ label, value, note, strong }: { label: React.ReactNode; va
 export function Disclosure({ title, sub, children, defaultOpen = false }: { title: string; sub?: string; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="rounded-3xl bg-white ring-1 ring-slate-200/70">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left sm:px-5" aria-expanded={open}>
+    <section className="overflow-hidden rounded-xl border border-slate-300 bg-white">
+      <button type="button" onClick={() => setOpen((v) => !v)} className={cn('flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-slate-50', open && 'border-b border-slate-200')} aria-expanded={open}>
         <span className="min-w-0">
-          <span className="block text-[15px] font-bold text-slate-900">{title}</span>
-          {sub && <span className="block text-[12.5px] text-slate-500">{sub}</span>}
+          <span className="block text-[16px] font-bold text-slate-900">{title}</span>
+          {sub && <span className="block text-[13px] text-slate-600">{sub}</span>}
         </span>
-        <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-100 transition-transform', open && 'rotate-180')}>
-          <ChevronDown className="h-4 w-4 text-slate-600" />
-        </span>
+        <ChevronDown className={cn('h-5 w-5 shrink-0 text-slate-700 transition-transform', open && 'rotate-180')} strokeWidth={2.5} />
       </button>
-      <div className={cn('px-4 pb-4 sm:px-5', open ? 'block' : 'hidden print:block')}>{children}</div>
+      <div className={cn('p-4', open ? 'block' : 'hidden print:block')}>{children}</div>
     </section>
   );
 }
@@ -310,8 +318,8 @@ export function useOnScreen<T extends Element>() {
 }
 
 /**
- * The answer, kept in sight on a phone: a slim bar under the site header
- * once the answer card has scrolled away (tap it to jump back).
+ * The answer, kept in sight on a phone: a bar under the site header once the
+ * answer has scrolled away (tap it to jump back).
  */
 export function StickyAnswer({ show, label, value, onTap }: { show: boolean; label: string; value: string; onTap?: () => void }) {
   return (
@@ -321,12 +329,12 @@ export function StickyAnswer({ show, label, value, onTap }: { show: boolean; lab
       aria-hidden={!show}
       tabIndex={show ? 0 : -1}
       className={cn(
-        'fixed inset-x-3 top-[72px] z-40 flex items-center justify-between gap-3 rounded-2xl bg-primary px-4 py-2.5 text-left text-white shadow-lg transition-all duration-200 lg:hidden print:hidden',
-        show ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-3 opacity-0',
+        'fixed inset-x-0 top-16 z-40 flex items-center justify-between gap-3 border-b-2 border-black/10 bg-primary px-4 py-2.5 text-left text-white transition-transform duration-200 lg:hidden print:hidden',
+        show ? 'translate-y-0' : 'pointer-events-none -translate-y-full',
       )}
     >
-      <span className="truncate text-[12.5px] font-semibold text-white/80">{label}</span>
-      <span className="shrink-0 text-[17px] font-extrabold tabular-nums">{value}</span>
+      <span className="truncate text-[13.5px] font-semibold text-white">{label}</span>
+      <span className="shrink-0 text-[18px] font-extrabold tabular-nums">{value}</span>
     </button>
   );
 }
@@ -357,8 +365,13 @@ export function ShareButton({ title }: { title: string }) {
     }
   };
   return (
-    <button type="button" onClick={share} aria-label="Share" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200 print:hidden">
-      <Share2 className="h-[18px] w-[18px]" />
+    <button
+      type="button"
+      onClick={share}
+      className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg border border-slate-400 bg-white px-3 text-[14px] font-semibold text-slate-800 hover:bg-slate-100 print:hidden"
+    >
+      <Share2 className="h-4 w-4" />
+      <span className="hidden sm:inline">Share</span>
     </button>
   );
 }

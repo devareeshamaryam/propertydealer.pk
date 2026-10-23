@@ -24,7 +24,7 @@ const n0 = (v: string | null, d: number) => {
 function Select<T extends string | number>({ label, value, onChange, options }: { label: string; value: T; onChange: (v: T) => void; options: { v: T; label: string }[] }) {
   return (
     <label className="block min-w-0">
-      <span className="mb-1.5 block text-[13px] font-semibold text-slate-500">{label}</span>
+      <span className="mb-1.5 block text-[14px] font-semibold text-slate-800">{label}</span>
       <span className="relative block">
         <select
           value={String(value)}
@@ -32,7 +32,7 @@ function Select<T extends string | number>({ label, value, onChange, options }: 
             const o = options.find((x) => String(x.v) === e.target.value);
             if (o) onChange(o.v);
           }}
-          className="h-[52px] w-full appearance-none truncate rounded-2xl bg-slate-50 pl-4 pr-9 text-[16px] font-bold text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/40"
+          className="h-[52px] w-full appearance-none truncate rounded-lg bg-white pl-4 pr-9 text-[16px] font-bold text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
         >
           {options.map((o) => (
             <option key={String(o.v)} value={String(o.v)}>
@@ -40,7 +40,7 @@ function Select<T extends string | number>({ label, value, onChange, options }: 
             </option>
           ))}
         </select>
-        <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600" />
       </span>
     </label>
   );
@@ -158,7 +158,7 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                       value={customSize}
                       onChange={(e) => setCustomSize(e.target.value)}
                       aria-label="Plot size"
-                      className="h-[52px] w-full rounded-2xl bg-slate-50 px-4 text-[20px] font-bold tabular-nums text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/40"
+                      className="h-[52px] w-full rounded-lg bg-white px-4 text-[20px] font-bold tabular-nums text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                     <Segment
                       value={customUnit}
@@ -193,7 +193,7 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                 />
                 <div>
                   <Segment label="Quality" value={quality} onChange={setQuality} options={QUALITY.map((x) => ({ v: x.key, label: x.label }))} />
-                  <p className="mt-1.5 text-[12.5px] text-slate-500">{q.hint}</p>
+                  <p className="mt-1.5 text-[12.5px] text-slate-600">{q.hint}</p>
                 </div>
                 <Segment
                   label="Who buys the material"
@@ -207,21 +207,21 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
               </div>
             </Card>
 
-            <section className="rounded-3xl bg-white ring-1 ring-slate-200/70">
+            <section className="rounded-xl bg-white border border-slate-300">
               <button type="button" onClick={() => setMore((v) => !v)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:px-5" aria-expanded={more}>
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-300 bg-white">
                   <SlidersHorizontal className="h-4 w-4 text-slate-600" />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-bold text-slate-900">Your map</span>
-                  <span className="block text-[12.5px] text-slate-500">Covered area, basement, bathrooms, kitchens</span>
+                  <span className="block text-[12.5px] text-slate-600">Covered area, basement, bathrooms, kitchens</span>
                 </span>
-                <ChevronDown className={cn('h-5 w-5 text-slate-400 transition-transform', more && 'rotate-180')} />
+                <ChevronDown className={cn('h-5 w-5 text-slate-600 transition-transform', more && 'rotate-180')} />
               </button>
               {more && (
                 <div className="space-y-3 px-4 pb-4 sm:px-5">
                   <label className="block">
-                    <span className="mb-1.5 block text-[13px] font-semibold text-slate-500">Covered area, all floors (sq ft)</span>
+                    <span className="mb-1.5 block text-[14px] font-semibold text-slate-800">Covered area, all floors (sq ft)</span>
                     <input
                       type="number"
                       inputMode="numeric"
@@ -229,10 +229,10 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                       value={covered}
                       onChange={(e) => setCovered(e.target.value)}
                       placeholder={`About ${Math.round(floorsList.filter((f) => !f.basement).reduce((s, f) => s + f.sqft, 0)).toLocaleString('en-PK')}`}
-                      className="h-[52px] w-full rounded-2xl bg-slate-50 px-4 text-[18px] font-bold tabular-nums text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/40"
+                      className="h-[52px] w-full rounded-lg bg-white px-4 text-[18px] font-bold tabular-nums text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                   </label>
-                  <label className={cn('flex items-center justify-between gap-3 rounded-2xl bg-slate-50 px-3.5 py-3', coveredOverride && 'opacity-50')}>
+                  <label className={cn('flex items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3.5 py-3', coveredOverride && 'opacity-50')}>
                     <span className="text-[14px] font-semibold text-slate-800">Basement</span>
                     <input type="checkbox" checked={basement} onChange={(e) => setBasement(e.target.checked)} disabled={!!coveredOverride} className="h-5 w-5 accent-primary" />
                   </label>
@@ -259,21 +259,21 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                     { label: 'Time', value: `~${est.months.grey + est.months.finishing} mo` },
                   ]}
                 />
-                <div className="mt-4 flex flex-wrap gap-2 print:hidden">
-                  <button type="button" onClick={share} className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-2 text-[13.5px] font-bold text-slate-900">
+                <div className="mt-3 flex flex-wrap gap-2 print:hidden">
+                  <button type="button" onClick={share} className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-[14px] font-bold text-white">
                     <Share2 className="h-4 w-4" /> Share
                   </button>
-                  <button type="button" onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 text-[13.5px] font-semibold">
+                  <button type="button" onClick={copyLink} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-400 bg-white px-3.5 py-2 text-[14px] font-semibold text-slate-800">
                     <Link2 className="h-4 w-4" /> Link
                   </button>
-                  <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3.5 py-2 text-[13.5px] font-semibold">
+                  <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-400 bg-white px-3.5 py-2 text-[14px] font-semibold text-slate-800">
                     <Printer className="h-4 w-4" /> Print
                   </button>
                 </div>
               </ResultHero>
 
               {mode === 'labour' && (
-                <p className="rounded-2xl bg-sky-50 px-4 py-3 text-[14px] leading-relaxed text-sky-900 ring-1 ring-sky-200">
+                <p className="rounded-lg bg-sky-50 px-4 py-3 text-[14px] leading-relaxed text-sky-900 border border-sky-300">
                   Pay the contractor about <b>{rsShort(est.labour)}</b> for labour and buy material worth about <b>{rsShort(est.materials)}</b> yourself.
                 </p>
               )}
@@ -281,12 +281,12 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
               <Card title="Where the money goes">
                 {kind === 'complete' && (
                   <div className="mb-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2.5">
-                      <p className="text-[11.5px] font-medium text-slate-500">Grey structure</p>
+                    <div className="rounded-lg border border-slate-300 bg-white px-3 py-2.5">
+                      <p className="text-[11.5px] font-medium text-slate-600">Grey structure</p>
                       <p className="text-[16px] font-bold tabular-nums text-slate-900">{rsShort(greyShare)}</p>
                     </div>
-                    <div className="rounded-2xl bg-slate-50 px-3 py-2.5">
-                      <p className="text-[11.5px] font-medium text-slate-500">Finishing</p>
+                    <div className="rounded-lg border border-slate-300 bg-white px-3 py-2.5">
+                      <p className="text-[11.5px] font-medium text-slate-600">Finishing</p>
                       <p className="text-[16px] font-bold tabular-nums text-slate-900">{rsShort(est.total - greyShare)}</p>
                     </div>
                   </div>
@@ -303,14 +303,14 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                 </ul>
               </Card>
 
-              <Card title="Material you will need" action={<span className="text-[12px] text-slate-400">Grey structure · {city} rates</span>}>
+              <Card title="Material you will need" action={<span className="text-[12px] text-slate-600">Grey structure · {city} rates</span>}>
                 <ul className="divide-y divide-slate-100">
                   {materials.map((m) => (
                     <li key={m.key}>
                       <Link href={m.href || '#'} className="group flex items-center gap-3 py-3">
                         <span className="min-w-0 flex-1">
                           <span className="block text-[14.5px] font-semibold text-slate-800 group-hover:text-primary">{MATERIAL_LABEL[m.key as Material]}</span>
-                          <span className="block text-[12.5px] tabular-nums text-slate-500">
+                          <span className="block text-[12.5px] tabular-nums text-slate-600">
                             {rupees(m.rate ?? 0)} per {m.unit}
                             {m.source === 'shop' ? ' · live' : ''}
                           </span>
@@ -319,9 +319,9 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                           <span className="block text-[15.5px] font-bold tabular-nums text-slate-900">
                             {m.key === 'steel' && m.qty ? `${(m.qty / 1000).toFixed(1)} ton` : `${m.qty?.toLocaleString('en-PK')} ${QTY_UNIT[m.key as Material]}`}
                           </span>
-                          <span className="block text-[12.5px] tabular-nums text-slate-500">{rsShort(m.amount)}</span>
+                          <span className="block text-[12.5px] tabular-nums text-slate-600">{rsShort(m.amount)}</span>
                         </span>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-300 group-hover:text-primary" />
+                        <ChevronRight className="h-4 w-4 shrink-0 text-slate-500 group-hover:text-primary" />
                       </Link>
                     </li>
                   ))}
@@ -340,12 +340,12 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                     </li>
                   ))}
                 </ol>
-                <p className="mt-4 text-[12.5px] text-slate-500">
+                <p className="mt-4 text-[12.5px] text-slate-600">
                   Grey structure takes about {est.months.grey} months{est.months.finishing ? `, finishing about ${est.months.finishing} more` : ''}.
                 </p>
               </Card>
 
-              <p className="flex gap-2 px-1 text-[12.5px] leading-relaxed text-slate-500">
+              <p className="flex gap-2 px-1 text-[12.5px] leading-relaxed text-slate-600">
                 <Info className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
                   An estimate to plan with, not a quote. Material prices are today&apos;s from our{' '}
@@ -358,7 +358,7 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
               </p>
             </>
           ) : (
-            <p className="rounded-3xl bg-white p-6 text-center text-[15px] text-slate-500 ring-1 ring-slate-200/70">Choose a plot size to see the cost.</p>
+            <p className="rounded-xl bg-white p-6 text-center text-[15px] text-slate-600 border border-slate-300">Choose a plot size to see the cost.</p>
           )
         }
       />
@@ -377,22 +377,22 @@ function PartRow({ part, total, color }: { part: EstimatePart; total: number; co
           <span className="flex items-baseline justify-between gap-3">
             <span className="text-[14.5px] font-semibold text-slate-900">{part.title}</span>
             <span className="shrink-0 text-[14.5px] font-bold tabular-nums text-slate-900">
-              {rsShort(part.amount)} <span className="text-[12px] font-semibold text-slate-400">{pct}%</span>
+              {rsShort(part.amount)} <span className="text-[12px] font-semibold text-slate-600">{pct}%</span>
             </span>
           </span>
-          <span className="mt-0.5 flex items-start justify-between gap-3 text-[12.5px] leading-snug text-slate-500">
+          <span className="mt-0.5 flex items-start justify-between gap-3 text-[12.5px] leading-snug text-slate-600">
             {part.blurb}
-            {part.lines.length > 0 && <ChevronDown className={cn('mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform print:hidden', open && 'rotate-180')} />}
+            {part.lines.length > 0 && <ChevronDown className={cn('mt-0.5 h-4 w-4 shrink-0 text-slate-600 transition-transform print:hidden', open && 'rotate-180')} />}
           </span>
         </span>
       </button>
       {part.lines.length > 0 && (
-        <ul className={cn('ml-5 mt-2 space-y-1 rounded-2xl bg-slate-50 p-3', open ? 'block' : 'hidden print:block')}>
+        <ul className={cn('ml-5 mt-2 space-y-1 rounded-lg bg-slate-50 p-3', open ? 'block' : 'hidden print:block')}>
           {part.lines.map((l) => (
             <li key={l.key} className="flex items-baseline justify-between gap-3 text-[13px]">
               <span className="text-slate-600">
                 {l.label}
-                {l.qty !== undefined && !(l.key in QTY_UNIT) && <span className="text-slate-400"> × {l.qty}</span>}
+                {l.qty !== undefined && !(l.key in QTY_UNIT) && <span className="text-slate-600"> × {l.qty}</span>}
               </span>
               <span className="shrink-0 font-semibold tabular-nums text-slate-800">{rsShort(l.amount)}</span>
             </li>

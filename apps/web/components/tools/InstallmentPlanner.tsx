@@ -67,7 +67,7 @@ export default function InstallmentPlanner() {
         }
         results={
           plan.error ? (
-            <p className="rounded-3xl bg-red-50 p-5 text-[15px] font-medium text-red-700 ring-1 ring-red-200">{plan.error}</p>
+            <p className="rounded-xl bg-red-50 p-5 text-[15px] font-medium text-red-700 border border-red-300">{plan.error}</p>
           ) : (
             <>
               <ResultHero
@@ -116,7 +116,7 @@ export default function InstallmentPlanner() {
                       <li key={i} className={cn('flex items-center justify-between gap-3 py-2.5', special && 'font-semibold')}>
                         <span className="min-w-0">
                           <span className="block text-[14px] text-slate-800">{r.label}</span>
-                          <span className="block text-[12px] text-slate-400">
+                          <span className="block text-[12px] text-slate-600">
                             {inBrowser ? fmtDate(r.date) : r.n ? `#${r.n}` : 'Now'} · {price ? Math.round((r.paid / price) * 100) : 0}% paid
                           </span>
                         </span>

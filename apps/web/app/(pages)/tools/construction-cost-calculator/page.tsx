@@ -58,7 +58,7 @@ export default async function Page() {
       faqs={faqs}
       guide={<CostIndex data={data} city={city} />}
     >
-      <Suspense fallback={<div className="h-[560px] animate-pulse rounded-2xl bg-white" />}>
+      <Suspense fallback={<div className="h-[560px] animate-pulse rounded-lg bg-white" />}>
         <ConstructionCalculator data={data} />
       </Suspense>
     </ToolShell>
