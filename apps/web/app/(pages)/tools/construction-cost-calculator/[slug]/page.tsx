@@ -96,11 +96,11 @@ export default async function Page({ params }: Params) {
     >
       <div className="space-y-5">
         {/* The answer at every quality — readable without the calculator. */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <section className="rounded-3xl bg-white p-4 ring-1 ring-slate-200/70 sm:p-5">
           <h2 className="text-[17px] font-bold text-slate-900">Cost by quality</h2>
           <div className="mt-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
             {tiers.map(({ q, full, labour }) => (
-              <div key={q.key} className={q.key === 'standard' ? 'rounded-xl border-2 border-primary/50 bg-primary/[0.04] p-3.5' : 'rounded-xl border border-slate-200 p-3.5'}>
+              <div key={q.key} className={q.key === 'standard' ? 'rounded-2xl bg-primary p-3.5 text-white [&_b]:text-white [&_p]:text-white/85' : 'rounded-2xl bg-slate-50 p-3.5'}>
                 <p className="text-[13px] font-bold text-slate-700">{q.label}</p>
                 <p className="mt-0.5 text-[21px] font-extrabold leading-tight tabular-nums text-slate-900">{rsShort(full.total)}</p>
                 <p className="text-[12.5px] tabular-nums text-slate-500">{rupees(full.perSqft)} per sq ft</p>
@@ -119,7 +119,7 @@ export default async function Page({ params }: Params) {
         </section>
 
         <div>
-          <h2 className="mb-3 text-[17px] font-bold text-slate-900">Make it your own</h2>
+          <h2 className="mb-3 px-1 text-[17px] font-bold text-slate-900">Change anything</h2>
           <Suspense fallback={<div className="h-[560px] animate-pulse rounded-2xl bg-white" />}>
             <ConstructionCalculator data={data} start={{ city, size: size.key, kind: grey ? 'grey' : 'complete' }} />
           </Suspense>

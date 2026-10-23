@@ -60,7 +60,7 @@ export function adsTxtLine(client: string): string {
 
 /* ───────────── Ad layout: the real sections of each page ───────────── */
 
-export type AdPage = 'home' | 'archive' | 'listing' | 'society' | 'blog';
+export type AdPage = 'home' | 'archive' | 'listing' | 'society' | 'blog' | 'tools' | 'other';
 export type AdSize = 'auto' | 'banner' | 'box';
 
 /** One ad: on which page, in which gap, with which ad unit and shape. */
@@ -172,7 +172,38 @@ export const AD_PAGES: PageLayout[] = [
     label: 'Blog post',
     main: [sec('article', 'Article', { tall: true }), gap('after:article', 'After the article'), sec('related', 'More posts')],
   },
+  {
+    key: 'tools',
+    label: 'Tools',
+    main: [
+      sec('title', 'Tool title'),
+      sec('tool', 'The calculator', { tall: true, hint: 'Construction cost, area converter, loan…' }),
+      gap('after:tool', 'Under the calculator'),
+      sec('guide', 'Guide & questions'),
+    ],
+  },
+  {
+    key: 'other',
+    label: 'All other pages',
+    main: [
+      gap('top', 'Under the header'),
+      sec('content', 'Page content', { tall: true, hint: 'Rates, societies, agents, blog list, tools, about, contact…' }),
+      gap('bottom', 'Above the footer'),
+    ],
+  },
 ];
+
+/**
+ * Pages that carry their own gaps above — "All other pages" ads stay off
+ * them, so no page gets two sets.
+ */
+export function hasOwnAdLayout(pathname: string): boolean {
+  if (pathname === '/') return true;
+  if (pathname.startsWith('/properties') || pathname.startsWith('/listing-detail') || pathname.startsWith('/p/')) return true;
+  if (/^\/blog\/[^/]+/.test(pathname)) return true; // a post (the blog list is an "other" page)
+  if (/^\/societies\/[^/]+\/[^/]+/.test(pathname)) return true; // a society guide
+  return false;
+}
 
 /** The on/off placements of before, as layout items — so nothing moves until a layout is saved. */
 const LEGACY: Record<AdPlacement, { page: AdPage; at: string; size: AdSize }> = {
@@ -201,10 +232,15 @@ export function adLayout(s: Partial<AdSettings>): AdItem[] {
       // Unreadable: fall back to the placements.
     }
   }
-  return AD_PLACEMENTS.filter((p) => s[`ads${p.key}` as const]).map((p) => {
-    const slot = s[`ads${p.key}Slot` as const] as string | undefined;
-    return { id: p.key.toLowerCase(), ...LEGACY[p.key], ...(slot ? { slot } : {}) };
-  });
+  return [
+    ...AD_PLACEMENTS.filter((p) => s[`ads${p.key}` as const]).map((p) => {
+      const slot = s[`ads${p.key}Slot` as const] as string | undefined;
+      return { id: p.key.toLowerCase(), ...LEGACY[p.key], ...(slot ? { slot } : {}) };
+    }),
+    // Every other page gets one too, until a layout is saved.
+    { id: 'toolsmain', page: 'tools', at: 'after:tool', size: 'auto' },
+    { id: 'otherbottom', page: 'other', at: 'bottom', size: 'auto' },
+  ];
 }
 
 export interface AdUnit {

@@ -3,13 +3,14 @@
 import { useMemo, useState, useSyncExternalStore } from 'react';
 import { installmentPlan, rsShort, rupees, type Frequency } from '@/lib/tools';
 import { cn } from '@/lib/utils';
-import { Answer, MoneyField, More, NumberField, Panel } from './fields';
+import { Card, Disclosure, MoneyField, ResultHero, Row, Segment, SliderField, Stepper, StickyAnswer, Tiles, ToolLayout, useOnScreen } from './ui';
 
-const EVERY: { key: Frequency; label: string; word: string }[] = [
-  { key: 1, label: 'Monthly', word: 'month' },
-  { key: 3, label: 'Quarterly', word: 'quarter' },
-  { key: 6, label: 'Half-yearly', word: 'six months' },
+const EVERY: { v: Frequency; label: string; word: string }[] = [
+  { v: 1, label: 'Monthly', word: 'month' },
+  { v: 3, label: 'Quarterly', word: 'quarter' },
+  { v: 6, label: '6-monthly', word: 'six months' },
 ];
+const PRICE_CHIPS = [2_500_000, 5_000_000, 10_000_000, 20_000_000, 35_000_000];
 
 export default function InstallmentPlanner() {
   const [price, setPrice] = useState(5_000_000);
@@ -19,8 +20,9 @@ export default function InstallmentPlanner() {
   const [balloons, setBalloons] = useState(2);
   const [balloonPct, setBalloonPct] = useState(5);
   const [possessionPct, setPossessionPct] = useState(10);
-  // Fixed for the session so the dates do not move while typing. The page is
-  // cached, so real dates are filled in by the browser, never the server.
+  const [heroRef, heroOn] = useOnScreen<HTMLElement>();
+  // Fixed for the session so the dates do not move while typing; real dates
+  // come from the browser, never a cached server page.
   const [start] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -36,100 +38,107 @@ export default function InstallmentPlanner() {
     () => installmentPlan({ price, downPct, months: Math.round(years * 12), every, balloons, balloonPct, possessionPct, start }),
     [price, downPct, years, every, balloons, balloonPct, possessionPct, start],
   );
-  const word = EVERY.find((e) => e.key === every)!.word;
+  const word = EVERY.find((e) => e.v === every)!.word;
+  const last = plan.rows[plan.rows.length - 1];
+  const fmtDate = (d: Date) => d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:items-start">
-      <Panel className="space-y-4 lg:sticky lg:top-20">
-        <MoneyField id="ip-price" label="Total price" value={price} onChange={setPrice} />
-        <div className="grid grid-cols-2 gap-3">
-          <NumberField id="ip-down" label="Down payment" value={downPct} onChange={setDownPct} suffix="%" max={100} />
-          <NumberField id="ip-years" label="Plan length" value={years} onChange={setYears} suffix="years" min={0.5} max={15} step={0.5} />
-        </div>
-        <div>
-          <p className="mb-1.5 text-[13px] font-semibold text-slate-600">Instalments</p>
-          <div className="grid grid-cols-3 gap-1.5">
-            {EVERY.map((e) => (
-              <button
-                key={e.key}
-                type="button"
-                onClick={() => setEvery(e.key)}
-                aria-pressed={every === e.key}
-                className={cn(
-                  'btn-shape rounded-xl border py-2.5 text-[14px] font-bold',
-                  every === e.key ? 'border-primary bg-primary text-white' : 'border-slate-200 text-slate-700 hover:border-primary/50',
-                )}
-              >
-                {e.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <NumberField id="ip-balloons" label="Balloon payments" value={balloons} onChange={(n) => setBalloons(Math.round(n))} max={12} step={1} />
-          <NumberField id="ip-bpct" label="Each balloon" value={balloonPct} onChange={setBalloonPct} suffix="%" max={50} />
-        </div>
-        <NumberField id="ip-poss" label="On possession" value={possessionPct} onChange={setPossessionPct} suffix="%" max={60} hint="Paid when you get the plot or house" />
-      </Panel>
-
-      <div className="min-w-0 space-y-4">
-        {plan.error ? (
-          <p className="rounded-2xl border border-red-200 bg-red-50 p-4 text-[14px] text-red-700">{plan.error}</p>
-        ) : (
+    <>
+      <StickyAnswer show={!heroOn && !plan.error} label={`Every ${word}`} value={rupees(plan.instalment)} onTap={() => (heroRef.current as HTMLElement | null)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
+      <ToolLayout
+        inputs={
           <>
-            <Answer
-              label={`Every ${word}`}
-              value={rupees(plan.instalment)}
-              sentence={
-                <>
-                  Pay <b>{rsShort(plan.down)}</b> now, then <b>{rupees(plan.instalment)}</b> every {word} for {plan.count} instalments
-                  {balloons > 0 && plan.balloon > 0 ? (
-                    <>
-                      , plus {balloons} balloon payment{balloons === 1 ? '' : 's'} of <b>{rsShort(plan.balloon)}</b>
-                    </>
-                  ) : null}
-                  {plan.possession > 0 ? (
-                    <>
-                      {' '}
-                      and <b>{rsShort(plan.possession)}</b> on possession
-                    </>
-                  ) : null}
-                  .
-                </>
-              }
-            />
+            <Card>
+              <div className="space-y-5">
+                <MoneyField label="Total price" value={price} onChange={setPrice} chips={PRICE_CHIPS} />
+                <SliderField label="Down payment" value={downPct} onChange={setDownPct} min={0} max={60} step={5} suffix="%" hint={rsShort((price * downPct) / 100)} />
+                <SliderField label="Plan length" value={years} onChange={setYears} min={1} max={10} step={0.5} suffix="yrs" />
+                <Segment label="Instalments" value={every} onChange={setEvery} options={EVERY.map((e) => ({ v: e.v, label: e.label }))} />
+              </div>
+            </Card>
+            <Card title="Lump sums">
+              <div className="space-y-4">
+                <Stepper label="Balloon payments" sub="Larger payments during the plan" value={balloons} onChange={setBalloons} min={0} max={12} />
+                {balloons > 0 && <SliderField label="Each balloon" value={balloonPct} onChange={setBalloonPct} min={1} max={25} step={1} suffix="%" hint={rsShort((price * balloonPct) / 100)} />}
+                <SliderField label="On possession" value={possessionPct} onChange={setPossessionPct} min={0} max={40} step={5} suffix="%" hint={rsShort((price * possessionPct) / 100)} />
+              </div>
+            </Card>
           </>
-        )}
+        }
+        results={
+          plan.error ? (
+            <p className="rounded-3xl bg-red-50 p-5 text-[15px] font-medium text-red-700 ring-1 ring-red-200">{plan.error}</p>
+          ) : (
+            <>
+              <ResultHero
+                heroRef={heroRef}
+                label={`Every ${word}`}
+                value={rupees(plan.instalment)}
+                sub={`${plan.count} instalments${inBrowser && last ? `, ending ${fmtDate(last.date)}` : ''}`}
+              >
+                <Tiles
+                  onBrand
+                  items={[
+                    { label: 'Pay now', value: rsShort(plan.down) },
+                    { label: balloons ? `${balloons} balloon${balloons === 1 ? '' : 's'}` : 'Balloons', value: balloons ? rsShort(plan.balloon) : '—', hint: balloons ? 'each' : undefined },
+                    { label: 'On possession', value: plan.possession ? rsShort(plan.possession) : '—' },
+                  ]}
+                />
+              </ResultHero>
 
-        {plan.rows.length > 0 && (
-          <More title={`Payment schedule — ${plan.rows.length} payments`}>
-            <div className="-mx-4 max-h-[520px] overflow-auto px-4 sm:mx-0 sm:px-0">
-              <table className="w-full min-w-[420px] text-[13.5px] tabular-nums">
-                <thead className="sticky top-0 bg-white">
-                  <tr className="border-b border-slate-200 text-left text-[11.5px] uppercase tracking-wide text-slate-500">
-                    <th className="py-2 pr-2 font-semibold">Due</th>
-                    <th className="py-2 pr-2 font-semibold">Payment</th>
-                    <th className="py-2 pr-2 text-right font-semibold">Amount</th>
-                    <th className="py-2 text-right font-semibold">Paid so far</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {plan.rows.map((r, i) => (
-                    <tr key={i} className={cn('border-b border-slate-100 last:border-0', r.label !== `Instalment ${r.n}` && 'bg-primary/5 font-semibold')}>
-                      <td className="whitespace-nowrap py-2 pr-2 text-slate-600">
-                        {inBrowser ? r.date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }) : r.n ? `#${r.n}` : 'Now'}
-                      </td>
-                      <td className="py-2 pr-2 text-slate-800">{r.label}</td>
-                      <td className="py-2 pr-2 text-right">{rupees(r.amount)}</td>
-                      <td className="py-2 text-right text-slate-500">{price ? `${Math.round((r.paid / price) * 100)}%` : ''}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </More>
-        )}
-      </div>
-    </div>
+              <Card title="How the price is paid">
+                <div className="flex h-3 gap-[2px] overflow-hidden rounded-full" aria-hidden>
+                  {[
+                    { v: plan.down, c: '#2a78d6' },
+                    { v: plan.instalment * plan.count, c: '#eb6834' },
+                    { v: plan.balloon * balloons, c: '#1baf7a' },
+                    { v: plan.possession, c: '#eda100' },
+                  ]
+                    .filter((x) => x.v > 0)
+                    .map((x, i) => (
+                      <div key={i} style={{ width: `${(x.v / price) * 100}%`, background: x.c }} />
+                    ))}
+                </div>
+                <div className="mt-2 divide-y divide-slate-100">
+                  <Row label={<Dot c="#2a78d6">Down payment</Dot>} value={rsShort(plan.down)} />
+                  <Row label={<Dot c="#eb6834">{`${plan.count} instalments`}</Dot>} value={rsShort(plan.instalment * plan.count)} />
+                  {balloons > 0 && <Row label={<Dot c="#1baf7a">{`${balloons} balloon payments`}</Dot>} value={rsShort(plan.balloon * balloons)} />}
+                  {plan.possession > 0 && <Row label={<Dot c="#eda100">On possession</Dot>} value={rsShort(plan.possession)} />}
+                  <Row label="Total" value={rupees(price)} strong />
+                </div>
+              </Card>
+
+              <Disclosure title="Payment schedule" sub={`${plan.rows.length} payments with their due dates`}>
+                <ol className="divide-y divide-slate-100">
+                  {plan.rows.map((r, i) => {
+                    const special = r.label !== `Instalment ${r.n}`;
+                    return (
+                      <li key={i} className={cn('flex items-center justify-between gap-3 py-2.5', special && 'font-semibold')}>
+                        <span className="min-w-0">
+                          <span className="block text-[14px] text-slate-800">{r.label}</span>
+                          <span className="block text-[12px] text-slate-400">
+                            {inBrowser ? fmtDate(r.date) : r.n ? `#${r.n}` : 'Now'} · {price ? Math.round((r.paid / price) * 100) : 0}% paid
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-[14.5px] tabular-nums text-slate-900">{rupees(r.amount)}</span>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </Disclosure>
+            </>
+          )
+        }
+      />
+    </>
+  );
+}
+
+function Dot({ c, children }: { c: string; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: c }} />
+      {children}
+    </span>
   );
 }

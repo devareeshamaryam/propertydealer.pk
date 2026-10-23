@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ArrowLeftRight, Copy } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { MARLA_STANDARDS, UNITS, convert, nice, unitDef, type UnitKey } from '@/lib/area-units';
 import { cn } from '@/lib/utils';
+import { Card, Disclosure, ResultHero, Segment, StickyAnswer, ToolLayout, useOnScreen } from './ui';
 
 const QUICK: { v: number; u: UnitKey; label: string }[] = [
   { v: 3, u: 'marla', label: '3 Marla' },
@@ -13,7 +14,8 @@ const QUICK: { v: number; u: UnitKey; label: string }[] = [
   { v: 10, u: 'marla', label: '10 Marla' },
   { v: 1, u: 'kanal', label: '1 Kanal' },
   { v: 2, u: 'kanal', label: '2 Kanal' },
-  { v: 120, u: 'sqyd', label: '120 Sq yd' },
+  { v: 120, u: 'sqyd', label: '120 Gaz' },
+  { v: 240, u: 'sqyd', label: '240 Gaz' },
   { v: 1, u: 'acre', label: '1 Acre' },
 ];
 
@@ -29,6 +31,7 @@ const SIZES: { v: number; u: UnitKey }[] = [
 ];
 
 const DIMENSIONS = [
+  [20, 45],
   [25, 45],
   [30, 60],
   [35, 65],
@@ -36,235 +39,222 @@ const DIMENSIONS = [
   [50, 90],
 ];
 
-const field =
-  'h-12 w-full rounded-xl border border-slate-300 bg-white px-3.5 text-[17px] tabular-nums text-slate-900 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20';
+/** The four sizes people quote most — big, in the answer card. */
+const HEADLINE: UnitKey[] = ['marla', 'kanal', 'sqft', 'sqyd'];
+const LEN_UNITS = { ft: { label: 'Feet', sqft: 1 }, m: { label: 'Metres', sqft: 10.7639104 }, yd: { label: 'Yards', sqft: 9 } } as const;
+type LenUnit = keyof typeof LEN_UNITS;
+
+const copy = (text: string) =>
+  navigator.clipboard?.writeText(text).then(
+    () => toast.success(`Copied ${text}`),
+    () => undefined,
+  );
 
 export default function AreaConverter() {
+  const [tab, setTab] = useState<'convert' | 'dims'>('convert');
   const [value, setValue] = useState('5');
   const [from, setFrom] = useState<UnitKey>('marla');
-  const [to, setTo] = useState<UnitKey>('sqft');
   const [marla, setMarla] = useState<number>(225);
   const [len, setLen] = useState('25');
   const [wid, setWid] = useState('45');
+  const [lenUnit, setLenUnit] = useState<LenUnit>('ft');
+  const [heroRef, heroOn] = useOnScreen<HTMLElement>();
 
   const n = Number(value);
   const valid = Number.isFinite(n) && n > 0;
-  const results = useMemo(() => UNITS.map((u) => ({ u, v: valid ? convert(n, from, u.key, marla) : 0 })), [n, valid, from, marla]);
-  const main = valid ? convert(n, from, to, marla) : 0;
+  const to = (u: UnitKey) => (valid ? convert(n, from, u, marla) : 0);
 
-  const dimSqft = (Number(len) || 0) * (Number(wid) || 0);
+  const dimSqft = (Number(len) || 0) * (Number(wid) || 0) * LEN_UNITS[lenUnit].sqft;
+  const sqft = tab === 'convert' ? to('sqft') : dimSqft;
+  const inUnit = (u: UnitKey) => (sqft > 0 ? convert(sqft, 'sqft', u, marla) : 0);
+  const std = MARLA_STANDARDS.find((m) => m.sqft === marla)!;
 
-  const copy = (text: string) => {
-    navigator.clipboard?.writeText(text).then(
-      () => toast.success(`Copied: ${text}`),
-      () => undefined,
-    );
-  };
+  const headline = tab === 'convert' ? `${valid ? nice(n) : '—'} ${unitDef(from).label}` : `${len || 0} × ${wid || 0} ${LEN_UNITS[lenUnit].label.toLowerCase()}`;
 
   return (
-    <div className="space-y-5">
-      {/* Converter */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-        <div className="grid items-end gap-3 md:grid-cols-[1fr_auto_1fr]">
-          <div>
-            <label className="mb-1.5 block text-[13px] font-semibold text-slate-600" htmlFor="ac-value">
-              Size
-            </label>
-            <div className="flex gap-2">
-              <input id="ac-value" type="number" inputMode="decimal" min="0" step="any" value={value} onChange={(e) => setValue(e.target.value)} className={field} placeholder="0" />
-              <select value={from} onChange={(e) => setFrom(e.target.value as UnitKey)} className={cn(field, 'w-[150px] shrink-0 text-[15px]')} aria-label="From unit">
-                {UNITS.map((u) => (
-                  <option key={u.key} value={u.key}>
-                    {u.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setFrom(to);
-              setTo(from);
-              if (valid) setValue(String(Number(main.toFixed(4))));
-            }}
-            className="mx-auto grid h-11 w-11 place-items-center rounded-full border border-slate-300 text-slate-600 hover:border-primary hover:text-primary md:mb-0.5"
-            aria-label="Swap units"
-            title="Swap"
-          >
-            <ArrowLeftRight className="h-5 w-5 rotate-90 md:rotate-0" />
-          </button>
-          <div>
-            <label className="mb-1.5 block text-[13px] font-semibold text-slate-600" htmlFor="ac-to">
-              Equals
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => valid && copy(`${nice(main)} ${unitDef(to).short}`)}
-                className={cn(field, 'flex items-center justify-between bg-slate-50 text-left font-bold')}
-                title="Copy"
-              >
-                <span className="truncate">{valid ? nice(main) : '—'}</span>
-                <Copy className="h-4 w-4 shrink-0 text-slate-400" />
-              </button>
-              <select id="ac-to" value={to} onChange={(e) => setTo(e.target.value as UnitKey)} className={cn(field, 'w-[150px] shrink-0 text-[15px]')}>
-                {UNITS.map((u) => (
-                  <option key={u.key} value={u.key}>
-                    {u.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="hide-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0">
-          {QUICK.map((q) => {
-            const on = n === q.v && from === q.u;
-            return (
-              <button
-                key={q.label}
-                type="button"
-                onClick={() => {
-                  setValue(String(q.v));
-                  setFrom(q.u);
-                }}
-                className={cn(
-                  'btn-shape shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-colors',
-                  on ? 'border-primary bg-primary text-white' : 'border-slate-200 bg-white text-slate-700 hover:border-primary/50',
-                )}
-              >
-                {q.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Which marla */}
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
-          <span className="shrink-0 text-[13px] font-semibold text-slate-600">1 Marla =</span>
-          <div className="grid grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1" role="radiogroup" aria-label="Marla size">
-            {MARLA_STANDARDS.map((m) => (
-              <button
-                key={m.sqft}
-                type="button"
-                role="radio"
-                aria-checked={marla === m.sqft}
-                onClick={() => setMarla(m.sqft)}
-                title={m.hint}
-                className={cn('rounded-lg px-3 py-1.5 text-[13.5px] font-bold tabular-nums transition-colors', marla === m.sqft ? 'bg-white text-primary shadow-sm' : 'text-slate-600 hover:text-slate-900')}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-          <span className="text-[12px] text-slate-500">{MARLA_STANDARDS.find((m) => m.sqft === marla)?.hint}</span>
-        </div>
-      </section>
-
-      {/* Every unit at once */}
-      <section>
-        <h2 className="mb-2.5 text-[18px] font-bold text-slate-900">
-          {valid ? `${nice(n)} ${unitDef(from).label} in every unit` : 'Every unit'}
-        </h2>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-          {results.map(({ u, v }) => (
-            <button
-              key={u.key}
-              type="button"
-              onClick={() => valid && copy(`${nice(v)} ${u.short}`)}
-              className={cn(
-                'group rounded-xl border bg-white p-3 text-left transition-colors hover:border-primary/50',
-                u.key === from ? 'border-primary/50 ring-1 ring-primary/20' : 'border-slate-200',
+    <>
+      <StickyAnswer show={!heroOn && sqft > 0} label={headline} value={`${nice(inUnit('marla'))} Marla`} onTap={() => (heroRef.current as HTMLElement | null)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
+      <ToolLayout
+        inputs={
+          <>
+            <Segment
+              value={tab}
+              onChange={setTab}
+              options={[
+                { v: 'convert', label: 'Convert a size' },
+                { v: 'dims', label: 'Length × width' },
+              ]}
+            />
+            <Card>
+              {tab === 'convert' ? (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="any"
+                      value={value}
+                      onChange={(e) => setValue(e.target.value)}
+                      placeholder="0"
+                      aria-label="Size"
+                      className="h-14 min-w-0 flex-1 rounded-2xl bg-slate-50 px-4 text-[24px] font-extrabold tabular-nums text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/40"
+                    />
+                    <span className="relative w-[44%] max-w-[180px] shrink-0">
+                      <select
+                        value={from}
+                        onChange={(e) => setFrom(e.target.value as UnitKey)}
+                        aria-label="Unit"
+                        className="h-14 w-full appearance-none rounded-2xl bg-slate-50 pl-3.5 pr-8 text-[15px] font-bold text-slate-900 outline-none ring-1 ring-slate-200 focus:ring-2 focus:ring-primary/40"
+                      >
+                        {UNITS.map((u) => (
+                          <option key={u.key} value={u.key}>
+                            {u.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    </span>
+                  </div>
+                  <div className="hide-scrollbar -mx-1 flex gap-1.5 overflow-x-auto px-1">
+                    {QUICK.map((q) => (
+                      <button
+                        key={q.label}
+                        type="button"
+                        onClick={() => {
+                          setValue(String(q.v));
+                          setFrom(q.u);
+                        }}
+                        className={cn('shrink-0 rounded-full px-3 py-1.5 text-[12.5px] font-semibold', n === q.v && from === q.u ? 'bg-primary text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}
+                      >
+                        {q.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                    {[
+                      [len, setLen, 'Front'],
+                      [wid, setWid, 'Depth'],
+                    ].map(([v, set, l], i) => (
+                      <label key={l as string} className={cn('block', i === 1 && 'col-start-3')}>
+                        <span className="mb-1 block text-[12.5px] font-semibold text-slate-500">{l as string}</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min="0"
+                          value={v as string}
+                          onChange={(e) => (set as (s: string) => void)(e.target.value)}
+                          className="h-14 w-full rounded-2xl bg-slate-50 px-4 text-[22px] font-extrabold tabular-nums text-slate-900 outline-none ring-1 ring-slate-200 focus:bg-white focus:ring-2 focus:ring-primary/40"
+                        />
+                      </label>
+                    ))}
+                    <span className="col-start-2 row-start-1 self-end pb-4 text-[20px] font-bold text-slate-300">×</span>
+                  </div>
+                  <Segment value={lenUnit} onChange={setLenUnit} options={(Object.keys(LEN_UNITS) as LenUnit[]).map((k) => ({ v: k, label: LEN_UNITS[k].label }))} />
+                  <div className="flex flex-wrap gap-1.5">
+                    {DIMENSIONS.map(([a, b]) => (
+                      <button
+                        key={`${a}x${b}`}
+                        type="button"
+                        onClick={() => {
+                          setLen(String(a));
+                          setWid(String(b));
+                          setLenUnit('ft');
+                        }}
+                        className="rounded-full bg-slate-100 px-3 py-1.5 text-[12.5px] font-semibold text-slate-600 hover:bg-slate-200"
+                      >
+                        {a} × {b} ft
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
-            >
-              <span className="flex items-start justify-between gap-2">
-                <span className="text-[19px] font-extrabold tabular-nums text-slate-900 [overflow-wrap:anywhere]">{valid ? nice(v) : '—'}</span>
-                <Copy className="mt-1 h-3.5 w-3.5 shrink-0 text-slate-300 group-hover:text-primary" />
-              </span>
-              <span className="block text-[13px] font-semibold text-slate-600">{u.label}</span>
-              {u.hint && <span className="block text-[11.5px] text-slate-400">{u.hint}</span>}
-              {u.local && marla !== 225 && <span className="block text-[11.5px] text-amber-700">on {nice(marla)} sq ft marla</span>}
-            </button>
-          ))}
-        </div>
-      </section>
+            </Card>
+            <Card>
+              <Segment label="1 Marla =" value={marla} onChange={setMarla} options={MARLA_STANDARDS.map((m) => ({ v: m.sqft, label: `${nice(m.sqft)} ft²` }))} />
+              <p className="mt-2 text-[12.5px] leading-snug text-slate-500">{std.hint}</p>
+            </Card>
+          </>
+        }
+        results={
+          <>
+            <ResultHero heroRef={heroRef} label={headline} value={sqft > 0 ? `${nice(inUnit('marla'))} Marla` : '—'} sub={sqft > 0 ? `${nice(sqft)} square feet` : 'Enter a size'}>
+              <dl className="mt-4 grid grid-cols-2 gap-2">
+                {HEADLINE.map((u) => (
+                  <button key={u} type="button" onClick={() => sqft > 0 && copy(`${nice(inUnit(u))} ${unitDef(u).short}`)} className="rounded-2xl bg-white/12 px-3 py-2.5 text-left ring-1 ring-white/15 hover:bg-white/20">
+                    <dt className="text-[11.5px] font-medium text-white/70">{unitDef(u).label}</dt>
+                    <dd className="text-[19px] font-extrabold tabular-nums">{sqft > 0 ? nice(inUnit(u)) : '—'}</dd>
+                  </button>
+                ))}
+              </dl>
+            </ResultHero>
 
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-2">
-        {/* Length × width */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-          <h2 className="text-[18px] font-bold text-slate-900">Plot size from length × width</h2>
-          <p className="text-[13.5px] text-slate-500">Front and depth in feet — e.g. 25 × 45.</p>
-          <div className="mt-3 flex items-center gap-2">
-            <input type="number" inputMode="decimal" min="0" value={len} onChange={(e) => setLen(e.target.value)} className={field} aria-label="Length in feet" />
-            <span className="text-[18px] font-bold text-slate-400">×</span>
-            <input type="number" inputMode="decimal" min="0" value={wid} onChange={(e) => setWid(e.target.value)} className={field} aria-label="Width in feet" />
-            <span className="text-[14px] text-slate-500">ft</span>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {DIMENSIONS.map(([a, b]) => (
-              <button
-                key={`${a}x${b}`}
-                type="button"
-                onClick={() => {
-                  setLen(String(a));
-                  setWid(String(b));
-                }}
-                className="btn-shape rounded-full border border-slate-200 px-2.5 py-1 text-[12.5px] font-medium text-slate-600 hover:border-primary/50"
-              >
-                {a} × {b}
-              </button>
-            ))}
-          </div>
-          <dl className="mt-4 grid grid-cols-2 gap-2 text-center">
-            {[
-              { k: 'Square feet', v: nice(dimSqft) },
-              { k: 'Marla', v: nice(dimSqft / marla) },
-              { k: 'Kanal', v: nice(dimSqft / (marla * 20)) },
-              { k: 'Square yards', v: nice(dimSqft / 9) },
-            ].map((r) => (
-              <div key={r.k} className="rounded-xl bg-slate-50 px-2 py-2.5">
-                <dt className="text-[12px] text-slate-500">{r.k}</dt>
-                <dd className="text-[18px] font-extrabold tabular-nums text-slate-900">{dimSqft > 0 ? r.v : '—'}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-
-        {/* Common sizes */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-          <h2 className="text-[18px] font-bold text-slate-900">Common plot sizes</h2>
-          <p className="text-[13.5px] text-slate-500">On the {nice(marla)} sq ft marla.</p>
-          <div className="mt-3 overflow-x-auto">
-            <table className="w-full min-w-[340px] text-[14px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-[12px] uppercase tracking-wide text-slate-500">
-                  <th className="py-2 pr-2 font-semibold">Size</th>
-                  <th className="py-2 pr-2 text-right font-semibold">Sq ft</th>
-                  <th className="py-2 pr-2 text-right font-semibold">Sq yd</th>
-                  <th className="py-2 text-right font-semibold">Sq m</th>
-                </tr>
-              </thead>
-              <tbody className="tabular-nums">
-                {SIZES.map((s) => {
-                  const sqft = convert(s.v, s.u, 'sqft', marla);
+            <Card title="Every unit" action={<span className="text-[12px] text-slate-400">Tap to convert from it</span>}>
+              <ul className="divide-y divide-slate-100">
+                {UNITS.filter((u) => !HEADLINE.includes(u.key)).map((u) => {
+                  const v = inUnit(u.key);
                   return (
-                    <tr key={`${s.v}${s.u}`} className="border-b border-slate-100 last:border-0">
-                      <td className="py-2 pr-2 font-semibold text-slate-800">
-                        {s.v} {s.u === 'kanal' ? 'Kanal' : 'Marla'}
-                      </td>
-                      <td className="py-2 pr-2 text-right">{nice(sqft)}</td>
-                      <td className="py-2 pr-2 text-right">{nice(sqft / 9)}</td>
-                      <td className="py-2 text-right">{nice(sqft / 10.7639104)}</td>
-                    </tr>
+                    <li key={u.key} className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!(v > 0)) return;
+                          setTab('convert');
+                          setValue(String(Number(v.toPrecision(8))));
+                          setFrom(u.key);
+                        }}
+                        className="flex min-w-0 flex-1 items-baseline justify-between gap-3 py-3 text-left"
+                      >
+                        <span className="min-w-0">
+                          <span className="block text-[14.5px] font-semibold text-slate-800">{u.label}</span>
+                          {(u.hint || (u.local && marla !== 225)) && <span className="block text-[12px] text-slate-400">{u.local && marla !== 225 ? `on the ${nice(marla)} ft² marla` : u.hint}</span>}
+                        </span>
+                        <span className="shrink-0 text-[16px] font-bold tabular-nums text-slate-900">{v > 0 ? nice(v) : '—'}</span>
+                      </button>
+                      <button type="button" onClick={() => v > 0 && copy(`${nice(v)} ${u.short}`)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-primary" aria-label={`Copy ${u.label}`}>
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    </div>
+              </ul>
+            </Card>
+
+            <Disclosure title="Common plot sizes" sub={`On the ${nice(marla)} ft² marla`}>
+              <div className="-mx-1 overflow-x-auto">
+                <table className="w-full min-w-[320px] text-[14px] tabular-nums">
+                  <thead>
+                    <tr className="text-left text-[11.5px] uppercase tracking-wide text-slate-400">
+                      <th className="py-2 pr-2 font-semibold">Size</th>
+                      <th className="py-2 pr-2 text-right font-semibold">Sq ft</th>
+                      <th className="py-2 pr-2 text-right font-semibold">Sq yd</th>
+                      <th className="py-2 text-right font-semibold">Sq m</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {SIZES.map((s) => {
+                      const f = convert(s.v, s.u, 'sqft', marla);
+                      return (
+                        <tr key={`${s.v}${s.u}`} className="border-t border-slate-100">
+                          <td className="py-2 pr-2 font-semibold text-slate-800">
+                            {s.v} {s.u === 'kanal' ? 'Kanal' : 'Marla'}
+                          </td>
+                          <td className="py-2 pr-2 text-right">{nice(f)}</td>
+                          <td className="py-2 pr-2 text-right">{nice(f / 9)}</td>
+                          <td className="py-2 text-right">{nice(f / 10.7639104)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Disclosure>
+          </>
+        }
+      />
+    </>
   );
 }

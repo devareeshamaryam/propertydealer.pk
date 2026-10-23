@@ -1,19 +1,35 @@
 import Link from 'next/link';
-import { Calendar, ChevronRight, Hammer, Landmark, Ruler, TrendingUp } from 'lucide-react';
+import { ArrowLeft, BookOpen, Calendar, ChevronDown, Hammer, Landmark, Ruler, Tag, TrendingUp } from 'lucide-react';
+import { AdZone } from '@/components/ads/AdSlot';
 import { TOOLS, type ToolInfo } from '@/lib/tools';
+import { ShareButton } from './ui';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 
-export const TOOL_ICONS = { ruler: Ruler, hammer: Hammer, landmark: Landmark, calendar: Calendar, trending: TrendingUp } as const;
+export const TOOL_ICONS = { ruler: Ruler, hammer: Hammer, landmark: Landmark, calendar: Calendar, trending: TrendingUp, tag: Tag } as const;
 
 export interface Faq {
   q: string;
   a: string;
 }
 
+/** A tool's icon tile — the same square on the tools screen and in each tool's bar. */
+export function ToolIcon({ tool, size = 'md' }: { tool: ToolInfo; size?: 'sm' | 'md' | 'lg' }) {
+  const Icon = TOOL_ICONS[tool.icon];
+  const box = size === 'lg' ? 'h-16 w-16 rounded-[22px]' : size === 'sm' ? 'h-10 w-10 rounded-2xl' : 'h-12 w-12 rounded-2xl';
+  const ic = size === 'lg' ? 'h-8 w-8' : size === 'sm' ? 'h-5 w-5' : 'h-6 w-6';
+  return (
+    <span className={`grid shrink-0 place-items-center text-white shadow-[0_8px_18px_-8px_rgba(15,23,42,0.45)] ${box}`} style={{ background: `linear-gradient(145deg, ${tool.color}, ${tool.color}cc)` }}>
+      <Icon className={ic} strokeWidth={2.2} />
+    </span>
+  );
+}
+
 /**
- * The frame every tool page shares: breadcrumb, heading, the tool, a short
- * guide, questions people ask (with FAQ schema) and the other tools.
+ * The frame every tool shares, laid out like an app screen: a bar with back,
+ * the tool's icon and name, and share; the tool itself; then — folded away
+ * until wanted — how it works and the questions people ask; and the other
+ * tools as icons.
  */
 export default function ToolShell({
   tool,
@@ -24,14 +40,14 @@ export default function ToolShell({
   faqs = [],
   page,
 }: {
-  /** A page under the tool (a ready-made estimate): its title and path. */
-  page?: { title: string; path: string };
   tool: ToolInfo;
   heading?: string;
   intro: string;
   children: React.ReactNode;
   guide?: React.ReactNode;
   faqs?: Faq[];
+  /** A page under the tool (a ready-made estimate): its title and path. */
+  page?: { title: string; path: string };
 }) {
   const toolUrl = `${BASE_URL}/tools/${tool.slug}`;
   const url = page ? `${BASE_URL}${page.path}` : toolUrl;
@@ -69,83 +85,89 @@ export default function ToolShell({
   const others = TOOLS.filter((t) => t.slug !== tool.slug);
 
   return (
-    <main className="bg-slate-50 pb-12">
+    <main className="min-h-screen bg-slate-50 pb-14">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }} />
-      <section className="border-b border-slate-200 bg-white print:border-0">
-        <div className="container mx-auto px-[var(--gutter)] py-5 sm:px-4 sm:py-8">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1 text-[13px] text-slate-500 print:hidden">
-            <Link href="/" className="hover:text-primary">Home</Link>
-            <ChevronRight className="h-3.5 w-3.5" />
-            <Link href="/tools" className="hover:text-primary">Tools</Link>
-            <ChevronRight className="h-3.5 w-3.5" />
-            {page ? (
-              <>
-                <Link href={`/tools/${tool.slug}`} className="shrink-0 hover:text-primary">
-                  {tool.title}
-                </Link>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate text-slate-700">{page.title}</span>
-              </>
-            ) : (
-              <span className="truncate text-slate-700">{tool.title}</span>
-            )}
-          </nav>
-          <h1 className="mt-2 text-[25px] font-extrabold leading-tight tracking-tight text-slate-900 sm:text-[34px]">{heading ?? tool.title}</h1>
-          <p className="mt-1.5 max-w-3xl text-[15px] text-slate-600">{intro}</p>
-        </div>
-      </section>
 
-      <div className="container mx-auto px-[var(--gutter)] pt-5 sm:px-4 sm:pt-8">{children}</div>
-
-      {(guide || faqs.length > 0) && (
-        <div className="container mx-auto mt-10 grid gap-8 px-[var(--gutter)] sm:px-4 lg:grid-cols-[1fr_340px] print:hidden">
-          <div className="space-y-8">
-            {guide && <div className="tool-guide max-w-3xl space-y-3 text-[15px] leading-relaxed text-slate-700">{guide}</div>}
-            {faqs.length > 0 && (
-              <section>
-                <h2 className="text-[21px] font-bold tracking-tight text-slate-900">Questions people ask</h2>
-                <div className="mt-3 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                  {faqs.map((f) => (
-                    <details key={f.q} className="group px-4 py-3.5 sm:px-5">
-                      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-[15px] font-semibold text-slate-900">
-                        {f.q}
-                        <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
-                      </summary>
-                      <p className="mt-2 text-[14.5px] leading-relaxed text-slate-600">{f.a}</p>
-                    </details>
-                  ))}
-                </div>
-              </section>
-            )}
+      {/* App bar */}
+      <div className="border-b border-slate-200/70 bg-white print:border-0">
+        <div className="container mx-auto px-[var(--gutter)] py-3 sm:px-4 sm:py-5">
+          <div className="flex items-center gap-3">
+            <Link
+              href={page ? `/tools/${tool.slug}` : '/tools'}
+              aria-label={page ? tool.title : 'All tools'}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-100 text-slate-700 transition-colors hover:bg-slate-200 print:hidden"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <ToolIcon tool={tool} size="sm" />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[18px] font-extrabold leading-tight tracking-tight text-slate-900 sm:text-[26px]">{heading ?? tool.title}</h1>
+              <nav aria-label="Breadcrumb" className="hidden truncate text-[12.5px] text-slate-400 sm:block">
+                <Link href="/" className="hover:text-primary">Home</Link> /{' '}
+                <Link href="/tools" className="hover:text-primary">Tools</Link>
+                {page && (
+                  <>
+                    {' '}/{' '}
+                    <Link href={`/tools/${tool.slug}`} className="hover:text-primary">
+                      {tool.title}
+                    </Link>
+                  </>
+                )}
+              </nav>
+            </div>
+            <ShareButton title={page?.title ?? tool.title} />
           </div>
-          <aside>
-            <h2 className="text-[17px] font-bold text-slate-900">More tools</h2>
-            <div className="mt-3 space-y-2">
-              {others.map((t) => (
-                <ToolLink key={t.slug} tool={t} />
+          <p className="mt-2.5 max-w-3xl text-[14px] leading-relaxed text-slate-600 sm:mt-3 sm:text-[15px]">{intro}</p>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-[var(--gutter)] pt-4 sm:px-4 sm:pt-6">{children}</div>
+
+      <AdZone page="tools" at="after:tool" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
+
+      <div className="container mx-auto mt-8 space-y-3 px-[var(--gutter)] sm:px-4 print:hidden">
+        {guide && (
+          <details className="group rounded-3xl bg-white ring-1 ring-slate-200/70 [&_summary::-webkit-details-marker]:hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4 sm:px-5">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-100">
+                <BookOpen className="h-4.5 w-4.5 text-slate-600" />
+              </span>
+              <span className="flex-1 text-[15.5px] font-bold text-slate-900">How it works</span>
+              <ChevronDown className="h-5 w-5 text-slate-400 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="tool-guide space-y-3 px-4 pb-5 text-[15px] leading-relaxed text-slate-700 sm:px-5">{guide}</div>
+          </details>
+        )}
+
+        {faqs.length > 0 && (
+          <section className="overflow-hidden rounded-3xl bg-white ring-1 ring-slate-200/70">
+            <h2 className="px-4 pb-1 pt-4 text-[17px] font-bold text-slate-900 sm:px-5">Questions people ask</h2>
+            <div className="divide-y divide-slate-100">
+              {faqs.map((f) => (
+                <details key={f.q} className="group px-4 py-3.5 sm:px-5 [&_summary::-webkit-details-marker]:hidden">
+                  <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-[15px] font-semibold text-slate-800">
+                    {f.q}
+                    <ChevronDown className="mt-0.5 h-4.5 w-4.5 shrink-0 text-slate-400 transition-transform group-open:rotate-180" />
+                  </summary>
+                  <p className="mt-2 text-[14.5px] leading-relaxed text-slate-600">{f.a}</p>
+                </details>
               ))}
             </div>
-          </aside>
-        </div>
-      )}
-    </main>
-  );
-}
+          </section>
+        )}
 
-export function ToolLink({ tool, big }: { tool: ToolInfo; big?: boolean }) {
-  const Icon = TOOL_ICONS[tool.icon];
-  return (
-    <Link
-      href={`/tools/${tool.slug}`}
-      className={`group flex items-start gap-3 rounded-2xl border border-slate-200 bg-white transition-colors hover:border-primary/40 hover:shadow-sm ${big ? 'p-4 sm:p-5' : 'p-3'}`}
-    >
-      <span className={`grid shrink-0 place-items-center rounded-xl bg-primary/10 text-primary ${big ? 'h-12 w-12' : 'h-10 w-10'}`}>
-        <Icon className={big ? 'h-6 w-6' : 'h-5 w-5'} />
-      </span>
-      <span className="min-w-0">
-        <span className={`block font-bold text-slate-900 group-hover:text-primary ${big ? 'text-[17px]' : 'text-[14.5px]'}`}>{tool.title}</span>
-        <span className={`block text-slate-500 ${big ? 'mt-0.5 text-[14px]' : 'text-[12.5px]'}`}>{tool.short}</span>
-      </span>
-    </Link>
+        <section className="pt-4">
+          <h2 className="mb-3 text-[17px] font-bold text-slate-900">More tools</h2>
+          <div className="hide-scrollbar -mx-[var(--gutter)] flex gap-3 overflow-x-auto px-[var(--gutter)] pb-1 sm:mx-0 sm:grid sm:grid-cols-5 sm:px-0">
+            {others.map((t) => (
+              <Link key={t.slug} href={`/tools/${t.slug}`} className="group flex w-[104px] shrink-0 flex-col items-center gap-2 rounded-3xl bg-white p-3 text-center ring-1 ring-slate-200/70 transition-shadow hover:shadow-md sm:w-auto">
+                <ToolIcon tool={t} />
+                <span className="text-[12.5px] font-semibold leading-tight text-slate-800 group-hover:text-primary">{t.title}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </div>
+    </main>
   );
 }

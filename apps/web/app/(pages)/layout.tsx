@@ -4,6 +4,7 @@ import MobileNav from "@/components/MobileNav";
 import { CartProvider } from "@/components/shop/CartProvider";
 import CartSheet from "@/components/shop/CartSheet";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
+import { OtherPagesAdZone } from "@/components/ads/AdSlot";
 
 export default function PagesLayout({
   children,
@@ -16,7 +17,9 @@ export default function PagesLayout({
       {/* .site-shell: phones get the edge-to-edge gutter (globals.css). */}
       <div className="site-shell">
       <NavBar />
+      <OtherPagesAdZone at="top" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {children}
+      <OtherPagesAdZone at="bottom" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       <Footer />
 
       {/*

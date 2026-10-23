@@ -667,3 +667,18 @@ a[class*="footerAction"] {
 }
 .pd-soc-label--map::before { background: #f59e0b; }
 .pd-soc-label--focus .pd-soc-label__n { background: rgba(255, 255, 255, 0.18); color: #fff; }
+
+/* Tools: the slider thumb — a large, easy-to-grab white knob. */
+.tool-range { -webkit-appearance: none; appearance: none; outline: none; }
+.tool-range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 26px; height: 26px; border-radius: 9999px;
+  background: #fff; border: 3px solid var(--primary);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25); cursor: grab;
+}
+.tool-range::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 9999px;
+  background: #fff; border: 3px solid var(--primary);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25); cursor: grab;
+}
+.tool-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 25%, transparent); }

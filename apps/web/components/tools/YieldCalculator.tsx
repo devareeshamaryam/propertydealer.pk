@@ -1,18 +1,20 @@
 'use client';
 
 import { useState } from 'react';
-import { SlidersHorizontal } from 'lucide-react';
 import { rentalYield, rsShort, rupees } from '@/lib/tools';
 import { cn } from '@/lib/utils';
-import { Answer, MoneyField, NumberField, Panel } from './fields';
+import { Card, Disclosure, MoneyField, ResultHero, Row, SliderField, StickyAnswer, Tiles, ToolLayout, useOnScreen } from './ui';
 
 /** Colour-blind-safe series colours (rent, price rise, bank). */
 const SERIES = ['#2a78d6', '#eb6834', '#1baf7a'];
+const PRICE_CHIPS = [10_000_000, 20_000_000, 35_000_000, 50_000_000, 100_000_000];
+const RENT_CHIPS = [40_000, 75_000, 120_000, 200_000, 350_000];
+/** A fair rental yield for homes in Pakistan, after costs. */
+const FAIR = 5;
 
 export default function YieldCalculator() {
   const [price, setPrice] = useState(20_000_000);
   const [rent, setRent] = useState(80_000);
-  const [more, setMore] = useState(false);
   const [buyingCostPct, setBuyingCostPct] = useState(4);
   const [vacancyMonths, setVacancyMonths] = useState(1);
   const [expenses, setExpenses] = useState(60_000);
@@ -20,16 +22,21 @@ export default function YieldCalculator() {
   const [rentGrowthPct, setRentGrowthPct] = useState(10);
   const [years, setYears] = useState(5);
   const [bankPct, setBankPct] = useState(10);
+  const [heroRef, heroOn] = useOnScreen<HTMLElement>();
 
   const r = rentalYield({ price, buyingCostPct, rent, vacancyMonths, expenses, growthPct, rentGrowthPct, years, bankPct });
   const verdict =
     r.net >= 6
-      ? { t: 'A strong rental return.', c: 'bg-emerald-50 text-emerald-800' }
+      ? { t: 'A strong rental return', c: 'bg-emerald-50 text-emerald-800 ring-emerald-200' }
       : r.net >= 4
-        ? { t: 'A fair rental return.', c: 'bg-sky-50 text-sky-800' }
-        : { t: 'The rent is low for the price.', c: 'bg-amber-50 text-amber-900' };
+        ? { t: 'A fair rental return', c: 'bg-sky-50 text-sky-800 ring-sky-200' }
+        : { t: 'The rent is low for the price', c: 'bg-amber-50 text-amber-900 ring-amber-200' };
 
-  // After N years: what the property earns (rent + price rise) against a bank deposit.
+  // What would make it a fair (5% net) deal.
+  const occupied = Math.max(0, 12 - vacancyMonths);
+  const fairRent = occupied ? ((r.invested * FAIR) / 100 + expenses) / occupied : 0;
+  const fairPrice = r.netYear > 0 ? (r.netYear / (FAIR / 100)) / (1 + buyingCostPct / 100) : 0;
+
   const rentPart = Math.max(0, r.rentTotal);
   const pricePart = Math.max(0, r.value - r.invested);
   const max = Math.max(rentPart + pricePart, r.bank, 1);
@@ -46,78 +53,89 @@ export default function YieldCalculator() {
   ];
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start">
-      <Panel className="space-y-4 lg:sticky lg:top-20">
-        <MoneyField id="ry-price" label="Property price" value={price} onChange={setPrice} />
-        <MoneyField id="ry-rent" label="Monthly rent" value={rent} onChange={setRent} />
-        <button type="button" onClick={() => setMore((v) => !v)} className="inline-flex items-center gap-1.5 text-[14px] font-semibold text-primary hover:underline" aria-expanded={more}>
-          <SlidersHorizontal className="h-4 w-4" /> {more ? 'Fewer assumptions' : 'Change the assumptions'}
-        </button>
-        {more && (
-          <div className="space-y-4 border-t border-slate-100 pt-4">
-            <NumberField id="ry-buy" label="Buying costs" value={buyingCostPct} onChange={setBuyingCostPct} suffix="%" max={20} hint="Transfer fee, stamp duty, taxes, commission" />
-            <MoneyField id="ry-exp" label="Yearly costs" value={expenses} onChange={setExpenses} hint="Repairs, property tax, society charges" />
-            <div className="grid grid-cols-2 gap-3">
-              <NumberField id="ry-vac" label="Empty months" value={vacancyMonths} onChange={setVacancyMonths} suffix="/ yr" max={12} />
-              <NumberField id="ry-years" label="Keep it for" value={years} onChange={(n) => setYears(Math.max(1, Math.round(n)))} suffix="years" min={1} max={30} step={1} />
-              <NumberField id="ry-g" label="Price rise" value={growthPct} onChange={setGrowthPct} suffix="% / yr" max={50} />
-              <NumberField id="ry-rg" label="Rent rise" value={rentGrowthPct} onChange={setRentGrowthPct} suffix="% / yr" max={50} />
-            </div>
-            <NumberField id="ry-bank" label="Bank deposit rate" value={bankPct} onChange={setBankPct} suffix="% / yr" max={40} />
-          </div>
-        )}
-      </Panel>
-
-      <div className="min-w-0 space-y-4">
-        <Answer
-          label="Rental yield, after costs"
-          value={`${r.net.toFixed(1)}% a year`}
-          sentence={
-            <>
-              The rent brings in <b>{rupees(r.netYear)}</b> a year after costs and empty months — the property would pay for itself in{' '}
-              <b>{Number.isFinite(r.payback) ? `${r.payback.toFixed(0)} years` : '—'}</b> from rent alone.
-            </>
-          }
-        >
-          {price > 0 && rent > 0 && (
-            <p className={cn('mt-4 rounded-xl px-4 py-3 text-[14px]', verdict.c)}>
-              <b>{verdict.t}</b> Homes in Pakistan usually rent for 3–6% of their price a year (before costs: {r.gross.toFixed(1)}% here).
-            </p>
-          )}
-        </Answer>
-
-        <Panel>
-          <h2 className="text-[17px] font-bold text-slate-900">After {years} years</h2>
-          <p className="text-[13.5px] text-slate-500">What you gain on {rsShort(r.invested)}, against keeping it in a bank.</p>
-          <div className="mt-4 space-y-4">
-            {bars.map((b) => (
-              <div key={b.label}>
-                <div className="flex items-baseline justify-between gap-3 text-[14px]">
-                  <span className="font-semibold text-slate-700">{b.label}</span>
-                  <b className="tabular-nums text-slate-900">{rsShort(b.total)}</b>
-                </div>
-                <div className="mt-1.5 flex h-6 gap-[2px] overflow-hidden rounded-md bg-slate-100">
-                  {b.parts.map((p) => (
-                    <div key={p.label} title={`${p.label}: ${rupees(p.value)}`} style={{ width: `${(p.value / max) * 100}%`, background: p.color }} />
-                  ))}
-                </div>
+    <>
+      <StickyAnswer show={!heroOn} label="Rental yield after costs" value={`${r.net.toFixed(1)}%`} onTap={() => (heroRef.current as HTMLElement | null)?.scrollIntoView({ behavior: 'smooth', block: 'center' })} />
+      <ToolLayout
+        inputs={
+          <>
+            <Card>
+              <div className="space-y-5">
+                <MoneyField label="Property price" value={price} onChange={setPrice} chips={PRICE_CHIPS} />
+                <MoneyField label="Monthly rent" value={rent} onChange={setRent} chips={RENT_CHIPS} />
               </div>
-            ))}
-          </div>
-          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-slate-600">
-            {[...bars[0]!.parts, ...bars[1]!.parts].map((p) => (
-              <li key={p.label} className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: p.color }} /> {p.label} <b className="tabular-nums text-slate-800">{rsShort(p.value)}</b>
-              </li>
-            ))}
-          </ul>
-          <p className={cn('mt-4 rounded-xl px-4 py-3 text-[14px] font-semibold', r.gain > r.bank ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900')}>
-            {r.gain > r.bank
-              ? `The property earns ${rsShort(r.gain - r.bank)} more than a bank deposit.`
-              : `A bank deposit would earn ${rsShort(r.bank - r.gain)} more — the price may be high for the rent.`}
-          </p>
-        </Panel>
-      </div>
-    </div>
+            </Card>
+            <Disclosure title="Costs & assumptions" sub="Buying costs, empty months, price growth…">
+              <div className="space-y-5 pt-1">
+                <SliderField label="Buying costs" value={buyingCostPct} onChange={setBuyingCostPct} min={0} max={12} step={0.5} suffix="%" hint="Transfer, taxes, commission" />
+                <MoneyField label="Yearly running costs" value={expenses} onChange={setExpenses} hint="Repairs, property tax, society charges" />
+                <SliderField label="Empty months a year" value={vacancyMonths} onChange={setVacancyMonths} min={0} max={6} step={0.5} suffix="mo" />
+                <SliderField label="Price rise a year" value={growthPct} onChange={setGrowthPct} min={0} max={25} step={0.5} suffix="%" />
+                <SliderField label="Rent rise a year" value={rentGrowthPct} onChange={setRentGrowthPct} min={0} max={25} step={0.5} suffix="%" />
+                <SliderField label="Keep it for" value={years} onChange={setYears} min={1} max={20} step={1} suffix="yrs" />
+                <SliderField label="Bank deposit rate" value={bankPct} onChange={setBankPct} min={0} max={25} step={0.5} suffix="%" hint="To compare against" />
+              </div>
+            </Disclosure>
+          </>
+        }
+        results={
+          <>
+            <ResultHero heroRef={heroRef} label="Rental yield after costs" value={`${r.net.toFixed(1)}% a year`} sub={`${rupees(r.netYear)} a year in hand · ${r.gross.toFixed(1)}% before costs`}>
+              <Tiles
+                onBrand
+                items={[
+                  { label: 'Pays back in', value: Number.isFinite(r.payback) ? `${r.payback.toFixed(0)} yrs` : '—' },
+                  { label: `Return in ${years} yrs`, value: `${r.roi.toFixed(0)}%` },
+                  { label: 'A year, overall', value: `${r.yearly.toFixed(1)}%` },
+                ]}
+              />
+            </ResultHero>
+
+            {price > 0 && rent > 0 && (
+              <p className={cn('rounded-2xl px-4 py-3 text-[14px] ring-1', verdict.c)}>
+                <b>{verdict.t}.</b> Homes in Pakistan usually earn 3–6% a year from rent.
+              </p>
+            )}
+
+            <Card title="What would be fair">
+              <div className="divide-y divide-slate-100">
+                <Row label="Rent for a 5% return" note="At this price, after costs" value={`${rsShort(fairRent)}/mo`} />
+                <Row label="Price for a 5% return" note="At this rent, after costs" value={rsShort(fairPrice)} />
+              </div>
+            </Card>
+
+            <Card title={`After ${years} years`}>
+              <p className="-mt-2 mb-3 text-[13px] text-slate-500">What you gain on {rsShort(r.invested)}, against a bank deposit.</p>
+              <div className="space-y-4">
+                {bars.map((b) => (
+                  <div key={b.label}>
+                    <div className="flex items-baseline justify-between gap-3 text-[14px]">
+                      <span className="font-semibold text-slate-700">{b.label}</span>
+                      <b className="tabular-nums text-slate-900">{rsShort(b.total)}</b>
+                    </div>
+                    <div className="mt-1.5 flex h-5 gap-[2px] overflow-hidden rounded-lg bg-slate-100">
+                      {b.parts.map((p) => (
+                        <div key={p.label} title={`${p.label}: ${rupees(p.value)}`} style={{ width: `${(p.value / max) * 100}%`, background: p.color }} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12.5px] text-slate-600">
+                {[...bars[0]!.parts, ...bars[1]!.parts].map((p) => (
+                  <li key={p.label} className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: p.color }} /> {p.label} <b className="tabular-nums text-slate-800">{rsShort(p.value)}</b>
+                  </li>
+                ))}
+              </ul>
+              <p className={cn('mt-4 rounded-2xl px-4 py-3 text-[14px] font-semibold', r.gain > r.bank ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-900')}>
+                {r.gain > r.bank
+                  ? `The property earns ${rsShort(r.gain - r.bank)} more than a bank deposit.`
+                  : `A bank deposit would earn ${rsShort(r.bank - r.gain)} more.`}
+              </p>
+            </Card>
+          </>
+        }
+      />
+    </>
   );
 }

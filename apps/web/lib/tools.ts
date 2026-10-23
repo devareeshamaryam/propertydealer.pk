@@ -6,46 +6,62 @@
 export interface ToolInfo {
   slug: string;
   title: string;
+  /** Under the icon on the tools screen — a few words. */
   short: string;
   description: string;
-  icon: 'ruler' | 'hammer' | 'landmark' | 'calendar' | 'trending';
+  icon: 'ruler' | 'hammer' | 'landmark' | 'calendar' | 'trending' | 'tag';
+  /** The icon tile's colour. */
+  color: string;
 }
 
 export const TOOLS: ToolInfo[] = [
   {
-    slug: 'area-unit-converter',
-    title: 'Area Unit Converter',
-    short: 'Marla, kanal, sq ft, sq yd, acre — and plot length × width',
-    description: 'Convert marla, kanal, square feet, square yards, square metres, acres and more — on the 225, 250 or 272.25 sq ft marla.',
-    icon: 'ruler',
-  },
-  {
     slug: 'construction-cost-calculator',
-    title: 'Construction Cost Calculator',
-    short: "Grey structure or a complete house, on today's material rates",
+    title: 'Construction Cost',
+    short: 'What it costs to build — on live rates',
     description: "Estimate the cost of building a house in Pakistan from today's cement, steel, bricks, sand and crush rates — grey structure or complete.",
     icon: 'hammer',
+    color: '#ea580c',
+  },
+  {
+    slug: 'area-unit-converter',
+    title: 'Area Converter',
+    short: 'Marla, kanal, sq ft, sq yd, acre',
+    description: 'Convert marla, kanal, square feet, square yards, square metres, acres and more — on the 225, 250 or 272.25 sq ft marla — and work out a plot from its length and width.',
+    icon: 'ruler',
+    color: '#2563eb',
+  },
+  {
+    slug: 'price-per-marla-calculator',
+    title: 'Price per Marla',
+    short: 'Compare plots by their real rate',
+    description: 'Work out the price per marla, per square foot and per square yard of any plot or house — and compare up to three side by side to see which is the better buy.',
+    icon: 'tag',
+    color: '#0d9488',
   },
   {
     slug: 'home-loan-calculator',
-    title: 'Home Loan Calculator',
-    short: 'Monthly instalment, total interest and the income banks ask for',
-    description: 'Work out the monthly instalment on a home loan, the interest you pay over its life and the income a bank will want to see.',
+    title: 'Home Loan',
+    short: 'Instalment, and how much you can borrow',
+    description: 'Work out the monthly instalment on a home loan and the profit the bank earns — or, from your income, how much a bank will lend you and what you can buy.',
     icon: 'landmark',
+    color: '#7c3aed',
   },
   {
     slug: 'installment-plan-calculator',
-    title: 'Plot Installment Plan',
-    short: 'Down payment, monthly or quarterly instalments and balloon payments',
-    description: 'Lay out a plot or house instalment plan: down payment, monthly, quarterly or half-yearly instalments, balloon and possession payments.',
+    title: 'Instalment Plan',
+    short: 'Down payment, instalments, balloons',
+    description: 'Lay out a plot or house instalment plan: down payment, monthly, quarterly or half-yearly instalments, balloon and possession payments, with every due date.',
     icon: 'calendar',
+    color: '#db2777',
   },
   {
     slug: 'rental-yield-calculator',
-    title: 'Rental Yield & ROI',
-    short: 'Is the rent worth the price? Yield, payback and return',
+    title: 'Rental Yield',
+    short: 'Is the rent worth the price?',
     description: 'Gross and net rental yield, payback years and total return with price growth — and how it compares with a bank deposit.',
     icon: 'trending',
+    color: '#059669',
   },
 ];
 

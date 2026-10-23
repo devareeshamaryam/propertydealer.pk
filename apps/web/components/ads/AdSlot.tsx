@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
-import { adLayout, adsAt, type AdPage, type AdSize, type AdUnit } from '@/lib/ads';
+import { adLayout, adsAt, hasOwnAdLayout, type AdPage, type AdSize, type AdUnit } from '@/lib/ads';
 import { cn } from '@/lib/utils';
 
 /*
@@ -148,4 +148,14 @@ export function AdZone({ page, at, className, wrap }: { page: AdPage; at: string
 export function AdUnitView({ unit, className }: { unit: AdUnit; className?: string }) {
   const pathname = usePathname();
   return <Ad key={`${pathname}-${unit.id}`} unit={unit} className={className} />;
+}
+
+/**
+ * "All other pages" ads (Settings → Ads), placed once in the site layout —
+ * so every page has them, except the pages that have gaps of their own.
+ */
+export function OtherPagesAdZone({ at, wrap }: { at: 'top' | 'bottom'; wrap?: string }) {
+  const pathname = usePathname() || '/';
+  if (hasOwnAdLayout(pathname)) return null;
+  return <AdZone page="other" at={at} className="my-5" wrap={wrap} />;
 }

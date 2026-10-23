@@ -227,7 +227,7 @@ function coerce(field: Field, value: unknown): string | number | boolean {
         return field.def;
       }
       if (!Array.isArray(list)) return field.def;
-      const pages = ['home', 'archive', 'listing', 'society', 'blog'];
+      const pages = ['home', 'archive', 'listing', 'society', 'blog', 'tools', 'other'];
       const clean = list
         .slice(0, 60)
         .map((it: Record<string, unknown>) => ({
