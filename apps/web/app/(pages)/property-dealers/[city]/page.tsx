@@ -6,13 +6,17 @@ import { AgencyCard, AgentCard } from '@/components/dealers/DealerCards';
 import { MoreAgents } from '@/components/dealers/MoreAgents';
 import ExpandableHtml from '@/components/societies/ExpandableHtml';
 import { getDealerCities, getDealerCity } from '@/lib/server-api';
-import { DEALERS_HUB, cityText, dealerHref, dealersCityPath } from '@/lib/dealers';
+import { DEALERS_HUB, cityText, dealerHref, dealersCityPath, hasDealers } from '@/lib/dealers';
 import { getSiteName } from '@/lib/site-settings.server';
 
 /*
  * /property-dealers-in-<city> (rewritten here in next.config; the address
  * /property-dealers/<city> redirects to it). A city's agencies, then its
  * agents ranked by plan: Agency Plus agents first, Free last.
+ *
+ * A city with no agency or agent has no page at all (404) — not on the site,
+ * not in the sitemap. When its first dealer joins, the API refreshes the
+ * 'dealers' cache and the page, the sitemap and the links appear at once.
  */
 
 export const revalidate = 600;
@@ -30,7 +34,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { city } = await params;
   const data = await getDealerCity(city);
-  if (!data) return { title: 'Not found', robots: { index: false } };
+  if (!data || !hasDealers(data.total)) return { title: 'Not found', robots: { index: false } };
   const t = cityText(data);
   const path = dealersCityPath(data.city.slug);
   return {
@@ -45,12 +49,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function DealersCityPage({ params }: Props) {
   const { city } = await params;
   const [data, cities, site] = await Promise.all([getDealerCity(city), getDealerCities(), getSiteName()]);
-  if (!data) notFound();
+  if (!data || !hasDealers(data.total)) notFound();
   const t = cityText(data);
   const name = data.city.name;
   const path = dealersCityPath(data.city.slug);
   const others = cities
-    .filter((c) => c._id !== data.city._id && c.agencies + c.agents > 0)
+    .filter((c) => c._id !== data.city._id && hasDealers(c))
     .sort((a, b) => b.agencies + b.agents - (a.agencies + a.agents))
     .slice(0, 24);
 
@@ -164,13 +168,6 @@ export default async function DealersCityPage({ params }: Props) {
               ))}
             </div>
             <MoreAgents slug={data.city.slug} pages={data.pageInfo.pages} total={data.total.agents} shown={data.agents.length} />
-          </section>
-        )}
-
-        {data.total.agencies + data.total.agents === 0 && (
-          <section className="rounded-xl border border-dashed border-slate-400 bg-white p-8 text-center">
-            <h2 className="text-[19px] font-bold text-slate-900">No dealers listed in {name} yet</h2>
-            <p className="mx-auto mt-1 max-w-xl text-[14.5px] text-slate-700">Work in {name}? Create a free account, choose {name} as your city and you will be listed here.</p>
           </section>
         )}
 

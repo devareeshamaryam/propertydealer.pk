@@ -9,9 +9,17 @@ import { CITIES, getCityBySlug } from '@/app/(pages)/emap/cities-data';
 import { toTitleCase } from '@/lib/utils';
 import { chipClass } from '@/lib/chip';
 import { photo } from '@/lib/img';
-import { dealersCityPath } from '@/lib/dealers';
+import { dealersCityPath, hasDealers } from '@/lib/dealers';
+import { getDealerCities } from '@/lib/server-api';
 
 const citySlugOf = (name: string) => name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+/** The city's property dealers page — only when it has one (a dealer has joined). */
+async function dealersPageOf(cityName: string): Promise<string | null> {
+  const slug = citySlugOf(cityName);
+  const c = (await getDealerCities()).find((x) => x.slug === slug);
+  return c && hasDealers(c) ? dealersCityPath(slug) : null;
+}
 
 /*
  * The boxes around the results on listing pages: on an area that is a
@@ -97,7 +105,7 @@ function AgencyRow({ a }: { a: SpotlightAgency }) {
 /** Sidebar: the city's verified agencies. */
 export async function CityAgenciesBox({ cityId, cityName }: { cityId?: string; cityName: string }) {
   if (!cityId) return null;
-  const agencies = await getCityAgencies(cityId);
+  const [agencies, dealersPage] = await Promise.all([getCityAgencies(cityId), dealersPageOf(cityName)]);
   if (!agencies.length) return null;
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-3">
@@ -109,8 +117,8 @@ export async function CityAgenciesBox({ cityId, cityName }: { cityId?: string; c
           <AgencyRow key={a._id} a={a} />
         ))}
       </div>
-      <Link href={dealersCityPath(citySlugOf(cityName))} className="mt-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[13px] font-semibold text-primary hover:bg-primary/5">
-        All property dealers in {cityName} <ArrowRight className="h-3.5 w-3.5" />
+      <Link href={dealersPage ?? '/agents'} className="mt-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[13px] font-semibold text-primary hover:bg-primary/5">
+        {dealersPage ? `All property dealers in ${cityName}` : 'All agents'} <ArrowRight className="h-3.5 w-3.5" />
       </Link>
     </div>
   );
@@ -118,7 +126,11 @@ export async function CityAgenciesBox({ cityId, cityName }: { cityId?: string; c
 
 /** Under a city's results: its societies, its verified agencies and its map. */
 export async function CityExtras({ citySlug, cityId, cityName }: { citySlug: string; cityId?: string; cityName: string }) {
-  const [societies, agencies] = await Promise.all([getSocieties(citySlug), cityId ? getCityAgencies(cityId) : Promise.resolve([])]);
+  const [societies, agencies, dealersPage] = await Promise.all([
+    getSocieties(citySlug),
+    cityId ? getCityAgencies(cityId) : Promise.resolve([]),
+    dealersPageOf(cityName),
+  ]);
   const mapCity = getCityBySlug(citySlug);
   if (!societies.length && !agencies.length && !mapCity) return null;
   const places = CITIES.map(({ slug, name, lat, lng, zoom }) => ({ slug, name, lat, lng, zoom }));
@@ -153,9 +165,11 @@ export async function CityExtras({ citySlug, cityId, cityName }: { citySlug: str
               <h2 className="flex items-center gap-2 text-[21px] font-bold tracking-tight text-slate-900 sm:text-[24px]">
                 <BadgeCheck className="h-6 w-6 text-sky-500" /> Verified agencies in {cityName}
               </h2>
-              <Link href={dealersCityPath(citySlugOf(cityName))} className="shrink-0 text-[14px] font-semibold text-primary hover:underline">
-                All dealers
-              </Link>
+              {dealersPage && (
+                <Link href={dealersPage} className="shrink-0 text-[14px] font-semibold text-primary hover:underline">
+                  All dealers
+                </Link>
+              )}
             </div>
             <div className="grid gap-1 rounded-2xl border border-slate-200 p-2 sm:grid-cols-2 lg:grid-cols-3">
               {agencies.map((a) => (

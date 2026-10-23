@@ -63,6 +63,9 @@ export interface DealerCityData {
 }
 
 export const DEALERS_HUB = '/property-dealers';
+
+/** A city has a page only once it has at least one agency or agent. */
+export const hasDealers = (c: { agencies: number; agents: number }) => c.agencies + c.agents > 0;
 export const dealersCityPath = (slug: string) => `/property-dealers-in-${slug}`;
 
 /** The profile address: an agency's agent sits under the agency (/agents/<agency>/<agent>). */
@@ -105,7 +108,7 @@ export function cityText(d: DealerCityData) {
     ),
     content: d.page.content?.trim() ? d.page.content : fill(d.defaults.content, v),
     faqs: d.page.faqs?.length ? d.page.faqs : (d.defaults.faqs ?? []).map((f) => ({ q: fill(f.q, v), a: fill(f.a, v) })),
-    noindex: !!d.page.noindex || count === 0,
+    noindex: !!d.page.noindex,
   };
 }
 

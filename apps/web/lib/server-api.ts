@@ -408,7 +408,8 @@ export async function getConstructionData(): Promise<import('./tools').Construct
 
 /* ── Property dealers directory (lib/dealers.ts) ── */
 
-const DEALER_TAGS = ['dealers', 'agents', 'subscriptions'];
+// 'properties' too: a Free account joins its city's page with its first approved listing.
+const DEALER_TAGS = ['dealers', 'agents', 'subscriptions', 'properties'];
 
 /** Every city with its number of agencies and agents. Empty on an API without the endpoint. */
 export async function getDealerCities(): Promise<import('./dealers').DealerCity[]> {

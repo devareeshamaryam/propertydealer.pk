@@ -5,6 +5,7 @@ import { User } from '@rent-ghar/db/schemas/user.schema';
 import { Subscription } from '@rent-ghar/db/schemas/subscription.schema';
 import { Package } from '@rent-ghar/db/schemas/package.schema';
 import { RedisCacheService } from '../redis-cache/redis-cache.service';
+import { RevalidateService } from '../revalidate/revalidate.service';
 
 /*
  * Who belongs to which agency, and who is verified — the one place every
@@ -34,6 +35,7 @@ export class AgencyService {
     @InjectModel(Subscription.name) private readonly subscriptions: Model<Subscription>,
     @InjectModel(Package.name) private readonly packages: Model<Package>,
     private readonly cache: RedisCacheService,
+    private readonly revalidate: RevalidateService,
   ) {}
 
   /** The agency an agent account belongs to, or null. Cached for a minute per process. */
@@ -129,8 +131,13 @@ export class AgencyService {
     return (await this.verifiedIds()).has(sid(userId));
   }
 
-  /** Clear the cached badge list — after a plan is activated, granted or cancelled. */
+  /**
+   * Clear the cached badge list — after a plan is activated, granted or
+   * cancelled, or an agency adds an agent. The property dealers pages are
+   * refreshed too: a city's page appears the moment its first dealer does.
+   */
   async refreshVerified() {
     await this.cache.del(this.cache.buildKey('agency:verified', []));
+    await this.revalidate.revalidate({ tags: ['dealers', 'agents', 'subscriptions'], paths: ['/property-dealers'] }).catch(() => undefined);
   }
 }

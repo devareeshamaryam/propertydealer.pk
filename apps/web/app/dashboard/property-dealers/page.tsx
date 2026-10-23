@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, apiErrorMessage } from "@/components/dashboard";
 import { SaveButton, SettingsCard } from "@/components/dashboard/settings-form";
 import api from "@/lib/api";
-import { DEALERS_HUB, dealersCityPath, type DealerCity, type DealerPageText, type DealerSettings } from "@/lib/dealers";
+import { DEALERS_HUB, dealersCityPath, hasDealers, type DealerCity, type DealerPageText, type DealerSettings } from "@/lib/dealers";
 import { cn } from "@/lib/utils";
 
 const RichEditor = dynamic(() => import("@/components/RichEditor"), {
@@ -111,7 +111,7 @@ export default function PropertyDealersAdminPage() {
     <div className="mx-auto w-full max-w-5xl space-y-5">
       <PageHeader
         title="Property Dealers Pages"
-        description="Every city has a page of its agencies and agents — /property-dealers-in-lahore. Agents choose their city when they sign up; their plan decides their place."
+        description="A city gets its page (/property-dealers-in-lahore) as soon as its first agent or agency joins — you can write its text before that. Agents choose their city when they sign up; their plan decides their place."
         actions={
           <div className="flex gap-2">
             <Button variant="outline" asChild>
@@ -169,19 +169,24 @@ export default function PropertyDealersAdminPage() {
                   <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{c.name}</span>
-                    <span className="flex gap-3 text-xs text-muted-foreground">
+                    <span className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
                       <span className="inline-flex items-center gap-1"><Building2 className="h-3 w-3" /> {c.agencies} agencies</span>
                       <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" /> {c.agents} agents</span>
+                      {!hasDealers(c) && <span className="text-amber-700">No page yet — it goes live when the first dealer joins</span>}
                     </span>
                   </span>
                   <Button size="sm" variant={on ? "default" : "outline"} onClick={() => void open({ kind: "city", city: c })}>
                     <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit page
                   </Button>
-                  <Button size="sm" variant="ghost" asChild>
-                    <Link href={dealersCityPath(c.slug)} target="_blank" aria-label={`View ${c.name}`}>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
+                  {hasDealers(c) ? (
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link href={dealersCityPath(c.slug)} target="_blank" aria-label={`View ${c.name}`}>
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  ) : (
+                    <span className="w-9 text-center text-[11px] leading-tight text-muted-foreground" title="The page appears when the first agent or agency joins this city">No page</span>
+                  )}
                 </li>
               );
             })}
@@ -255,7 +260,7 @@ export default function PropertyDealersAdminPage() {
                   <label className="flex items-center justify-between gap-3 rounded-lg border p-3">
                     <span>
                       <span className="block text-sm font-medium">Hide from Google (noindex)</span>
-                      <span className="block text-xs text-muted-foreground">A city with no dealers is hidden automatically.</span>
+                      <span className="block text-xs text-muted-foreground">A city with no dealers has no page at all — it appears when the first one joins.</span>
                     </span>
                     <Switch checked={!!form.noindex} onCheckedChange={(v) => set("noindex", v)} />
                   </label>
@@ -263,7 +268,7 @@ export default function PropertyDealersAdminPage() {
 
                 <div className="flex flex-wrap items-center gap-3">
                   <SaveButton onClick={() => void save()} saving={saving} />
-                  {!isDefaults && (
+                  {!isDefaults && (target?.kind !== "city" || hasDealers(target.city)) && (
                     <Button variant="outline" asChild>
                       <Link href={viewHref} target="_blank">
                         <ExternalLink className="mr-1.5 h-4 w-4" /> View page

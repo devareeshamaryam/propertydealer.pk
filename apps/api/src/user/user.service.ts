@@ -299,6 +299,8 @@ export class UserService {
     if (!result) {
       throw new NotFoundException('User not found');
     }
+    // Off the agents pages at once — a city left with no dealers loses its page.
+    void this.revalidate.revalidate({ tags: ['agents', 'dealers'], paths: ['/agents', '/property-dealers'] }).catch(() => undefined);
     return { success: true };
   }
 }

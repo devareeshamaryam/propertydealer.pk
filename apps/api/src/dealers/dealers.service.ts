@@ -218,7 +218,8 @@ export class DealersService {
       () => this.build(),
       {
         ttl: 600,
-        tags: ['dealers', 'agents', 'subscriptions'],
+        // Any of these changing can add a city's first dealer — the page appears at once.
+      tags: ['dealers', 'agents', 'subscriptions', 'properties'],
       },
     );
   }

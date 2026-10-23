@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Building2, ChevronRight, MapPin, Users } from 'lucide-react';
 import ExpandableHtml from '@/components/societies/ExpandableHtml';
 import { getDealerCities, getDealerSettings } from '@/lib/server-api';
-import { DEALERS_HUB, dealersCityPath } from '@/lib/dealers';
+import { DEALERS_HUB, dealersCityPath, hasDealers } from '@/lib/dealers';
 import { photo } from '@/lib/img';
 import { getSiteName } from '@/lib/site-settings.server';
 
@@ -28,8 +28,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function DealersHubPage() {
   const [cities, s] = await Promise.all([getDealerCities(), getDealerSettings()]);
-  const withDealers = cities.filter((c) => c.agencies + c.agents > 0).sort((a, b) => b.agencies + b.agents - (a.agencies + a.agents) || a.name.localeCompare(b.name));
-  const rest = cities.filter((c) => c.agencies + c.agents === 0);
+  // Only cities with at least one dealer — the others have no page yet.
+  const withDealers = cities.filter(hasDealers).sort((a, b) => b.agencies + b.agents - (a.agencies + a.agents) || a.name.localeCompare(b.name));
   const total = withDealers.reduce((n, c) => n + c.agencies + c.agents, 0);
   const faqs = s.hub.faqs ?? [];
 
@@ -106,22 +106,6 @@ export default async function DealersHubPage() {
           </section>
         )}
 
-        {rest.length > 0 && (
-          <section>
-            <h2 className="text-[17px] font-bold text-slate-900">More cities</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {rest.map((c) => (
-                <Link
-                  key={c._id}
-                  href={dealersCityPath(c.slug)}
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-[14px] text-slate-800 hover:border-primary hover:text-primary"
-                >
-                  {c.name}
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
 
         <section className="flex flex-col items-start justify-between gap-4 rounded-xl bg-slate-900 p-6 text-white sm:flex-row sm:items-center sm:p-7">
           <div>

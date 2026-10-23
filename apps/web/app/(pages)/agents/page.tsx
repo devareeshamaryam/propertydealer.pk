@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BadgeCheck, Building2, MapPin } from "lucide-react";
 import { getDealerCities, getSpotlightAgencies } from "@/lib/server-api";
-import { DEALERS_HUB, dealersCityPath } from "@/lib/dealers";
+import { DEALERS_HUB, dealersCityPath, hasDealers } from "@/lib/dealers";
 import { agentProfilePath } from "@/lib/agent";
 import { getSiteName } from "@/lib/site-settings.server";
 
@@ -22,7 +22,7 @@ export default async function AgentsPage() {
   const site = await getSiteName();
   const [agencies, dealerCities] = await Promise.all([getSpotlightAgencies(), getDealerCities()]);
   const cities = dealerCities
-    .filter((c) => c.agencies + c.agents > 0)
+    .filter(hasDealers)
     .sort((a, b) => b.agencies + b.agents - (a.agencies + a.agents))
     .slice(0, 18);
   return (
