@@ -77,7 +77,7 @@ export default function YieldCalculator() {
             </Disclosure>
           </>
         }
-        results={
+        summary={
           <>
             <ResultHero heroRef={heroRef} label="Rental yield after costs" value={`${r.net.toFixed(1)}% a year`} sub={`${rupees(r.netYear)} a year in hand · ${r.gross.toFixed(1)}% before costs`}>
               <Tiles
@@ -96,6 +96,10 @@ export default function YieldCalculator() {
               </p>
             )}
 
+          </>
+        }
+        details={
+          <>
             <Card title="What would be fair">
               <div className="divide-y divide-slate-100">
                 <Row label="Rent for a 5% return" note="At this price, after costs" value={`${rsShort(fairRent)}/mo`} />

@@ -3,10 +3,10 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ChevronDown, ChevronRight, Info, Link2, Printer, Share2, SlidersHorizontal } from 'lucide-react';
+import { BedDouble, ChevronDown, ChevronRight, Info, Link2, Printer, Ruler, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { CC_SIZES } from '@/lib/construction-pages';
-import { MATERIAL_LABEL, QUALITY, coveredAreas, estimate, rsShort, rupees, usualRooms, type ConstructionData, type EstimatePart, type Material, type Quality } from '@/lib/tools';
+import { MATERIAL_LABEL, QUALITY, coveredAreas, estimate, planFloors, roomLimits, roomMaxima, rsShort, rupees, usualRooms, type ConstructionData, type EstimatePart, type Material, type Quality } from '@/lib/tools';
 import { cn } from '@/lib/utils';
 import { Card, ResultHero, Segment, Stepper, StickyAnswer, Tiles, ToolLayout, useOnScreen } from './ui';
 
@@ -75,9 +75,10 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
   const [mode, setMode] = useState<'full' | 'labour'>(() => (params.get('mode') === 'labour' ? 'labour' : 'full'));
   const [basement, setBasement] = useState(() => params.get('basement') === '1');
   const [covered, setCovered] = useState(() => params.get('covered') ?? '');
+  const [beds, setBeds] = useState<number | null>(() => (params.get('beds') ? n0(params.get('beds'), 0) : null));
   const [baths, setBaths] = useState<number | null>(() => (params.get('baths') ? n0(params.get('baths'), 0) : null));
   const [kitchens, setKitchens] = useState<number | null>(() => (params.get('kitchens') ? n0(params.get('kitchens'), 0) : null));
-  const [more, setMore] = useState(() => ['basement', 'covered', 'baths', 'kitchens'].some((k) => params.get(k)));
+  const [more, setMore] = useState(() => ['basement', 'covered'].some((k) => params.get(k)));
   const [heroRef, heroOn] = useOnScreen<HTMLElement>();
 
   const listed = CC_SIZES.find((s) => s.key === sizeKey);
@@ -88,16 +89,34 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
   const below = coveredOverride ? 0 : floorsList.filter((f) => f.basement).reduce((s, f) => s + f.sqft, 0);
   const cityFactor = cities.find((c) => c.name === city)?.factor ?? 1;
   const auto = usualRooms(above, floors);
-  const bathrooms = baths ?? auto.bathrooms;
-  const kitchenCount = kitchens ?? auto.kitchens;
+  // Rooms: what fits on these floors, what is usual, and the visitor's own numbers within that.
+  const limits = useMemo(() => roomLimits(above, floors), [above, floors]);
+  const bedrooms = Math.min(limits.maxBedrooms, Math.max(1, beds ?? limits.usualBedrooms));
+  const maxima = roomMaxima(bedrooms, floors);
+  const bathrooms = Math.min(maxima.bathrooms, Math.max(1, baths ?? bedrooms + 1));
+  const kitchenCount = Math.min(maxima.kitchens, Math.max(1, kitchens ?? auto.kitchens));
+  const plan = planFloors(limits.floors, bedrooms, kitchenCount);
+  const roomsChanged = beds !== null || baths !== null || kitchens !== null;
 
   const est = useMemo(
     () =>
       estimate(
-        { covered: above, basement: below, kind, quality, mode, cityFactor, cityRates: data.cityRates?.[city], bathrooms, kitchens: kitchenCount },
+        {
+          covered: above,
+          basement: below,
+          kind,
+          quality,
+          mode,
+          cityFactor,
+          cityRates: data.cityRates?.[city],
+          bathrooms,
+          kitchens: kitchenCount,
+          bedrooms,
+          usualBedrooms: limits.usualBedrooms,
+        },
         data,
       ),
-    [above, below, kind, quality, mode, cityFactor, city, bathrooms, kitchenCount, data],
+    [above, below, kind, quality, mode, cityFactor, city, bathrooms, kitchenCount, bedrooms, limits.usualBedrooms, data],
   );
   const has = est.area > 0;
   const q = QUALITY.find((x) => x.key === quality)!;
@@ -116,6 +135,7 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
     if (mode === 'labour') p.set('mode', 'labour');
     if (basement) p.set('basement', '1');
     if (coveredOverride) p.set('covered', String(coveredOverride));
+    if (beds !== null) p.set('beds', String(bedrooms));
     if (baths !== null) p.set('baths', String(baths));
     if (kitchens !== null) p.set('kitchens', String(kitchens));
     return `${window.location.origin}/tools/construction-cost-calculator?${p.toString()}`;
@@ -143,13 +163,11 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
         inputs={
           <>
             <Card>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <Select label="Plot size" value={sizeKey} onChange={setSizeKey} options={[...CC_SIZES.map((x) => ({ v: x.key, label: x.label })), { v: 'custom', label: 'Other…' }]} />
-                  <Select label="City" value={city} onChange={setCity} options={cities.map((c) => ({ v: c.name, label: c.name }))} />
-                </div>
+              <div className="grid gap-4 md:grid-cols-2 md:gap-x-5">
+                <Select label="Plot size" value={sizeKey} onChange={setSizeKey} options={[...CC_SIZES.map((x) => ({ v: x.key, label: x.label })), { v: 'custom', label: 'Other…' }]} />
+                <Select label="City" value={city} onChange={setCity} options={cities.map((c) => ({ v: c.name, label: c.name }))} />
                 {sizeKey === 'custom' && (
-                  <div className="space-y-2">
+                  <div className="grid gap-2 md:col-span-2 md:grid-cols-2 md:gap-x-5">
                     <input
                       type="number"
                       inputMode="decimal"
@@ -158,7 +176,7 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                       value={customSize}
                       onChange={(e) => setCustomSize(e.target.value)}
                       aria-label="Plot size"
-                      className="h-[52px] w-full rounded-lg bg-white px-4 text-[20px] font-bold tabular-nums text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+                      className="h-[52px] w-full rounded-lg border border-slate-400 bg-white px-4 text-[20px] font-bold tabular-nums text-slate-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                     <Segment
                       value={customUnit}
@@ -187,13 +205,13 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                   value={kind}
                   onChange={setKind}
                   options={[
-                    { v: 'complete', label: 'Complete house', sub: 'Ready to live in' },
-                    { v: 'grey', label: 'Grey structure', sub: 'Frame, walls, roof' },
+                    { v: 'complete', label: 'Complete', sub: 'Ready to live in' },
+                    { v: 'grey', label: 'Grey structure', sub: 'Frame & walls' },
                   ]}
                 />
                 <div>
                   <Segment label="Quality" value={quality} onChange={setQuality} options={QUALITY.map((x) => ({ v: x.key, label: x.label }))} />
-                  <p className="mt-1.5 text-[12.5px] text-slate-600">{q.hint}</p>
+                  <p className="mt-1.5 text-[13px] text-slate-700">{q.hint}</p>
                 </div>
                 <Segment
                   label="Who buys the material"
@@ -201,27 +219,88 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                   onChange={setMode}
                   options={[
                     { v: 'full', label: 'Contractor', sub: 'Full contract' },
-                    { v: 'labour', label: 'Me', sub: 'Labour contract' },
+                    { v: 'labour', label: 'I will', sub: 'Labour contract' },
                   ]}
                 />
               </div>
             </Card>
 
-            <section className="rounded-xl bg-white border border-slate-300">
-              <button type="button" onClick={() => setMore((v) => !v)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left sm:px-5" aria-expanded={more}>
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-slate-300 bg-white">
-                  <SlidersHorizontal className="h-4 w-4 text-slate-600" />
+            {/* Rooms — what fits on this plot, and where it goes */}
+            <Card
+              title={
+                <span className="inline-flex items-center gap-2">
+                  <BedDouble className="h-5 w-5 text-primary" /> Rooms
                 </span>
+              }
+              action={
+                roomsChanged ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBeds(null);
+                      setBaths(null);
+                      setKitchens(null);
+                    }}
+                    className="font-semibold text-primary hover:underline"
+                  >
+                    Usual for this size
+                  </button>
+                ) : (
+                  <span>Usual for this size</span>
+                )
+              }
+            >
+              <div className="grid gap-2 md:grid-cols-3">
+                <Stepper label="Bedrooms" sub={`Up to ${limits.maxBedrooms}`} value={bedrooms} onChange={setBeds} min={1} max={limits.maxBedrooms} />
+                <Stepper label="Bathrooms" sub={`Up to ${maxima.bathrooms}`} value={bathrooms} onChange={setBaths} min={1} max={maxima.bathrooms} />
+                <Stepper label="Kitchens" sub={`Up to ${maxima.kitchens}`} value={kitchenCount} onChange={setKitchens} min={1} max={maxima.kitchens} />
+              </div>
+
+              <div className="mt-4">
+                <div className="flex items-baseline justify-between gap-3 text-[13.5px]">
+                  <span className="font-semibold text-slate-800">
+                    {sizeLabel} {storeys} storey fits up to {limits.maxBedrooms} bedrooms
+                  </span>
+                  <span className="shrink-0 font-bold text-slate-900">
+                    {bedrooms}/{limits.maxBedrooms}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex h-2.5 gap-[2px] overflow-hidden rounded-full bg-slate-200">
+                  {Array.from({ length: limits.maxBedrooms }, (_, i) => (
+                    <div key={i} className={cn('h-full flex-1', i < bedrooms ? (bedrooms === limits.maxBedrooms ? 'bg-amber-500' : 'bg-primary') : 'bg-slate-200')} />
+                  ))}
+                </div>
+                {bedrooms === limits.maxBedrooms && limits.maxBedrooms > 2 && (
+                  <p className="mt-1.5 text-[13px] text-amber-800">That is as many as fit — the rooms will be on the small side.</p>
+                )}
+              </div>
+
+              <ul className="mt-4 divide-y divide-slate-200 rounded-lg border border-slate-300">
+                {plan.map((f) => (
+                  <li key={f.label} className="flex gap-3 px-3.5 py-2.5">
+                    <span className="w-[92px] shrink-0 text-[13.5px] font-bold text-slate-900">{f.label}</span>
+                    <span className="text-[13.5px] leading-snug text-slate-700">{f.rooms.join(' · ')}</span>
+                  </li>
+                ))}
+              </ul>
+              {kind === 'grey' && <p className="mt-2 text-[13px] text-slate-700">Rooms matter once you finish the house — grey structure is priced by covered area.</p>}
+            </Card>
+
+            <section className="overflow-hidden rounded-xl border border-slate-300 bg-white">
+              <button type="button" onClick={() => setMore((v) => !v)} className={cn('flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50', more && 'border-b border-slate-200')} aria-expanded={more}>
+                <Ruler className="h-5 w-5 shrink-0 text-primary" />
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-bold text-slate-900">Your map</span>
-                  <span className="block text-[12.5px] text-slate-600">Covered area, basement, bathrooms, kitchens</span>
+                  <span className="block text-[16px] font-bold text-slate-900">Covered area & basement</span>
+                  <span className="block text-[13px] text-slate-700">
+                    {coveredOverride ? `${coveredOverride.toLocaleString('en-PK')} sq ft from your map` : `Worked out: ${floorsList.map((f) => `${f.label.replace(' floor', '')} ${f.sqft.toLocaleString('en-PK')}`).join(' + ')} sq ft`}
+                  </span>
                 </span>
-                <ChevronDown className={cn('h-5 w-5 text-slate-600 transition-transform', more && 'rotate-180')} />
+                <ChevronDown className={cn('h-5 w-5 shrink-0 text-slate-700 transition-transform', more && 'rotate-180')} strokeWidth={2.5} />
               </button>
               {more && (
-                <div className="space-y-3 px-4 pb-4 sm:px-5">
+                <div className="grid gap-3 p-4 md:grid-cols-2 md:gap-x-5">
                   <label className="block">
-                    <span className="mb-1.5 block text-[14px] font-semibold text-slate-800">Covered area, all floors (sq ft)</span>
+                    <span className="mb-1.5 block text-[14px] font-semibold text-slate-800">Covered area from your map (sq ft)</span>
                     <input
                       type="number"
                       inputMode="numeric"
@@ -229,25 +308,19 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                       value={covered}
                       onChange={(e) => setCovered(e.target.value)}
                       placeholder={`About ${Math.round(floorsList.filter((f) => !f.basement).reduce((s, f) => s + f.sqft, 0)).toLocaleString('en-PK')}`}
-                      className="h-[52px] w-full rounded-lg bg-white px-4 text-[18px] font-bold tabular-nums text-slate-900 outline-none border border-slate-400 focus:border-primary focus:ring-1 focus:ring-primary"
+                      className="h-[52px] w-full rounded-lg border border-slate-400 bg-white px-4 text-[18px] font-bold tabular-nums text-slate-900 outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                     />
                   </label>
-                  <label className={cn('flex items-center justify-between gap-3 rounded-lg border border-slate-300 bg-white px-3.5 py-3', coveredOverride && 'opacity-50')}>
-                    <span className="text-[14px] font-semibold text-slate-800">Basement</span>
+                  <label className={cn('flex items-center justify-between gap-3 self-end rounded-lg border border-slate-400 bg-white px-3.5 py-3.5', coveredOverride && 'opacity-50')}>
+                    <span className="text-[15px] font-semibold text-slate-900">Add a basement</span>
                     <input type="checkbox" checked={basement} onChange={(e) => setBasement(e.target.checked)} disabled={!!coveredOverride} className="h-5 w-5 accent-primary" />
                   </label>
-                  {kind === 'complete' && (
-                    <>
-                      <Stepper label="Bathrooms" sub={baths === null ? 'Usual for this size' : undefined} value={bathrooms} onChange={setBaths} min={1} max={12} />
-                      <Stepper label="Kitchens" sub={kitchens === null ? 'Usual for this size' : undefined} value={kitchenCount} onChange={setKitchens} min={0} max={4} />
-                    </>
-                  )}
                 </div>
               )}
             </section>
           </>
         }
-        results={
+        summary={
           has ? (
             <>
               <ResultHero heroRef={heroRef} label={`${sizeLabel}, ${storeys} storey · ${kind === 'grey' ? 'grey structure' : 'complete house'} · ${city}`} value={rsShort(est.total)} sub={`Usually ${rsShort(est.low)} – ${rsShort(est.high)}`}>
@@ -278,6 +351,13 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                 </p>
               )}
 
+            </>
+          ) : (
+            <p className="rounded-xl bg-white p-6 text-center text-[15px] text-slate-600 border border-slate-300">Choose a plot size to see the cost.</p>
+          )
+        }
+        details={has ? (
+          <>
               <Card title="Where the money goes">
                 {kind === 'complete' && (
                   <div className="mb-3 grid grid-cols-2 gap-2">
@@ -356,11 +436,8 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
                   map approval, boundary walls, utility connections, solar and furniture.
                 </span>
               </p>
-            </>
-          ) : (
-            <p className="rounded-xl bg-white p-6 text-center text-[15px] text-slate-600 border border-slate-300">Choose a plot size to see the cost.</p>
-          )
-        }
+          </>
+        ) : undefined}
       />
     </>
   );

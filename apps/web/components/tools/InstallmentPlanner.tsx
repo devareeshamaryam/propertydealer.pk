@@ -49,7 +49,7 @@ export default function InstallmentPlanner() {
         inputs={
           <>
             <Card>
-              <div className="space-y-5">
+              <div className="grid gap-5 md:grid-cols-2 md:gap-x-6 [&>*:first-child]:md:col-span-2 [&>*:last-child]:md:col-span-2">
                 <MoneyField label="Total price" value={price} onChange={setPrice} chips={PRICE_CHIPS} />
                 <SliderField label="Down payment" value={downPct} onChange={setDownPct} min={0} max={60} step={5} suffix="%" hint={rsShort((price * downPct) / 100)} />
                 <SliderField label="Plan length" value={years} onChange={setYears} min={1} max={10} step={0.5} suffix="yrs" />
@@ -65,11 +65,10 @@ export default function InstallmentPlanner() {
             </Card>
           </>
         }
-        results={
+        summary={
           plan.error ? (
             <p className="rounded-xl bg-red-50 p-5 text-[15px] font-medium text-red-700 border border-red-300">{plan.error}</p>
           ) : (
-            <>
               <ResultHero
                 heroRef={heroRef}
                 label={`Every ${word}`}
@@ -85,7 +84,10 @@ export default function InstallmentPlanner() {
                   ]}
                 />
               </ResultHero>
-
+          )
+        }
+        details={plan.error ? undefined : (
+            <>
               <Card title="How the price is paid">
                 <div className="flex h-3 gap-[2px] overflow-hidden rounded-full" aria-hidden>
                   {[
@@ -127,8 +129,7 @@ export default function InstallmentPlanner() {
                 </ol>
               </Disclosure>
             </>
-          )
-        }
+          )}
       />
     </>
   );

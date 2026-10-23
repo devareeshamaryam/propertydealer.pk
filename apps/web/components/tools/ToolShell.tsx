@@ -1,28 +1,19 @@
 import Link from 'next/link';
-import { ArrowLeft, BookOpen, Calendar, ChevronDown, Hammer, Landmark, Ruler, Tag, TrendingUp } from 'lucide-react';
+import { BookOpen, ChevronDown } from 'lucide-react';
 import { AdZone } from '@/components/ads/AdSlot';
 import { TOOLS, type ToolInfo } from '@/lib/tools';
-import { ShareButton } from './ui';
+import ToolArt from './ToolArt';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
-
-export const TOOL_ICONS = { ruler: Ruler, hammer: Hammer, landmark: Landmark, calendar: Calendar, trending: TrendingUp, tag: Tag } as const;
 
 export interface Faq {
   q: string;
   a: string;
 }
 
-/** A tool's icon tile — the same square on the tools screen and in each tool's bar. */
+/** A tool's own picture — the same on the tools screen and on the tool. */
 export function ToolIcon({ tool, size = 'md' }: { tool: ToolInfo; size?: 'sm' | 'md' | 'lg' }) {
-  const Icon = TOOL_ICONS[tool.icon];
-  const box = size === 'lg' ? 'h-16 w-16 rounded-xl' : size === 'sm' ? 'h-10 w-10 rounded-lg' : 'h-12 w-12 rounded-lg';
-  const ic = size === 'lg' ? 'h-8 w-8' : size === 'sm' ? 'h-5 w-5' : 'h-6 w-6';
-  return (
-    <span className={`grid shrink-0 place-items-center text-white ${box}`} style={{ background: tool.color }}>
-      <Icon className={ic} strokeWidth={2.2} />
-    </span>
-  );
+  return <ToolArt tool={tool} size={size} />;
 }
 
 /**
@@ -88,36 +79,33 @@ export default function ToolShell({
     <main className="min-h-screen bg-slate-100 pb-14">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }} />
 
-      {/* App bar */}
+      {/* Title: the tool's picture, its name and one line on what it does. */}
       <div className="border-b border-slate-300 bg-white print:border-0">
-        <div className="container mx-auto px-[var(--gutter)] py-3 sm:px-4 sm:py-5">
-          <div className="flex items-center gap-3">
-            <Link
-              href={page ? `/tools/${tool.slug}` : '/tools'}
-              aria-label={page ? tool.title : 'All tools'}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-slate-400 bg-white text-slate-800 transition-colors hover:bg-slate-100 print:hidden"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <ToolIcon tool={tool} size="sm" />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-[18px] font-extrabold leading-tight tracking-tight text-slate-900 sm:text-[26px]">{heading ?? tool.title}</h1>
-              <nav aria-label="Breadcrumb" className="hidden truncate text-[12.5px] text-slate-600 sm:block">
-                <Link href="/" className="hover:text-primary">Home</Link> /{' '}
-                <Link href="/tools" className="hover:text-primary">Tools</Link>
-                {page && (
-                  <>
-                    {' '}/{' '}
-                    <Link href={`/tools/${tool.slug}`} className="hover:text-primary">
-                      {tool.title}
-                    </Link>
-                  </>
-                )}
-              </nav>
+        <div className="container mx-auto px-[var(--gutter)] py-4 sm:px-4 sm:py-6">
+          <nav aria-label="Breadcrumb" className="mb-2 hidden text-[13px] font-medium text-slate-600 sm:block print:hidden">
+            <Link href="/" className="hover:text-primary">Home</Link> ›{' '}
+            <Link href="/tools" className="hover:text-primary">Tools</Link>
+            {page && (
+              <>
+                {' '}›{' '}
+                <Link href={`/tools/${tool.slug}`} className="hover:text-primary">
+                  {tool.title}
+                </Link>
+              </>
+            )}
+          </nav>
+          <div className="flex items-start gap-3 sm:items-center sm:gap-4">
+            <span className="hidden sm:block">
+              <ToolArt tool={tool} size="lg" />
+            </span>
+            <span className="sm:hidden">
+              <ToolArt tool={tool} size="sm" />
+            </span>
+            <div className="min-w-0">
+              <h1 className="text-[21px] font-extrabold leading-tight text-slate-900 sm:text-[28px]">{heading ?? tool.title}</h1>
+              <p className="mt-1 max-w-3xl text-[14.5px] leading-relaxed text-slate-700 sm:text-[15.5px]">{intro}</p>
             </div>
-            <ShareButton title={page?.title ?? tool.title} />
           </div>
-          <p className="mt-2.5 max-w-3xl text-[14px] leading-relaxed text-slate-600 sm:mt-3 sm:text-[15px]">{intro}</p>
         </div>
       </div>
 

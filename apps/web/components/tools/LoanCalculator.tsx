@@ -59,7 +59,7 @@ export default function LoanCalculator() {
               ]}
             />
             <Card>
-              <div className="space-y-5">
+              <div className="grid gap-5 md:grid-cols-2 md:gap-x-6 [&>*:first-child]:md:col-span-2">
                 {mode === 'emi' ? (
                   <MoneyField label="Property price" value={price} onChange={setPrice} chips={PRICE_CHIPS} />
                 ) : (
@@ -85,7 +85,7 @@ export default function LoanCalculator() {
             </Card>
           </>
         }
-        results={
+        summary={
           mode === 'emi' ? (
             <>
               <ResultHero heroRef={heroRef} label="Monthly instalment" value={rupees(pay)} sub={`${months} instalments to repay a ${rsShort(loan)} loan`}>
@@ -106,6 +106,30 @@ export default function LoanCalculator() {
                   <Row label="Loan to value" note="What the bank finances" value={`${100 - downPct}%`} />
                 </div>
               </Card>
+            </>
+          ) : (
+            <>
+              <ResultHero heroRef={heroRef} label="You can borrow up to" value={rsShort(maxLoan)} sub={room > 0 ? `With an instalment of ${rupees(room)} a month for ${years} years` : 'Your other instalments already use this share of your income'}>
+                <Tiles
+                  onBrand
+                  items={[
+                    { label: 'Home you can buy', value: rsShort(maxPrice) },
+                    { label: 'Down payment needed', value: rsShort(needDown) },
+                    { label: 'Instalment', value: `${rsShort(room)}/mo` },
+                  ]}
+                />
+              </ResultHero>
+              <Card title="Good to know">
+                <div className="divide-y divide-slate-100">
+                  <Row label="Bank's profit over the loan" value={rsShort(Math.max(0, room * months - maxLoan))} />
+                  <Row label="At 2% more" note="If KIBOR rises before you apply" value={rsShort(loanFor(room, rate + 2, months))} />
+                  <Row label="Over 5 more years" note="A longer loan lends more, but costs more profit" value={years + 5 <= 30 ? rsShort(loanFor(room, rate, (years + 5) * 12)) : '—'} />
+                </div>
+              </Card>
+            </>
+          )
+        }
+        details={mode === 'emi' ? (
               <Disclosure title="Year by year" sub="How much of each year's payments clears the loan">
                 <div className="-mx-1 overflow-x-auto">
                   <table className="w-full min-w-[400px] text-[13.5px] tabular-nums">
@@ -130,29 +154,7 @@ export default function LoanCalculator() {
                   </table>
                 </div>
               </Disclosure>
-            </>
-          ) : (
-            <>
-              <ResultHero heroRef={heroRef} label="You can borrow up to" value={rsShort(maxLoan)} sub={room > 0 ? `With an instalment of ${rupees(room)} a month for ${years} years` : 'Your other instalments already use this share of your income'}>
-                <Tiles
-                  onBrand
-                  items={[
-                    { label: 'Home you can buy', value: rsShort(maxPrice) },
-                    { label: 'Down payment needed', value: rsShort(needDown) },
-                    { label: 'Instalment', value: `${rsShort(room)}/mo` },
-                  ]}
-                />
-              </ResultHero>
-              <Card title="Good to know">
-                <div className="divide-y divide-slate-100">
-                  <Row label="Bank's profit over the loan" value={rsShort(Math.max(0, room * months - maxLoan))} />
-                  <Row label="At 2% more" note="If KIBOR rises before you apply" value={rsShort(loanFor(room, rate + 2, months))} />
-                  <Row label="Over 5 more years" note="A longer loan lends more, but costs more profit" value={years + 5 <= 30 ? rsShort(loanFor(room, rate, (years + 5) * 12)) : '—'} />
-                </div>
-              </Card>
-            </>
-          )
-        }
+        ) : undefined}
       />
     </>
   );

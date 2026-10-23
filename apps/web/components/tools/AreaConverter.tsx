@@ -179,7 +179,7 @@ export default function AreaConverter() {
             </Card>
           </>
         }
-        results={
+        summary={
           <>
             <ResultHero heroRef={heroRef} label={headline} value={sqft > 0 ? `${nice(inUnit('marla'))} Marla` : '—'} sub={sqft > 0 ? `${nice(sqft)} square feet` : 'Enter a size'}>
               <dl className="grid grid-cols-2 gap-2">
@@ -192,6 +192,10 @@ export default function AreaConverter() {
               </dl>
             </ResultHero>
 
+          </>
+        }
+        details={
+          <>
             <Card title="Every unit" action={<span className="text-[12px] text-slate-600">Tap to convert from it</span>}>
               <ul className="divide-y divide-slate-100">
                 {UNITS.filter((u) => !HEADLINE.includes(u.key)).map((u) => {

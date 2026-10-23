@@ -105,7 +105,7 @@ export default function PriceCompare() {
             </Card>
           </>
         }
-        results={
+        summary={
           <>
             {!top ? (
               <p className="rounded-xl bg-white p-6 text-center text-[15px] text-slate-600 border border-slate-300">Enter a price and a size.</p>
@@ -138,6 +138,10 @@ export default function PriceCompare() {
               </ResultHero>
             )}
 
+          </>
+        }
+        details={
+          <>
             {comparing && (
               <Card title="Side by side" action={<span className="text-[12px] text-slate-600">Price per marla</span>}>
                 <div className="space-y-3.5">

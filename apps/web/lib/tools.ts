@@ -256,11 +256,87 @@ export function coveredAreas(plotSqft: number, plan: FloorPlan): { label: string
 }
 
 /** Bathrooms and kitchens a house of this size usually has. */
+/*
+ * Rooms: how many a house of this size can hold, floor by floor.
+ *
+ * Each floor first gives up space it needs whatever the rooms — on the ground
+ * floor the kitchen, a lounge, the drawing room or porch and the stairs (about
+ * a third of the floor); above, a lounge and the stairs. What is left is
+ * divided into bedrooms with attached baths: about 180 sq ft each in a small
+ * house, growing to ~400 in a large one (rooms get bigger as plots do). Built
+ * Pakistani houses bear this out: a 5 marla double storey holds at most 5
+ * bedrooms (usually 3–4), a 10 marla 7 (usually 4–5), a kanal 10 (usually 6).
+ */
+export interface FloorRooms {
+  label: string;
+  max: number;
+}
+
+export function roomLimits(area: number, floors: number): { floors: FloorRooms[]; maxBedrooms: number; usualBedrooms: number } {
+  if (area <= 0 || floors <= 0) return { floors: [], maxBedrooms: 1, usualBedrooms: 1 };
+  const fa = area / floors;
+  const per = Math.min(420, Math.max(180, 180 + (fa - 600) * 0.08));
+  const cap = fa < 1200 ? 3 : fa < 2500 ? 4 : fa < 4000 ? 5 : 6;
+  const names = ['Ground floor', 'First floor', 'Second floor', 'Third floor'];
+  const list: FloorRooms[] = [];
+  for (let i = 0; i < floors; i++) {
+    // A single storey has no stairs to give up room to.
+    const base = i === 0 ? (floors === 1 ? 0.3 * fa + 60 : 0.35 * fa + 100) : 0.15 * fa + 80;
+    list.push({ label: names[i] ?? `Floor ${i + 1}`, max: Math.max(i === 0 ? 1 : 0, Math.min(cap, Math.floor((fa - base) / per))) });
+  }
+  const maxBedrooms = Math.max(1, list.reduce((s, f) => s + f.max, 0));
+  // Usually about 60% of what could fit — but even a small house has two.
+  return { floors: list, maxBedrooms, usualBedrooms: Math.max(Math.min(2, maxBedrooms), Math.round(maxBedrooms * 0.6)) };
+}
+
+/** Bedrooms, bathrooms and kitchens a house of this size usually has. */
 export function usualRooms(area: number, floors: number): { bathrooms: number; kitchens: number; bedrooms: number } {
   if (area <= 0) return { bathrooms: 1, kitchens: 1, bedrooms: 1 };
-  const bedrooms = Math.min(7, Math.max(1, Math.round(area / 800)));
+  const bedrooms = roomLimits(area, Math.max(1, floors)).usualBedrooms;
+  // A bath with each bedroom and a powder room; a kitchen on each family floor of a larger house.
   return { bedrooms, bathrooms: bedrooms + 1, kitchens: floors >= 2 && area >= 1800 ? 2 : 1 };
 }
+
+/** The most bathrooms and kitchens that make sense with these rooms. */
+export function roomMaxima(bedrooms: number, floors: number) {
+  return { bathrooms: bedrooms + floors + 1, kitchens: Math.max(1, floors) };
+}
+
+/** Where the bedrooms go: the upper floors fill first (the ground floor keeps the kitchen, drawing room and porch). */
+export function planFloors(limits: FloorRooms[], bedrooms: number, kitchens: number): { label: string; rooms: string[] }[] {
+  const left = { n: bedrooms };
+  const beds = limits.map(() => 0);
+  // Spread evenly, then top up within each floor's room.
+  for (let round = 0; left.n > 0 && round < 20; round++) {
+    let placed = false;
+    for (let i = limits.length - 1; i >= 0 && left.n > 0; i--) {
+      if (beds[i]! < limits[i]!.max) {
+        beds[i]!++;
+        left.n--;
+        placed = true;
+      }
+    }
+    if (!placed) break;
+  }
+  const extra = left.n; // more than fit: shown on the top floor, the planner warns
+  if (extra > 0) beds[beds.length - 1]! += extra;
+  return limits.map((f, i) => {
+    const rooms: string[] = [];
+    if (beds[i]) rooms.push(`${beds[i]} bedroom${beds[i] === 1 ? '' : 's'}`);
+    if (i === 0) {
+      rooms.push('kitchen', 'TV lounge');
+      if (limits.length > 1 || f.max >= 2) rooms.push('drawing room');
+      rooms.push('car porch');
+    } else {
+      if (i < kitchens) rooms.push('kitchen');
+      rooms.push('lounge');
+    }
+    return { label: f.label, rooms };
+  });
+}
+
+/** Fitting out one bedroom beyond the usual: door, wardrobe, wiring and points. */
+export const ROOM_FITOUT: Record<Quality, number> = { economy: 90_000, standard: 160_000, premium: 320_000, luxury: 600_000 };
 
 export interface EstimateInput {
   covered: number; // sq ft above ground
@@ -274,6 +350,10 @@ export interface EstimateInput {
   cityRates?: MaterialRate[];
   bathrooms: number;
   kitchens: number;
+  /** Bedrooms, when set: more than a house this size usually has adds their fit-out. */
+  bedrooms?: number;
+  /** The bedrooms a house this size usually has (the finishing rates assume these). */
+  usualBedrooms?: number;
 }
 
 export interface EstimateLine {
@@ -389,6 +469,17 @@ export function estimate(input: EstimateInput, data: ConstructionData): Estimate
       { key: 'bath', label: 'Bathroom fittings — WC, basin, shower, taps, geyser', qty: baths, unit: 'bathroom', rate: c.bathroom[input.quality], amount: baths * c.bathroom[input.quality] },
       { key: 'kitchen', label: 'Kitchen — cabinets, counter, sink, hood & hob', qty: kitchens, unit: 'kitchen', rate: c.kitchen[input.quality], amount: kitchens * c.kitchen[input.quality] },
     ];
+    const extraRooms = Math.max(0, Math.round((input.bedrooms ?? 0) - (input.usualBedrooms ?? input.bedrooms ?? 0)));
+    if (extraRooms > 0) {
+      fittings.push({
+        key: 'rooms',
+        label: 'Extra bedrooms — doors, wardrobes, wiring',
+        qty: extraRooms,
+        unit: 'room',
+        rate: ROOM_FITOUT[input.quality],
+        amount: extraRooms * ROOM_FITOUT[input.quality],
+      });
+    }
     groups.push({ key: 'finishing', title: 'Finishing', total: sum(finishing), lines: finishing });
     groups.push({ key: 'fittings', title: 'Bathrooms & kitchens', total: sum(fittings), lines: fittings });
   }

@@ -318,8 +318,9 @@ export function useOnScreen<T extends Element>() {
 }
 
 /**
- * The answer, kept in sight on a phone: a bar under the site header once the
- * answer has scrolled away (tap it to jump back).
+ * The answer, kept in sight on a phone: a bar just above the bottom tab bar
+ * — where the thumb is — whenever the answer itself is off screen. Tap it to
+ * jump to the answer.
  */
 export function StickyAnswer({ show, label, value, onTap }: { show: boolean; label: string; value: string; onTap?: () => void }) {
   return (
@@ -329,22 +330,29 @@ export function StickyAnswer({ show, label, value, onTap }: { show: boolean; lab
       aria-hidden={!show}
       tabIndex={show ? 0 : -1}
       className={cn(
-        'fixed inset-x-0 top-16 z-40 flex items-center justify-between gap-3 border-b-2 border-black/10 bg-primary px-4 py-2.5 text-left text-white transition-transform duration-200 lg:hidden print:hidden',
-        show ? 'translate-y-0' : 'pointer-events-none -translate-y-full',
+        'fixed inset-x-3 bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+4.75rem)] z-40 flex items-center justify-between gap-3 rounded-lg border-2 border-primary bg-white px-4 py-2.5 text-left shadow-[0_6px_20px_rgba(15,23,42,0.18)] transition-all duration-200 md:bottom-4 lg:hidden print:hidden',
+        show ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0',
       )}
     >
-      <span className="truncate text-[13.5px] font-semibold text-white">{label}</span>
-      <span className="shrink-0 text-[18px] font-extrabold tabular-nums">{value}</span>
+      <span className="min-w-0 truncate text-[13.5px] font-semibold text-slate-700">{label}</span>
+      <span className="shrink-0 text-[18px] font-extrabold tabular-nums text-primary">{value}</span>
     </button>
   );
 }
 
-/** Two columns on a desktop (inputs | answer), one on a phone. */
-export function ToolLayout({ inputs, results }: { inputs: React.ReactNode; results: React.ReactNode }) {
+/**
+ * The page: on a desktop the inputs and the details on the left, the answer
+ * on the right and staying in view while you change things; on a phone,
+ * inputs, then the answer, then the details.
+ */
+export function ToolLayout({ inputs, summary, details }: { inputs: React.ReactNode; summary: React.ReactNode; details?: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-start lg:gap-6">
-      <div className="space-y-4 lg:sticky lg:top-20">{inputs}</div>
-      <div className="min-w-0 space-y-4">{results}</div>
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-1">{inputs}</div>
+      <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
+        <div className="space-y-4 lg:sticky lg:top-20">{summary}</div>
+      </div>
+      {details && <div className="min-w-0 space-y-4 lg:col-start-1 lg:row-start-2">{details}</div>}
     </div>
   );
 }
