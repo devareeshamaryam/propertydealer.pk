@@ -5,7 +5,8 @@ import { getSitemapData, sitemapXml, xmlResponse, SITE_URL } from '@/lib/sitemap
 import { getSocieties } from '@/lib/societies';
 import { TOOLS, withDefaults } from '@/lib/tools';
 import { CC_SIZES, ccHref, pageCities } from '@/lib/construction-pages';
-import { getConstructionData } from '@/lib/server-api';
+import { getConstructionData, getDealerCities } from '@/lib/server-api';
+import { DEALERS_HUB, dealersCityPath } from '@/lib/dealers';
 
 const STATIC_PAGES = [
   { url: '/',                                      priority: '1.0', changefreq: 'daily'   },
@@ -67,6 +68,12 @@ export async function GET() {
         rows.push({ loc: `${SITE_URL}${ccHref(size, kind, c.name)}`, lastmod: today, changefreq: 'weekly', priority: size.v === 5 || size.v === 10 ? '0.7' : '0.6' });
       }
     }
+  }
+  // Property dealers: the list of cities, and each city that has dealers.
+  const dealerCities = (await getDealerCities()).filter((c) => c.agencies + c.agents > 0);
+  rows.push({ loc: `${SITE_URL}${DEALERS_HUB}`, lastmod: today, changefreq: 'weekly', priority: '0.7' });
+  for (const c of dealerCities) {
+    rows.push({ loc: `${SITE_URL}${dealersCityPath(c.slug)}`, lastmod: today, changefreq: 'daily', priority: '0.7' });
   }
   return xmlResponse(sitemapXml(rows));
 }

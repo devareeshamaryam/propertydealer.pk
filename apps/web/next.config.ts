@@ -59,6 +59,11 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  // One address per city's dealers page: the folder path redirects to the readable one.
+  async redirects() {
+    return [{ source: '/property-dealers/:city([a-z0-9-]+)', destination: '/property-dealers-in-:city', permanent: true }];
+  },
+
   async rewrites() {
     // 📡 Determine the correct NestJS API URL.
     // ⚠️ CRITICAL: DO NOT proxy to localhost:3010 or the public domain (propertydealer.pk) as it causes infinite proxy loops.
@@ -96,6 +101,8 @@ const nextConfig: NextConfig = {
           has: [{ type: 'query', key: 'type', value: '(?<ptype>[A-Za-z][A-Za-z-]{0,30})' }],
           destination: '/properties/all/:city/by-type/:ptype',
         },
+        // A city's property dealers: /property-dealers-in-lahore (app/(pages)/property-dealers/[city]).
+        { source: '/property-dealers-in-:city([a-z0-9-]+)', destination: '/property-dealers/:city' },
       ],
       afterFiles: [
         { source: '/api/:path*',     destination: `${baseUrl}/api/:path*`     },

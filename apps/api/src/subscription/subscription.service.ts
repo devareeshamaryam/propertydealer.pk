@@ -38,7 +38,7 @@ export const NO_PERKS: PlanPerks = {
   brandedProfile: false,
   autoPublish: false,
   spotlight: false,
-  profilePage: false,
+  profilePage: true,
   photosPerProperty: 20,
 };
 
@@ -51,8 +51,8 @@ export function perksOf(pkg: any): PlanPerks {
     brandedProfile: !!pkg.brandedProfile,
     autoPublish: !!pkg.autoPublish,
     spotlight: !!pkg.spotlight,
-    // Packages saved before the switch existed have no value: the profile stays as it was.
-    profilePage: pkg.profilePage !== false,
+    // Every account has a public profile page, Free included — it is not a plan benefit.
+    profilePage: true,
     photosPerProperty: Math.max(1, Number(pkg.photosPerProperty) || 20),
   };
 }
@@ -751,14 +751,14 @@ export class SubscriptionService {
 
   private profileCache = new Map<string, { at: number; on: boolean }>();
 
-  /** Does this account's plan include a public profile page? Admins always do. Cached for five minutes. */
+  /** Does this account have a public profile page? Every active account does, whatever the plan. Cached for five minutes. */
   async hasProfilePage(userId: string): Promise<boolean> {
     const id = String(userId ?? '');
     if (!Types.ObjectId.isValid(id)) return false;
     const hit = this.profileCache.get(id);
     if (hit && Date.now() - hit.at < 300_000) return hit.on;
     const u: any = await this.propertyModel.db.collection('users').findOne({ _id: new Types.ObjectId(id) }, { projection: { role: 1 } });
-    const on = u?.role === 'ADMIN' ? true : !!(await this.getEffectivePlan(id).catch(() => null))?.perks.profilePage;
+    const on = !!u;
     this.profileCache.set(id, { at: Date.now(), on });
     return on;
   }

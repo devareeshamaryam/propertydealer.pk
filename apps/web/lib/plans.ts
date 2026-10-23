@@ -40,7 +40,6 @@ export const PERK_LABELS: { key: keyof Plan; label: string; hint: string }[] = [
   { key: 'autoPublish', label: 'Instant publishing', hint: 'Listings go live without waiting for review' },
   { key: 'spotlight', label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and agents page' },
   { key: 'teamMembers', label: 'Agent accounts', hint: 'Your agents manage their own listings under your plan' },
-  { key: 'brandedProfile', label: 'Branded profile', hint: 'Cover photo and logo on your profile' },
   { key: 'socialLinks', label: 'Social links', hint: 'Facebook, Instagram, YouTube, TikTok and website on your profile' },
 ];
 
@@ -77,9 +76,8 @@ export function planBenefits(p: Plan): PlanBenefit[] {
     { key: 'verified', on: !!p.verifiedBadge, label: 'Verified badge', hint: 'On your profile, listings and listing cards' },
     { key: 'instant', on: !!p.autoPublish, label: 'Instant publishing', hint: 'Listings go live without waiting for review' },
     { key: 'spotlight', on: !!p.spotlight, label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and agents page' },
+    { key: 'rank', on: (p.price ?? 0) > 0, label: "Higher on your city's dealers page", hint: 'Paid plans are listed above Free — the bigger the plan, the higher' },
     { key: 'team', on: team > 0, label: team > 0 ? n(team, 'agent account', 'agent accounts') : 'Agent accounts', hint: 'Your agents list under your agency' },
-    { key: 'profile', on: p.profilePage !== false, label: 'Profile page with share link', hint: 'All your listings on one page, linked from each listing' },
-    { key: 'branded', on: !!p.brandedProfile, label: 'Cover photo on your profile', hint: 'A banner across the top of your agent page' },
     { key: 'social', on: !!p.socialLinks, label: 'Social links on your profile', hint: 'Facebook, Instagram, YouTube, TikTok, website' },
   ];
 }
@@ -87,6 +85,8 @@ export function planBenefits(p: Plan): PlanBenefit[] {
 /** What every plan has, Free included — shown once instead of on every card. */
 export function sharedBenefits(): string[] {
   return [
+    'Your own profile page with cover photo and share link',
+    "A place on your city's property dealers page",
     'A walkthrough video on every listing',
     'Call and WhatsApp buttons on every listing',
     'Your listings on the property map',

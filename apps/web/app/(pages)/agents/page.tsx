@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { BadgeCheck, Building2, MapPin } from "lucide-react";
-import { getSpotlightAgencies } from "@/lib/server-api";
+import { getDealerCities, getSpotlightAgencies } from "@/lib/server-api";
+import { DEALERS_HUB, dealersCityPath } from "@/lib/dealers";
 import { agentProfilePath } from "@/lib/agent";
 import { getSiteName } from "@/lib/site-settings.server";
 
@@ -19,7 +20,11 @@ export async function generateMetadata(): Promise<Metadata> {
 /* /agents: the verified agencies (plans with the spotlight benefit), most listings first. */
 export default async function AgentsPage() {
   const site = await getSiteName();
-  const agencies = await getSpotlightAgencies();
+  const [agencies, dealerCities] = await Promise.all([getSpotlightAgencies(), getDealerCities()]);
+  const cities = dealerCities
+    .filter((c) => c.agencies + c.agents > 0)
+    .sort((a, b) => b.agencies + b.agents - (a.agencies + a.agents))
+    .slice(0, 18);
   return (
     <div className="container mx-auto max-w-6xl px-4 py-8 sm:py-10">
       <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
@@ -64,6 +69,29 @@ export default async function AgentsPage() {
             </Link>
           ))}
         </div>
+      )}
+
+      {cities.length > 0 && (
+        <section className="mt-10">
+          <div className="flex items-end justify-between gap-3">
+            <h2 className="text-[21px] font-bold tracking-tight text-slate-900">Property dealers by city</h2>
+            <Link href={DEALERS_HUB} className="shrink-0 text-[14px] font-semibold text-primary hover:underline">
+              All cities
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {cities.map((c) => (
+              <Link
+                key={c._id}
+                href={dealersCityPath(c.slug)}
+                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 transition-colors hover:border-primary"
+              >
+                <span className="font-semibold text-slate-900">Property dealers in {c.name}</span>
+                <span className="shrink-0 text-[13px] text-slate-500">{c.agencies + c.agents}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
       )}
 
       <div className="mt-10 rounded-2xl bg-slate-900 p-6 text-white sm:p-8">

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,6 +21,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/context/auth-context'
+import { cityApi } from '@/lib/api'
 import { safeNextUrl } from '@/lib/auth-intent'
 import { GoogleButton } from '@/components/auth/google-button'
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
@@ -41,6 +42,8 @@ const registerSchema = z.object({
   name: z.string().min(2, { message: 'Please enter your name' }),
   email: z.string().email({ message: 'Please enter a valid email address' }),
   password: z.string().min(6, { message: 'Use at least 6 characters' }),
+  // Agents and agencies are listed on their city's property dealers page.
+  city: z.string().min(1, { message: 'Choose the city you work in' }),
 })
 
 type FormValues = z.infer<typeof registerSchema>
@@ -53,10 +56,18 @@ function RegisterForm() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [cities, setCities] = useState<{ _id: string; name: string }[]>([])
+
+  useEffect(() => {
+    cityApi
+      .getNames()
+      .then((rows) => setCities([...rows].sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => setCities([]))
+  }, [])
 
   const form = useForm<FormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: { name: '', email: '', password: '', city: '' },
   })
 
   async function onSubmit(values: FormValues) {
@@ -78,6 +89,7 @@ function RegisterForm() {
         name: values.name.trim(),
         email: values.email.trim().toLowerCase(),
         password: values.password,
+        city: values.city,
       })
 
       toast.success(`Welcome to ${siteName}`, {
@@ -148,6 +160,28 @@ function RegisterForm() {
               />
               {form.formState.errors.name && (
                 <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="city">Your city</Label>
+              <select
+                id="city"
+                {...form.register('city')}
+                disabled={isLoading}
+                className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              >
+                <option value="">{cities.length ? 'Choose the city you work in' : 'Loading cities…'}</option>
+                {cities.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {form.formState.errors.city ? (
+                <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">You will be listed on this city&apos;s property dealers page.</p>
               )}
             </div>
 

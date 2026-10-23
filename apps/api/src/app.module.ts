@@ -19,6 +19,7 @@ import { PageModule } from './page/page.module';
 import { PackageModule } from './package/package.module';
 import { SubscriptionModule } from './subscription/subscription.module';
 import { UserModule } from './user/user.module';
+import { DealersModule } from './dealers/dealers.module';
 import { StorageModule } from '../../../packages/storage/storage.module';
 import { ImportModule } from './import/import.module';
 import { IndexNowModule } from './indexnow/indexnow.module';
@@ -149,6 +150,7 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     PackageModule,
     SubscriptionModule,
     UserModule,
+    DealersModule,
     ImportModule,
     IndexNowModule,
     CementRateModule,

@@ -262,7 +262,8 @@ export default function AccountPage() {
 
       {/* Identity — the photo (and cover) are changed right here, saved at once. */}
       <DataCard flush className="overflow-hidden">
-        {!isAdmin && plan?.perks.brandedProfile && (
+        {/* Every account may have a cover photo, whatever the plan. */}
+        {!isAdmin && (
           <CoverPhoto
             url={coverUrl}
             context={`${companyName || name} cover`}
@@ -272,7 +273,7 @@ export default function AccountPage() {
             }}
           />
         )}
-        <div className={cn("flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6", !isAdmin && plan?.perks.brandedProfile && "-mt-10 sm:-mt-8")}>
+        <div className={cn("flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6", !isAdmin && "-mt-10 sm:-mt-8")}>
           <ProfilePhoto
             url={avatarUrl}
             initials={initials}
@@ -435,7 +436,7 @@ export default function AccountPage() {
           <DataCardTitle hint="Shown on /agents — buyers reach it from your listings">
             Public profile
           </DataCardTitle>
-          {publicPath && plan?.perks.profilePage !== false && (
+          {publicPath && (
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -456,12 +457,6 @@ export default function AccountPage() {
                 </Link>
               </Button>
             </div>
-          )}
-          {plan?.perks.profilePage === false && (
-            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Lock className="h-3.5 w-3.5" /> A public profile page comes with a paid plan.{" "}
-              <Link href="/dashboard/purchase-package" className="font-semibold text-primary underline">See plans</Link>
-            </p>
           )}
         </div>
 
@@ -586,16 +581,9 @@ export default function AccountPage() {
           </div>
           <Separator className="my-5" />
 
-          {plan?.perks.brandedProfile ? (
-            <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground">
-              Your cover photo is changed at the top of this page — tap <b>Change cover</b>.
-            </p>
-          ) : (
-            <p className="flex items-center gap-2 rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground">
-              <Lock className="h-4 w-4 shrink-0" /> A cover photo comes with the Dealer, Agency and Agency Plus plans.{" "}
-              <Link href="/dashboard/purchase-package" className="font-semibold text-primary underline">See plans</Link>
-            </p>
-          )}
+          <p className="rounded-lg bg-slate-50 p-3 text-sm text-muted-foreground">
+            Your cover photo is changed at the top of this page — tap <b>Change cover</b>.
+          </p>
 
           <div className="mt-5">
             {plan?.perks.socialLinks ? (
@@ -620,7 +608,7 @@ export default function AccountPage() {
             )}
           </div>
 
-          {(plan?.perks.brandedProfile || plan?.perks.socialLinks) && (
+          {plan?.perks.socialLinks && (
             <div className="mt-6 flex items-center gap-3">
               <Button onClick={() => void save()} disabled={saving || !dirty}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}

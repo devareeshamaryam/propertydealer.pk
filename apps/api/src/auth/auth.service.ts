@@ -6,7 +6,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { RegisterDto } from './dtos/register.dto';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from '@rent-ghar/db/schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
@@ -15,7 +15,13 @@ import { DiscordService, DISCORD_COLORS } from '../notify/discord.service';
 
 export interface TokenResponse {
   token: string;
-  user: { _id: string; name: string; email: string; role: string; isActive: boolean };
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+    role: string;
+    isActive: boolean;
+  };
   status: number;
   message: string;
 }
@@ -38,7 +44,9 @@ const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * exact.
  */
 export function emailQuery(raw: string): Record<string, unknown> {
-  const email = String(raw ?? '').trim().toLowerCase();
+  const email = String(raw ?? '')
+    .trim()
+    .toLowerCase();
   const at = email.lastIndexOf('@');
   const local = email.slice(0, at);
   const domain = email.slice(at + 1);
@@ -46,7 +54,14 @@ export function emailQuery(raw: string): Record<string, unknown> {
     const base = local.split('+')[0]!.replace(/\./g, '');
     if (base) {
       const name = [...base].map(escapeRe).join('\\.?');
-      return { email: { $regex: new RegExp(`^${name}(\\+[^@]*)?@(gmail|googlemail)\\.com$`, 'i') } };
+      return {
+        email: {
+          $regex: new RegExp(
+            `^${name}(\\+[^@]*)?@(gmail|googlemail)\\.com$`,
+            'i',
+          ),
+        },
+      };
     }
   }
   return { email: { $regex: new RegExp(`^${escapeRe(email)}$`, 'i') } };
@@ -60,7 +75,9 @@ export class AuthService {
     private readonly discord: DiscordService,
   ) {}
   async register(dto: RegisterDto): Promise<LoginResponse> {
-    const existingUser = await this.userModel.findOne(emailQuery(dto.email)).select('+password googleId');
+    const existingUser = await this.userModel
+      .findOne(emailQuery(dto.email))
+      .select('+password googleId');
     /*
      * 409, not 502.
      *
@@ -93,7 +110,25 @@ export class AuthService {
      * sign-up, from the listing flow and from this file. The Free plan needs
      * no row: SubscriptionService falls back to it when there is no paid one.
      */
-    const user = new this.userModel({ ...dto, role: 'AGENT' });
+    // Only a city that exists — anything else is left for the dashboard to ask again.
+    const { city: cityId, ...rest } = dto;
+    let city: Types.ObjectId | undefined;
+    if (cityId && Types.ObjectId.isValid(cityId)) {
+      const found = await this.userModel.db
+        .collection('cities')
+        .findOne(
+          { _id: new Types.ObjectId(cityId) },
+          { projection: { _id: 1 } },
+        );
+      if (!found)
+        throw new BadRequestException('Choose your city from the list');
+      city = found._id as Types.ObjectId;
+    }
+    const user = new this.userModel({
+      ...rest,
+      role: 'AGENT',
+      ...(city ? { city } : {}),
+    });
     await user.save();
 
     this.discord.send({
@@ -141,9 +176,11 @@ export class AuthService {
 
     // Check if account is locked
     if (user.lockUntil && user.lockUntil > new Date()) {
-      const minutesLeft = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
+      const minutesLeft = Math.ceil(
+        (user.lockUntil.getTime() - Date.now()) / 60000,
+      );
       throw new UnauthorizedException(
-        `Account locked due to too many failed login attempts. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`
+        `Account locked due to too many failed login attempts. Try again in ${minutesLeft} minute${minutesLeft > 1 ? 's' : ''}`,
       );
     }
 
@@ -154,11 +191,11 @@ export class AuthService {
     }
 
     const isPasswordValid = await user.comparePassword(dto.password);
-    
+
     if (!isPasswordValid) {
       // Increment failed attempts
       user.loginAttempts = (user.loginAttempts || 0) + 1;
-      
+
       // Lock account after 5 failed attempts for 15 minutes
       if (user.loginAttempts >= 5) {
         user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
@@ -173,14 +210,14 @@ export class AuthService {
           who: [{ label: '👤 Account', id: user._id }],
         });
         throw new UnauthorizedException(
-          'Account locked due to too many failed login attempts. Please try again in 15 minutes.'
+          'Account locked due to too many failed login attempts. Please try again in 15 minutes.',
         );
       }
-      
+
       await user.save();
       const attemptsLeft = 5 - user.loginAttempts;
       throw new UnauthorizedException(
-        `Invalid credentials. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining before account lockout.`
+        `Invalid credentials. ${attemptsLeft} attempt${attemptsLeft > 1 ? 's' : ''} remaining before account lockout.`,
       );
     }
 
@@ -193,14 +230,17 @@ export class AuthService {
     if (user.isActive === false) {
       // An agency's agent switched off by the agency owner — not an account waiting for approval.
       throw new ForbiddenException(
-        user.agencyId ? 'Your agency has paused this account. Please contact your agency owner.' : 'Account is pending activation',
+        user.agencyId
+          ? 'Your agency has paused this account. Please contact your agency owner.'
+          : 'Account is pending activation',
       );
     }
-    
+
     // generate access token and refresh token
     const accessToken = this.generateToken(user);
     const refreshPayload = { sub: user._id.toString() };
-    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+    const refreshSecret =
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
     if (!refreshSecret) {
       throw new Error('⚠️ SECURITY: JWT_REFRESH_SECRET must be set');
     }
@@ -245,7 +285,9 @@ export class AuthService {
     // The account already linked to this Google login; otherwise the one with
     // this mailbox (dots and +tags ignored), the original first.
     let user: UserDocument | null =
-      (await this.userModel.findOne({ googleId: profile.googleId }).select('+refreshToken')) ??
+      (await this.userModel
+        .findOne({ googleId: profile.googleId })
+        .select('+refreshToken')) ??
       (await this.userModel
         .findOne(emailQuery(profile.email))
         .sort({ createdAt: 1 })
@@ -284,7 +326,9 @@ export class AuthService {
 
     if (user.isActive === false) {
       throw new ForbiddenException(
-        user.agencyId ? 'Your agency has paused this account. Please contact your agency owner.' : 'Account is pending activation',
+        user.agencyId
+          ? 'Your agency has paused this account. Please contact your agency owner.'
+          : 'Account is pending activation',
       );
     }
 
@@ -293,9 +337,16 @@ export class AuthService {
 
   /** How this account signs in — for the "Login & password" card in My Account. */
   async passwordStatus(userId: string) {
-    const user = await this.userModel.findById(userId).select('+password googleId email provider').lean();
+    const user = await this.userModel
+      .findById(userId)
+      .select('+password googleId email provider')
+      .lean();
     if (!user) throw new UnauthorizedException('Account not found');
-    return { email: user.email, hasPassword: !!user.password, google: !!user.googleId };
+    return {
+      email: user.email,
+      hasPassword: !!user.password,
+      google: !!user.googleId,
+    };
   }
 
   /**
@@ -305,14 +356,26 @@ export class AuthService {
    * afterwards both "Continue with Google" and email + password open the same
    * account. An account that has a password must give the current one.
    */
-  async setPassword(userId: string, body: { currentPassword?: string; newPassword?: string }) {
+  async setPassword(
+    userId: string,
+    body: { currentPassword?: string; newPassword?: string },
+  ) {
     const next = String(body?.newPassword ?? '');
-    if (next.length < 6) throw new BadRequestException('Use at least 6 characters for your password');
-    if (next.length > 128) throw new BadRequestException('That password is too long');
-    const user = await this.userModel.findById(userId).select('+password +loginAttempts +lockUntil');
+    if (next.length < 6)
+      throw new BadRequestException(
+        'Use at least 6 characters for your password',
+      );
+    if (next.length > 128)
+      throw new BadRequestException('That password is too long');
+    const user = await this.userModel
+      .findById(userId)
+      .select('+password +loginAttempts +lockUntil');
     if (!user) throw new UnauthorizedException('Account not found');
     if (user.password) {
-      if (!body?.currentPassword || !(await user.comparePassword(body.currentPassword))) {
+      if (
+        !body?.currentPassword ||
+        !(await user.comparePassword(body.currentPassword))
+      ) {
         throw new BadRequestException('Your current password is not right');
       }
     }
@@ -321,7 +384,13 @@ export class AuthService {
     user.loginAttempts = 0;
     user.lockUntil = undefined;
     await user.save();
-    return { ok: true, hasPassword: true, message: had ? 'Password changed' : 'Password set — you can now sign in with your email and password too' };
+    return {
+      ok: true,
+      hasPassword: true,
+      message: had
+        ? 'Password changed'
+        : 'Password set — you can now sign in with your email and password too',
+    };
   }
 
   /**
@@ -336,17 +405,15 @@ export class AuthService {
     message: string,
   ): Promise<LoginResponse> {
     const accessToken = this.generateToken(user);
-    const refreshSecret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
+    const refreshSecret =
+      process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET;
     if (!refreshSecret) {
       throw new Error('⚠️ SECURITY: JWT_REFRESH_SECRET must be set');
     }
-    const refreshToken = this.jwtService.sign(
-      { sub: user._id.toString() },
-      {
-        secret: refreshSecret,
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-      } as any,
-    );
+    const refreshToken = this.jwtService.sign({ sub: user._id.toString() }, {
+      secret: refreshSecret,
+      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+    } as any);
 
     user.refreshToken = refreshToken;
     await user.save();
@@ -384,7 +451,7 @@ export class AuthService {
     try {
       const payload = this.jwtService.verify(oldRefreshToken, {
         secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
-      }) as { sub: string };
+      });
 
       /*
        * `+refreshToken` is not optional here.
@@ -429,7 +496,7 @@ export class AuthService {
     try {
       const payload = this.jwtService.verify(oldRefreshToken, {
         secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
-      }) as { sub: string };
+      });
       // Same reason as refreshToken() above: without +refreshToken this
       // comparison never matched, so signing out left the stored token in
       // place and the cookie was the only thing actually revoked.

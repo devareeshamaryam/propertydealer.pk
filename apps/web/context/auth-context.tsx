@@ -29,6 +29,8 @@ interface AuthContextType {
     name: string;
     email: string;
     password: string;
+    /** The city they work in (its id) — they are listed on that city's dealers page. */
+    city?: string;
   }) => Promise<void>;
   /**
    * Re-issue the token and re-read the user.
@@ -180,6 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     name: string;
     email: string;
     password: string;
+    city?: string;
   }) => {
     const response = await api.post("/auth/register", data);
 

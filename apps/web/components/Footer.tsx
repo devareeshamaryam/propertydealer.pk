@@ -25,6 +25,7 @@ const EXPLORE = [
   { name: 'Agent Packages', href: '/packages' },
   { name: 'Blog', href: '/blog' },
   { name: 'Verified Agencies', href: '/agents' },
+  { name: 'Property Dealers', href: '/property-dealers' },
   { name: 'Property Tools', href: '/tools' },
   { name: 'About Us', href: '/about' },
   { name: 'Contact Us', href: '/contact' },

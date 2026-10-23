@@ -257,7 +257,8 @@ export class UserService {
       profilePage: await this.subscriptions.hasProfilePage(String(user._id)).catch(() => true),
       // An agency's agents carry its branding and links.
       socialLinks: perks?.socialLinks ? socialLinks ?? {} : undefined,
-      coverUrl: perks?.brandedProfile ? coverUrl || undefined : undefined,
+      // Every profile may have a cover photo, whatever the plan.
+      coverUrl: coverUrl || undefined,
       agency,
       team,
     };

@@ -405,3 +405,32 @@ export async function getConstructionData(): Promise<import('./tools').Construct
   const { withDefaults } = await import('./tools');
   return res && Array.isArray(res.rates) && res.config ? withDefaults(res) : null;
 }
+
+/* ── Property dealers directory (lib/dealers.ts) ── */
+
+const DEALER_TAGS = ['dealers', 'agents', 'subscriptions'];
+
+/** Every city with its number of agencies and agents. Empty on an API without the endpoint. */
+export async function getDealerCities(): Promise<import('./dealers').DealerCity[]> {
+  const rows = await optionalGet<import('./dealers').DealerCity[]>('/dealers/cities', 600, DEALER_TAGS);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/** The admin's text for /property-dealers and the default city text. */
+export async function getDealerSettings(): Promise<import('./dealers').DealerSettings> {
+  const s = await optionalGet<import('./dealers').DealerSettings>('/dealers/settings', 600, DEALER_TAGS);
+  return { hub: s?.hub ?? {}, cityDefaults: s?.cityDefaults ?? {} };
+}
+
+/**
+ * One city's dealers. Null when there is no such city (the page 404s); any
+ * other failure is thrown, so Next keeps serving the last good page.
+ */
+export async function getDealerCity(slug: string): Promise<import('./dealers').DealerCityData | null> {
+  try {
+    return await serverApi.get(`/dealers/city/${encodeURIComponent(slug)}?limit=30`, { next: { revalidate: 600, tags: DEALER_TAGS } });
+  } catch (error) {
+    if (isNotFoundError(error)) return null;
+    throw error;
+  }
+}

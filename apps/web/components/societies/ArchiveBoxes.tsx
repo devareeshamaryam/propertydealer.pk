@@ -9,6 +9,9 @@ import { CITIES, getCityBySlug } from '@/app/(pages)/emap/cities-data';
 import { toTitleCase } from '@/lib/utils';
 import { chipClass } from '@/lib/chip';
 import { photo } from '@/lib/img';
+import { dealersCityPath } from '@/lib/dealers';
+
+const citySlugOf = (name: string) => name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 /*
  * The boxes around the results on listing pages: on an area that is a
@@ -106,8 +109,8 @@ export async function CityAgenciesBox({ cityId, cityName }: { cityId?: string; c
           <AgencyRow key={a._id} a={a} />
         ))}
       </div>
-      <Link href="/agents" className="mt-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[13px] font-semibold text-primary hover:bg-primary/5">
-        All agents <ArrowRight className="h-3.5 w-3.5" />
+      <Link href={dealersCityPath(citySlugOf(cityName))} className="mt-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[13px] font-semibold text-primary hover:bg-primary/5">
+        All property dealers in {cityName} <ArrowRight className="h-3.5 w-3.5" />
       </Link>
     </div>
   );
@@ -146,9 +149,14 @@ export async function CityExtras({ citySlug, cityId, cityName }: { citySlug: str
 
         {agencies.length > 0 && (
           <section>
-            <h2 className="mb-4 flex items-center gap-2 text-[21px] font-bold tracking-tight text-slate-900 sm:text-[24px]">
-              <BadgeCheck className="h-6 w-6 text-sky-500" /> Verified agencies in {cityName}
-            </h2>
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <h2 className="flex items-center gap-2 text-[21px] font-bold tracking-tight text-slate-900 sm:text-[24px]">
+                <BadgeCheck className="h-6 w-6 text-sky-500" /> Verified agencies in {cityName}
+              </h2>
+              <Link href={dealersCityPath(citySlugOf(cityName))} className="shrink-0 text-[14px] font-semibold text-primary hover:underline">
+                All dealers
+              </Link>
+            </div>
             <div className="grid gap-1 rounded-2xl border border-slate-200 p-2 sm:grid-cols-2 lg:grid-cols-3">
               {agencies.map((a) => (
                 <AgencyRow key={a._id} a={a} />
