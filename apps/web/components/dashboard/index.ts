@@ -24,6 +24,7 @@ export {
 export { apiErrorMessage } from "./api-error";
 export {
   useServerTable,
+  useStoredState,
   type ServerTable,
   type ServerTableQuery,
   type ServerPage,

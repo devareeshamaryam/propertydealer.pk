@@ -15,6 +15,7 @@ import { cn, toTitleCase } from '@/lib/utils';
 import { amountShort, amountWithSeparators } from '@/lib/pk';
 import { useAreaUnit } from '@/components/area-unit/AreaUnitProvider';
 import { marlaNote, sizeIn } from '@/lib/area-units';
+import { cameFrom } from '@/lib/nav-memory';
 import { agentDisplayName, agentProfilePath } from '@/lib/agent';
 import { trackContact, trackView } from '@/lib/analytics';
 import { maskPhone } from '@/lib/auth-intent';
@@ -23,7 +24,7 @@ import { resolved, waDigits } from '@/lib/site-settings';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import dynamic from 'next/dynamic';
 import PropertyGallery from '@/components/property/PropertyGallery';
-import AdSlot from '@/components/ads/AdSlot';
+import { AdZone } from '@/components/ads/AdSlot';
 import RelatedCarousel from '@/components/property/RelatedCarousel';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { ReportButton } from '@/components/property/ReportButton';
@@ -172,12 +173,20 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     }
   }, [property?.name]);
 
-  /** Back to where they came from on this site, else home — never off the site. */
-  const goBack = useCallback(() => {
-    const sameSite = document.referrer.startsWith(window.location.origin);
-    if (sameSite && window.history.length > 1) router.back();
-    else router.push('/');
-  }, [router]);
+  /**
+   * Back to the page they came from on this site — the same page, scrolled
+   * where they left it — else to the listings this one belongs to. Never off
+   * the site.
+   */
+  const goBack = useCallback(
+    (fallback = '/properties') => {
+      const fromHere = !!cameFrom();
+      const sameSite = document.referrer.startsWith(window.location.origin);
+      if ((fromHere || sameSite) && window.history.length > 1) router.back();
+      else router.push(fallback);
+    },
+    [router],
+  );
 
   const getTimeAgo = (dateString?: string) => {
     if (!dateString) return 'Recently';
@@ -593,7 +602,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
         )}
       >
         <div className="flex h-12 items-center gap-2 px-2">
-          <button type="button" onClick={goBack} aria-label="Back" className="grid h-9 w-9 place-items-center rounded-full text-slate-700 hover:bg-slate-100">
+          <button type="button" onClick={() => goBack(`/properties/${purposeSlug}/${citySlug}`)} aria-label="Back" className="grid h-9 w-9 place-items-center rounded-full text-slate-700 hover:bg-slate-100">
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="min-w-0 flex-1">
@@ -629,7 +638,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               <div className="relative flex aspect-[5/3] flex-col items-center justify-center gap-2 bg-slate-100 text-slate-400 md:aspect-auto md:h-[340px] md:rounded-2xl md:border md:border-slate-200">
                 <button
                   type="button"
-                  onClick={goBack}
+                  onClick={() => goBack(`/properties/${purposeSlug}/${citySlug}`)}
                   className="absolute left-3 top-3 grid h-10 w-10 place-items-center rounded-full bg-white text-slate-800 shadow-md md:hidden"
                   aria-label="Back"
                 >
@@ -695,7 +704,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               </div>
             )}
 
-            <AdSlot placement="ListingTop" variant="banner" className="px-2 md:px-0" />
+            <AdZone page="listing" at="after:summary" className="px-2 md:px-0" />
 
             {/* Section nav */}
             <nav
@@ -734,6 +743,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 </dl>
               </section>
 
+              <AdZone page="listing" at="after:overview" />
+
               {/* Description */}
               <section id="description-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
                 <h2 className="mb-2 text-[19px] font-bold text-slate-900 sm:text-[20px]">Description</h2>
@@ -754,7 +765,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                 )}
               </section>
 
-              <AdSlot placement="ListingContent" />
+              <AdZone page="listing" at="after:description" />
 
               {/* Features, grouped */}
               <section id="features-section" className="scroll-mt-32 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
@@ -779,6 +790,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                   <p className="text-[14px] text-slate-500">The dealer has not listed any features for this property.</p>
                 )}
               </section>
+
+              <AdZone page="listing" at="after:features" />
 
               {/* A YouTube link (uploaded videos play in the gallery above). */}
               {youTube && (
@@ -821,6 +834,8 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
                   <p className="text-[14px] text-slate-500">The exact location has not been pinned on the map.</p>
                 )}
               </section>
+
+              <AdZone page="listing" at="after:location" />
 
               {/* Phones: who listed it, safety and report, at the end of the listing. */}
               <div className="space-y-3 lg:hidden">
@@ -885,12 +900,12 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               <div className="px-1">
                 <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
               </div>
-              <AdSlot placement="ListingSidebar" />
+              <AdZone page="listing" at="sidebar" />
             </div>
           </aside>
         </div>
 
-        <AdSlot placement="ListingBottom" variant="banner" className="mt-6 px-[var(--gutter)] md:px-0" />
+        <AdZone page="listing" at="before:similar" className="mt-6 px-[var(--gutter)] md:px-0" />
 
         {/* ── Similar properties ─────────────────────────────────── */}
         {related.map(({ list, title, href }) =>

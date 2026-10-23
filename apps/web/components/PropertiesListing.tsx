@@ -12,9 +12,9 @@ import { mapBackendToFrontendProperty, BackendProperty } from '@/lib/types/prope
 import { Property } from '@/lib/data';
 import { toast } from 'sonner';
 import { cn, toTitleCase } from '@/lib/utils';
+import { isReturn, readSnapshot, saveSnapshot } from '@/lib/nav-memory';
 import { chipClass } from '@/lib/chip';
-import { adUnit } from '@/lib/ads';
-import AdSlot from '@/components/ads/AdSlot';
+import { AdUnitView, AdZone, useAdsAt } from '@/components/ads/AdSlot';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 
 interface PropertiesListingProps {
@@ -95,19 +95,29 @@ export default function PropertiesListing({
   const siteSettings = useSiteSettings();
   const { listingsPerPage } = siteSettings;
   // Ads (Settings → Ads): one between every few listings, and one beside them on a desktop.
-  const feedAds = !!adUnit(siteSettings, 'ArchiveFeed');
+  const feedUnits = useAdsAt('archive', 'feed');
+  const feedAds = feedUnits.length > 0;
   const feedEvery = Math.max(3, siteSettings.adsArchiveEvery || 6);
-  const sidebarAd = !!adUnit(siteSettings, 'ArchiveSidebar');
+  const sidebarAd = useAdsAt('archive', 'sidebar').length > 0;
 
-  const [properties, setProperties]             = useState<Property[]>(initialProperties ?? []);
+  // Back from a listing: put back everything that was loaded ("show more"
+  // pages too), so the page can scroll to where the visitor left it.
+  const [restored] = useState<{ properties: Property[]; page: number; totalPages: number } | null>(() =>
+    typeof window !== 'undefined' && isReturn() ? readSnapshot('list') : null,
+  );
+  // While a returned list settles (the query string arrives a moment after
+  // mount), keep it: no reset to page one, no fresh request on top of it.
+  const restoringUntil = useRef(restored ? Date.now() + 1500 : 0);
+  const restoring = () => Date.now() < restoringUntil.current;
+  const [properties, setProperties]             = useState<Property[]>(restored?.properties ?? initialProperties ?? []);
   const [allCities, setAllCities]               = useState<any[]>([]);
   const [allPropertyTypes, setAllPropertyTypes] = useState<string[]>([]);
-  const [loading, setLoading]                   = useState(!initialProperties?.length);
+  const [loading, setLoading]                   = useState(!restored && !initialProperties?.length);
   const [error, setError]                       = useState<string | null>(null);
   const [city, setCity]                         = useState(initialCity);
   const [type, setType]                         = useState(initialType);
-  const [currentPage, setCurrentPage]           = useState(1);
-  const [totalPages, setTotalPages]             = useState(initialTotalPages ?? 1);
+  const [currentPage, setCurrentPage]           = useState(restored?.page ?? 1);
+  const [totalPages, setTotalPages]             = useState(restored?.totalPages ?? initialTotalPages ?? 1);
   const [isFetchingMore, setIsFetchingMore]     = useState(false);
   const [selectedMarla, setSelectedMarla]       = useState<number | null>(initialMarla ?? null);
 
@@ -251,7 +261,7 @@ export default function PropertiesListing({
       beds: n('beds'),
       baths: n('baths'),
     });
-    setCurrentPage(1);
+    if (!restoring()) setCurrentPage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialMarla, filterKey]);
 
@@ -373,11 +383,15 @@ export default function PropertiesListing({
    * one request; anything the visitor changes afterwards fetches as normal.
    */
   const serverKey = useRef<string | null>(
-    initialProperties?.length && !searchTerm && !searchParams.get('areaId') && !filterKey.replace(/\|/g, '') ? fetchKey : null,
+    restored ? fetchKey : initialProperties?.length && !searchTerm && !searchParams.get('areaId') && !filterKey.replace(/\|/g, '') ? fetchKey : null,
   );
 
   useEffect(() => {
     if (serverKey.current === fetchKey) return;
+    if (restoring()) {
+      serverKey.current = fetchKey;
+      return;
+    }
     serverKey.current = null;
 
     let cancelled = false;
@@ -425,6 +439,34 @@ export default function PropertiesListing({
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchKey]);
+
+  // A return the first render did not see in time: put the list back now.
+  const checkedReturn = useRef(!!restored);
+  useEffect(() => {
+    if (checkedReturn.current) return;
+    checkedReturn.current = true;
+    if (!isReturn()) return;
+    const snap = readSnapshot<{ properties: Property[]; page: number; totalPages: number }>('list');
+    if (!snap || snap.properties.length <= properties.length) return;
+    // After this render, so the list request for page one is not repeated on top.
+    requestAnimationFrame(() => {
+      restoringUntil.current = Date.now() + 1500;
+      serverKey.current = JSON.stringify({
+        cityId: initialCityId || '', city, queryAreaId, searchTerm, purpose, type,
+        f: advancedFilters, page: snap.page,
+      });
+      setProperties(snap.properties);
+      setTotalPages(snap.totalPages);
+      setCurrentPage(snap.page);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Remember what is loaded for this URL, for a return by "back".
+  useEffect(() => {
+    if (!checkedReturn.current || loading || isFetchingMore || !properties.length) return;
+    saveSnapshot('list', { properties: properties.slice(0, 240), page: currentPage, totalPages });
+  }, [properties, currentPage, totalPages, loading, isFetchingMore]);
 
   // 🆕 SEO content now checks Area first (sizeContents → rent/saleContent → description),
   // then falls back to City-level content if no area match is found.
@@ -490,7 +532,7 @@ export default function PropertiesListing({
     if (lastRouteKey.current === routeKey) return;
     lastRouteKey.current = routeKey;
     setCity(initialCity); setType(initialType);
-    setCurrentPage(1);
+    if (!restoring()) setCurrentPage(1);
     setIsLocationPanelOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeKey]);
@@ -817,7 +859,7 @@ export default function PropertiesListing({
                 </div>
               )}
 
-              <AdSlot placement="ArchiveTop" variant="banner" />
+              <AdZone page="archive" at="top" />
 
               <div>
                 {loading && properties.length === 0 ? (
@@ -840,7 +882,7 @@ export default function PropertiesListing({
                         <Fragment key={`${property.id}-${index}`}>
                           <PropertyCard property={property} />
                           {feedAds && (index + 1) % feedEvery === 0 && index < properties.length - 1 && (
-                            <AdSlot placement="ArchiveFeed" className="rounded-lg border border-slate-200 bg-white p-2" />
+                            <AdUnitView unit={feedUnits[Math.floor(index / feedEvery) % feedUnits.length]!} className="rounded-lg border border-slate-200 bg-white p-2" />
                           )}
                         </Fragment>
                       ))}
@@ -854,7 +896,7 @@ export default function PropertiesListing({
                         </Button>
                       </div>
                     )}
-                    <AdSlot placement="ArchiveBottom" variant="banner" />
+                    <AdZone page="archive" at="bottom" />
                   </div>
                 ) : (
                   <div className="rounded-lg border border-slate-200 px-4 py-12 text-center">
@@ -876,7 +918,7 @@ export default function PropertiesListing({
               <aside className={cn('w-full shrink-0 space-y-4 lg:w-80 xl:w-[340px]', !sidebar && 'hidden lg:block')}>
                 <div className="space-y-4 lg:sticky lg:top-[140px]">
                   {sidebar}
-                  <AdSlot placement="ArchiveSidebar" className="hidden lg:block" />
+                  <AdZone page="archive" at="sidebar" className="hidden lg:block" />
                 </div>
               </aside>
             )}
@@ -885,6 +927,7 @@ export default function PropertiesListing({
       </section>
 
       {extras}
+      <AdZone page="archive" at="after:extras" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
 
       {effectiveRichDescription && (
         <section className="border-t border-slate-200 bg-slate-50 py-8">
@@ -896,7 +939,7 @@ export default function PropertiesListing({
           </div>
         </section>
       )}
-
+      <AdZone page="archive" at="end" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
     </div>
   );
 }

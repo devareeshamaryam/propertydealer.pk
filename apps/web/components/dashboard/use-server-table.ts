@@ -37,6 +37,68 @@ export interface ServerTableOptions<T> {
   filters?: Record<string, string | number | undefined>;
   /** Debounce applied to the search box before it hits the network. */
   searchDelay?: number;
+  /**
+   * Remember page, page size, search, sort and scroll under this name for the
+   * browser tab — so opening a row (edit, view) and coming back lands on the
+   * same page, at the same row, instead of page 1.
+   */
+  persistKey?: string;
+}
+
+const STORE = 'pd-table:';
+
+interface Stored {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  sortKey?: string | null;
+  sortDirection?: SortDirection;
+  scrollY?: number;
+}
+
+function readStored(key?: string): Stored {
+  if (!key || typeof window === 'undefined') return {};
+  try {
+    return JSON.parse(sessionStorage.getItem(STORE + key) || '{}') as Stored;
+  } catch {
+    return {};
+  }
+}
+
+function writeStored(key: string, patch: Stored) {
+  try {
+    sessionStorage.setItem(STORE + key, JSON.stringify({ ...readStored(key), ...patch }));
+  } catch {
+    // Storage blocked: the table simply starts on page 1.
+  }
+}
+
+/**
+ * useState that survives leaving the page and coming back in this tab — for a
+ * list page's own filters (status tab, type select…), next to `persistKey`.
+ */
+export function useStoredState<T>(key: string, initial: T): [T, (v: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    if (typeof window === 'undefined') return initial;
+    try {
+      const raw = sessionStorage.getItem(STORE + 'state:' + key);
+      return raw === null ? initial : (JSON.parse(raw) as T);
+    } catch {
+      return initial;
+    }
+  });
+  const set = useCallback(
+    (v: T) => {
+      setValue(v);
+      try {
+        sessionStorage.setItem(STORE + 'state:' + key, JSON.stringify(v));
+      } catch {
+        // ignore
+      }
+    },
+    [key],
+  );
+  return [value, set];
 }
 
 export interface ServerTable<T> {
@@ -87,15 +149,41 @@ export function useServerTable<T>({
   initialSortDirection = "desc",
   filters,
   searchDelay = 350,
+  persistKey,
 }: ServerTableOptions<T>): ServerTable<T> {
+  const [stored] = useState(() => readStored(persistKey));
   const [rows, setRows] = useState<T[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPageRaw] = useState(1);
-  const [pageSize, setPageSizeRaw] = useState(initialPageSize);
-  const [search, setSearchRaw] = useState("");
-  const [sortKey, setSortKey] = useState<string | null>(initialSortKey);
-  const [sortDirection, setSortDirection] =
-    useState<SortDirection>(initialSortDirection);
+  const [page, setPageRaw] = useState(stored.page ?? 1);
+  const [pageSize, setPageSizeRaw] = useState(stored.pageSize ?? initialPageSize);
+  const [search, setSearchRaw] = useState(stored.search ?? "");
+  const [sortKey, setSortKey] = useState<string | null>(
+    stored.sortKey !== undefined ? stored.sortKey : initialSortKey,
+  );
+  const [sortDirection, setSortDirection] = useState<SortDirection>(
+    stored.sortDirection ?? initialSortDirection,
+  );
+
+  // Remember where the table is, for a return to this page.
+  useEffect(() => {
+    if (persistKey) writeStored(persistKey, { page, pageSize, search, sortKey, sortDirection });
+  }, [persistKey, page, pageSize, search, sortKey, sortDirection]);
+
+  // …and how far down it was: kept while scrolling, put back once the rows are in.
+  const restoreScroll = useRef(stored.scrollY ?? 0);
+  useEffect(() => {
+    if (!persistKey) return;
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => {
+      clearTimeout(t);
+      t = setTimeout(() => writeStored(persistKey, { scrollY: window.scrollY }), 150);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [persistKey]);
 
   // `loading` covers the first paint; `refreshing` covers every later fetch so
   // the table can stay on screen instead of collapsing back to skeletons.
@@ -138,6 +226,12 @@ export function useServerTable<T>({
         setRows(result.rows);
         setTotal(result.total);
         hasLoadedRef.current = true;
+        const y = restoreScroll.current;
+        if (y > 0) {
+          restoreScroll.current = 0;
+          // After the rows have painted.
+          requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo(0, y)));
+        }
       } catch (err) {
         if (controller.signal.aborted) return;
         // Axios surfaces cancellation as a rejection; it is not a failure.
@@ -173,17 +267,20 @@ export function useServerTable<T>({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   // A delete or a filter change can put the current page past the end.
+  // (Only once rows have loaded: before that the total is not known yet, and a
+  // remembered page 3 must not be thrown away.)
   useEffect(() => {
-    if (page > totalPages) setPageRaw(totalPages);
-  }, [page, totalPages]);
+    if (hasLoadedRef.current && !loading && page > totalPages) setPageRaw(totalPages);
+  }, [page, totalPages, loading]);
 
   // Any filter or search change restarts at page 1.
-  const isFirstFilterRun = useRef(true);
+  // (Compared by value, so a remembered page survives the first render and
+  // React's double-run of effects in development.)
+  const lastFilters = useRef(`${filterKey}|${debouncedSearch}`);
   useEffect(() => {
-    if (isFirstFilterRun.current) {
-      isFirstFilterRun.current = false;
-      return;
-    }
+    const now = `${filterKey}|${debouncedSearch}`;
+    if (lastFilters.current === now) return;
+    lastFilters.current = now;
     setPageRaw(1);
   }, [filterKey, debouncedSearch]);
 

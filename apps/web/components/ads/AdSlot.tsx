@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
-import { adUnit, type AdPlacement } from '@/lib/ads';
+import { adLayout, adsAt, type AdPage, type AdSize, type AdUnit } from '@/lib/ads';
 import { cn } from '@/lib/utils';
 
 /*
@@ -37,14 +37,14 @@ function loadAdSense(client: string) {
 }
 
 /** Space kept for the ad before it loads: a banner across the page, or a box. */
-const RESERVE = {
+const RESERVE: Record<AdSize, string> = {
   banner: 'min-h-[110px] sm:min-h-[100px]',
   box: 'min-h-[280px] sm:min-h-[250px]',
-} as const;
+  auto: 'min-h-[250px] sm:min-h-[120px]',
+};
+const FORMAT: Record<AdSize, string> = { banner: 'horizontal', box: 'rectangle', auto: 'auto' };
 
-function Ad({ placement, variant, className }: { placement: AdPlacement; variant: keyof typeof RESERVE; className?: string }) {
-  const settings = useSiteSettings();
-  const unit = adUnit(settings, placement);
+function Ad({ unit, className }: { unit: AdUnit; className?: string }) {
   const client = unit?.client ?? '';
   const slot = unit?.slot ?? '';
   const box = useRef<HTMLDivElement>(null);
@@ -107,7 +107,7 @@ function Ad({ placement, variant, className }: { placement: AdPlacement; variant
   const test = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
 
   return (
-    <div ref={box} className={cn('ad-slot w-full overflow-hidden', RESERVE[variant], className)}>
+    <div ref={box} className={cn('ad-slot w-full overflow-hidden', RESERVE[unit.size], className)}>
       <p className="mb-1 text-center text-[10px] font-medium uppercase tracking-wider text-slate-400">Advertisement</p>
       {near && (
         <ins
@@ -116,7 +116,7 @@ function Ad({ placement, variant, className }: { placement: AdPlacement; variant
           style={{ display: 'block' }}
           data-ad-client={unit.client}
           data-ad-slot={unit.slot}
-          data-ad-format="auto"
+          data-ad-format={FORMAT[unit.size]}
           data-full-width-responsive="true"
           {...(test ? { 'data-adtest': 'on' } : {})}
         />
@@ -125,11 +125,27 @@ function Ad({ placement, variant, className }: { placement: AdPlacement; variant
   );
 }
 
+/** The ads the admin put in one gap of one page (Settings → Ads). */
+export function useAdsAt(page: AdPage, at: string): AdUnit[] {
+  const settings = useSiteSettings();
+  const layout = useMemo(() => adLayout(settings), [settings]);
+  return useMemo(() => adsAt(settings, page, at, layout), [settings, page, at, layout]);
+}
+
 /**
- * An ad at a placement — nothing at all when ads are off, the placement is
- * off, or no ad unit is set. A new page gets a new ad.
+ * The ads in one gap of a page — nothing at all (not even an empty wrapper)
+ * when there are none there. A new page gets new ads.
  */
-export default function AdSlot({ placement, variant = 'box', className }: { placement: AdPlacement; variant?: keyof typeof RESERVE; className?: string }) {
+export function AdZone({ page, at, className, wrap }: { page: AdPage; at: string; className?: string; wrap?: string }) {
   const pathname = usePathname();
-  return <Ad key={pathname} placement={placement} variant={variant} className={className} />;
+  const units = useAdsAt(page, at);
+  if (!units.length) return null;
+  const ads = units.map((u) => <Ad key={`${pathname}-${u.id}`} unit={u} className={className} />);
+  return wrap ? <div className={wrap}>{ads}</div> : <>{ads}</>;
+}
+
+/** One ad already chosen (the results feed picks which goes where). */
+export function AdUnitView({ unit, className }: { unit: AdUnit; className?: string }) {
+  const pathname = usePathname();
+  return <Ad key={`${pathname}-${unit.id}`} unit={unit} className={className} />;
 }

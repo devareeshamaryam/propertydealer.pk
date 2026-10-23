@@ -8,7 +8,7 @@ import FAQSection from "@/components/FAQSection";
 import { serverApi, getCityStories, getPlans, getRatesSummary, getSpotlightAgencies } from "@/lib/server-api";
 import HomePlans from "@/components/home/HomePlans";
 import HomeRates from "@/components/home/HomeRates";
-import AdSlot from "@/components/ads/AdSlot";
+import { AdZone } from "@/components/ads/AdSlot";
 import VerifiedAgencies from "@/components/home/VerifiedAgencies";
 import { getSiteSettings } from "@/lib/site-settings.server";
 import { mapBackendToFrontendProperty, sortPropertyTypes } from "@/lib/types/property-utils";
@@ -133,6 +133,8 @@ export default async function Home() {
         initialProperties={transformedProperties}
         initialTypes={sortedProcessedTypes}
       />
+      {/* Ads go between the sections, wherever the admin dragged them (Settings → Ads). */}
+      <AdZone page="home" at="after:hero" className="my-4" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {/* Cities as round shortcuts — the ten most popular, then "View all". */}
       {settings.homeShowCities && cityStories.length > 0 && (
         <section className="bg-white pb-2 pt-5 sm:pt-7">
@@ -141,21 +143,21 @@ export default async function Home() {
           </div>
         </section>
       )}
-      {/* Ads: each placement is switched on and off in Settings → Ads. */}
-      <div className="container mx-auto px-[var(--gutter)] sm:px-4">
-        <AdSlot placement="HomeTop" variant="banner" className="my-4" />
-      </div>
+      <AdZone page="home" at="after:cities" className="my-4" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {settings.homeShowLatest && (
         <FeaturedSection initialProperties={transformedProperties} count={settings.homeLatestCount} />
       )}
-      <div className="container mx-auto px-[var(--gutter)] sm:px-4">
-        <AdSlot placement="HomeMiddle" className="my-6" />
-      </div>
+      <AdZone page="home" at="after:latest" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {settings.homeShowAgencies && <VerifiedAgencies agencies={agencies} />}
+      <AdZone page="home" at="after:agencies" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {settings.homeShowAgentBand && <AgentSignupSection />}
+      <AdZone page="home" at="after:agentBand" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {settings.homeShowPlans && <HomePlans plans={plans} />}
+      <AdZone page="home" at="after:plans" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {settings.homeShowRates && <HomeRates rates={rates} />}
+      <AdZone page="home" at="after:rates" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {settings.homeShowExplore && <ExploreTools />}
+      <AdZone page="home" at="after:explore" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {/*
         A testimonials section was removed: its four reviews (all five stars,
         from a "Marketing Director", a "Legal Consultant", a "Tech
@@ -164,10 +166,9 @@ export default async function Home() {
         none. Add one back with real reviews — Google reviews, say.
       */}
       {settings.homeShowBlog && <BlogSection initialPosts={processedBlogs} />}
+      <AdZone page="home" at="after:blog" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {settings.homeShowFaq && <FAQSection />}
-      <div className="container mx-auto px-[var(--gutter)] sm:px-4">
-        <AdSlot placement="HomeBottom" variant="banner" className="my-6" />
-      </div>
+      <AdZone page="home" at="after:faq" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
     </>
   );
 }

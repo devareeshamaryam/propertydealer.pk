@@ -20,7 +20,7 @@ import {
   Store,
 } from 'lucide-react';
 import MapEmbed from '@/components/societies/MapEmbed';
-import AdSlot from '@/components/ads/AdSlot';
+import { AdZone } from '@/components/ads/AdSlot';
 import PropertyCard from '@/components/PropertyCard';
 import ExpandableHtml from '@/components/societies/ExpandableHtml';
 import SocietyCard from '@/components/societies/SocietyCard';
@@ -278,7 +278,7 @@ export default function SocietyGuideView({ s, map, listings, preview = false }: 
           </Section>
         )}
 
-        <AdSlot placement="SocietyContent" />
+        <AdZone page="society" at="after:prices" />
 
         {s.phases.length > 0 && (
           <Section id="phases" title={`Phases of ${name}`}>

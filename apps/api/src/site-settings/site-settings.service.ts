@@ -27,7 +27,8 @@ type Field =
   | { kind: 'email'; def: string }
   | { kind: 'ga'; def: string }
   | { kind: 'adclient'; def: string }
-  | { kind: 'adslot'; def: string };
+  | { kind: 'adslot'; def: string }
+  | { kind: 'adlayout'; def: string };
 
 const FIELDS = {
   // ── Appearance ──
@@ -118,6 +119,9 @@ const FIELDS = {
   adsSlot: { kind: 'adslot', def: '' },
   /** Inside the results: an ad after every this many listings. */
   adsArchiveEvery: { kind: 'int', def: 6, min: 3, max: 24 },
+  // Where each ad sits, page by page (Settings → Ads, drag and drop). Empty =
+  // the older on/off placements below, so nothing moves until it is saved.
+  adsLayout: { kind: 'adlayout', def: '' },
   // Each placement: on/off, and its own ad unit (empty = the one above).
   adsHomeTop: { kind: 'bool', def: false },
   adsHomeTopSlot: { kind: 'adslot', def: '' },
@@ -213,6 +217,28 @@ function coerce(field: Field, value: unknown): string | number | boolean {
     case 'adslot': {
       const v = String(raw ?? '').trim();
       return !v || /^\d{5,20}$/.test(v) ? v : field.def;
+    }
+    case 'adlayout': {
+      // A JSON list of { id, page, at, slot?, size? } — checked item by item.
+      let list: unknown;
+      try {
+        list = typeof raw === 'string' ? (raw ? JSON.parse(raw) : []) : raw;
+      } catch {
+        return field.def;
+      }
+      if (!Array.isArray(list)) return field.def;
+      const pages = ['home', 'archive', 'listing', 'society', 'blog'];
+      const clean = list
+        .slice(0, 60)
+        .map((it: Record<string, unknown>) => ({
+          id: String(it?.id ?? '').replace(/[^a-z0-9]/gi, '').slice(0, 16),
+          page: String(it?.page ?? ''),
+          at: String(it?.at ?? ''),
+          ...(/^\d{5,20}$/.test(String(it?.slot ?? '')) ? { slot: String(it.slot) } : {}),
+          ...(['auto', 'banner', 'box'].includes(String(it?.size)) ? { size: String(it.size) } : {}),
+        }))
+        .filter((it) => it.id && pages.includes(it.page) && /^[a-z][a-zA-Z0-9:-]{0,40}$/.test(it.at));
+      return JSON.stringify(clean);
     }
     case 'ga': {
       const v = String(raw ?? '').toUpperCase();

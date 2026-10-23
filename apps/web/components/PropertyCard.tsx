@@ -211,7 +211,7 @@ const PropertyCard = ({ property, className }: PropertyCardProps) => {
             </ul>
             {ago && (
               <span className="text-[10.5px] text-slate-400 sm:text-[11.5px]">
-                Added: {ago}
+                {ago}
               </span>
             )}
           </div>

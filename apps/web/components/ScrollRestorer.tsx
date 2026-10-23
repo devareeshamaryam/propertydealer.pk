@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { markReturn, rememberFrom } from '@/lib/nav-memory';
 
 /*
  * Back and forward land where you left the page — not on the footer.
@@ -80,6 +81,7 @@ export default function ScrollRestorer() {
     // Back / forward: remember this page, and restore the next one.
     const onPop = () => {
       save();
+      markReturn();
       lastNavAt.current = Date.now();
       popPending.current = true;
     };
@@ -100,6 +102,8 @@ export default function ScrollRestorer() {
   useEffect(() => {
     const key = keyOf();
     if (key === currentKey.current && !popPending.current) return;
+    // Opened from another page of this site: remember which, for "back".
+    if (!popPending.current && currentKey.current) rememberFrom(key, currentKey.current);
     currentKey.current = key;
     lastNavAt.current = Date.now();
 

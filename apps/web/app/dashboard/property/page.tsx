@@ -70,6 +70,7 @@ import {
   TableToolbar,
   useConfirm,
   useServerTable,
+  useStoredState,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { amountShort, propertySizeLabel } from "@/lib/pk";
@@ -349,10 +350,13 @@ export default function PropertiesPage() {
     }
   };
 
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
   // ?ownerId= — one agent's listings (from My Team, or an admin's account list).
   const ownerFilter = searchParams.get("ownerId") || undefined;
+  // Filters, page and scroll are remembered for this tab: edit a listing on
+  // page 4, come back, and you are on page 4 at that listing again.
+  const tableKey = `properties:${ownerFilter ?? "all"}`;
+  const [statusFilter, setStatusFilter] = useStoredState<StatusFilter>(`${tableKey}:status`, "all");
+  const [typeFilter, setTypeFilter] = useStoredState<string>(`${tableKey}:type`, "all");
   const ownerLabel = searchParams.get("owner") || "this agent";
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -372,7 +376,7 @@ export default function PropertiesPage() {
     if (status && STATUS_FILTERS.includes(status as StatusFilter)) {
       setStatusFilter(status as StatusFilter);
     }
-  }, [searchParams]);
+  }, [searchParams, setStatusFilter]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -428,6 +432,7 @@ export default function PropertiesPage() {
     initialPageSize: 25,
     initialSortKey: "createdAt",
     initialSortDirection: "desc",
+    persistKey: tableKey,
   });
 
   const openPreview = async (propertyId: string) => {
