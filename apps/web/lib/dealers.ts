@@ -59,6 +59,8 @@ export interface DealerCityData {
   agencies: DealerCard[];
   agents: DealerCard[];
   total: { agencies: number; agents: number };
+  /** With a search (?q=): how many of each match. */
+  found?: { agencies: number; agents: number };
   pageInfo: { page: number; pages: number; limit: number };
 }
 

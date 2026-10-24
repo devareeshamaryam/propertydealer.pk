@@ -46,7 +46,7 @@ export default function ToolShell({
     {
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
-      name: page?.title ?? tool.title,
+      name: page?.title ?? heading ?? tool.title,
       url,
       description: tool.description,
       applicationCategory: 'UtilitiesApplication',

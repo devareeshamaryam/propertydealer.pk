@@ -6,13 +6,27 @@ import { toolBySlug } from '@/lib/tools';
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 const tool = toolBySlug('area-unit-converter');
 
+const TITLE = 'Area Converter Online — Square Feet to Marla, Kanal & Acres';
+const DESCRIPTION =
+  'Free online area converter: convert square feet to marla, kanal, square yards and acres, or any area to square feet. Area size converter for Pakistani plots.';
+
 export const metadata: Metadata = {
-  title: 'Area Unit Converter — Marla, Kanal, Sq Ft, Sq Yard, Acre',
-  description: tool.description,
+  title: TITLE,
+  description: DESCRIPTION,
+  keywords: ['area converter', 'online area converter', 'area converter square feet to marla', 'convert area to acres', 'convert area to square feet', 'area size converter', 'marla to square feet', 'kanal to marla'],
   alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
+  openGraph: { title: TITLE, description: DESCRIPTION, url: `${BASE_URL}/tools/${tool.slug}`, type: 'website' },
 };
 
 const FAQS = [
+  {
+    q: 'How do I convert square feet to marla?',
+    a: 'Divide the square feet by the size of one marla: by 225 on the standard society marla (1,125 sq ft ÷ 225 = 5 marla), or by 272.25 on the revenue marla. Type the square feet into the area converter above and it shows marla, kanal, square yards and acres at once.',
+  },
+  {
+    q: 'How do I convert an area to acres?',
+    a: 'Convert the area to square feet first, then divide by 43,560 — the square feet in one acre. 1 kanal (4,500 sq ft) is 0.103 acre, and 1 acre is 8 kanal on the revenue marla. The converter does both steps for you.',
+  },
   {
     q: 'How many square feet are in 1 marla?',
     a: 'On the standard used by housing societies, DHA, Bahria Town, LDA and CDA schemes and every property portal, 1 marla is 225 sq ft. Some areas use 250 sq ft, and the old revenue (patwari) marla still used in land records and old city areas is 272.25 sq ft.',
@@ -43,8 +57,8 @@ export default function Page() {
   return (
     <ToolShell
       tool={tool}
-      heading="Area Unit Converter"
-      intro="Marla, kanal, square feet, square yards, square metres, acres and the land-record units — on the marla your area actually uses."
+      heading="Area Converter — Square Feet to Marla, Kanal & Acres"
+      intro="A free online area size converter: convert square feet to marla, marla to kanal, any area to acres or to square feet — on the marla your area actually uses."
       faqs={FAQS}
       guide={
         <>
@@ -57,6 +71,21 @@ export default function Page() {
           <p>
             When you compare plots, compare square feet: a &ldquo;5 marla&rdquo; plot in an old area can be 20% bigger than a 5 marla plot in a
             society.
+          </p>
+          <h2 className="pt-2 text-[19px] font-bold tracking-tight text-slate-900">Square feet to marla</h2>
+          <p>
+            Marla = square feet ÷ 225 (or ÷ 272.25 on the revenue marla). A 25 × 45 ft plot is 1,125 sq ft, which is 5 marla; 2,250 sq ft is 10
+            marla, and 4,500 sq ft is 1 kanal.
+          </p>
+          <h2 className="pt-2 text-[19px] font-bold tracking-tight text-slate-900">Convert area to square feet</h2>
+          <p>
+            Square feet = marla × 225, kanal × 4,500, square yards × 9, square metres × 10.764, or acres × 43,560. The area converter above takes
+            any of these units and gives the rest.
+          </p>
+          <h2 className="pt-2 text-[19px] font-bold tracking-tight text-slate-900">Convert area to acres</h2>
+          <p>
+            Acres = square feet ÷ 43,560. On the 272.25 sq ft revenue marla an acre is exactly 8 kanal (160 marla); on the 225 sq ft marla it is
+            about 9.7 kanal.
           </p>
         </>
       }

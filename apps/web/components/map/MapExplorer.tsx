@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-  BadgeCheck,
   BedDouble,
   Bath,
   Check,
@@ -16,16 +15,8 @@ import {
   Hash,
   MapPin,
   Navigation,
-  Crosshair,
   Download,
-  Eye,
-  EyeOff,
-  Layers,
-  List,
   Loader2,
-  Map as MapIcon,
-  Maximize2,
-  Minimize2,
   MessageCircle,
   Phone,
   Ruler,
@@ -53,6 +44,7 @@ import {
   type SocietyPlotHit,
 } from '@/lib/society-map';
 import SocietyLayers, { MeasureLayer } from './SocietyLayers';
+import { ExpandGlyph, LayersGlyph, ListGlyph, LocateGlyph, PlanGlyph, RulerGlyph, SearchGlyph, ShareGlyph } from './MapGlyphs';
 import PlaceLabels from './PlaceLabels';
 import PlotsLayer, { PLOT_COLORS } from './PlotsLayer';
 
@@ -333,7 +325,7 @@ function ListingCard({ item, compact, onClose }: { item: MapListing; compact?: b
   );
 }
 
-const ctrl = 'grid h-10 w-10 place-items-center rounded-full bg-white text-slate-900 shadow-md ring-1 ring-slate-200 transition-colors hover:bg-slate-50';
+const ctrl = 'grid h-10 w-10 place-items-center bg-white text-slate-900 transition-colors hover:bg-slate-100';
 
 /** The rest of a society's or city's listings: in the list, though not on the map. */
 function ScopeMore({ rows, title, busy, hasMore, onMore }: { rows: MapListing[]; title: string; busy: boolean; hasMore: boolean; onMore: () => void }) {
@@ -376,8 +368,8 @@ function SocietyList({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="p-3 pb-2">
-        <label className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 focus-within:border-primary">
-          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+        <label className="flex h-10 items-center gap-2 rounded-md border border-slate-400 px-3 focus-within:border-slate-900">
+          <SearchGlyph className="h-4 w-4 shrink-0 text-slate-600" />
           <input
             value={filter}
             onChange={(e) => onFilter(e.target.value)}
@@ -397,19 +389,19 @@ function SocietyList({
               key={p.slug}
               type="button"
               onClick={() => onOpen(p)}
-              className="flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left hover:bg-slate-50"
+              className="group flex w-full items-center gap-3 border-b border-slate-200 px-2 py-2.5 text-left hover:bg-slate-50"
             >
-              <span className={cn('grid h-8 w-8 shrink-0 place-items-center rounded-lg', p.hasMap ? 'bg-primary/10 text-primary' : 'bg-slate-100 text-slate-500')}>
-                {p.hasMap ? <MapIcon className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
-              </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] font-semibold text-slate-900">{p.name}</span>
-                <span className="block text-[12px] text-slate-500">
-                  {p.hasMap ? 'Society map' : 'On the map'}
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-[14.5px] font-semibold text-slate-900 group-hover:underline">{p.name}</span>
+                  {p.hasMap && <span className="shrink-0 rounded-sm bg-amber-500 px-1.5 py-[2px] text-[10px] font-bold uppercase leading-none tracking-wider text-white">Map</span>}
+                </span>
+                <span className="block text-[12.5px] text-slate-600">
+                  {p.hasMap ? 'Society map with plots' : 'On the map'}
                   {p.listings ? ` · ${p.listings} ${p.listings === 1 ? 'listing' : 'listings'}` : ''}
                 </span>
               </span>
-              <ChevronDown className="h-4 w-4 -rotate-90 text-slate-300" />
+              <span aria-hidden className="text-[18px] leading-none text-slate-400 group-hover:text-slate-900">›</span>
             </button>
           ))
         )}
@@ -983,20 +975,19 @@ export default function MapExplorer({
         <div className="flex-1 space-y-2 overflow-y-auto p-3">
           {sortedVisible.length === 0 && !loading && zoomedOut && !society && !city ? (
             <>
-              <p className="px-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Choose a city</p>
-              {[...places].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
-                <Link
-                  key={p.slug}
-                  href={`/emap/${p.slug}`}
-                  className="flex items-center gap-2.5 rounded-xl px-2 py-2 text-[14px] font-semibold text-slate-900 hover:bg-slate-50 hover:text-primary"
-                >
-                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary">
-                    <MapIcon className="h-4 w-4" />
-                  </span>
-                  {p.name} Map
-                  <ChevronDown className="ml-auto h-4 w-4 -rotate-90 text-slate-300" />
-                </Link>
-              ))}
+              <p className="px-1 pb-1.5 text-[11.5px] font-bold uppercase tracking-wider text-slate-600">Choose a city</p>
+              <div className="divide-y divide-slate-200 overflow-hidden rounded-md border border-slate-300">
+                {[...places].sort((a, b) => a.name.localeCompare(b.name)).map((p) => (
+                  <Link
+                    key={p.slug}
+                    href={`/emap/${p.slug}`}
+                    className="group flex items-center gap-3 bg-white px-3 py-2.5 text-[14.5px] font-semibold text-slate-900 hover:bg-slate-50"
+                  >
+                    <span className="min-w-0 flex-1 truncate group-hover:underline">{p.name} Map</span>
+                    <span aria-hidden className="text-[18px] leading-none text-slate-400 group-hover:text-slate-900">›</span>
+                  </Link>
+                ))}
+              </div>
             </>
           ) : sortedVisible.length === 0 && moreRows.length === 0 && !loading && !scopeBusy ? (
             <p className="px-2 py-10 text-center text-[14px] text-slate-500">
@@ -1120,17 +1111,17 @@ export default function MapExplorer({
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-full bg-white pl-3 pr-4 text-[13.5px] font-semibold text-slate-700 shadow-md ring-1 ring-slate-200"
+              className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-400 bg-white pl-3 pr-4 text-[14px] font-semibold text-slate-900 shadow-[0_1px_4px_rgba(15,23,42,0.18)] hover:border-slate-900"
             >
-              <Search className="h-4 w-4" /> {society ? 'Search' : 'Society or city'}
+              <SearchGlyph className="h-[17px] w-[17px]" /> {society ? 'Search' : 'Society or city'}
             </button>
-            <div className="flex overflow-hidden rounded-full bg-white p-0.5 shadow-md ring-1 ring-slate-200">
+            <div className="flex overflow-hidden rounded-md border border-slate-400 bg-white shadow-[0_1px_4px_rgba(15,23,42,0.18)]">
               {(['all', 'sale', 'rent'] as Purpose[]).map((p) => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => setPurpose(p)}
-                  className={cn('h-9 rounded-full px-3.5 text-[13.5px] font-semibold', purpose === p ? 'bg-primary text-white' : 'text-slate-800')}
+                  className={cn('h-[38px] border-l border-slate-300 px-3.5 text-[14px] font-semibold first:border-l-0', purpose === p ? 'bg-slate-900 text-white' : 'text-slate-900 hover:bg-slate-100')}
                 >
                   {p === 'all' ? 'All' : p === 'sale' ? 'Buy' : 'Rent'}
                 </button>
@@ -1141,7 +1132,7 @@ export default function MapExplorer({
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="h-10 appearance-none rounded-full bg-white pl-3.5 pr-8 text-[13.5px] font-semibold text-slate-900 shadow-md outline-none ring-1 ring-slate-200"
+                className="h-10 appearance-none rounded-md border border-slate-400 bg-white pl-3.5 pr-8 text-[14px] font-semibold text-slate-900 shadow-[0_1px_4px_rgba(15,23,42,0.18)] outline-none hover:border-slate-900"
               >
                 {TYPES.map((t) => (
                   <option key={t} value={t}>{t === 'all' ? 'All types' : toTitleCase(t)}</option>
@@ -1153,13 +1144,13 @@ export default function MapExplorer({
               <button
                 type="button"
                 onClick={() => setBlock(null)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-full bg-primary pl-3 pr-2 text-[12.5px] font-semibold text-white shadow-md"
+                className="inline-flex h-10 items-center gap-1.5 rounded-md bg-slate-900 pl-3 pr-2 text-[13px] font-semibold text-white shadow-[0_1px_4px_rgba(15,23,42,0.18)]"
               >
                 {block.name} <X className="h-3.5 w-3.5" />
               </button>
             )}
             {loading && (
-              <span className="inline-flex h-9 items-center gap-1.5 rounded-full bg-white px-3 text-[12.5px] font-medium text-slate-700 shadow-md ring-1 ring-slate-200">
+              <span className="inline-flex h-10 items-center gap-1.5 rounded-md border border-slate-400 bg-white px-3 text-[13px] font-semibold text-slate-800 shadow-[0_1px_4px_rgba(15,23,42,0.18)]">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading
               </span>
             )}
@@ -1167,37 +1158,37 @@ export default function MapExplorer({
         </div>
 
         {/* Tools */}
-        <div className="absolute right-2 top-2 z-[500] flex flex-col gap-2 sm:right-3 sm:top-3">
+        <div className="absolute right-2 top-2 z-[500] flex flex-col divide-y divide-slate-300 rounded-md border border-slate-400 bg-white shadow-[0_1px_4px_rgba(15,23,42,0.18)] sm:right-3 sm:top-3">
           <div className="relative">
             <button type="button" onClick={() => setShowLayers((v) => !v)} className={cn(ctrl, showLayers && 'text-primary')} aria-label="Map type and layers" title="Map type">
-              <Layers className="h-5 w-5" />
+              <LayersGlyph className="h-[21px] w-[21px]" />
             </button>
             {showLayers && (
-              <div className="absolute right-12 top-0 w-[210px] rounded-2xl bg-white p-2 shadow-lg ring-1 ring-slate-200">
-                <p className="px-1.5 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Map type</p>
+              <div className="absolute right-12 top-0 w-[220px] rounded-md border border-slate-400 bg-white p-2.5 shadow-lg">
+                <p className="px-0.5 pb-1.5 text-[11.5px] font-bold uppercase tracking-wider text-slate-600">Map type</p>
                 <div className="grid grid-cols-3 gap-1.5">
                   {(['street', 'satellite', 'hybrid'] as MapStyle[]).map((st) => (
                     <button
                       key={st}
                       type="button"
                       onClick={() => setStyle(st)}
-                      className={cn('rounded-xl border px-1 py-2 text-[12px] font-semibold', style === st ? 'border-primary bg-primary/10 text-primary' : 'border-slate-200 text-slate-700 hover:border-slate-400')}
+                      className={cn('rounded-md border px-1 py-2 text-[12.5px] font-semibold', style === st ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-400 text-slate-800 hover:border-slate-900')}
                     >
                       {st === 'street' ? 'Map' : st === 'satellite' ? 'Satellite' : 'Hybrid'}
                     </button>
                   ))}
                 </div>
-                <button type="button" onClick={() => setPlotsOn((v) => !v)} className="mt-2 flex w-full items-center justify-between rounded-xl px-1.5 py-1.5 text-[13px] font-medium text-slate-800 hover:bg-slate-50">
+                <button type="button" onClick={() => setPlotsOn((v) => !v)} className="mt-2 flex w-full items-center justify-between rounded-md px-1 py-1.5 text-[13.5px] font-semibold text-slate-900 hover:bg-slate-100">
                   Plot outlines &amp; numbers
-                  <span className={cn('grid h-5 w-5 place-items-center rounded-md border', plotsOn ? 'border-primary bg-primary text-white' : 'border-slate-300')}>
+                  <span className={cn('grid h-5 w-5 place-items-center rounded-sm border-2', plotsOn ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-500')}>
                     {plotsOn && <Check className="h-3.5 w-3.5" />}
                   </span>
                 </button>
                 {society && society.pois.length > 0 && (
                   <>
-                    <button type="button" onClick={() => setPoisOn((v) => !v)} className="flex w-full items-center justify-between rounded-xl px-1.5 py-1.5 text-[13px] font-medium text-slate-800 hover:bg-slate-50">
+                    <button type="button" onClick={() => setPoisOn((v) => !v)} className="flex w-full items-center justify-between rounded-md px-1 py-1.5 text-[13.5px] font-semibold text-slate-900 hover:bg-slate-100">
                       Landmarks ({society.pois.length})
-                      <span className={cn('grid h-5 w-5 place-items-center rounded-md border', poisOn ? 'border-primary bg-primary text-white' : 'border-slate-300')}>
+                      <span className={cn('grid h-5 w-5 place-items-center rounded-sm border-2', poisOn ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-500')}>
                         {poisOn && <Check className="h-3.5 w-3.5" />}
                       </span>
                     </button>
@@ -1217,7 +1208,7 @@ export default function MapExplorer({
                     )}
                   </>
                 )}
-                <p className="mt-1.5 px-1.5 text-[11px] leading-snug text-slate-500">Hybrid shows street names on the satellite view.</p>
+                <p className="mt-1.5 px-1 text-[12px] leading-snug text-slate-600">Hybrid shows street names on the satellite view.</p>
               </div>
             )}
           </div>
@@ -1230,10 +1221,10 @@ export default function MapExplorer({
                 aria-label="Society plan"
                 title="Society plan"
               >
-                {planOn ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                <PlanGlyph className="h-5 w-5" off={!planOn} />
               </button>
               {showOpacity && planOn && (
-                <div className="absolute right-12 top-0 w-[200px] rounded-2xl bg-white p-3 shadow-lg ring-1 ring-slate-200">
+                <div className="absolute right-12 top-0 w-[210px] rounded-md border border-slate-400 bg-white p-3 shadow-lg">
                   <div className="flex items-center justify-between">
                     <p className="text-[12.5px] font-semibold text-slate-900">Society plan</p>
                     <button type="button" onClick={() => { setPlanOn(false); setShowOpacity(false); }} className="text-[12px] font-semibold text-primary">
@@ -1262,25 +1253,25 @@ export default function MapExplorer({
               setPoints([]);
               setClickAt(null);
             }}
-            className={cn(ctrl, measure && 'bg-orange-500 text-white ring-orange-500 hover:bg-orange-500')}
+            className={cn(ctrl, measure && 'bg-orange-600 text-white hover:bg-orange-600')}
             aria-label="Measure"
             title="Measure distance or area"
           >
-            <Ruler className="h-5 w-5" />
+            <RulerGlyph className="h-5 w-5" />
           </button>
           <button type="button" onClick={toggleLocate} className={cn(ctrl, me && 'text-blue-600')} aria-label="My location" title="My location">
-            <Crosshair className="h-5 w-5" />
+            <LocateGlyph className="h-5 w-5" />
           </button>
           <button type="button" onClick={share} className={ctrl} aria-label="Share this view" title={copied ? 'Link copied' : 'Share'}>
-            <Share2 className="h-5 w-5" />
+            <ShareGlyph className="h-5 w-5" />
           </button>
           {inPage && (
             <button type="button" onClick={() => setFull((v) => !v)} className={ctrl} aria-label={full ? 'Exit full screen' : 'Full screen'}>
-              {full ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+              <ExpandGlyph className="h-5 w-5" collapse={full} />
             </button>
           )}
           <button type="button" onClick={() => setShowList((v) => !v)} className={cn(ctrl, 'lg:hidden')} aria-label="List">
-            <List className="h-5 w-5" />
+            <ListGlyph className="h-5 w-5" />
           </button>
         </div>
 

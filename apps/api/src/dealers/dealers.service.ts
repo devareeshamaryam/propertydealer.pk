@@ -420,7 +420,7 @@ export class DealersService {
   }
 
   /** One city's page: its text, its agencies, and a page of its agents. */
-  async city(slug: string, page = 1, limit = 30) {
+  async city(slug: string, page = 1, limit = 30, q = '') {
     const key = citySlug(slug);
     const list = await this.cityList();
     const city =
@@ -432,8 +432,14 @@ export class DealersService {
       this.settings(),
     ]);
     const all = dir.cities[city._id] ?? { agencies: [], agents: [] };
+    // A search by name: agency, agent, the person behind an agency, or an agent's agency.
+    const term = String(q ?? '').trim().toLowerCase().slice(0, 60);
+    const hit = (d: DealerCard) =>
+      !term || [d.name, d.companyName, d.person, d.agency?.name].some((v) => String(v ?? '').toLowerCase().includes(term));
+    const agencies = all.agencies.filter(hit);
+    const agents = all.agents.filter(hit);
     const size = Math.min(60, Math.max(6, Math.floor(limit) || 30));
-    const pages = Math.max(1, Math.ceil(all.agents.length / size));
+    const pages = Math.max(1, Math.ceil(agents.length / size));
     const p = Math.min(pages, Math.max(1, Math.floor(page) || 1));
     return {
       city: {
@@ -444,9 +450,11 @@ export class DealersService {
       },
       page: text,
       defaults: s.cityDefaults,
-      agencies: all.agencies,
-      agents: all.agents.slice((p - 1) * size, p * size),
+      agencies,
+      agents: agents.slice((p - 1) * size, p * size),
       total: { agencies: all.agencies.length, agents: all.agents.length },
+      /** With a search: how many of each match. */
+      found: { agencies: agencies.length, agents: agents.length },
       pageInfo: { page: p, pages, limit: size },
     };
   }

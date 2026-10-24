@@ -99,13 +99,13 @@ function PlaceView({ name, cityName, citySlug, areaSlug, listings, focus }: { na
           {name} is marked on the satellite map above{listings ? `, with ${listings} ${listings === 1 ? "property" : "properties"} listed here` : ""}. Its outline and master plan are not on the map yet — the {cityName} map shows the societies that have them.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Link href={`/properties/sale/${citySlug}/${areaSlug}`} className="btn-shape inline-flex h-11 items-center rounded-xl bg-primary px-4 text-[14px] font-semibold text-white">
+          <Link href={`/properties/sale/${citySlug}/${areaSlug}`} className="inline-flex h-11 items-center rounded-md bg-slate-900 px-4 text-[14px] font-semibold text-white">
             Property for sale in {name}
           </Link>
-          <Link href={`/properties/rent/${citySlug}/${areaSlug}`} className="btn-shape inline-flex h-11 items-center rounded-xl border border-slate-300 px-4 text-[14px] font-semibold text-slate-800">
+          <Link href={`/properties/rent/${citySlug}/${areaSlug}`} className="inline-flex h-11 items-center rounded-md border border-slate-400 px-4 text-[14px] font-semibold text-slate-800">
             For rent
           </Link>
-          <Link href={`/emap/${citySlug}`} className="btn-shape inline-flex h-11 items-center rounded-xl border border-slate-300 px-4 text-[14px] font-semibold text-slate-800">
+          <Link href={`/emap/${citySlug}`} className="inline-flex h-11 items-center rounded-md border border-slate-400 px-4 text-[14px] font-semibold text-slate-800">
             {cityName} map
           </Link>
         </div>

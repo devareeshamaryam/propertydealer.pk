@@ -285,7 +285,7 @@ export default async function SocietyMapPageView({ society, places }: { society:
                 <h2 className="text-[18px] font-bold text-slate-900">Amenities</h2>
                 <ul className="mt-3 flex flex-wrap gap-2">
                   {s.info.amenities!.map((a) => (
-                    <li key={a} className="rounded-full bg-primary/10 px-3 py-1 text-[13px] font-semibold text-primary">{a}</li>
+                    <li key={a} className="rounded-sm border border-slate-400 bg-white px-2.5 py-1 text-[13px] font-semibold text-slate-800">{a}</li>
                   ))}
                 </ul>
               </section>

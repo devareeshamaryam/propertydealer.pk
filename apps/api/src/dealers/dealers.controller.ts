@@ -48,8 +48,9 @@ export class DealersController {
     @Param('slug') slug: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('q') q?: string,
   ) {
-    return this.dealers.city(slug, Number(page) || 1, Number(limit) || 30);
+    return this.dealers.city(slug, Number(page) || 1, Number(limit) || 30, q ?? '');
   }
 
   @Get('admin/city/:id')
