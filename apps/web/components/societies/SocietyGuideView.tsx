@@ -28,7 +28,8 @@ import { CITIES, getCityBySlug } from '@/app/(pages)/emap/cities-data';
 import type { Property } from '@/lib/data';
 import type { SocietyMapPage } from '@/lib/society-map';
 import { APPROVAL_LABELS, guideFaqs, pkPrice, type PriceRow, type SocietyPage } from '@/lib/societies';
-import { cn, toTitleCase } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { societyName } from '@/lib/society-name';
 
 /*
  * A society's guide — the area guide, the way Zameen's read: what it is and
@@ -106,8 +107,8 @@ function Section({ id, title, children, action }: { id: string; title: string; c
 
 export default function SocietyGuideView({ s, map, listings, preview = false }: { s: SocietyPage; map: SocietyMapPage | null; listings: Property[]; preview?: boolean }) {
   const g = s.guide ?? {};
-  const name = toTitleCase(s.name);
   const city = s.city;
+  const { short: name, full: fullName } = societyName(s.name, city.name);
   const approval = APPROVAL_LABELS[g.approval ?? ''];
   const faqs = guideFaqs(s);
   const saleBase = `/properties/sale/${city.slug}/${s.slug}`;
@@ -148,7 +149,7 @@ export default function SocietyGuideView({ s, map, listings, preview = false }: 
       <section className="relative isolate overflow-hidden bg-navy text-white">
         {cover && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={cover} alt={`${name} ${city.name}`} className="absolute inset-0 -z-10 h-full w-full object-cover" />
+          <img src={cover} alt={fullName} className="absolute inset-0 -z-10 h-full w-full object-cover" />
         )}
         <div className="absolute inset-0 -z-10 bg-gradient-to-t from-slate-950/90 via-slate-950/55 to-slate-950/30" />
         <div className="container mx-auto px-4 pb-7 pt-5 sm:pb-10 sm:pt-6">
@@ -176,7 +177,7 @@ export default function SocietyGuideView({ s, map, listings, preview = false }: 
               )}
             </div>
             <h1 className="mt-2 text-[28px] font-extrabold leading-tight tracking-tight sm:text-[42px]">
-              {name} {city.name}
+              {fullName}
             </h1>
             <p className="mt-1.5 flex items-start gap-1.5 text-[15px] text-white/85">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0" /> {g.tagline || g.address || `${name}, ${city.name}, Pakistan`}

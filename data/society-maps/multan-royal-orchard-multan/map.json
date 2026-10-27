@@ -1,0 +1,131 @@
+{
+ "format": "pd-society-map/1",
+ "revision": 1,
+ "exportedAt": "2026-10-27T16:26:59.126834Z",
+ "name": "Royal Orchard Multan",
+ "slug": "royal-orchard-multan",
+ "citySlug": "multan",
+ "cityName": "Multan",
+ "areaSlug": "royal-orchard-multan",
+ "status": "published",
+ "center": {
+  "lat": 30.255539,
+  "lng": 71.558723
+ },
+ "zoom": 15,
+ "boundary": [
+  [
+   30.2625535,
+   71.5525298
+  ],
+  [
+   30.2639993,
+   71.5642867
+  ],
+  [
+   30.2584994,
+   71.5643841
+  ],
+  [
+   30.2584457,
+   71.5648438
+  ],
+  [
+   30.2543671,
+   71.5649161
+  ],
+  [
+   30.2543146,
+   71.5596483
+  ],
+  [
+   30.2471476,
+   71.5597753
+  ],
+  [
+   30.2470781,
+   71.5528041
+  ]
+ ],
+ "blocks": [],
+ "pois": [],
+ "info": {
+  "developer": "Habib Rafiq (Pvt.) Ltd. and Royal Developers & Builders (Pvt.) Ltd.",
+  "approval": "MDA",
+  "totalArea": "About 4,000 kanal",
+  "launched": "",
+  "possession": "Blocks A to G",
+  "plotSizes": "5, 10, 12 Marla, 1 & 2 Kanal; villas of 5, 10, 12 Marla & 1 Kanal; commercial 2 to 10 Marla",
+  "amenities": [
+   "Royal Boulevard",
+   "Grand mosque",
+   "Hospital",
+   "Theme park",
+   "Community club",
+   "Parks in every block",
+   "Schools",
+   "Graveyard"
+  ]
+ },
+ "seo": {
+  "metaTitle": "Royal Orchard Multan Map — Master Plan of Blocks A to G on Satellite",
+  "metaDescription": "Royal Orchard Multan master plan on the satellite map: Blocks A to G, the Royal Boulevard, the mosque, hospital, parks, schools and the gates on MPS Road and Shakh-e-Madina Road.",
+  "intro": "Royal Orchard Multan master plan — Blocks A, B, C, D, E, F and G, the Royal Boulevard from the MPS Road gate to Shakh-e-Madina Road, the central roundabout and grand mosque, the hospital, theme park, community club, parks and schools — the society's own plan laid on the satellite map. See the properties listed in Royal Orchard and find a plot on site with your live location.",
+  "content": "<p>This is Royal Orchard's published master plan; the society office confirms the exact position of a plot. For a plot's final location, check with the office at Gate 1, Multan Public School Road (UAN 061-111-444-475).</p>"
+ },
+ "faqs": [
+  {
+   "q": "Which blocks are in Royal Orchard Multan?",
+   "a": "Seven blocks: A, C and E west of the Royal Boulevard, and B, D, F and G east of it."
+  },
+  {
+   "q": "Where are the gates of Royal Orchard Multan?",
+   "a": "The main gate is on Multan Public School Road at the south end of the Royal Boulevard; the boulevard runs north to Shakh-e-Madina Road."
+  },
+  {
+   "q": "Where is the mosque in Royal Orchard Multan?",
+   "a": "The grand mosque is beside the central roundabout, where the Royal Boulevard meets Iqbal Boulevard, on the Block E side."
+  }
+ ],
+ "sponsor": {
+  "enabled": false
+ },
+ "downloadEnabled": false,
+ "layers": [
+  {
+   "name": "Royal Orchard Multan master plan",
+   "opacity": 0.85,
+   "visible": true,
+   "order": 0,
+   "width": 941,
+   "height": 1457,
+   "controlPoints": [
+    {
+     "px": 0,
+     "py": 0,
+     "lat": 30.26403309,
+     "lng": 71.55247739
+    },
+    {
+     "px": 941,
+     "py": 0,
+     "lat": 30.26415598,
+     "lng": 71.56480813
+    },
+    {
+     "px": 941,
+     "py": 1457,
+     "lat": 30.24717748,
+     "lng": 71.56510901
+    },
+    {
+     "px": 0,
+     "py": 1457,
+     "lat": 30.24705457,
+     "lng": 71.55277827
+    }
+   ],
+   "file": "layer-0.png"
+  }
+ ]
+}

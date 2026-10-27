@@ -4,7 +4,7 @@ import SocietyGuideView from '@/components/societies/SocietyGuideView';
 import { fetchInitialListings } from '@/lib/server-api';
 import { getSocietyMap } from '@/lib/society-map';
 import { getSocietyPage, guideFaqs, pkPrice } from '@/lib/societies';
-import { toTitleCase } from '@/lib/utils';
+import { societyName } from '@/lib/society-name';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { city, slug } = await params;
   const s = await getSocietyPage(city, slug).catch(() => null);
   if (!s) return {};
-  const name = `${toTitleCase(s.name)} ${s.city.name}`;
+  const name = societyName(s.name, s.city.name).full;
   const from = s.stats.house?.min || s.stats.plot?.min;
   const title = s.guide.metaTitle?.trim() || `${name} — Prices, Map, Phases & Guide ${new Date().getFullYear()}`;
   const description =
@@ -51,7 +51,7 @@ export default async function SocietyGuidePage({ params }: Params) {
     fetchInitialListings({ purpose: 'all', cityId: s.city._id, areaId: s._id }).catch(() => ({ properties: [] })),
   ]);
 
-  const name = `${toTitleCase(s.name)} ${s.city.name}`;
+  const name = societyName(s.name, s.city.name).full;
   const url = `${BASE_URL}/societies/${s.city.slug}/${s.slug}`;
   const image = s.guide.image ? (s.guide.image.startsWith('http') ? s.guide.image : `${BASE_URL}${s.guide.image}`) : undefined;
   const schema = [
@@ -75,7 +75,7 @@ export default async function SocietyGuidePage({ params }: Params) {
         { '@type': 'ListItem', position: 1, name: 'Home', item: `${BASE_URL}/` },
         { '@type': 'ListItem', position: 2, name: 'Societies', item: `${BASE_URL}/societies` },
         { '@type': 'ListItem', position: 3, name: s.city.name, item: `${BASE_URL}/societies/${s.city.slug}` },
-        { '@type': 'ListItem', position: 4, name: toTitleCase(s.name), item: url },
+        { '@type': 'ListItem', position: 4, name: societyName(s.name, s.city.name).short, item: url },
       ],
     },
     ...(guideFaqs(s).length
