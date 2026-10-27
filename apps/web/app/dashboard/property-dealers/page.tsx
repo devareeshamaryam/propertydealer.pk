@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Building2, ExternalLink, Globe, Loader2, MapPin, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
+import { Building2, ExternalLink, Loader2, MapPin, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageHeader, apiErrorMessage } from "@/components/dashboard";
 import { SaveButton, SettingsCard } from "@/components/dashboard/settings-form";
 import api from "@/lib/api";
-import { DEALERS_HUB, dealersCityPath, hasDealers, type DealerCity, type DealerPageText, type DealerSettings } from "@/lib/dealers";
+import { dealersCityPath, hasDealers, type DealerCity, type DealerPageText, type DealerSettings } from "@/lib/dealers";
 import { cn } from "@/lib/utils";
 
 const RichEditor = dynamic(() => import("@/components/RichEditor"), {
@@ -104,7 +104,7 @@ export default function PropertyDealersAdminPage() {
 
   const set = <K extends keyof DealerPageText>(k: K, v: DealerPageText[K]) => setForm((f) => ({ ...f, [k]: v }));
   const faqs = form.faqs ?? [];
-  const viewHref = target?.kind === "city" ? dealersCityPath(target.city.slug) : DEALERS_HUB;
+  const viewHref = target?.kind === "city" ? dealersCityPath(target.city.slug) : "";
   const isDefaults = target?.kind === "defaults";
 
   return (
@@ -119,24 +119,11 @@ export default function PropertyDealersAdminPage() {
                 <Plus className="mr-1.5 h-4 w-4" /> Add a city
               </Link>
             </Button>
-            <Button variant="outline" asChild>
-              <Link href={DEALERS_HUB} target="_blank">
-                <ExternalLink className="mr-1.5 h-4 w-4" /> View
-              </Link>
-            </Button>
           </div>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => void open({ kind: "hub" })}
-          className={cn("rounded-xl border bg-white p-4 text-left transition-colors hover:border-primary", target?.kind === "hub" && "border-primary ring-1 ring-primary")}
-        >
-          <span className="flex items-center gap-2 font-semibold"><Globe className="h-4 w-4 text-primary" /> All-cities page</span>
-          <span className="mt-1 block text-sm text-muted-foreground">SEO and text of /property-dealers.</span>
-        </button>
+      <div className="grid gap-3">
         <button
           type="button"
           onClick={() => void open({ kind: "defaults" })}
@@ -268,7 +255,7 @@ export default function PropertyDealersAdminPage() {
 
                 <div className="flex flex-wrap items-center gap-3">
                   <SaveButton onClick={() => void save()} saving={saving} />
-                  {!isDefaults && (target?.kind !== "city" || hasDealers(target.city)) && (
+                  {target?.kind === "city" && hasDealers(target.city) && viewHref && (
                     <Button variant="outline" asChild>
                       <Link href={viewHref} target="_blank">
                         <ExternalLink className="mr-1.5 h-4 w-4" /> View page

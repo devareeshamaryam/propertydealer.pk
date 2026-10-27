@@ -52,7 +52,7 @@ export function benefitsDto(b: PlanBenefits) {
 const TOGGLES: { key: Exclude<keyof PlanBenefits, "teamMembers">; label: string; hint: string }[] = [
   { key: "verifiedBadge", label: "Verified badge", hint: "On the profile, every listing and every listing card." },
   { key: "autoPublish", label: "Instant publishing", hint: "New listings go live without waiting for review." },
-  { key: "spotlight", label: "Spotlight", hint: "Shown in “Verified agencies” on the homepage and /agents." },
+  { key: "spotlight", label: "Spotlight", hint: "Shown in “Verified agencies” on the homepage and at the top of /property-dealers." },
   // Profile page and cover photo are not here: every account has both, whatever the plan.
   { key: "socialLinks", label: "Social links", hint: "Facebook, Instagram, YouTube, TikTok, LinkedIn and website on the profile." },
   { key: "highlight", label: "“Most popular” ribbon", hint: "Highlights this card on the pricing pages." },

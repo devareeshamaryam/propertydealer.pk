@@ -122,7 +122,7 @@ const n = (v: number) => v.toLocaleString('en-PK');
 /* ── Cards ── */
 
 /** An agency: its cover (when it has one), logo, team and listings, and how to reach it. */
-export function AgencyCard({ d }: { d: DealerCard }) {
+export function AgencyCard({ d, city }: { d: DealerCard; city?: { name: string; slug: string } }) {
   return (
     <article className="relative flex flex-col overflow-hidden rounded-lg border border-slate-300 bg-white transition-shadow hover:shadow-[0_2px_10px_rgba(15,23,42,0.08)]">
       {d.coverUrl && (
@@ -156,9 +156,14 @@ export function AgencyCard({ d }: { d: DealerCard }) {
       </dl>
       <div className="flex flex-1 flex-col gap-3 p-4 pt-3">
         <p className="flex min-h-[20px] items-start gap-1.5 text-[13.5px] text-slate-700">
-          {d.address && (
+          {(d.address || city) && (
             <>
-              <PinGlyph className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" /> <span className="line-clamp-1">{d.address}</span>
+              <PinGlyph className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-500" />
+              <span className="line-clamp-1">
+                {city && <b className="font-semibold text-slate-900">{city.name}</b>}
+                {city && d.address && ' · '}
+                {d.address}
+              </span>
             </>
           )}
         </p>

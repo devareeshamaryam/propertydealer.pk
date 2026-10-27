@@ -10,6 +10,7 @@ import HomePlans from "@/components/home/HomePlans";
 import HomeRates from "@/components/home/HomeRates";
 import { AdZone } from "@/components/ads/AdSlot";
 import VerifiedAgencies from "@/components/home/VerifiedAgencies";
+import { mainDealersPath } from "@/lib/dealers.server";
 import { getSiteSettings } from "@/lib/site-settings.server";
 import { mapBackendToFrontendProperty, sortPropertyTypes } from "@/lib/types/property-utils";
 import { transformBlogsToPosts } from "@/lib/utils/blog-utils";
@@ -39,6 +40,7 @@ export default async function Home() {
       settings.homeShowAgencies ? getSpotlightAgencies() : Promise.resolve([]),
       settings.homeShowRates ? getRatesSummary() : Promise.resolve([]),
     ]);
+  const dealersHref = settings.homeShowAgencies ? await mainDealersPath().catch(() => null) : null;
   const cityStories = cityStoriesResult.status === "fulfilled" ? cityStoriesResult.value : [];
   const plans = plansResult.status === "fulfilled" ? plansResult.value : [];
   const agencies = agenciesResult.status === "fulfilled" ? agenciesResult.value : [];
@@ -148,7 +150,7 @@ export default async function Home() {
         <FeaturedSection initialProperties={transformedProperties} count={settings.homeLatestCount} />
       )}
       <AdZone page="home" at="after:latest" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
-      {settings.homeShowAgencies && <VerifiedAgencies agencies={agencies} />}
+      {settings.homeShowAgencies && <VerifiedAgencies agencies={agencies} dealersHref={dealersHref} />}
       <AdZone page="home" at="after:agencies" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
       {settings.homeShowAgentBand && <AgentSignupSection />}
       <AdZone page="home" at="after:agentBand" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />

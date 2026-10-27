@@ -28,6 +28,9 @@ export interface DealerCard {
   since: string;
 }
 
+/** An agency in the all-cities list, with its city. */
+export type DealerAgency = DealerCard & { city: { name: string; slug: string } };
+
 export interface DealerPageText {
   metaTitle?: string;
   metaDescription?: string;
@@ -64,7 +67,6 @@ export interface DealerCityData {
   pageInfo: { page: number; pages: number; limit: number };
 }
 
-export const DEALERS_HUB = '/property-dealers';
 
 /** A city has a page only once it has at least one agency or agent. */
 export const hasDealers = (c: { agencies: number; agents: number }) => c.agencies + c.agents > 0;
@@ -95,12 +97,12 @@ export function cityText(d: DealerCityData) {
     title: pick(
       d.page.metaTitle,
       d.defaults.metaTitle,
-      count > 1 ? `${count} Property Dealers in ${d.city.name} — Real Estate Agents & Agencies` : `Property Dealers in ${d.city.name} — Real Estate Agents & Agencies`,
+      count > 1 ? `Property Dealers in ${d.city.name} — ${count} Real Estate Agents` : `Property Dealers in ${d.city.name} — Real Estate Agents`,
     ),
     description: pick(
       d.page.metaDescription,
       d.defaults.metaDescription,
-      `Find trusted property dealers, real estate agents and verified agencies in ${d.city.name}. See their listings for sale and rent, and call or WhatsApp them directly.`,
+      `Find trusted property dealers and real estate agents in ${d.city.name}. See their houses, plots and flats for sale and rent, and call or WhatsApp them directly.`,
     ),
     heading: pick(d.page.heading, d.defaults.heading, `Property Dealers in ${d.city.name}`),
     intro: pick(

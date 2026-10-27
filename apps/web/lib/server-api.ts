@@ -435,3 +435,9 @@ export async function getDealerCity(slug: string): Promise<import('./dealers').D
     throw error;
   }
 }
+
+/** Every city's agencies, biggest plans first, with their city. Empty on an API without the endpoint. */
+export async function getDealerAgencies(limit = 24): Promise<{ total: number; agencies: import('./dealers').DealerAgency[] }> {
+  const r = await optionalGet<{ total: number; agencies: import('./dealers').DealerAgency[] }>(`/dealers/agencies?limit=${limit}`, 600, DEALER_TAGS);
+  return { total: r?.total ?? 0, agencies: Array.isArray(r?.agencies) ? r!.agencies : [] };
+}

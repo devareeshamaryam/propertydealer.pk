@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { DealersDirectory } from '@/components/dealers/DealersDirectory';
 import ExpandableHtml from '@/components/societies/ExpandableHtml';
 import { getDealerCities, getDealerCity } from '@/lib/server-api';
-import { DEALERS_HUB, cityText, dealerHref, dealersCityPath, hasDealers } from '@/lib/dealers';
+import { cityText, dealerHref, dealersCityPath, hasDealers } from '@/lib/dealers';
 import { getSiteName } from '@/lib/site-settings.server';
 
 /*
@@ -63,7 +63,7 @@ export default async function DealersCityPage({ params }: Props) {
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE}/` },
-        { '@type': 'ListItem', position: 2, name: 'Property dealers', item: `${SITE}${DEALERS_HUB}` },
+        { '@type': 'ListItem', position: 2, name: `Property in ${name}`, item: `${SITE}/properties/all/${data.city.slug}` },
         { '@type': 'ListItem', position: 3, name: `Property dealers in ${name}`, item: `${SITE}${path}` },
       ],
     },
@@ -115,12 +115,12 @@ export default async function DealersCityPage({ params }: Props) {
               </li>
               <li aria-hidden>/</li>
               <li>
-                <Link href={DEALERS_HUB} className="hover:text-slate-900 hover:underline">
-                  Property dealers
+                <Link href={`/properties/all/${data.city.slug}`} className="hover:text-slate-900 hover:underline">
+                  {name}
                 </Link>
               </li>
               <li aria-hidden>/</li>
-              <li className="font-semibold text-slate-900">{name}</li>
+              <li className="font-semibold text-slate-900">Property dealers</li>
             </ol>
           </nav>
           <div className="mt-3 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
@@ -216,20 +216,20 @@ export default async function DealersCityPage({ params }: Props) {
 
           {others.length > 0 && (
             <section className="rounded-lg border border-slate-300 bg-white">
-              <h2 className="border-b border-slate-200 px-4 py-3 text-[15px] font-bold text-slate-900">Dealers in other cities</h2>
+              <h2 className="border-b border-slate-200 px-4 py-3 text-[15px] font-bold text-slate-900">Property dealers in other cities</h2>
               <ul className="divide-y divide-slate-200 text-[14px]">
-                {others.slice(0, 12).map((c) => (
+                {others.map((c) => (
                   <li key={c._id}>
                     <Link href={dealersCityPath(c.slug)} className="flex items-center justify-between gap-2 px-4 py-2.5 font-medium text-slate-800 hover:bg-slate-50">
-                      {c.name}
+                      <span>
+                        <span className="sr-only">Property dealers in </span>
+                        {c.name}
+                      </span>
                       <span className="text-[13px] tabular-nums text-slate-500">{c.agencies + c.agents}</span>
                     </Link>
                   </li>
                 ))}
               </ul>
-              <Link href={DEALERS_HUB} className="block border-t border-slate-200 px-4 py-2.5 text-[14px] font-semibold text-slate-900 hover:underline">
-                All cities ›
-              </Link>
             </section>
           )}
         </aside>

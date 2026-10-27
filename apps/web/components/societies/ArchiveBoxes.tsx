@@ -117,9 +117,11 @@ export async function CityAgenciesBox({ cityId, cityName }: { cityId?: string; c
           <AgencyRow key={a._id} a={a} />
         ))}
       </div>
-      <Link href={dealersPage ?? '/agents'} className="mt-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[13px] font-semibold text-primary hover:bg-primary/5">
-        {dealersPage ? `All property dealers in ${cityName}` : 'All agents'} <ArrowRight className="h-3.5 w-3.5" />
-      </Link>
+      {dealersPage && (
+        <Link href={dealersPage} className="mt-1 flex items-center justify-center gap-1 rounded-xl py-2 text-[13px] font-semibold text-primary hover:bg-primary/5">
+          All property dealers in {cityName} <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+      )}
     </div>
   );
 }

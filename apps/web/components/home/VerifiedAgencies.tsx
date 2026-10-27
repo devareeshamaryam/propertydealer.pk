@@ -5,7 +5,7 @@ import type { SpotlightAgency } from '@/lib/server-api';
 import { photo } from '@/lib/img';
 
 /* Homepage: agencies on a plan with the spotlight benefit. Hidden when there are none. */
-export default function VerifiedAgencies({ agencies }: { agencies: SpotlightAgency[] }) {
+export default function VerifiedAgencies({ agencies, dealersHref }: { agencies: SpotlightAgency[]; dealersHref?: string | null }) {
   if (!agencies.length) return null;
   return (
     <section className="container mx-auto px-[var(--gutter)] py-8 sm:px-4 sm:py-10">
@@ -13,7 +13,7 @@ export default function VerifiedAgencies({ agencies }: { agencies: SpotlightAgen
         <h2 className="flex items-center gap-2 text-[22px] font-bold tracking-tight text-slate-900 sm:text-[26px]">
           <BadgeCheck className="h-6 w-6 text-sky-500" /> Verified agencies
         </h2>
-        <Link href="/agents" className="text-[14px] font-semibold text-primary hover:underline">All agents</Link>
+        {dealersHref && <Link href={dealersHref} className="text-[14px] font-semibold text-primary hover:underline">All property dealers</Link>}
       </div>
       <div className="hide-scrollbar -mx-[var(--gutter)] flex snap-x gap-2.5 overflow-x-auto px-[var(--gutter)] sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-6">
         {agencies.map((a) => (

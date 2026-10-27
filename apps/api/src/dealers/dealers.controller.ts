@@ -28,6 +28,13 @@ export class DealersController {
     return this.dealers.cities();
   }
 
+  /** Every city's agencies, biggest plans first, with their city. */
+  @Get('agencies')
+  @Header('Cache-Control', 'public, max-age=120, s-maxage=300')
+  agencies(@Query('limit') limit?: string) {
+    return this.dealers.agencies(Number(limit) || 24);
+  }
+
   /** The text of /property-dealers and the default text of a city page. */
   @Get('settings')
   @Header('Cache-Control', 'public, max-age=120, s-maxage=300')

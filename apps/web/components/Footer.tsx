@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Clock, Facebook, Instagram, Linkedin, Mail, MapPin, MessageCircle, Phone, Youtube } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { getSiteSettings } from '@/lib/site-settings.server';
+import { mainDealersPath } from '@/lib/dealers.server';
 import { getMaterialTypes } from '@/lib/materials';
 import { DEFAULT_SOCIALS, DEFAULT_TAGLINE, resolved, waDigits } from '@/lib/site-settings';
 
@@ -24,7 +25,6 @@ const EXPLORE = [
   { name: 'Search on Map', href: '/emap' },
   { name: 'Agent Packages', href: '/packages' },
   { name: 'Blog', href: '/blog' },
-  { name: 'Verified Agencies', href: '/agents' },
   { name: 'Property Dealers', href: '/property-dealers' },
   { name: 'Property Tools', href: '/tools' },
   { name: 'About Us', href: '/about' },
@@ -99,7 +99,7 @@ function Column({ title, links }: { title: string; links: { name: string; href: 
 }
 
 const Footer = async () => {
-  const [settings, materials] = await Promise.all([getSiteSettings(), getMaterialTypes()]);
+  const [settings, materials, dealers] = await Promise.all([getSiteSettings(), getMaterialTypes(), mainDealersPath()]);
   // The built-in rate pages, then the materials added from the dashboard.
   const rateLinks = [...RATES, ...materials.map((m) => ({ name: `${m.name} Rates`, href: m.path }))];
   const r = resolved(settings);
@@ -184,7 +184,7 @@ const Footer = async () => {
             </div>
           </div>
 
-          <Column title="Explore" links={EXPLORE} />
+          <Column title="Explore" links={EXPLORE.flatMap((l) => (l.href === '/property-dealers' ? (dealers ? [{ ...l, href: dealers }] : []) : [l]))} />
           <Column title="Popular cities" links={CITIES} />
           <div className="col-span-2 md:col-span-1">
             <Column title="Construction rates" links={rateLinks} />

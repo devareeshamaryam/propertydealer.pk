@@ -38,7 +38,7 @@ export function planPrice(p: Pick<Plan, 'price' | 'duration'>): { amount: string
 export const PERK_LABELS: { key: keyof Plan; label: string; hint: string }[] = [
   { key: 'verifiedBadge', label: 'Verified badge', hint: 'On your profile, every listing and every listing card' },
   { key: 'autoPublish', label: 'Instant publishing', hint: 'Listings go live without waiting for review' },
-  { key: 'spotlight', label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and agents page' },
+  { key: 'spotlight', label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and at the top of the property dealers pages' },
   { key: 'teamMembers', label: 'Agent accounts', hint: 'Your agents manage their own listings under your plan' },
   { key: 'socialLinks', label: 'Social links', hint: 'Facebook, Instagram, YouTube, TikTok and website on your profile' },
 ];
@@ -75,7 +75,7 @@ export function planBenefits(p: Plan): PlanBenefit[] {
     { key: 'featured', on: featured > 0, label: featured > 0 ? n(featured, 'featured listing', 'featured listings') : 'Featured listings', hint: 'Shown first in search, with a Featured tag' },
     { key: 'verified', on: !!p.verifiedBadge, label: 'Verified badge', hint: 'On your profile, listings and listing cards' },
     { key: 'instant', on: !!p.autoPublish, label: 'Instant publishing', hint: 'Listings go live without waiting for review' },
-    { key: 'spotlight', on: !!p.spotlight, label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and agents page' },
+    { key: 'spotlight', on: !!p.spotlight, label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and at the top of the property dealers pages' },
     { key: 'rank', on: (p.price ?? 0) > 0, label: "Higher on your city's dealers page", hint: 'Paid plans are listed above Free — the bigger the plan, the higher' },
     { key: 'team', on: team > 0, label: team > 0 ? n(team, 'agent account', 'agent accounts') : 'Agent accounts', hint: 'Your agents list under your agency' },
     { key: 'social', on: !!p.socialLinks, label: 'Social links on your profile', hint: 'Facebook, Instagram, YouTube, TikTok, website' },

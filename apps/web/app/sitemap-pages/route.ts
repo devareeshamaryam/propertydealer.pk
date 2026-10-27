@@ -6,7 +6,7 @@ import { getSocieties } from '@/lib/societies';
 import { TOOLS, withDefaults } from '@/lib/tools';
 import { CC_SIZES, ccHref, pageCities } from '@/lib/construction-pages';
 import { getConstructionData, getDealerCities } from '@/lib/server-api';
-import { DEALERS_HUB, dealersCityPath, hasDealers } from '@/lib/dealers';
+import { dealersCityPath, hasDealers } from '@/lib/dealers';
 
 const STATIC_PAGES = [
   { url: '/',                                      priority: '1.0', changefreq: 'daily'   },
@@ -15,7 +15,6 @@ const STATIC_PAGES = [
   { url: '/contact',                               priority: '0.5', changefreq: 'monthly' },
   { url: '/privacy-policy',                        priority: '0.3', changefreq: 'yearly'  },
   { url: '/terms',                                 priority: '0.3', changefreq: 'yearly'  },
-  { url: '/agents',                                priority: '0.6', changefreq: 'weekly'  },
   { url: '/properties',                            priority: '0.9', changefreq: 'daily'   },
   { url: '/properties/sale',                       priority: '0.9', changefreq: 'daily'   },
   { url: '/properties/rent',                       priority: '0.9', changefreq: 'daily'   },
@@ -72,7 +71,6 @@ export async function GET() {
   // Property dealers: the list of cities, and only the cities that have a dealer
   // (no page exists for the others). Refreshed by the API when one joins.
   const dealerCities = (await getDealerCities()).filter(hasDealers);
-  rows.push({ loc: `${SITE_URL}${DEALERS_HUB}`, lastmod: today, changefreq: 'weekly', priority: '0.7' });
   for (const c of dealerCities) {
     rows.push({ loc: `${SITE_URL}${dealersCityPath(c.slug)}`, lastmod: today, changefreq: 'daily', priority: '0.7' });
   }

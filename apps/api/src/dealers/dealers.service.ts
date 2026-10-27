@@ -459,6 +459,29 @@ export class DealersService {
     };
   }
 
+  /**
+   * Every city's agencies in one list, biggest plans first, each with its
+   * city — the top of /property-dealers.
+   */
+  async agencies(limit = 24) {
+    const [list, dir] = await Promise.all([this.cityList(), this.directory()]);
+    const byId = new Map(list.map((c) => [c._id, c]));
+    const rows: (DealerCard & { city: { name: string; slug: string } })[] = [];
+    for (const [cityId, c] of Object.entries(dir.cities)) {
+      const city = byId.get(cityId);
+      if (!city) continue;
+      for (const a of c.agencies) rows.push({ ...a, city: { name: city.name, slug: city.slug } });
+    }
+    rows.sort(
+      (a, b) =>
+        b.rank - a.rank ||
+        Number(b.verified) - Number(a.verified) ||
+        b.listings - a.listings ||
+        a.name.localeCompare(b.name),
+    );
+    return { total: rows.length, agencies: rows.slice(0, Math.min(60, Math.max(1, Math.floor(limit) || 24))) };
+  }
+
   /** The admin's view of one city: its text and counts. */
   async adminCity(cityId: string) {
     const list = await this.cityList();
