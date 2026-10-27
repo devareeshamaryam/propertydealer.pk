@@ -1,0 +1,390 @@
+{
+ "format": "pd-society-map/1",
+ "exportedAt": "2026-10-27T08:51:57.744194Z",
+ "name": "DHA Multan",
+ "slug": "dha-multan",
+ "citySlug": "multan",
+ "cityName": "Multan",
+ "areaSlug": "dha-multan",
+ "status": "published",
+ "center": {
+  "lat": 30.290532,
+  "lng": 71.526803
+ },
+ "zoom": 13,
+ "boundary": [],
+ "blocks": [
+  {
+   "name": "Rumanza Golf Community",
+   "polygon": [
+    [
+     30.326024,
+     71.5254778
+    ],
+    [
+     30.3331239,
+     71.5268242
+    ],
+    [
+     30.3331446,
+     71.5278657
+    ],
+    [
+     30.3331822,
+     71.5300287
+    ],
+    [
+     30.3332505,
+     71.5433981
+    ],
+    [
+     30.3332131,
+     71.5441965
+    ],
+    [
+     30.3305416,
+     71.5462922
+    ],
+    [
+     30.3301217,
+     71.5463494
+    ],
+    [
+     30.3290774,
+     71.5463727
+    ],
+    [
+     30.3283144,
+     71.5463312
+    ],
+    [
+     30.3150276,
+     71.543448
+    ],
+    [
+     30.3149732,
+     71.5431249
+    ],
+    [
+     30.3146317,
+     71.5385443
+    ],
+    [
+     30.3146354,
+     71.5384645
+    ],
+    [
+     30.3161162,
+     71.5335829
+    ],
+    [
+     30.3173741,
+     71.5319705
+    ],
+    [
+     30.3216333,
+     71.5271599
+    ],
+    [
+     30.3221451,
+     71.5266275
+    ],
+    [
+     30.3226531,
+     71.5261749
+    ],
+    [
+     30.3230149,
+     71.5258744
+    ],
+    [
+     30.3234424,
+     71.5256576
+    ],
+    [
+     30.3238661,
+     71.5255205
+    ],
+    [
+     30.3244248,
+     71.5254709
+    ],
+    [
+     30.3253303,
+     71.5254401
+    ]
+   ]
+  },
+  {
+   "name": "DHA Villas",
+   "polygon": [
+    [
+     30.2898184,
+     71.507233
+    ],
+    [
+     30.2899483,
+     71.5072716
+    ],
+    [
+     30.2901429,
+     71.5073486
+    ],
+    [
+     30.2904018,
+     71.5075027
+    ],
+    [
+     30.291664,
+     71.508273
+    ],
+    [
+     30.2916946,
+     71.5084656
+    ],
+    [
+     30.2916853,
+     71.50939
+    ],
+    [
+     30.2906442,
+     71.5158222
+    ],
+    [
+     30.2900558,
+     71.5160533
+    ],
+    [
+     30.287356,
+     71.5157837
+    ],
+    [
+     30.287292,
+     71.5156682
+    ],
+    [
+     30.2872311,
+     71.5152445
+    ],
+    [
+     30.287112,
+     71.5076182
+    ]
+   ]
+  },
+  {
+   "name": "Southern Business District (SBD Phase I)",
+   "polygon": [
+    [
+     30.2754056,
+     71.5395638
+    ],
+    [
+     30.2750899,
+     71.5431682
+    ],
+    [
+     30.274944,
+     71.5446692
+    ],
+    [
+     30.2748494,
+     71.5448654
+    ],
+    [
+     30.2746681,
+     71.545057
+    ],
+    [
+     30.2741479,
+     71.5450295
+    ],
+    [
+     30.2479032,
+     71.5364025
+    ],
+    [
+     30.2478128,
+     71.5342855
+    ],
+    [
+     30.2479037,
+     71.5319769
+    ],
+    [
+     30.2573542,
+     71.52805
+    ],
+    [
+     30.2669345,
+     71.5252363
+    ],
+    [
+     30.2678921,
+     71.5251863
+    ],
+    [
+     30.2692832,
+     71.5251591
+    ],
+    [
+     30.2754024,
+     71.5330258
+    ],
+    [
+     30.2754886,
+     71.537456
+    ]
+   ]
+  }
+ ],
+ "pois": [],
+ "info": {
+  "developer": "Defence Housing Authority (DHA) Multan",
+  "approval": "DHA Multan",
+  "totalArea": "About 9,000 acres",
+  "launched": "Phase 1 announced in 2014",
+  "possession": "Sectors A, H, M, N, Q, R, U, DHA Villas and Rumanza",
+  "plotSizes": "5, 8, 10 Marla, 1 & 2 Kanal; villas of 6, 9 & 12 Marla",
+  "amenities": [
+   "Rumanza signature golf course",
+   "Club house",
+   "DHA Villas gated community",
+   "Southern Business District",
+   "Parks",
+   "Mosques",
+   "Wide boulevards"
+  ]
+ },
+ "seo": {
+  "metaTitle": "DHA Multan Map — Rumanza, DHA Villas & Southern Business District",
+  "metaDescription": "DHA Multan map on satellite: Rumanza Golf Community, DHA Villas and the Southern Business District from DHA Multan's own plans, with plots, parks and blocks.",
+  "intro": "DHA Multan's own plans of the Rumanza Golf Community, DHA Villas and the Southern Business District (SBD Phase I), laid on the satellite map — with plot numbers, parks, mosques and commercial blocks. See the properties listed in DHA Multan and find a plot on site with your live location.",
+  "content": "<p>These are DHA Multan's provisional maps; DHA Multan may change the town planning at any time. For a plot's final position, check with the DHA Multan office (061-111-111-189).</p>"
+ },
+ "faqs": [
+  {
+   "q": "Where is DHA Multan?",
+   "a": "DHA Multan lies between Bosan Road and Mattital Road, near Bahauddin Zakariya University (BZU). Rumanza is in the north, DHA Villas near the Bosan Road entrance on Jinnah Avenue, and the Southern Business District along the boulevard to the MPS Road gate."
+  },
+  {
+   "q": "What is in the Southern Business District?",
+   "a": "SBD Phase I runs along the 300 ft boulevard from the roundabout to the MPS Road gate, with Downtown SBD and commercial Blocks A to L, an arcade, reserved event halls and The Oasis."
+  },
+  {
+   "q": "How many villas are in DHA Villas Multan?",
+   "a": "DHA Multan's plan shows 227 villas of 6 marla, 158 of 9 marla and 172 of 12 marla (two designs), around a 3-acre park with a mosque and a shopping arcade."
+  }
+ ],
+ "sponsor": {
+  "enabled": false
+ },
+ "downloadEnabled": false,
+ "layers": [
+  {
+   "name": "Rumanza Golf Community",
+   "opacity": 0.9,
+   "visible": true,
+   "order": 0,
+   "width": 5400,
+   "height": 5470,
+   "controlPoints": [
+    {
+     "px": 0,
+     "py": 0,
+     "lat": 30.33408926,
+     "lng": 71.52551606
+    },
+    {
+     "px": 5400,
+     "py": 0,
+     "lat": 30.33307832,
+     "lng": 71.54707036
+    },
+    {
+     "px": 5400,
+     "py": 5470,
+     "lat": 30.31410621,
+     "lng": 71.546039
+    },
+    {
+     "px": 0,
+     "py": 5470,
+     "lat": 30.31511736,
+     "lng": 71.5244847
+    }
+   ],
+   "file": "layer-0.png"
+  },
+  {
+   "name": "DHA Villas",
+   "opacity": 0.9,
+   "visible": true,
+   "order": 1,
+   "width": 4800,
+   "height": 3020,
+   "controlPoints": [
+    {
+     "px": 0,
+     "py": 0,
+     "lat": 30.29170962,
+     "lng": 71.50696343
+    },
+    {
+     "px": 4800,
+     "py": 0,
+     "lat": 30.29161715,
+     "lng": 71.51620739
+    },
+    {
+     "px": 4800,
+     "py": 3020,
+     "lat": 30.28670051,
+     "lng": 71.51620739
+    },
+    {
+     "px": 0,
+     "py": 3020,
+     "lat": 30.28679299,
+     "lng": 71.50696343
+    }
+   ],
+   "file": "layer-1.png"
+  },
+  {
+   "name": "Southern Business District (SBD Phase I)",
+   "opacity": 0.9,
+   "visible": true,
+   "order": 2,
+   "width": 6500,
+   "height": 4793,
+   "controlPoints": [
+    {
+     "px": 0,
+     "py": 0,
+     "lat": 30.27529427,
+     "lng": 71.54901275
+    },
+    {
+     "px": 6500,
+     "py": 0,
+     "lat": 30.24711774,
+     "lng": 71.54752578
+    },
+    {
+     "px": 6500,
+     "py": 4793,
+     "lat": 30.24806493,
+     "lng": 71.52347107
+    },
+    {
+     "px": 0,
+     "py": 4793,
+     "lat": 30.27624119,
+     "lng": 71.52495804
+    }
+   ],
+   "file": "layer-2.png"
+  }
+ ]
+}
