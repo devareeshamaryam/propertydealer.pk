@@ -46,11 +46,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/auth-context";
-import { subscriptionApi } from "@/lib/api";
+import { subscriptionApi, userApi } from "@/lib/api";
 import { materialTypeApi } from "@/lib/api/material-type.api";
 import { cn } from "@/lib/utils";
 import { agentProfilePath } from "@/lib/agent";
@@ -103,6 +103,24 @@ export default function DashboardSidebar() {
       })
       .catch(() => undefined);
   }, [user]);
+  /*
+   * The name and photo come from the account record: the session itself only
+   * carries the email and role. Reloaded when the account page saves a new
+   * photo or name, so the corner changes at once.
+   */
+  const [me, setMe] = useState<{ name?: string; avatarUrl?: string } | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const load = () =>
+      userApi
+        .getMe()
+        .then((d) => setMe({ name: d?.name, avatarUrl: d?.avatarUrl }))
+        .catch(() => undefined);
+    void load();
+    window.addEventListener("pd:profile-updated", load);
+    return () => window.removeEventListener("pd:profile-updated", load);
+  }, [user]);
+  const displayName = me?.name?.trim() || user?.name;
   // Materials the admin added (Marble, Paint…): each gets its own link under Material Rates.
   const [customMaterials, setCustomMaterials] = useState<NavLeaf[]>([]);
   useEffect(() => {
@@ -207,7 +225,7 @@ export default function DashboardSidebar() {
   }, [isAdmin, term, teamAgent, customMaterials]);
 
   const initials =
-    (user?.name ?? user?.email ?? "?")
+    (displayName || user?.email || "?")
       .split(/[\s@.]+/)
       .filter(Boolean)
       .slice(0, 2)
@@ -368,17 +386,18 @@ export default function DashboardSidebar() {
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton
                   size="lg"
-                  tooltip={user?.name ?? user?.email ?? "Account"}
+                  tooltip={displayName || user?.email || "Account"}
                   className="data-[state=open]:bg-sidebar-accent"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
+                    {me?.avatarUrl && <AvatarImage src={me.avatarUrl} alt="" className="object-cover" />}
                     <AvatarFallback className="rounded-lg bg-primary/10 text-xs font-semibold text-primary">
                       {initials}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex min-w-0 flex-1 flex-col text-left leading-tight">
                     <span className="truncate text-sm font-medium">
-                      {user?.name ?? "Account"}
+                      {displayName || "Account"}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
                       {user?.email}
@@ -395,7 +414,7 @@ export default function DashboardSidebar() {
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col">
                     <span className="truncate text-sm font-medium">
-                      {user?.name ?? "Account"}
+                      {displayName || "Account"}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
                       {user?.email}

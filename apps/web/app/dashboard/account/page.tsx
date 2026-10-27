@@ -32,6 +32,13 @@ import { LoginPasswordCard } from "@/components/dashboard/login-password-card";
 import { CoverPhoto, ProfilePhoto } from "@/components/dashboard/profile-media";
 import { cn } from "@/lib/utils";
 import { CityPicker } from "@/components/ui/city-picker";
+import { Checkbox } from "@/components/ui/checkbox";
+
+/** "0300-1234567", "+92 300 1234567" and "923001234567" are the same number. */
+const sameNumber = (a: string, b: string) => {
+  const norm = (s: string) => s.replace(/\D/g, "").replace(/^92/, "0").replace(/^(?=3)/, "0");
+  return norm(a) !== "" && norm(a) === norm(b);
+};
 
 /** The public fields /auth/profile returns alongside the sign-in details. */
 interface PublicProfileFields {
@@ -74,6 +81,8 @@ export default function AccountPage() {
   const [phone, setPhone] = useState("");
   // The public half of the account: what /agents/<slug> shows.
   const [whatsappNumber, setWhatsappNumber] = useState("");
+  // Ticked: WhatsApp is the phone number. Unticked: a field for a separate one.
+  const [sameWhatsapp, setSameWhatsapp] = useState(true);
   const [companyName, setCompanyName] = useState("");
   const [bio, setBio] = useState("");
   const [experienceYears, setExperienceYears] = useState("");
@@ -133,6 +142,7 @@ export default function AccountPage() {
     setName(record.name ?? "");
     setPhone(profile.phone ?? "");
     setWhatsappNumber(profile.whatsappNumber ?? "");
+    setSameWhatsapp(!profile.whatsappNumber?.trim() || sameNumber(profile.whatsappNumber, profile.phone ?? ""));
     setCompanyName(profile.companyName ?? "");
     setBio(profile.bio ?? "");
     setExperienceYears(
@@ -175,10 +185,11 @@ export default function AccountPage() {
       .join("") || "?";
 
   const profile = (record ?? {}) as Partial<PublicProfileFields>;
+  const whatsappToSave = sameWhatsapp ? phone.trim() : whatsappNumber.trim();
   const dirty = record
     ? name !== (record.name ?? "") ||
       phone !== (profile.phone ?? "") ||
-      whatsappNumber !== (profile.whatsappNumber ?? "") ||
+      whatsappToSave !== ((profile.whatsappNumber || profile.phone) ?? "").trim() ||
       companyName !== (profile.companyName ?? "") ||
       bio !== (profile.bio ?? "") ||
       experienceYears !==
@@ -217,7 +228,7 @@ export default function AccountPage() {
       await userApi.updateMe({
         name: name.trim(),
         phone: phone.trim(),
-        whatsappNumber: whatsappNumber.trim(),
+        whatsappNumber: whatsappToSave,
         companyName: companyName.trim(),
         bio: bio.trim(),
         address: address.trim(),
@@ -231,8 +242,9 @@ export default function AccountPage() {
       });
       const updated = await userApi.getMe();
       setRecord(updated);
+      window.dispatchEvent(new Event("pd:profile-updated"));
       toast.success("Profile updated", {
-        description: "Sign in again to see the new name everywhere.",
+        description: "Your public profile shows the changes now.",
       });
     } catch (err) {
       console.error("Error updating profile:", err);
@@ -271,6 +283,7 @@ export default function AccountPage() {
             onSaved={(url) => {
               setCoverUrl(url);
               setRecord((r) => (r ? { ...r, coverUrl: url } : r));
+              window.dispatchEvent(new Event("pd:profile-updated"));
             }}
           />
         )}
@@ -282,6 +295,7 @@ export default function AccountPage() {
             onSaved={(url) => {
               setAvatarUrl(url);
               setRecord((r) => (r ? { ...r, avatarUrl: url } : r));
+              window.dispatchEvent(new Event("pd:profile-updated"));
             }}
           />
 
@@ -386,7 +400,37 @@ export default function AccountPage() {
                 className="pl-9"
               />
             </div>
+            <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm">
+              <Checkbox
+                checked={sameWhatsapp}
+                onCheckedChange={(v) => {
+                  const same = v === true;
+                  setSameWhatsapp(same);
+                  // A separate number starts empty, not as a copy of the phone.
+                  if (!same && sameNumber(whatsappNumber, phone)) setWhatsappNumber("");
+                }}
+              />
+              This number is on WhatsApp too
+            </label>
           </div>
+
+          {!sameWhatsapp && (
+            <div className="space-y-2 sm:col-start-2">
+              <Label htmlFor="account-whatsapp">WhatsApp number</Label>
+              <div className="relative">
+                <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="account-whatsapp"
+                  type="tel"
+                  value={whatsappNumber}
+                  onChange={(event) => setWhatsappNumber(event.target.value)}
+                  placeholder="+92 300 1234567"
+                  className="pl-9"
+                  autoFocus
+                />
+              </div>
+            </div>
+          )}
 
           {/* Sign-in email and role: shown to admins only — an agent cannot change either. */}
           {isAdmin && (
@@ -486,21 +530,6 @@ export default function AccountPage() {
                 ? "Set by your agency — your profile shows you as its agent."
                 : "Used as the heading of your profile when set."}
             </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="account-whatsapp">WhatsApp number</Label>
-            <div className="relative">
-              <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="account-whatsapp"
-                type="tel"
-                value={whatsappNumber}
-                onChange={(event) => setWhatsappNumber(event.target.value)}
-                placeholder="+92 300 1234567"
-                className="pl-9"
-              />
-            </div>
           </div>
 
           <div className="space-y-2">

@@ -22,6 +22,10 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
     optimizeCss: true,
+    // How long the browser reuses a page it already fetched while you click
+    // around. Next's default is 5 minutes, so an edit saved in the dashboard
+    // still looked unchanged on the site; 30 seconds is the shortest allowed.
+    staleTimes: { dynamic: 0, static: 30 },
   },
 
   compress: true,
