@@ -13,6 +13,7 @@ import { propertyApi, cityApi } from '@/lib/api';
 import { sortPropertyTypes } from '@/lib/types/property-utils';
 import { sortCitiesByPopularity } from '@/lib/pk';
 import { cn, toTitleCase } from '@/lib/utils';
+import { CityPicker } from '@/components/ui/city-picker';
 
 export default function PropertiesFilterBar() {
   const router = useRouter();
@@ -246,18 +247,16 @@ export default function PropertiesFilterBar() {
           ))}
         </div>
 
-        <label className="relative w-44 lg:w-52">
-          <span className="sr-only">City</span>
-          <select value={tempCity} onChange={(e) => setTempCity(e.target.value)} className={selectClass}>
-            <option value="">All cities</option>
-            {cities.map((c) => (
-              <option key={c} value={c}>
-                {c.charAt(0).toUpperCase() + c.slice(1)}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        </label>
+        {/* Typed or picked: "mul" finds Multan. */}
+        <CityPicker
+          className="w-44 lg:w-52"
+          options={cities.map((c) => ({ value: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))}
+          value={tempCity}
+          onChange={setTempCity}
+          allLabel="All cities"
+          icon={false}
+          inputClassName={selectClass}
+        />
 
         <label className="relative w-44 lg:w-52">
           <span className="sr-only">Property type</span>

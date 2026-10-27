@@ -26,6 +26,7 @@ import { safeNextUrl } from '@/lib/auth-intent'
 import { GoogleButton } from '@/components/auth/google-button'
 import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import { resolved } from '@/lib/site-settings';
+import { CityPicker } from '@/components/ui/city-picker'
 
 export const dynamic = 'force-dynamic'
 
@@ -165,19 +166,16 @@ function RegisterForm() {
 
             <div className="space-y-2">
               <Label htmlFor="city">Your city</Label>
-              <select
+              <CityPicker
                 id="city"
-                {...form.register('city')}
+                options={cities.map((c) => ({ value: c._id, label: c.name }))}
+                value={form.watch('city')}
+                onChange={(v) => form.setValue('city', v, { shouldValidate: true })}
                 disabled={isLoading}
-                className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
-              >
-                <option value="">{cities.length ? 'Choose the city you work in' : 'Loading cities…'}</option>
-                {cities.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                placeholder={cities.length ? 'Type your city — e.g. Lahore' : 'Loading cities…'}
+                ariaLabel="Your city"
+                inputClassName="h-11 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+              />
               {form.formState.errors.city ? (
                 <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
               ) : (

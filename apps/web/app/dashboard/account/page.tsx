@@ -31,6 +31,7 @@ import { apiErrorMessage } from "@/components/dashboard/api-error";
 import { LoginPasswordCard } from "@/components/dashboard/login-password-card";
 import { CoverPhoto, ProfilePhoto } from "@/components/dashboard/profile-media";
 import { cn } from "@/lib/utils";
+import { CityPicker } from "@/components/ui/city-picker";
 
 /** The public fields /auth/profile returns alongside the sign-in details. */
 interface PublicProfileFields {
@@ -273,7 +274,7 @@ export default function AccountPage() {
             }}
           />
         )}
-        <div className={cn("flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:p-6", !isAdmin && "-mt-10 sm:-mt-8")}>
+        <div className={cn("relative z-10 flex flex-col gap-5 p-5 sm:flex-row sm:p-6", isAdmin ? "sm:items-center" : "-mt-10 sm:-mt-8 sm:items-start")}>
           <ProfilePhoto
             url={avatarUrl}
             initials={initials}
@@ -284,7 +285,8 @@ export default function AccountPage() {
             }}
           />
 
-          <div className="min-w-0 flex-1">
+          {/* Below the cover: only the photo overlaps its edge. */}
+          <div className={cn("min-w-0 flex-1", !isAdmin && "sm:pt-10")}>
             <h2 className="truncate text-xl font-semibold">
               {record?.name || user.name || "No name set"}
             </h2>
@@ -293,10 +295,12 @@ export default function AccountPage() {
               <span className="truncate">{user.email}</span>
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Badge variant={isAdmin ? "default" : "secondary"}>
-                <ShieldCheck className="mr-1 h-3 w-3" />
-                {user.role ?? "USER"}
-              </Badge>
+              {isAdmin && (
+                <Badge variant="default">
+                  <ShieldCheck className="mr-1 h-3 w-3" />
+                  {user.role ?? "USER"}
+                </Badge>
+              )}
               {user.isActive === false ? (
                 <Badge variant="destructive">Inactive</Badge>
               ) : (
@@ -384,6 +388,9 @@ export default function AccountPage() {
             </div>
           </div>
 
+          {/* Sign-in email and role: shown to admins only — an agent cannot change either. */}
+          {isAdmin && (
+          <>
           <div className="space-y-2">
             <Label htmlFor="account-email">Email address</Label>
             <div className="relative">
@@ -411,6 +418,8 @@ export default function AccountPage() {
               .
             </p>
           </div>
+          </>
+          )}
         </div>
 
         <div className="mt-6 flex items-center gap-3">
@@ -511,19 +520,14 @@ export default function AccountPage() {
             <Label htmlFor="account-city">
               City {user.role === "AGENT" && <span className="text-destructive">*</span>}
             </Label>
-            <select
+            <CityPicker
               id="account-city"
+              options={cities.map((c) => ({ value: c._id, label: c.name.charAt(0).toUpperCase() + c.name.slice(1) }))}
               value={cityId}
-              onChange={(event) => setCityId(event.target.value)}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Choose your city</option>
-              {cities.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.name.charAt(0).toUpperCase() + c.name.slice(1)}
-                </option>
-              ))}
-            </select>
+              onChange={setCityId}
+              placeholder="Type your city"
+              inputClassName="h-10 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
             <p className="text-xs text-muted-foreground">Verified agencies are shown on their city&apos;s property pages.</p>
           </div>
 

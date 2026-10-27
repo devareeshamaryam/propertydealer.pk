@@ -68,6 +68,7 @@ import {
   useTableControls,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+import { CityPicker } from "@/components/ui/city-picker";
 
 interface CityRef {
   _id: string;
@@ -440,22 +441,16 @@ export default function AreasPage() {
             placeholder="Search by area or city…"
           >
             {cityOptions.length > 1 && (
-              <Select value={cityFilter} onValueChange={setCityFilter}>
-                <SelectTrigger
-                  className="w-[180px]"
-                  aria-label="Filter by city"
-                >
-                  <SelectValue placeholder="All cities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All cities</SelectItem>
-                  {cityOptions.map((city) => (
-                    <SelectItem key={city} value={city}>
-                      {city}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CityPicker
+                className="w-[200px]"
+                options={cityOptions.map((city) => ({ value: city, label: city }))}
+                value={cityFilter === "all" ? "" : cityFilter}
+                onChange={(v) => setCityFilter(v || "all")}
+                allLabel="All cities"
+                ariaLabel="Filter by city"
+                icon={false}
+                inputClassName="h-9 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
             )}
             {withCounts && (
               <Select

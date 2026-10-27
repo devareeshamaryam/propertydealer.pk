@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog";
 
 import dynamic from "next/dynamic";
+import { CityPicker } from "@/components/ui/city-picker";
 const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ssr: false,
   loading: () => (
@@ -810,81 +811,25 @@ export default function EditProperty() {
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   City *
                 </label>
-                <Select
-                  /*
-                   * Remounted once the listing is in, and that is the fix.
-                   *
-                   * Radix fires onValueChange when the value it holds changes,
-                   * not only when a person picks something — its
-                   * useControllableState does it from an effect. So restoring
-                   * this Select from "" to the listing's real city counted as
-                   * a change, the handler below ran, and it cleared the area
-                   * that had just been restored alongside it. Saving then
-                   * wrote that empty area back and the listing lost its
-                   * location for real. Three rounds of fixing the fetch order
-                   * never touched it, because the fetches were never wrong.
-                   *
-                   * With the key, the Select is thrown away and rebuilt the
-                   * moment the data lands, so its first value is the final
-                   * one. Nothing transitions, so nothing echoes.
-                   */
-                  key={loadedArea ? "ready" : "loading"}
+                {/* A city typed or picked. (The old Radix Select echoed value changes back as picks and wiped the area; this one only reports a person's choice.) */}
+                <CityPicker
+                  options={cityOptions.map((city) => ({ value: String(city._id), label: city.name }))}
                   value={cityId}
-                  onValueChange={(value) => {
-                    /*
-                     * Radix calls this when the value prop changes, not only
-                     * when somebody picks something.
-                     *
-                     * That is the whole "editing a listing wipes its city and
-                     * area" bug, and it has nothing to do with the fetches.
-                     * Restoring the listing's city moves this Select's value
-                     * from "" to the real id; Radix's useControllableState
-                     * then fires onValueChange with that id during the
-                     * commit; and this handler, written for a human changing
-                     * their mind, dutifully cleared the area that had just
-                     * been restored. Saving from that screen wrote the empty
-                     * area back, and the listing lost its location for real.
-                     *
-                     * An echo of the value we already hold is not a choice,
-                     * so it is ignored. A person picking a different city
-                     * still clears the area, which is what they want.
-                     */
+                  onChange={(value) => {
                     if (value === cityId) return;
                     setCityId(value);
                     setAreaId("");
                   }}
                   disabled={isLoading || loadingProperty}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        loadingProperty ? "Loading property..." : "Select city"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cityOptions.map((city) => (
-                      <SelectItem
-                        key={String(city._id)}
-                        value={String(city._id)}
-                      >
-                        {city.name}
-                      </SelectItem>
-                    ))}
-                    {/* Anyone listing can add a missing city — the API reuses one that exists. */}
-                    {Boolean(user) && (
-                      <div
-                        className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setShowAddCityModal(true);
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-2" /> Add New City
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
+                  placeholder={loadingProperty ? "Loading property..." : "Type a city — e.g. Lahore"}
+                  inputClassName="h-10 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                />
+                {/* Anyone listing can add a missing city — the API reuses one that exists. */}
+                {Boolean(user) && (
+                  <button type="button" onClick={() => setShowAddCityModal(true)} className="mt-2 inline-flex items-center text-sm font-medium text-primary hover:underline">
+                    <Plus className="mr-1 h-4 w-4" /> City not in the list? Add it
+                  </button>
+                )}
               </div>
 
               <div>

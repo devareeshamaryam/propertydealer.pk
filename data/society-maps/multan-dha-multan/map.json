@@ -1,6 +1,7 @@
 {
  "format": "pd-society-map/1",
- "exportedAt": "2026-10-27T08:51:57.744194Z",
+ "revision": 2,
+ "exportedAt": "2026-10-27T12:08:59.917470Z",
  "name": "DHA Multan",
  "slug": "dha-multan",
  "citySlug": "multan",
@@ -8,236 +9,125 @@
  "areaSlug": "dha-multan",
  "status": "published",
  "center": {
-  "lat": 30.290532,
-  "lng": 71.526803
+  "lat": 30.302626,
+  "lng": 71.558374
  },
  "zoom": 13,
- "boundary": [],
- "blocks": [
-  {
-   "name": "Rumanza Golf Community",
-   "polygon": [
-    [
-     30.326024,
-     71.5254778
-    ],
-    [
-     30.3331239,
-     71.5268242
-    ],
-    [
-     30.3331446,
-     71.5278657
-    ],
-    [
-     30.3331822,
-     71.5300287
-    ],
-    [
-     30.3332505,
-     71.5433981
-    ],
-    [
-     30.3332131,
-     71.5441965
-    ],
-    [
-     30.3305416,
-     71.5462922
-    ],
-    [
-     30.3301217,
-     71.5463494
-    ],
-    [
-     30.3290774,
-     71.5463727
-    ],
-    [
-     30.3283144,
-     71.5463312
-    ],
-    [
-     30.3150276,
-     71.543448
-    ],
-    [
-     30.3149732,
-     71.5431249
-    ],
-    [
-     30.3146317,
-     71.5385443
-    ],
-    [
-     30.3146354,
-     71.5384645
-    ],
-    [
-     30.3161162,
-     71.5335829
-    ],
-    [
-     30.3173741,
-     71.5319705
-    ],
-    [
-     30.3216333,
-     71.5271599
-    ],
-    [
-     30.3221451,
-     71.5266275
-    ],
-    [
-     30.3226531,
-     71.5261749
-    ],
-    [
-     30.3230149,
-     71.5258744
-    ],
-    [
-     30.3234424,
-     71.5256576
-    ],
-    [
-     30.3238661,
-     71.5255205
-    ],
-    [
-     30.3244248,
-     71.5254709
-    ],
-    [
-     30.3253303,
-     71.5254401
-    ]
-   ]
-  },
-  {
-   "name": "DHA Villas",
-   "polygon": [
-    [
-     30.2898184,
-     71.507233
-    ],
-    [
-     30.2899483,
-     71.5072716
-    ],
-    [
-     30.2901429,
-     71.5073486
-    ],
-    [
-     30.2904018,
-     71.5075027
-    ],
-    [
-     30.291664,
-     71.508273
-    ],
-    [
-     30.2916946,
-     71.5084656
-    ],
-    [
-     30.2916853,
-     71.50939
-    ],
-    [
-     30.2906442,
-     71.5158222
-    ],
-    [
-     30.2900558,
-     71.5160533
-    ],
-    [
-     30.287356,
-     71.5157837
-    ],
-    [
-     30.287292,
-     71.5156682
-    ],
-    [
-     30.2872311,
-     71.5152445
-    ],
-    [
-     30.287112,
-     71.5076182
-    ]
-   ]
-  },
-  {
-   "name": "Southern Business District (SBD Phase I)",
-   "polygon": [
-    [
-     30.2754056,
-     71.5395638
-    ],
-    [
-     30.2750899,
-     71.5431682
-    ],
-    [
-     30.274944,
-     71.5446692
-    ],
-    [
-     30.2748494,
-     71.5448654
-    ],
-    [
-     30.2746681,
-     71.545057
-    ],
-    [
-     30.2741479,
-     71.5450295
-    ],
-    [
-     30.2479032,
-     71.5364025
-    ],
-    [
-     30.2478128,
-     71.5342855
-    ],
-    [
-     30.2479037,
-     71.5319769
-    ],
-    [
-     30.2573542,
-     71.52805
-    ],
-    [
-     30.2669345,
-     71.5252363
-    ],
-    [
-     30.2678921,
-     71.5251863
-    ],
-    [
-     30.2692832,
-     71.5251591
-    ],
-    [
-     30.2754024,
-     71.5330258
-    ],
-    [
-     30.2754886,
-     71.537456
-    ]
-   ]
-  }
+ "boundary": [
+  [
+   30.3340942,
+   71.5257771
+  ],
+  [
+   30.3332125,
+   71.5470502
+  ],
+  [
+   30.3169413,
+   71.5463081
+  ],
+  [
+   30.3177501,
+   71.5563492
+  ],
+  [
+   30.3230846,
+   71.5799719
+  ],
+  [
+   30.3222727,
+   71.6109261
+  ],
+  [
+   30.3207268,
+   71.6141179
+  ],
+  [
+   30.2967392,
+   71.613024
+  ],
+  [
+   30.2885416,
+   71.6061258
+  ],
+  [
+   30.2836142,
+   71.5999204
+  ],
+  [
+   30.2799854,
+   71.5964927
+  ],
+  [
+   30.2711583,
+   71.5933718
+  ],
+  [
+   30.2729958,
+   71.544522
+  ],
+  [
+   30.2758864,
+   71.5430226
+  ],
+  [
+   30.2764572,
+   71.5338056
+  ],
+  [
+   30.2741047,
+   71.5336984
+  ],
+  [
+   30.274385,
+   71.5201185
+  ],
+  [
+   30.2789243,
+   71.5197817
+  ],
+  [
+   30.2792394,
+   71.5121841
+  ],
+  [
+   30.2839442,
+   71.5123986
+  ],
+  [
+   30.2843493,
+   71.5026304
+  ],
+  [
+   30.2942285,
+   71.5030808
+  ],
+  [
+   30.2967359,
+   71.510807
+  ],
+  [
+   30.3019756,
+   71.5208326
+  ],
+  [
+   30.311763,
+   71.5234538
+  ],
+  [
+   30.3119184,
+   71.5310727
+  ],
+  [
+   30.3170694,
+   71.5318513
+  ],
+  [
+   30.3178231,
+   71.525035
+  ]
  ],
+ "blocks": [],
  "pois": [],
  "info": {
   "developer": "Defence Housing Authority (DHA) Multan",
@@ -247,33 +137,34 @@
   "possession": "Sectors A, H, M, N, Q, R, U, DHA Villas and Rumanza",
   "plotSizes": "5, 8, 10 Marla, 1 & 2 Kanal; villas of 6, 9 & 12 Marla",
   "amenities": [
-   "Rumanza signature golf course",
-   "Club house",
-   "DHA Villas gated community",
-   "Southern Business District",
-   "Parks",
-   "Mosques",
-   "Wide boulevards"
+   "Rumanza Golf Community",
+   "Central Square",
+   "Pakistan Square",
+   "DHA Park",
+   "Mango Enclaves",
+   "Education & Medical City",
+   "DHA Villas",
+   "Mosques & schools"
   ]
  },
  "seo": {
-  "metaTitle": "DHA Multan Map — Rumanza, DHA Villas & Southern Business District",
-  "metaDescription": "DHA Multan map on satellite: Rumanza Golf Community, DHA Villas and the Southern Business District from DHA Multan's own plans, with plots, parks and blocks.",
-  "intro": "DHA Multan's own plans of the Rumanza Golf Community, DHA Villas and the Southern Business District (SBD Phase I), laid on the satellite map — with plot numbers, parks, mosques and commercial blocks. See the properties listed in DHA Multan and find a plot on site with your live location.",
-  "content": "<p>These are DHA Multan's provisional maps; DHA Multan may change the town planning at any time. For a plot's final position, check with the DHA Multan office (061-111-111-189).</p>"
+  "metaTitle": "DHA Multan Map — Master Plan of Phase 1, All Sectors on Satellite",
+  "metaDescription": "DHA Multan master plan on the satellite map: every sector from A to Y, B1, E1, E2, W1, W2, Rumanza, DHA Villas, Central and Pakistan Square, and the gates.",
+  "intro": "DHA Multan Phase 1 master plan — every sector (A to Y, B1, E-1, E-2, W1, W2), Rumanza Golf Community, DHA Villas, the avenues, parks, Central Square and Pakistan Square — DHA Multan's own plan laid on the satellite map. See the properties listed in DHA Multan and find a plot on site with your live location.",
+  "content": "<p>This is DHA Multan's provisional master plan; DHA Multan confirms the location of plots on its sector maps and may change the town planning. For a plot's final position, check with the DHA Multan office (061-111-111-189).</p>"
  },
  "faqs": [
   {
-   "q": "Where is DHA Multan?",
-   "a": "DHA Multan lies between Bosan Road and Mattital Road, near Bahauddin Zakariya University (BZU). Rumanza is in the north, DHA Villas near the Bosan Road entrance on Jinnah Avenue, and the Southern Business District along the boulevard to the MPS Road gate."
+   "q": "Which sectors are in DHA Multan Phase 1?",
+   "a": "Sectors A, B1, C, D, E, E-1, E-2, F, G, H, I, K, L, M, N, O, P, Q, R, S, T, U, V, W1, W2, X and Y, with the Rumanza Golf Community in the north and DHA Villas by the Jinnah Gate."
   },
   {
-   "q": "What is in the Southern Business District?",
-   "a": "SBD Phase I runs along the 300 ft boulevard from the roundabout to the MPS Road gate, with Downtown SBD and commercial Blocks A to L, an arcade, reserved event halls and The Oasis."
+   "q": "Where are the gates of DHA Multan?",
+   "a": "Jinnah Gate on Bosan Road in the west, Iqbal Gate on Multan Public School Road in the south, Liaquat Ali Gate on Mattital Road in the south-east and Fatima Jinnah Gate in the east, towards the N-5 and the Motorway."
   },
   {
-   "q": "How many villas are in DHA Villas Multan?",
-   "a": "DHA Multan's plan shows 227 villas of 6 marla, 158 of 9 marla and 172 of 12 marla (two designs), around a 3-acre park with a mosque and a shopping arcade."
+   "q": "What are the main roads of DHA Multan?",
+   "a": "Muhammad Ali Jinnah Avenue runs east–west through the middle, Allama Muhammad Iqbal Avenue north–south from Rumanza to Central Square, and Fatima Jinnah Avenue goes east from Pakistan Square."
   }
  ],
  "sponsor": {
@@ -282,109 +173,39 @@
  "downloadEnabled": false,
  "layers": [
   {
-   "name": "Rumanza Golf Community",
-   "opacity": 0.9,
+   "name": "DHA Multan master plan (Phase 1)",
+   "opacity": 0.85,
    "visible": true,
    "order": 0,
-   "width": 5400,
-   "height": 5470,
+   "width": 5772,
+   "height": 3658,
    "controlPoints": [
     {
      "px": 0,
      "py": 0,
-     "lat": 30.33408926,
-     "lng": 71.52551606
+     "lat": 30.33495843,
+     "lng": 71.5049273
     },
     {
-     "px": 5400,
+     "px": 5772,
      "py": 0,
-     "lat": 30.33307832,
-     "lng": 71.54707036
+     "lat": 30.33041428,
+     "lng": 71.61455971
     },
     {
-     "px": 5400,
-     "py": 5470,
-     "lat": 30.31410621,
-     "lng": 71.546039
+     "px": 5772,
+     "py": 3658,
+     "lat": 30.27019074,
+     "lng": 71.61181375
     },
     {
      "px": 0,
-     "py": 5470,
-     "lat": 30.31511736,
-     "lng": 71.5244847
+     "py": 3658,
+     "lat": 30.27473768,
+     "lng": 71.50218134
     }
    ],
    "file": "layer-0.png"
-  },
-  {
-   "name": "DHA Villas",
-   "opacity": 0.9,
-   "visible": true,
-   "order": 1,
-   "width": 4800,
-   "height": 3020,
-   "controlPoints": [
-    {
-     "px": 0,
-     "py": 0,
-     "lat": 30.29170962,
-     "lng": 71.50696343
-    },
-    {
-     "px": 4800,
-     "py": 0,
-     "lat": 30.29161715,
-     "lng": 71.51620739
-    },
-    {
-     "px": 4800,
-     "py": 3020,
-     "lat": 30.28670051,
-     "lng": 71.51620739
-    },
-    {
-     "px": 0,
-     "py": 3020,
-     "lat": 30.28679299,
-     "lng": 71.50696343
-    }
-   ],
-   "file": "layer-1.png"
-  },
-  {
-   "name": "Southern Business District (SBD Phase I)",
-   "opacity": 0.9,
-   "visible": true,
-   "order": 2,
-   "width": 6500,
-   "height": 4793,
-   "controlPoints": [
-    {
-     "px": 0,
-     "py": 0,
-     "lat": 30.27529427,
-     "lng": 71.54901275
-    },
-    {
-     "px": 6500,
-     "py": 0,
-     "lat": 30.24711774,
-     "lng": 71.54752578
-    },
-    {
-     "px": 6500,
-     "py": 4793,
-     "lat": 30.24806493,
-     "lng": 71.52347107
-    },
-    {
-     "px": 0,
-     "py": 4793,
-     "lat": 30.27624119,
-     "lng": 71.52495804
-    }
-   ],
-   "file": "layer-2.png"
   }
  ]
 }

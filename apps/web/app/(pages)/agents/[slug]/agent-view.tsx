@@ -207,8 +207,9 @@ export function AgentProfileView({ data, path }: { data: AgentPageData; path: st
             <img src={profile.coverUrl} alt="" className="h-full w-full object-cover" />
           </div>
         )}
-        <div className={`container mx-auto px-4 pb-5 sm:pb-7 ${profile.coverUrl ? "-mt-12 sm:-mt-14" : "pt-6 sm:pt-8"}`}>
-          <div className="flex flex-col items-center text-center sm:flex-row sm:items-center sm:gap-6 sm:text-left">
+        {/* Above the cover (it is positioned, so it would paint over this), the photo overlapping its edge. */}
+        <div className={`relative z-10 container mx-auto px-4 pb-5 sm:pb-7 ${profile.coverUrl ? "-mt-12 sm:-mt-14" : "pt-6 sm:pt-8"}`}>
+          <div className={`flex flex-col items-center text-center sm:flex-row sm:gap-6 sm:text-left ${profile.coverUrl ? "sm:items-start" : "sm:items-center"}`}>
             <span className="rounded-full bg-primary p-[3px]">
               <span className="block rounded-full bg-white p-[3px]">
                 <span className="grid h-24 w-24 place-items-center overflow-hidden rounded-full bg-primary/10 text-3xl font-bold text-primary sm:h-28 sm:w-28">
@@ -224,7 +225,8 @@ export function AgentProfileView({ data, path }: { data: AgentPageData; path: st
               </span>
             </span>
 
-            <div className="mt-3 min-w-0 flex-1 sm:mt-0">
+            {/* With a cover, the name starts below it — only the photo sits on the picture. */}
+            <div className={`mt-3 min-w-0 flex-1 sm:mt-0 ${profile.coverUrl ? "sm:pt-[68px]" : ""}`}>
               <h1 className="inline-flex items-center gap-1.5 text-[24px] font-bold leading-tight tracking-tight text-slate-900 sm:text-[30px]">
                 {name}
               </h1>

@@ -37,6 +37,7 @@ import { toTitleCase } from "@/lib/utils";
 import { marlaKanalFor } from "@/lib/pk";
 import { useAuth } from "@/context/auth-context";
 import dynamic from "next/dynamic";
+import { CityPicker } from "@/components/ui/city-picker";
 const RichEditor = dynamic(() => import("@/components/RichEditor"), {
   ssr: false,
   loading: () => (
@@ -620,41 +621,20 @@ export default function AddProperty() {
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   City *
                 </label>
-                <Select
+                <CityPicker
+                  options={cities.map((city) => ({ value: String(city._id), label: city.name || "Unnamed City" }))}
                   value={cityId}
-                  onValueChange={setCityId}
+                  onChange={setCityId}
                   disabled={isLoading || loadingCities}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue
-                      placeholder={
-                        loadingCities ? "Loading cities..." : "Select city"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cities.map((city) => (
-                      <SelectItem
-                        key={String(city._id)}
-                        value={String(city._id)}
-                      >
-                        {city.name || "Unnamed City"}
-                      </SelectItem>
-                    ))}
-                    {/* Anyone listing can add a missing city — the API reuses one that exists. */}
-                    {Boolean(user) && (
-                      <div
-                        className="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 text-primary font-medium hover:bg-gray-100 cursor-pointer"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setShowAddCityModal(true);
-                        }}
-                      >
-                        <Plus className="w-4 h-4 mr-2" /> Add New City
-                      </div>
-                    )}
-                  </SelectContent>
-                </Select>
+                  placeholder={loadingCities ? "Loading cities..." : "Type a city — e.g. Lahore"}
+                  inputClassName="h-10 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                />
+                {/* Anyone listing can add a missing city — the API reuses one that exists. */}
+                {Boolean(user) && (
+                  <button type="button" onClick={() => setShowAddCityModal(true)} className="mt-2 inline-flex items-center text-sm font-medium text-primary hover:underline">
+                    <Plus className="mr-1 h-4 w-4" /> City not in the list? Add it
+                  </button>
+                )}
               </div>
 
               <div>

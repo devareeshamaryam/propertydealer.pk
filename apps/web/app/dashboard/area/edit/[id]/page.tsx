@@ -27,17 +27,11 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 import areaApi from "@/lib/api/area/area.api";
 import cityApi from "@/lib/api/city/city.api";
 import { toTitleCase } from "@/lib/utils";
+import { CityPicker } from "@/components/ui/city-picker";
 
 // Zod schema
 const formSchema = z.object({
@@ -199,35 +193,16 @@ export default function EditAreaPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>City *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
+                    <FormControl>
+                      <CityPicker
+                        options={cities.map((city) => ({ value: String(city._id), label: [city.name, city.state, city.country].filter(Boolean).join(", ") }))}
                         value={field.value}
+                        onChange={field.onChange}
                         disabled={isLoading || loadingCities}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue
-                              placeholder={
-                                loadingCities
-                                  ? "Loading cities..."
-                                  : "Select a city"
-                              }
-                            />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {cities.map((city) => (
-                            <SelectItem
-                              key={String(city._id)}
-                              value={String(city._id)}
-                            >
-                              {city.name}
-                              {city.state ? `, ${city.state}` : ""}
-                              {city.country ? `, ${city.country}` : ""}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder={loadingCities ? "Loading cities..." : "Type a city"}
+                        inputClassName="h-10 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                      />
+                    </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

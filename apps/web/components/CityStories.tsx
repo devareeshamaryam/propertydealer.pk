@@ -131,9 +131,6 @@ export default function CityStories({
             <span className={cn('mt-1.5 line-clamp-1 max-w-full text-[12px] leading-tight sm:text-[13px]', active ? 'font-bold text-primary' : 'font-medium text-slate-900')}>
               {toTitleCase(city.name)}
             </span>
-            {typeof city.count === 'number' && city.count > 0 && (
-              <span className="text-[10.5px] leading-tight text-slate-500 sm:text-[11px]">{city.count.toLocaleString('en-PK')}</span>
-            )}
           </Link>
         );
       })}

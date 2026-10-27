@@ -194,12 +194,19 @@ export class SocietyMapSetup implements OnApplicationBootstrap {
       const folder = path.join(dir, name);
       const meta = JSON.parse(await fs.readFile(path.join(folder, 'map.json'), 'utf8').catch(() => '{}'));
       if (!meta.citySlug || !meta.slug) continue;
-      const id = `society-map-${meta.citySlug}-${meta.slug}`;
-      // Already here (imported before, or made in the dashboard): leave it alone.
-      if (await this.maps.exists(meta.citySlug, meta.slug)) continue;
+      /*
+       * A map ships once. To replace one already on the site (a better plan),
+       * raise "revision" in its map.json: each revision above 1 is imported
+       * once, over the map at the same address — the page and its URL stay.
+       */
+      const revision = Math.max(1, Math.floor(Number(meta.revision) || 1));
+      const id = revision > 1 ? `society-map-${meta.citySlug}-${meta.slug}-r${revision}` : `society-map-${meta.citySlug}-${meta.slug}`;
+      const exists = await this.maps.exists(meta.citySlug, meta.slug);
+      // Already here (imported before, or made in the dashboard): leave it alone unless a new revision ships.
+      if (exists && revision === 1) continue;
       if (!(await this.claim(id))) continue;
       try {
-        const r = await this.maps.importFolder(folder);
+        const r = await this.maps.importFolder(folder, exists);
         await this.finish(id, 'done', r);
         this.logger.log(`Imported society map ${meta.name}: ${JSON.stringify(r)}`);
       } catch (err: any) {

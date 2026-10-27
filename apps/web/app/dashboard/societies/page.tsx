@@ -17,6 +17,7 @@ import { areaApi as areaNamesApi, cityApi } from "@/lib/api";
 import areaApi from "@/lib/api/area/area.api";
 import { societyApi, type SocietyAdminRow } from "@/lib/api/society.api";
 import { cn, toTitleCase } from "@/lib/utils";
+import { CityPicker } from "@/components/ui/city-picker";
 
 /**
  * Dashboard → Locations → Societies.
@@ -216,14 +217,7 @@ function AddSocietyDialog({ open, onOpenChange, onPicked }: { open: boolean; onO
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="soc-city">City</Label>
-            <select id="soc-city" value={cityId} onChange={(e) => setCityId(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="">Choose the city</option>
-              {cities.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {toTitleCase(c.name)}
-                </option>
-              ))}
-            </select>
+            <CityPicker id="soc-city" options={cities.map((c) => ({ value: c._id, label: toTitleCase(c.name) }))} value={cityId} onChange={setCityId} placeholder="Type a city" inputClassName="h-10 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
           </div>
           {cityId && (
             <div className="space-y-1.5">

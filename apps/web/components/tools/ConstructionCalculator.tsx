@@ -9,6 +9,7 @@ import { CC_SIZES } from '@/lib/construction-pages';
 import { MATERIAL_LABEL, QUALITY, coveredAreas, estimate, planFloors, roomLimits, roomMaxima, rsShort, rupees, usualRooms, type ConstructionData, type EstimatePart, type Material, type Quality } from '@/lib/tools';
 import { cn } from '@/lib/utils';
 import { Card, ResultHero, Segment, Stepper, StickyAnswer, Tiles, ToolLayout, useOnScreen } from './ui';
+import { CityPicker } from '@/components/ui/city-picker';
 
 type SizeUnit = 'marla' | 'kanal' | 'sqft' | 'sqyd';
 const UNIT_SQFT: Record<SizeUnit, number> = { marla: 225, kanal: 4500, sqyd: 9, sqft: 1 };
@@ -165,7 +166,16 @@ export default function ConstructionCalculator({ data, start }: { data: Construc
             <Card>
               <div className="grid gap-4 md:grid-cols-2 md:gap-x-5">
                 <Select label="Plot size" value={sizeKey} onChange={setSizeKey} options={[...CC_SIZES.map((x) => ({ v: x.key, label: x.label })), { v: 'custom', label: 'Other…' }]} />
-                <Select label="City" value={city} onChange={setCity} options={cities.map((c) => ({ v: c.name, label: c.name }))} />
+                <div className="min-w-0">
+                  <span className="mb-1.5 block text-[14px] font-semibold text-slate-800">City</span>
+                  <CityPicker
+                    options={cities.map((c) => ({ value: c.name, label: c.name }))}
+                    value={city}
+                    onChange={(v) => v && setCity(v)}
+                    icon={false}
+                    inputClassName="h-[52px] w-full truncate rounded-lg border border-slate-400 bg-white pl-4 text-[16px] font-bold text-slate-900 outline-none placeholder:font-medium placeholder:text-slate-500 focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </div>
                 {sizeKey === 'custom' && (
                   <div className="grid gap-2 md:col-span-2 md:grid-cols-2 md:gap-x-5">
                     <input

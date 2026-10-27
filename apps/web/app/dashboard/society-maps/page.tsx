@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ConfirmDialog, DataCard, PageHeader, apiErrorMessage, useConfirm } from "@/components/dashboard";
 import { useAuth } from "@/context/auth-context";
 import { cn } from "@/lib/utils";
+import { CityPicker } from "@/components/ui/city-picker";
 
 /**
  * Society Maps → All maps. Each row is one society's page on /emap: its
@@ -143,12 +144,15 @@ export default function SocietyMapsPage() {
       <DataCard flush>
         <div className="flex flex-wrap items-center gap-2 border-b p-3">
           <Input value={q} onChange={(e) => { setQ(e.target.value); setShown(100); }} placeholder="Search by society or city" className="max-w-xs" />
-          <select value={cityFilter} onChange={(e) => { setCityFilter(e.target.value); setShown(100); }} className="h-9 rounded-md border px-2 text-sm">
-            <option value="">All cities</option>
-            {cities.map(([slug, name]) => (
-              <option key={slug} value={slug}>{name}</option>
-            ))}
-          </select>
+          <CityPicker
+            className="w-[200px]"
+            options={cities.map(([slug, name]) => ({ value: slug, label: name }))}
+            value={cityFilter}
+            onChange={(v) => { setCityFilter(v); setShown(100); }}
+            allLabel="All cities"
+            icon={false}
+            inputClassName="h-9 w-full rounded-md border bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
           <select value={kindFilter} onChange={(e) => { setKindFilter(e.target.value); setShown(100); }} className="h-9 rounded-md border px-2 text-sm">
             <option value="">All kinds</option>
             <option value="plan">Master plan on map</option>

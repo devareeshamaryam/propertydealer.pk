@@ -26,7 +26,7 @@ import {
   X,
 } from 'lucide-react';
 import api from '@/lib/api';
-import { CLEAN_TILES, EMAP_TILES, type MapStyle } from '@/lib/map-tiles';
+import { EMAP_TILES, type MapStyle } from '@/lib/map-tiles';
 import { amountShort } from '@/lib/pk';
 import { useSize } from '@/components/area-unit/AreaUnitProvider';
 import { cn, toTitleCase } from '@/lib/utils';
@@ -786,8 +786,8 @@ export default function MapExplorer({
     if (b?.polygon.length) setFit(L.latLngBounds(b.polygon));
   }, []);
 
-  // The plain map hides every label except ours; on a society page its streets are worth reading.
-  const tiles = style === 'street' && !society ? CLEAN_TILES : EMAP_TILES[style];
+  // Area, road and landmark names stay on every style — only business pins are hidden.
+  const tiles = EMAP_TILES[style];
   const sortedVisible = useMemo(
     () => [...visible].sort((a, b) => Number(b.featured) - Number(a.featured) || Number(a.approx) - Number(b.approx)),
     [visible],

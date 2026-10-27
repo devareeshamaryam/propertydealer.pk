@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DataCard, PageHeader, apiErrorMessage } from "@/components/dashboard";
 import { toTitleCase } from "@/lib/utils";
+import { CityPicker } from "@/components/ui/city-picker";
 
 /**
  * Society Maps → Add map. Pick the city and the area whose listings belong to
@@ -83,12 +84,7 @@ export default function NewSocietyMapPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="city">City</Label>
-            <select id="city" value={city} onChange={(e) => setCity(e.target.value)} className={select}>
-              <option value="">Choose a city</option>
-              {cities.map((c) => (
-                <option key={c._id} value={c._id}>{c.name}</option>
-              ))}
-            </select>
+            <CityPicker id="city" options={cities.map((c) => ({ value: c._id, label: c.name }))} value={city} onChange={setCity} placeholder="Type a city" inputClassName="h-10 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="area">Area / society</Label>

@@ -9,6 +9,7 @@ import { useSiteSettings } from '@/components/SiteSettingsProvider';
 import { PRODUCT_TYPES, rs, typeMeta, type ProductType, type ShopProduct } from '@/lib/shop';
 import { useMaterialTypes } from '@/components/MaterialTypesProvider';
 import { cn } from '@/lib/utils';
+import { CityPicker } from '@/components/ui/city-picker';
 
 /*
  * One page layout for every material the shop sells.
@@ -199,10 +200,14 @@ export default function ShopCategoryClient({
               </Select>
             )}
             {cities.length > 1 && (
-              <Select label="City" value={city} onChange={setCity}>
-                <option value="all">All cities</option>
-                {cities.map((c) => <option key={c} value={c}>{c}</option>)}
-              </Select>
+              <CityPicker
+                options={cities.map((c) => ({ value: c, label: c }))}
+                value={city === 'all' ? '' : city}
+                onChange={(v) => setCity(v || 'all')}
+                allLabel="All cities"
+                icon={false}
+                inputClassName={selectCls}
+              />
             )}
             <Select label="Sort" value={sort} onChange={(v) => setSort(v as Sort)}>
               <option value="popular">Sort: default</option>

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useAuth } from "@/context/auth-context";
 import { cityApi, userApi } from "@/lib/api";
 import { apiErrorMessage } from "@/components/dashboard/api-error";
+import { CityPicker } from "@/components/ui/city-picker";
 
 /**
  * Every agent and agency works in a city, and is listed on that city's
@@ -67,19 +68,14 @@ export function CityPrompt() {
             Your profile is listed on that city&apos;s property dealers page, where buyers look for an agent. You can change it later in My Account.
           </DialogDescription>
         </DialogHeader>
-        <select
+        <CityPicker
+          options={cities.map((c) => ({ value: c._id, label: c.name }))}
           value={city}
-          onChange={(e) => setCity(e.target.value)}
-          aria-label="Your city"
-          className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <option value="">Choose your city</option>
-          {cities.map((c) => (
-            <option key={c._id} value={c._id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+          onChange={setCity}
+          placeholder="Type your city — e.g. Multan"
+          ariaLabel="Your city"
+          inputClassName="h-11 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
         <Button className="h-11 w-full" onClick={() => void save()} disabled={!city || saving}>
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Save my city

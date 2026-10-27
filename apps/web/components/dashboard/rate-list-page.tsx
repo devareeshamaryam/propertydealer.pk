@@ -29,13 +29,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -57,6 +50,7 @@ import {
   useTableControls,
 } from "@/components/dashboard";
 import { apiErrorMessage } from "./api-error";
+import { CityPicker } from "@/components/ui/city-picker";
 
 /** Shape shared by every construction-material rate collection. */
 export interface RateRecord {
@@ -336,22 +330,16 @@ export function RateListPage({
             placeholder="Search by brand, city or category…"
           >
             {showCity && cities.length > 1 && (
-              <Select value={cityFilter} onValueChange={setCityFilter}>
-                <SelectTrigger
-                  className="w-[160px]"
-                  aria-label="Filter by city"
-                >
-                  <SelectValue placeholder="All cities" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All cities</SelectItem>
-                  {cities.map((city) => (
-                    <SelectItem key={city} value={city}>
-                      {city}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CityPicker
+                className="w-[180px]"
+                options={cities.map((city) => ({ value: city, label: city }))}
+                value={cityFilter === "all" ? "" : cityFilter}
+                onChange={(v) => setCityFilter(v || "all")}
+                allLabel="All cities"
+                ariaLabel="Filter by city"
+                icon={false}
+                inputClassName="h-9 w-full rounded-md border border-input bg-background text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
             )}
             {filtersActive && (
               <Button variant="ghost" size="sm" onClick={resetAll}>

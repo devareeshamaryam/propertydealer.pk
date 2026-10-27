@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, Check, ChevronDown, Layers, MapPin, Search, SlidersHorizontal, X } from 'lucide-react';
 import { areaApi, cityApi, propertyApi } from '@/lib/api';
+import { CityPicker } from '@/components/ui/city-picker';
 import { sortCitiesByPopularity } from '@/lib/pk';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -363,15 +364,15 @@ export default function SearchPanel({
     </div>
   );
 
+  // Typed or picked: "mul" finds Multan.
   const citySelect = (
-    <Select label="City" value={s.citySlug} onChange={(v) => set({ citySlug: v, areaSlug: '' })}>
-      <option value="">All cities</option>
-      {cities.map((c) => (
-        <option key={c._id} value={toSlug(c.name)}>
-          {toTitleCase(c.name)}
-        </option>
-      ))}
-    </Select>
+    <CityPicker
+      options={cities.map((c) => ({ value: toSlug(c.name), label: toTitleCase(c.name) }))}
+      value={s.citySlug}
+      onChange={(v) => set({ citySlug: v, areaSlug: '' })}
+      allLabel="All cities"
+      placeholder="Search city"
+    />
   );
   const location = (
     <LocationPicker places={places} value={s.areaSlug} onChange={(v) => set({ areaSlug: v })} disabled={!s.citySlug} loading={loadingPlaces} focusSociety={fromUrl?.areaSlug || undefined} />
