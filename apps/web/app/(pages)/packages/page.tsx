@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { packageApi, subscriptionApi } from '@/lib/api';
 import { useAuth } from '@/context/auth-context';
 import PlanCards from '@/components/plans/PlanCards';
-import { planBenefits, planDuration, planPrice, type Plan } from '@/lib/plans';
+import { FEATURED_OPENED_X, FEATURED_SEEN_X, PLAN_VIEWS_X, planBenefits, planDuration, planPrice, type Plan } from '@/lib/plans';
 
 /*
  * Packages for agents — the same plan cards as the homepage and the
@@ -25,6 +25,10 @@ const FAQS = [
   {
     q: 'What is a featured listing?',
     a: 'A featured listing is pinned above the others on the city, area and search pages, and carries a Featured tag on its photo. You choose which of your listings to feature from your dashboard.',
+  },
+  {
+    q: 'How much more will my listings be seen?',
+    a: `Every paid plan lets you feature listings. On PropertyDealer.pk a featured listing is seen in search about ${FEATURED_SEEN_X}x as often, and opened about ${FEATURED_OPENED_X}x as often, as a regular new listing — measured on the site's own listings — so your featured listings get up to ${PLAN_VIEWS_X}x more views. How many enquiries you get still depends on the property, its price and its photos.`,
   },
   {
     q: 'How do agent accounts work?',
@@ -109,15 +113,17 @@ export default function PackagesPublicPage() {
                 {planBenefits(sorted[0]!).map((row) => (
                   <tr key={row.key}>
                     <td className="sticky left-0 z-10 border-b border-slate-100 bg-white px-3 py-2.5 sm:px-4">
-                      <p className="font-medium text-slate-800">{row.key === 'listings' ? 'Live listings' : row.key === 'featured' ? 'Featured listings' : row.key === 'team' ? 'Agent accounts' : row.key === 'photos' ? 'Photos per listing' : row.label}</p>
-                      <p className="hidden text-[12px] text-slate-400 sm:block">{row.hint}</p>
+                      <p className="font-medium text-slate-800">{row.key === 'reach' ? 'More views' : row.key === 'listings' ? 'Live listings' : row.key === 'featured' ? 'Featured listings' : row.key === 'team' ? 'Agent accounts' : row.key === 'photos' ? 'Photos per listing' : row.label}</p>
+                      <p className="hidden text-[12px] text-slate-400 sm:block">{row.key === 'reach' ? 'On your featured listings, measured on PropertyDealer.pk' : row.hint}</p>
                     </td>
                     {sorted.map((p) => {
                       const b = planBenefits(p).find((x) => x.key === row.key)!;
                       const count = row.key === 'listings' ? p.propertyLimit : row.key === 'featured' ? p.featuredListings : row.key === 'team' ? p.teamMembers ?? 0 : row.key === 'photos' ? p.photosPerProperty || 20 : null;
                       return (
                         <td key={p._id} className={cn('border-b border-slate-100 px-2 py-2.5 text-center', p.highlight && 'bg-primary/5')}>
-                          {count !== null && count > 0 ? (
+                          {row.key === 'reach' ? (
+                            <span className="font-bold text-slate-900">{b.on ? `Up to ${PLAN_VIEWS_X}x` : '1x'}</span>
+                          ) : count !== null && count > 0 ? (
                             <span className="font-bold text-slate-900">{count}</span>
                           ) : b.on ? (
                             <Check className="mx-auto h-5 w-5 text-emerald-600" strokeWidth={2.5} />

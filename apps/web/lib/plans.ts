@@ -61,6 +61,20 @@ export interface PlanBenefit {
 
 const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
+/*
+ * How much more a featured listing is seen, measured on the live site
+ * (28 Oct 2026, all 788 live listings): a featured listing averaged 43.6
+ * search impressions and 2.7 opens a day, against 9.3 and 1.0 for a regular
+ * listing posted in the last 30 days — 4.7x and 2.7x. Rounded down, because
+ * only 8 listings were featured. Re-measure from the listings' impressions
+ * and views and update these when there are more.
+ */
+export const FEATURED_SEEN_X = 4;
+export const FEATURED_OPENED_X = 2.5;
+
+/** What every paid plan promises: its featured listings get up to this many times the views (measured 2.7x, above). */
+export const PLAN_VIEWS_X = 3;
+
 /**
  * What a plan gives, worked out from its numbers and switches — the same
  * fields the API enforces — so a card can never promise what the plan does
@@ -68,11 +82,18 @@ const n = (count: number, one: string, many: string) => `${count} ${count === 1 
  */
 export function planBenefits(p: Plan): PlanBenefit[] {
   const team = p.teamMembers ?? 0;
-  const featured = p.featuredListings ?? 0;
+  const featured = Math.min(p.featuredListings ?? 0, p.propertyLimit ?? 0);
+  const paid = featured > 0;
   return [
+    {
+      key: 'reach',
+      on: paid,
+      label: paid ? `Up to ${PLAN_VIEWS_X}x more views` : 'Standard visibility',
+      hint: paid ? 'On your featured listings, next to a regular listing — measured on PropertyDealer.pk' : `Upgrade to feature listings and get up to ${PLAN_VIEWS_X}x more views`,
+    },
     { key: 'listings', on: true, label: n(p.propertyLimit, 'live listing', 'live listings'), hint: !p.price ? 'Live for a month at a time — renew for free' : team > 0 ? 'Shared by you and your agents' : 'Live at the same time' },
     { key: 'photos', on: true, label: `Up to ${p.photosPerProperty || 20} photos per listing`, hint: 'Plus a walkthrough video' },
-    { key: 'featured', on: featured > 0, label: featured > 0 ? n(featured, 'featured listing', 'featured listings') : 'Featured listings', hint: 'Shown first in search, with a Featured tag' },
+    { key: 'featured', on: featured > 0, label: featured > 0 ? n(featured, 'featured listing', 'featured listings') : 'Featured listings', hint: `Shown first in search with a Featured tag — seen about ${FEATURED_SEEN_X}x and opened about ${FEATURED_OPENED_X}x as often as a regular listing` },
     { key: 'verified', on: !!p.verifiedBadge, label: 'Verified badge', hint: 'On your profile, listings and listing cards' },
     { key: 'instant', on: !!p.autoPublish, label: 'Instant publishing', hint: 'Listings go live without waiting for review' },
     { key: 'spotlight', on: !!p.spotlight, label: 'Homepage spotlight', hint: 'In "Verified agencies" on the homepage and at the top of the property dealers pages' },
