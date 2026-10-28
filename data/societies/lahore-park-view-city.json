@@ -1,0 +1,47 @@
+{
+ "city": "lahore",
+ "slug": "park-view-city",
+ "existing": ["park-view-city-diamond-block-lahore", "park-view-city-extension-block-lahore"],
+ "add": [
+  "Park View City - Overseas Block", "Park View City - Platinum Block", "Park View City - Orchard Block",
+  "Park View City - Imperial Block", "Park View City - Tulip Block", "Park View City - Tulip Overseas Block",
+  "Park View City - Crystal Block", "Park View City - Silver Block", "Park View City - Pearl Block",
+  "Park View City - Executive Block", "Park View City - Rose Block", "Park View City - Topaz Block",
+  "Park View City - Jade Block", "Park View City - Jasmine Block", "Park View City - Sapphire Block"
+ ],
+ "context": "Park View City Lahore",
+ "photos": [],
+ "guide": {
+  "published": true,
+  "tagline": "Vision Group's gated city off Multan Road, by the River Ravi at Shahpur Kanjra",
+  "developer": "Vision Group",
+  "approvedBy": "LDA / RUDA",
+  "approval": "approved",
+  "totalArea": "",
+  "launched": "",
+  "possession": "Given in most blocks; newer blocks being developed",
+  "plotSizes": "3, 5, 7, 8 and 10 marla, 1 and 2 kanal residential; commercial plots",
+  "address": "Off Multan Road, Shahpur Kanjra, near Thokar Niaz Baig, Lahore",
+  "nearby": ["Multan Road", "Thokar Niaz Baig", "Lahore Ring Road", "River Ravi", "DHA EME Sector"],
+  "amenities": [
+   "Gated community with security",
+   "153 ft Main Boulevard",
+   "Broadway commercial",
+   "Crystal Park and block parks",
+   "Park View City Zoo",
+   "Theme park in the Overseas Block",
+   "Mosques, schools and sports arena"
+  ],
+  "phone": "",
+  "website": "https://www.parkviewcity.com.pk/lahore/",
+  "overview": "<p><strong>Park View City Lahore</strong> is the Vision Group's gated housing society off Multan Road at Shahpur Kanjra, between Multan Road, Thokar Niaz Baig and the River Ravi. Its 153 ft Main Boulevard and the Broadway commercial run north through the society to the Overseas Block.</p>\n<h2>Blocks</h2>\n<p>The society is made of named blocks: Overseas in the north; Diamond, Platinum, Orchard and Imperial along the main boulevard; Tulip, Tulip Overseas and Tulip Extension in the middle; Crystal, Silver and Pearl to the south-west; and Executive, Rose, Topaz, Jade, Jasmine and Sapphire on the eastern side towards Park View Villas.</p>\n<h2>Plot sizes</h2>\n<p>Residential plots range from 3 and 5 marla to 1 and 2 kanal, with commercial plots on the Broadway and the boulevards.</p>\n<h2>Buying in Park View City</h2>\n<p>Check a plot's block, approval and dues with the society office before you buy. Browse the houses and plots for sale and rent in each block below, and call or WhatsApp the dealer directly.</p>",
+  "faqs": [
+   { "q": "Where is Park View City Lahore?", "a": "Off Multan Road at Shahpur Kanjra, near Thokar Niaz Baig, between Multan Road and the River Ravi." },
+   { "q": "Which blocks are in Park View City Lahore?", "a": "Overseas, Diamond, Platinum, Orchard, Imperial, Tulip, Tulip Overseas, Tulip Extension, Crystal, Silver, Pearl, Executive, Rose, Topaz, Jade, Jasmine and Sapphire." },
+   { "q": "Who developed Park View City Lahore?", "a": "The Vision Group." },
+   { "q": "What plot sizes are in Park View City?", "a": "Residential plots from 3 and 5 marla up to 1 and 2 kanal, and commercial plots on the Broadway and boulevards." }
+  ],
+  "metaTitle": "Park View City Lahore — Blocks, Map, Plot Sizes & Property for Sale",
+  "metaDescription": "Park View City Lahore guide: location off Multan Road, every block on the layout plan map, plot sizes, amenities, and houses and plots for sale and rent."
+ }
+}

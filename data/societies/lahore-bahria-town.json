@@ -1,0 +1,66 @@
+{
+ "city": "lahore",
+ "slug": "bahria-town",
+ "existing": [
+  "bahria-town-sector-b-lahore",
+  "bahria-town-sector-c-lahore",
+  "bahria-town-sector-d-lahore",
+  "bahria-town-sector-e-lahore",
+  "bahria-town-ghaznavi-block-lahore",
+  "bahria-town-jinnah-block-lahore",
+  "bahria-town-talha-block-lahore",
+  "bahria-town-nishter-block-lahore",
+  "tulip-extention-bahria-town-lahore"
+ ],
+ "add": [],
+ "context": "Bahria Town Lahore",
+ "photos": [],
+ "guide": {
+  "published": true,
+  "tagline": "Bahria Town's gated city in south-west Lahore, off Canal Road and the Ring Road",
+  "developer": "Bahria Town (Pvt.) Ltd.",
+  "approvedBy": "LDA",
+  "approval": "approved",
+  "totalArea": "",
+  "launched": "",
+  "possession": "Given in most sectors",
+  "plotSizes": "5, 8, 10 marla, 1 and 2 kanal residential; commercial plots",
+  "address": "Canal Road, Lahore",
+  "nearby": [
+   "Thokar Niaz Baig",
+   "Canal Road",
+   "Lahore Ring Road",
+   "Raiwind Road",
+   "Bahria Orchard"
+  ],
+  "amenities": [
+   "Gated community with Bahria security",
+   "Grand Jamia Mosque",
+   "Eiffel Tower replica",
+   "Golf course",
+   "Bahria International Hospital",
+   "Schools and colleges",
+   "Theme parks",
+   "Commercial hubs in every sector"
+  ],
+  "phone": "",
+  "website": "https://bahriatown.com/bahria-town-lahore/",
+  "overview": "<p><strong>Bahria Town Lahore</strong> is Bahria Town's gated city in the south-west of Lahore, off Canal Road and the Lahore Ring Road. It is one of the largest and most lived-in private societies of the city.</p>\n<h2>Sectors and blocks</h2>\n<p>The society is divided into lettered sectors — A to F — and each sector into named blocks such as Jinnah, Iqbal, Rafi, Johar, Nishtar, Talha, Ghaznavi and Tulip. Sector C, with the main commercial, is the busiest.</p>\n<h2>Landmarks</h2>\n<p>Bahria Town is known for its Grand Jamia Mosque, the Eiffel Tower replica, its golf course, Bahria International Hospital and the theme parks.</p>\n<h2>Buying in Bahria Town</h2>\n<p>Check a plot's sector, block, approval and dues with the Bahria Town office before you buy. Browse the houses and plots for sale and rent in each block below, and call or WhatsApp the dealer directly.</p>",
+  "faqs": [
+   {
+    "q": "Where is Bahria Town Lahore?",
+    "a": "In the south-west of Lahore, off Canal Road and the Lahore Ring Road, near Thokar Niaz Baig."
+   },
+   {
+    "q": "What are the sectors of Bahria Town Lahore?",
+    "a": "Sectors A to F, each divided into named blocks such as Jinnah, Iqbal, Rafi, Nishtar, Talha, Ghaznavi and Tulip."
+   },
+   {
+    "q": "What are the landmarks of Bahria Town Lahore?",
+    "a": "The Grand Jamia Mosque, the Eiffel Tower replica, the golf course, Bahria International Hospital and the theme parks."
+   }
+  ],
+  "metaTitle": "Bahria Town Lahore — Sectors, Blocks, Plot Sizes & Property for Sale",
+  "metaDescription": "Bahria Town Lahore guide: location, sectors A to F and their blocks, landmarks, plot sizes, and houses and plots for sale and rent."
+ }
+}

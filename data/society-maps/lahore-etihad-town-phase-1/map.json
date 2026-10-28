@@ -1,0 +1,397 @@
+{
+ "format": "pd-society-map/1",
+ "revision": 1,
+ "exportedAt": "2026-10-28T07:13:12.884161Z",
+ "name": "Etihad Town Phase 1",
+ "slug": "etihad-town-phase-1",
+ "citySlug": "lahore",
+ "cityName": "Lahore",
+ "areaSlug": "etihad-town-phase-1",
+ "status": "published",
+ "center": {
+  "lat": 31.447784,
+  "lng": 74.23149
+ },
+ "zoom": 15,
+ "boundary": [
+  [
+   31.4505572,
+   74.2251695
+  ],
+  [
+   31.4510667,
+   74.2254522
+  ],
+  [
+   31.45081,
+   74.2260978
+  ],
+  [
+   31.4518885,
+   74.2266963
+  ],
+  [
+   31.4516915,
+   74.2272041
+  ],
+  [
+   31.4521679,
+   74.2274685
+  ],
+  [
+   31.4518719,
+   74.2282015
+  ],
+  [
+   31.4513889,
+   74.2279334
+  ],
+  [
+   31.4511603,
+   74.2284996
+  ],
+  [
+   31.4526575,
+   74.2293447
+  ],
+  [
+   31.4527767,
+   74.2290596
+  ],
+  [
+   31.4529385,
+   74.2291304
+  ],
+  [
+   31.4530716,
+   74.2288007
+  ],
+  [
+   31.4532043,
+   74.2288934
+  ],
+  [
+   31.4532231,
+   74.2291174
+  ],
+  [
+   31.4533593,
+   74.2292215
+  ],
+  [
+   31.4512106,
+   74.2345422
+  ],
+  [
+   31.4501801,
+   74.2339751
+  ],
+  [
+   31.4484714,
+   74.238206
+  ],
+  [
+   31.4476891,
+   74.2377767
+  ],
+  [
+   31.4475639,
+   74.2377357
+  ],
+  [
+   31.4473681,
+   74.2382204
+  ],
+  [
+   31.4474379,
+   74.2382782
+  ],
+  [
+   31.4473126,
+   74.2385884
+  ],
+  [
+   31.447235,
+   74.2385501
+  ],
+  [
+   31.4470846,
+   74.2389224
+  ],
+  [
+   31.4470968,
+   74.2388721
+  ],
+  [
+   31.4470273,
+   74.2388336
+  ],
+  [
+   31.4467527,
+   74.2384106
+  ],
+  [
+   31.4467682,
+   74.2383622
+  ],
+  [
+   31.4466921,
+   74.23832
+  ],
+  [
+   31.4457754,
+   74.2369094
+  ],
+  [
+   31.4457956,
+   74.2368494
+  ],
+  [
+   31.4456979,
+   74.2367905
+  ],
+  [
+   31.4457456,
+   74.2366223
+  ],
+  [
+   31.4456033,
+   74.2365433
+  ],
+  [
+   31.4453111,
+   74.2360536
+  ],
+  [
+   31.445162,
+   74.2359614
+  ],
+  [
+   31.4450249,
+   74.2357192
+  ],
+  [
+   31.4450493,
+   74.2356188
+  ],
+  [
+   31.4448753,
+   74.2353276
+  ],
+  [
+   31.4446768,
+   74.2352174
+  ],
+  [
+   31.444686,
+   74.2351846
+  ],
+  [
+   31.4445268,
+   74.2349871
+  ],
+  [
+   31.4445501,
+   74.2349193
+  ],
+  [
+   31.4444291,
+   74.2348379
+  ],
+  [
+   31.4436102,
+   74.2335765
+  ],
+  [
+   31.4436271,
+   74.2335146
+  ],
+  [
+   31.4435377,
+   74.2334651
+  ],
+  [
+   31.4429708,
+   74.2325524
+  ],
+  [
+   31.4428182,
+   74.2323585
+  ],
+  [
+   31.4426552,
+   74.2320402
+  ],
+  [
+   31.4425739,
+   74.2319808
+  ],
+  [
+   31.4423548,
+   74.2316409
+  ],
+  [
+   31.4422257,
+   74.2315693
+  ],
+  [
+   31.4433726,
+   74.2287497
+  ],
+  [
+   31.4422093,
+   74.22809
+  ],
+  [
+   31.4424459,
+   74.2275045
+  ],
+  [
+   31.4425484,
+   74.2275614
+  ],
+  [
+   31.4427521,
+   74.2275082
+  ],
+  [
+   31.4430392,
+   74.227359
+  ],
+  [
+   31.4431332,
+   74.2271263
+  ],
+  [
+   31.4429858,
+   74.226679
+  ],
+  [
+   31.4430326,
+   74.226553
+  ],
+  [
+   31.4428688,
+   74.2264574
+  ],
+  [
+   31.4436989,
+   74.224402
+  ],
+  [
+   31.4469114,
+   74.2261846
+  ],
+  [
+   31.4474034,
+   74.2249765
+  ],
+  [
+   31.4468822,
+   74.2246826
+  ],
+  [
+   31.4471344,
+   74.2240582
+  ],
+  [
+   31.4487555,
+   74.2249578
+  ],
+  [
+   31.4482622,
+   74.2261794
+  ],
+  [
+   31.4492514,
+   74.2267283
+  ],
+  [
+   31.4494975,
+   74.226129
+  ],
+  [
+   31.4500513,
+   74.2264221
+  ]
+ ],
+ "blocks": [],
+ "pois": [],
+ "info": {
+  "developer": "",
+  "approval": "LDA (LDA/DMP-I/1683)",
+  "totalArea": "About 2,199 kanal on the master plan",
+  "launched": "",
+  "possession": "Phase 1",
+  "plotSizes": "5, 10, 12 & 18 Marla, 1 & 2 Kanal; commercial 2, 4, 5.3, 7.3 & 8 Marla",
+  "amenities": [
+   "Main Boulevard (150 ft)",
+   "80 ft Avenue with roundabout",
+   "Central park",
+   "Mosque, school and clinic",
+   "Grid station",
+   "Graveyard"
+  ]
+ },
+ "seo": {
+  "metaTitle": "Etihad Town Phase 1 Map — Master Plan on Satellite, Raiwind Road Lahore",
+  "metaDescription": "Etihad Town Phase 1 master plan on the satellite map: the Main Boulevard from Raiwind Road, the 80 ft avenue, the central park, mosque, school, clinic, grid station and every plot block.",
+  "intro": "Etihad Town Phase 1 master plan — the 150 ft Main Boulevard from Raiwind Road, the 80 ft avenue and its roundabout, the central park, the mosque, school and clinic, the grid station and the residential and commercial blocks — laid on the satellite map. See the properties listed in Etihad Town and find a plot on site with your live location.",
+  "content": "<p>The master plan shown is the Etihad Town Phase 1 plan as published; the LDA has warned buyers about plots sold outside the approved area, so confirm a plot's position and approval with the society office and the LDA before you buy.</p>"
+ },
+ "faqs": [
+  {
+   "q": "Where is Etihad Town Phase 1?",
+   "a": "On Main Raiwind Road, Lahore, a short way south of Thokar Niaz Baig; the Main Boulevard enters from Raiwind Road."
+  },
+  {
+   "q": "Is Etihad Town Lahore approved?",
+   "a": "The LDA approved the scheme (NOC LDA/DMP-I/1683) and later warned the public about plots sold beyond the approved area. Check a plot with the LDA before buying."
+  },
+  {
+   "q": "What plot sizes are in Etihad Town Phase 1?",
+   "a": "The master plan shows residential plots of 5, 10, 12 and 18 marla and 1 and 2 kanal, and commercial plots of 2 to 8 marla."
+  }
+ ],
+ "sponsor": {
+  "enabled": false
+ },
+ "downloadEnabled": false,
+ "layers": [
+  {
+   "name": "Etihad Town Phase 1 master plan",
+   "opacity": 0.85,
+   "visible": true,
+   "order": 0,
+   "width": 2867,
+   "height": 3438,
+   "controlPoints": [
+    {
+     "px": 0,
+     "py": 0,
+     "lat": 31.44470129,
+     "lng": 74.22192006
+    },
+    {
+     "px": 2867,
+     "py": 0,
+     "lat": 31.45418638,
+     "lng": 74.22718346
+    },
+    {
+     "px": 2867,
+     "py": 3438,
+     "lat": 31.448802,
+     "lng": 74.2405162
+    },
+    {
+     "px": 0,
+     "py": 3438,
+     "lat": 31.43931636,
+     "lng": 74.2352528
+    }
+   ],
+   "file": "layer-0.png"
+  }
+ ]
+}

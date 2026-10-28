@@ -1,0 +1,51 @@
+{
+ "city": "lahore",
+ "slug": "dha",
+ "existing": [
+  "dha-phase-1", "dha-phase-2", "dha-phase-3", "dha-phase-4", "dha-phase-5", "dha-phase-6", "dha-phase-7",
+  "dha-phase-8", "dha-phase-8-air-avenue-lahore", "dha-phase-8-park-view", "dha-phase-9", "phase-9-town-dha-lahore",
+  "dha-phase-10", "dha-rahbar", "dha-11-rahbar-phase-2", "dha-rahbar-phase-11-sector-2", "dha-eme-sector"
+ ],
+ "add": [],
+ "context": "DHA Lahore",
+ "photos": [
+  { "url": "https://dhalahore.org/wp-content/uploads/2025/10/TFW-22-scaled.jpg", "name": "dha-lahore-defence-club-j-sector.jpg", "alt": "The Defence Club J-Sector, DHA Lahore Phase 1, from the air" },
+  { "url": "https://dhalahore.org/wp-content/uploads/2025/11/TFW-36-scaled.jpg", "name": "dha-lahore-leminscate-club.jpg", "alt": "Leminscate Club, DHA Lahore Phase 8" },
+  { "url": "https://dhalahore.org/wp-content/uploads/2025/11/TFW-12-1-scaled.jpg", "name": "dha-lahore-defence-club-ff.jpg", "alt": "The Defence Club FF, DHA Lahore Phase 4" },
+  { "url": "https://dhalahore.org/wp-content/uploads/2025/11/TFW-31-scaled.jpg", "name": "dha-lahore-defence-club-r-sector.jpg", "alt": "The Defence Club R-Sector, DHA Lahore Phase 2" },
+  { "url": "https://dhalahore.org/wp-content/uploads/2025/11/TFW-699-scaled.jpg", "name": "dha-lahore-innovista-ravi.jpg", "alt": "Innovista Ravi building, DHA Lahore Phase 8" }
+ ],
+ "guide": {
+  "published": true,
+  "tagline": "Defence Housing Authority Lahore — Phases 1 to 13, Rahbar and EME Sector",
+  "developer": "Defence Housing Authority (DHA) Lahore",
+  "approvedBy": "DHA",
+  "approval": "approved",
+  "totalArea": "",
+  "launched": "",
+  "possession": "Given in Phases 1 to 8 and most of Phase 9 Prism; newer phases being developed",
+  "plotSizes": "5, 10 marla and 1, 2 kanal residential; commercial plots in each phase",
+  "address": "Head office: Sector A, Phase 6, DHA Lahore",
+  "nearby": ["Lahore Cantt", "Walton Road", "Allama Iqbal International Airport", "Bedian Road", "Lahore Ring Road", "Raiwind Road (Rahbar)"],
+  "amenities": [
+   "Gated phases with DHA security",
+   "The Defence Clubs in J-Sector, R-Sector and FF",
+   "Leminscate Club, Phase 8",
+   "Raya golf course",
+   "Penta Square and Innovista Ravi commercial hubs",
+   "Schools, colleges and the DHA medical facilities",
+   "Parks and mosques in every sector"
+  ],
+  "phone": "042-111-342-547",
+  "website": "https://dhalahore.org",
+  "overview": "<p><strong>DHA Lahore</strong> is the Defence Housing Authority's city in Lahore, east and south-east of Lahore Cantt and the airport. It is laid out in numbered phases — 1 to 13 — each divided into lettered sectors and blocks, with DHA Rahbar (Phase 11) and the EME Sector on the city's south-western side.</p>\n<h2>Phases</h2>\n<p>Phases 1 to 6 are the established, fully built part of DHA, around the Defence Clubs in J-Sector and R-Sector and the main boulevards. Phase 7 and Phase 8 — with Ivy Green, Park View, Air Avenue and the Leminscate Club — are where most new houses are going up. Phase 9 Prism lies along the Ring Road, and Phase 9 Town, Phase 10, Phase 11 (Rahbar) and Phase 13 are the newer phases.</p>\n<h2>Plot sizes</h2>\n<p>Residential plots are mostly 5 and 10 marla and 1 and 2 kanal, with commercial plots in each phase's markets and commercial broadways.</p>\n<h2>Buying in DHA Lahore</h2>\n<p>Every plot and house is a DHA file: check its phase, sector, size and dues, and transfer it through the DHA office. Open a phase below for its map, prices and the houses and plots for sale and rent.</p>",
+  "faqs": [
+   { "q": "How many phases does DHA Lahore have?", "a": "DHA Lahore is laid out in Phases 1 to 13, with DHA Rahbar (Phase 11) and the EME Sector. Each phase is divided into lettered sectors and blocks." },
+   { "q": "Which DHA Lahore phases are fully developed?", "a": "Phases 1 to 6 are fully built and lived in, and Phases 7 and 8 have possession with houses going up fast. Phase 9 Prism, Phase 10, Rahbar and Phase 13 are newer." },
+   { "q": "Where is the DHA Lahore head office?", "a": "In Sector A, Phase 6, DHA Lahore. Its helpline is 042-111-342-547 and its website is dhalahore.org." },
+   { "q": "What plot sizes are in DHA Lahore?", "a": "Mostly 5 and 10 marla and 1 and 2 kanal residential plots, with commercial plots in every phase." }
+  ],
+  "metaTitle": "DHA Lahore — Phases 1 to 13, Maps, Plot Sizes & Property for Sale",
+  "metaDescription": "DHA Lahore guide: every phase from 1 to 13, Rahbar and EME, with the master plan map of each phase, plot sizes, and houses and plots for sale and rent."
+ }
+}

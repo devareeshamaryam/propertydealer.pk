@@ -1,0 +1,41 @@
+{
+ "city": "lahore",
+ "slug": "lda-city",
+ "existing": [],
+ "add": ["LDA City - Jinnah Sector", "LDA City - Iqbal Sector"],
+ "context": "LDA City Lahore",
+ "photos": [],
+ "guide": {
+  "published": true,
+  "tagline": "The Lahore Development Authority's city between the Ring Road and Ferozepur Road",
+  "developer": "Lahore Development Authority (LDA)",
+  "approvedBy": "LDA",
+  "approval": "approved",
+  "totalArea": "",
+  "launched": "",
+  "possession": "Given in developed Jinnah Sector blocks; the rest being developed",
+  "plotSizes": "5 and 10 marla, 1 and 2 kanal residential; commercial plots and apartments",
+  "address": "Ferozepur Road, south of Kahna, Lahore",
+  "nearby": ["Ferozepur Road", "Lahore Ring Road", "Kahna", "Halloki", "Lake City", "DHA Phase 9 and 11"],
+  "amenities": [
+   "Indus Road and Jhelum Road, 300 ft wide",
+   "Chenab Road boulevard with roundabouts",
+   "Fatima Jinnah Park",
+   "Quaid-e-Azam Golf Course",
+   "Allama Iqbal Sports Complex",
+   "Parks, mosques and graveyards in the blocks",
+   "LDA City Naya Pakistan Apartments"
+  ],
+  "phone": "",
+  "website": "",
+  "overview": "<p><strong>LDA City</strong> is the Lahore Development Authority's own housing scheme, south of Kahna between the Lahore Ring Road and Ferozepur Road. LDA Road — the plan's 300 ft Indus Road — runs east–west through it to Ferozepur Road, crossed by Jhelum Road and Chenab Road.</p>\n<h2>Sectors</h2>\n<p>South of Indus Road is the <strong>Jinnah Sector</strong>, where most of the developed blocks and the first houses are. North of it is the <strong>Iqbal Sector</strong>, around the villages of Islam Pura and Panju. In the west, towards Khayaban-e-Amin, are the LDA City Naya Pakistan Apartments and the outer blocks.</p>\n<h2>Parks and landmarks</h2>\n<p>At the centre of the plan are Fatima Jinnah Park and the Allama Iqbal Sports Complex, with the Quaid-e-Azam Golf Course to their north-west.</p>\n<h2>Buying in LDA City</h2>\n<p>LDA City plots are LDA files: check the file's block, balloting and dues with the LDA before you buy. Browse the houses and plots for sale and rent below, and call or WhatsApp the dealer directly.</p>",
+  "faqs": [
+   { "q": "Where is LDA City Lahore?", "a": "South of Kahna, between the Lahore Ring Road and Ferozepur Road. LDA Road (Indus Road) runs through it to Ferozepur Road." },
+   { "q": "What are the sectors of LDA City?", "a": "The Jinnah Sector south of Indus Road and the Iqbal Sector north of it, with the apartments and outer blocks in the west." },
+   { "q": "Who develops LDA City?", "a": "The Lahore Development Authority (LDA). Its files and balloting are handled by the LDA." },
+   { "q": "What plot sizes are in LDA City?", "a": "5 and 10 marla and 1 and 2 kanal residential plots, with commercial plots and apartments." }
+  ],
+  "metaTitle": "LDA City Lahore — Jinnah & Iqbal Sector, Map & Property for Sale",
+  "metaDescription": "LDA City Lahore guide: location on Ferozepur Road, the LDA layout plan on the map, Jinnah and Iqbal Sector, plot sizes, and houses and plots for sale and rent."
+ }
+}

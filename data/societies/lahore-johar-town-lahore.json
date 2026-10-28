@@ -1,0 +1,57 @@
+{
+ "city": "lahore",
+ "slug": "johar-town-lahore",
+ "existing": [
+  "johar-town-phase-1",
+  "johar-town-phase-2"
+ ],
+ "add": [],
+ "context": "Johar Town Lahore",
+ "photos": [],
+ "guide": {
+  "published": true,
+  "tagline": "LDA's scheme in south Lahore, home to the Emporium Mall and the Expo Centre",
+  "developer": "Lahore Development Authority (LDA)",
+  "approvedBy": "LDA",
+  "approval": "approved",
+  "totalArea": "",
+  "launched": "",
+  "possession": "Fully built",
+  "plotSizes": "5, 10 marla, 1 and 2 kanal",
+  "address": "Johar Town, Lahore",
+  "nearby": [
+   "Canal Road",
+   "Emporium Mall",
+   "Expo Centre",
+   "Shaukat Khanum Hospital",
+   "University of Central Punjab"
+  ],
+  "amenities": [
+   "Emporium Mall",
+   "Expo Centre Lahore",
+   "Shaukat Khanum Memorial Cancer Hospital",
+   "Universities and colleges",
+   "Markets in every block",
+   "Orange Line metro"
+  ],
+  "phone": "",
+  "website": "",
+  "overview": "<p><strong>Johar Town</strong> is an LDA housing scheme in south Lahore, near Canal Road. It is one of the city's busiest, fully built neighbourhoods, home to the Emporium Mall, the Expo Centre and the Shaukat Khanum hospital.</p>\n<h2>Phases</h2>\n<p>Johar Town is laid out in Phase 1 and Phase 2, each divided into lettered blocks with their own markets and parks.</p>\n<h2>Buying in Johar Town</h2>\n<p>Johar Town plots are LDA files: check a file's transfer and dues with the LDA. Browse the houses, flats and plots for sale and rent below, and call or WhatsApp the dealer directly.</p>",
+  "faqs": [
+   {
+    "q": "Where is Johar Town Lahore?",
+    "a": "In south Lahore, near Canal Road."
+   },
+   {
+    "q": "How many phases does Johar Town have?",
+    "a": "Two: Phase 1 and Phase 2, each divided into lettered blocks."
+   },
+   {
+    "q": "What are the landmarks of Johar Town?",
+    "a": "The Emporium Mall, the Expo Centre, the Shaukat Khanum Memorial Cancer Hospital and the University of Central Punjab."
+   }
+  ],
+  "metaTitle": "Johar Town Lahore — Phase 1 & 2, Blocks & Property for Sale",
+  "metaDescription": "Johar Town Lahore guide: location, Phase 1 and Phase 2 blocks, landmarks, and houses, flats and plots for sale and rent."
+ }
+}
