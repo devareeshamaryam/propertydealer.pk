@@ -8,6 +8,8 @@ import { waDigits } from "@/lib/site-settings";
 
 import AgentListings from "@/components/AgentListings";
 import { ReportButton } from "@/components/property/ReportButton";
+import AgentReviews, { Stars } from "@/components/agent/AgentReviews";
+import reviewApi, { type ReviewPage } from "@/lib/api/review.api";
 import { Button } from "@/components/ui/button";
 import agentApi, { type AgentProfile } from "@/lib/api/agent/agent.api";
 import { propertyApi } from "@/lib/api";
@@ -47,6 +49,8 @@ export interface AgentPageData {
   rentTotal: number;
   /** True when the account itself could not be read and only listings remain. */
   profileMissing: boolean;
+  /** The first page of reviews, for the page and its structured data. */
+  reviews: ReviewPage | null;
 }
 
 export async function getAgent(slug: string): Promise<AgentPageData | null> {
@@ -61,12 +65,13 @@ export async function getAgent(slug: string): Promise<AgentPageData | null> {
    * row is missing or deactivated — including one account with 178 live
    * listings, all of them linking here from their own listing pages.
    */
-  const [profileResult, listingsResult, saleResult, rentResult] = await Promise.allSettled([
+  const [profileResult, listingsResult, saleResult, rentResult, reviewsResult] = await Promise.allSettled([
     agentApi.getPublicProfile(id),
     propertyApi.getAll({ ownerId: id, limit: LISTINGS_LIMIT }),
     // One-row queries just for the totals.
     propertyApi.getAll({ ownerId: id, limit: 1, purpose: "buy" }),
     propertyApi.getAll({ ownerId: id, limit: 1, purpose: "rent" }),
+    reviewApi.list(id, 1),
   ]);
   // Both lookups failing for a reason other than "not found" means the API is
   // down: throw, so a cached profile is not replaced by a 404 or an empty page.
@@ -98,6 +103,7 @@ export async function getAgent(slug: string): Promise<AgentPageData | null> {
     saleTotal: totalOf(saleResult),
     rentTotal: totalOf(rentResult),
     profileMissing: !profile,
+    reviews: reviewsResult.status === "fulfilled" ? reviewsResult.value : null,
   };
 }
 
@@ -185,6 +191,7 @@ export function AgentProfileView({ data, path }: { data: AgentPageData; path: st
    * about, then the listings. No icon tiles and no cards inside cards.
    */
   // RealEstateAgent, so search engines read the name, phone, place and agency.
+  const rating = data.reviews?.summary ?? { average: 0, count: 0, breakdown: {} };
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "RealEstateAgent",
@@ -195,6 +202,19 @@ export function AgentProfileView({ data, path }: { data: AgentPageData; path: st
     ...(profile.address ? { address: profile.address } : {}),
     ...(agentCity(data) ? { areaServed: agentCity(data) } : {}),
     ...(profile.agency ? { parentOrganization: { "@type": "RealEstateAgent", name: profile.agency.name, url: `${SITE_URL}${agentProfilePath({ _id: profile.agency._id, companyName: profile.agency.name })}` } } : {}),
+    // Written by the site's users about the agent (not by the agent): a third-party rating search engines accept.
+    ...(rating.count > 0
+      ? {
+          aggregateRating: { "@type": "AggregateRating", ratingValue: rating.average, reviewCount: rating.count, bestRating: 5, worstRating: 1 },
+          review: (data.reviews?.reviews ?? []).slice(0, 5).map((r) => ({
+            "@type": "Review",
+            author: { "@type": "Person", name: r.reviewer.name },
+            datePublished: r.createdAt.slice(0, 10),
+            reviewBody: r.text,
+            reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+          })),
+        }
+      : {}),
   };
 
   return (
@@ -233,6 +253,15 @@ export function AgentProfileView({ data, path }: { data: AgentPageData; path: st
               {profile.verified && (
                 <div className="mt-1">
                   <VerifiedBadge />
+                </div>
+              )}
+              {rating.count > 0 && (
+                <div className="mt-1">
+                  <a href="#reviews" className="inline-flex items-center gap-1.5 text-[14px] text-slate-600 hover:text-primary">
+                    <Stars value={rating.average} size={15} />
+                    <span className="font-semibold text-slate-900">{rating.average.toFixed(1)}</span>
+                    <span>({rating.count} {rating.count === 1 ? "review" : "reviews"})</span>
+                  </a>
                 </div>
               )}
               {profile.companyName && profile.name && (
@@ -353,6 +382,8 @@ export function AgentProfileView({ data, path }: { data: AgentPageData; path: st
             totals={{ all: Math.max(total, saleTotal + rentTotal), sale: saleTotal || forSale.length, rent: rentTotal || forRent.length }}
           />
         )}
+
+        {!profileMissing && <AgentReviews agentId={profile._id} agentName={name} initial={data.reviews} />}
 
         {/* A dealer's record is the thing buyers most need to flag. */}
         <div className="mt-8 flex justify-center">

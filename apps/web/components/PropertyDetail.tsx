@@ -4,7 +4,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import {
-  ArrowLeft, Bath, BedDouble, Check, ChevronRight, Compass, Home, ImageOff, Loader2, MapPin, Phone, Ruler, Share2, ShieldAlert, Tag,
+  ArrowLeft, Bath, BedDouble, Check, ChevronRight, Compass, Home, ImageOff, Loader2, MapPin, Phone, Ruler, Share2, ShieldAlert, Star, Tag,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import api, { propertyApi } from '@/lib/api';
@@ -28,6 +28,8 @@ import { AdZone } from '@/components/ads/AdSlot';
 import RelatedCarousel from '@/components/property/RelatedCarousel';
 import VerifiedBadge from '@/components/VerifiedBadge';
 import { ReportButton } from '@/components/property/ReportButton';
+import { Stars } from '@/components/agent/AgentReviews';
+import reviewApi, { type ReviewSummary } from '@/lib/api/review.api';
 
 const PropertyMap = dynamic(() => import('@/components/PropertyMap'), {
   ssr: false,
@@ -517,6 +519,18 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   // Posted by an agency on a plan with the verified badge (or one of its agents).
   const ownerVerified = Boolean((backendProperty as { ownerVerified?: boolean } | null | undefined)?.ownerVerified);
 
+  // The agent's rating: reviews live on the agent's profile, the listing shows the score and links there.
+  const ownerId: string | undefined = backendProperty?.owner?._id;
+  const [rating, setRating] = useState<ReviewSummary | null>(null);
+  useEffect(() => {
+    if (!ownerId || !agentPath) return;
+    let live = true;
+    reviewApi.summary(ownerId).then((r) => live && setRating(r)).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [ownerId, agentPath]);
+
   const AgentCard = () =>
     agentPath ? (
       // Who is behind the listing, and a way through to the rest of their stock.
@@ -536,9 +550,25 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
             {ownerVerified && <VerifiedBadge icon />}
           </span>
           {ownerVerified && <span className="block text-[11.5px] font-medium text-sky-700">Verified agency</span>}
+          {rating && rating.count > 0 && (
+            <span className="mt-0.5 flex items-center gap-1 text-[12.5px] text-slate-600">
+              <Stars value={rating.average} size={13} />
+              <span className="font-semibold text-slate-800">{rating.average.toFixed(1)}</span>
+              <span>({rating.count})</span>
+            </span>
+          )}
         </span>
         <span className="hidden shrink-0 text-[12.5px] font-medium text-primary sm:inline">View profile</span>
         <ChevronRight className="h-4 w-4 shrink-0 text-slate-400" />
+      </Link>
+    ) : null;
+
+  // Dealt with this agent over this listing? Their profile opens the review form, tied to the listing.
+  const ReviewAgentLink = () =>
+    agentPath ? (
+      <Link href={`${agentPath}?review=${backendProperty?._id ?? ''}#reviews`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-primary">
+        <Star className="h-3.5 w-3.5" />
+        {rating && rating.count > 0 ? `Read ${rating.count === 1 ? 'the review' : `all ${rating.count} reviews`} or review this agent` : 'Review this agent'}
       </Link>
     ) : null;
 
@@ -841,7 +871,10 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               <div className="space-y-3 lg:hidden">
                 <AgentCard />
                 <SafetyTips />
-                <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <ReviewAgentLink />
+                  <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
+                </div>
               </div>
 
               {/* Ways on */}
@@ -898,7 +931,10 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
               </div>
               <SafetyTips />
               <div className="px-1">
-                <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <ReviewAgentLink />
+                  <ReportButton type="listing" propertyId={backendProperty?._id} label="Report this listing" />
+                </div>
               </div>
               <AdZone page="listing" at="sidebar" />
             </div>

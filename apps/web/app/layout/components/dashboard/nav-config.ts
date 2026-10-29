@@ -23,6 +23,7 @@ import {
   Settings,
   Users,
   Wallet,
+  Star,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -409,6 +410,12 @@ export const NAV_SECTIONS: NavSection[] = [
         keywords: ["flag", "scam", "fraud", "complaints", "abuse"],
       },
       {
+        title: "Reviews",
+        href: "/dashboard/reviews",
+        adminOnly: true,
+        keywords: ["review", "rating", "stars", "approve", "approval", "agent reviews"],
+      },
+      {
         title: "Users",
         href: "/dashboard/users",
         exact: true,
@@ -451,6 +458,7 @@ export const LEAF_ICONS: Record<
   "/dashboard": LayoutDashboard,
   "/dashboard/insights": BarChart3,
   "/dashboard/reports": Flag,
+  "/dashboard/reviews": Star,
   "/dashboard/payment-methods": Banknote,
   "/dashboard/images-gallery": ImageIcon,
   "/dashboard/subscriptions": CreditCard,

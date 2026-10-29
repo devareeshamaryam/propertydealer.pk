@@ -37,6 +37,7 @@ import { BricksRateModule } from './bricks-rate/bricks-rate.module';
 import { TileCategoryModule } from './tile-category/tile-category.module';
 import { MediaModule } from './media/media.module';
 import { ReportModule } from './report/report.module';
+import { ReviewModule } from './review/review.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { ListingApiModule } from './listing-api/listing-api.module';
 import { SiteSettingsModule } from './site-settings/site-settings.module';
@@ -167,6 +168,7 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     TileCategoryModule,
     MediaModule,
     ReportModule,
+    ReviewModule,
     PaymentMethodModule,
     ListingApiModule,
     SiteSettingsModule,
