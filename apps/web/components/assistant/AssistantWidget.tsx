@@ -4,12 +4,9 @@
  * The site assistant: a chat button in the corner that opens a chat window
  * (full screen on phones).
  *
- * Kept plain on purpose, like the chat widgets people already know: one
- * clear greeting, a few answers to tap, readable text, and listings as a
- * clean list with a "See all" button. The assistant asks what it needs
- * (buy or rent, where, budget) one question at a time; when its reply ends
- * with a line like [[Lahore | Karachi | Islamabad]] those become buttons.
- * The conversation is kept on this device and can be started over.
+ * Supports rich Markdown tables (for material rates, construction cost
+ * breakdowns, market prices), inline links, property listing cards, and
+ * contextual quick-reply chips.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -29,21 +26,48 @@ type Msg = {
   done?: boolean;
 };
 
-const LS = "pd_assistant_v2";
+const LS = "pd_assistant_v3";
 const SEEN = "pd_assistant_seen";
 const newId = () => Math.random().toString(36).slice(2, 10);
 
-const GREETING = "Hello! I can help you find a property, check prices in an area, or work out building costs. What would you like to do?";
-const START: string[] = ["Buy a property", "Rent a property", "Check prices in an area", "Construction rates and costs"];
+const GREETING = "Assalam-o-Alaikum! I can help you find properties for sale or rent, check today's construction material rates, estimate house construction costs, or check property prices in any area. How can I help you today?";
+const START: string[] = [
+  "Buy a property",
+  "Rent a property",
+  "Today's construction material rates",
+  "House construction cost estimate",
+  "Check property prices in an area",
+];
 
-/** The reply's text, and the tap-able answers from its last line ("[[A | B | C]]"). */
+/**
+ * Extracts tap-able quick-reply choices from `[[Option A | Option B]]` blocks
+ * and strips all choice brackets (including multiple blocks or partial streaming
+ * brackets) from the displayed message body.
+ */
 function splitChoices(text: string): { body: string; choices: string[] } {
-  const m = /\n?\s*\[\[([^\]]+)\]\]\s*$/.exec(text);
-  if (!m) return { body: text.replace(/\[\[[^\]]*$/, ""), choices: [] };
-  return { body: text.slice(0, m.index).trimEnd(), choices: m[1]!.split("|").map((c) => c.trim()).filter(Boolean).slice(0, 6) };
+  const choices: string[] = [];
+  const seen = new Set<string>();
+  const re = /\[\[([^\]]+)\]\]/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    for (const part of m[1]!.split("|")) {
+      const c = part.trim().replace(/^[-•·*]+\s*|\s*[-•·*]+$/g, "");
+      if (c && !seen.has(c.toLowerCase())) {
+        seen.add(c.toLowerCase());
+        choices.push(c);
+      }
+    }
+  }
+  const body = text
+    .replace(/\[\[[^\]]*\]\]/g, "")
+    .replace(/\[\[[^\]]*$/, "")
+    .replace(/(?:^|\n)\s*(?:choose one to proceed|select an option|options)\s*:?\s*(?=\n|$)/gi, "\n")
+    .replace(/[\s·•|]+$/g, "")
+    .trim();
+  return { body, choices: choices.slice(0, 6) };
 }
 
-/* A small, safe markdown: **bold**, [links](/path), lists. */
+/* Safe inline markdown: **bold**, [links](/path). */
 function inline(text: string, key: string) {
   const out: React.ReactNode[] = [];
   const re = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
@@ -52,12 +76,12 @@ function inline(text: string, key: string) {
   let i = 0;
   while ((m = re.exec(text))) {
     if (m.index > last) out.push(text.slice(last, m.index));
-    if (m[1]) out.push(<strong key={`${key}b${i++}`} className="font-semibold">{m[1]}</strong>);
+    if (m[1]) out.push(<strong key={`${key}b${i++}`} className="font-semibold text-slate-900">{m[1]}</strong>);
     else {
       const href = m[3]!;
       const internal = href.startsWith("/") && !href.startsWith("//");
-      if (internal) out.push(<Link key={`${key}l${i++}`} href={href} className="font-medium text-primary underline underline-offset-2">{m[2]}</Link>);
-      else if (/^https?:\/\//.test(href)) out.push(<a key={`${key}l${i++}`} href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline underline-offset-2">{m[2]}</a>);
+      if (internal) out.push(<Link key={`${key}l${i++}`} href={href} className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80">{m[2]}</Link>);
+      else if (/^https?:\/\//.test(href)) out.push(<a key={`${key}l${i++}`} href={href} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary underline underline-offset-2 hover:text-primary/80">{m[2]}</a>);
       else out.push(m[2]);
     }
     last = m.index + m[0].length;
@@ -66,25 +90,103 @@ function inline(text: string, key: string) {
   return out;
 }
 
+function splitTableRow(line: string): string[] {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((c) => c.trim());
+}
+
+function isTableSeparator(line: string): boolean {
+  const t = line.trim();
+  if (!t.includes("|") || !t.includes("-")) return false;
+  const cells = splitTableRow(t);
+  return cells.length >= 2 && cells.every((c) => /^:?-{2,}:?$/.test(c));
+}
+
 function Markdown({ text }: { text: string }) {
   const blocks: React.ReactNode[] = [];
   let list: string[] = [];
-  const flush = () => {
+  const lines = text.replace(/\r/g, "").split("\n");
+
+  const flushList = () => {
     if (!list.length) return;
     blocks.push(
-      <ul key={`u${blocks.length}`} className="my-1 list-disc space-y-0.5 pl-5">
-        {list.map((it, i) => <li key={i}>{inline(it, `u${blocks.length}${i}`)}</li>)}
+      <ul key={`u${blocks.length}`} className="my-1.5 list-disc space-y-1 pl-5">
+        {list.map((it, i) => <li key={i}>{inline(it, `u${blocks.length}_${i}`)}</li>)}
       </ul>,
     );
     list = [];
   };
-  text.replace(/\r/g, "").split("\n").forEach((raw, i) => {
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i]!;
+    const trimmed = raw.trim();
+
+    // Check for Markdown table (Header row + |---|---| separator row)
+    if (trimmed.includes("|") && i + 1 < lines.length && isTableSeparator(lines[i + 1]!)) {
+      flushList();
+      const headers = splitTableRow(trimmed);
+      i += 2; // move to first body row
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i]!.trim().includes("|")) {
+        if (!isTableSeparator(lines[i]!)) {
+          rows.push(splitTableRow(lines[i]!));
+        }
+        i++;
+      }
+      i--; // step back so outer loop increments properly
+      blocks.push(
+        <div key={`tbl${blocks.length}`} className="my-2.5 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-2xs">
+          <table className="w-full min-w-[250px] border-collapse text-left text-[13px] sm:text-[13.5px]">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-100/90 text-[11.5px] font-bold uppercase tracking-wider text-slate-700">
+                {headers.map((h, hi) => (
+                  <th key={hi} className="px-3 py-2 font-bold">{inline(h, `th${blocks.length}_${hi}`)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((r, ri) => (
+                <tr key={ri} className="hover:bg-slate-50/80">
+                  {headers.map((_, ci) => (
+                    <td key={ci} className="px-3 py-2 align-top text-slate-800">{inline(r[ci] ?? "", `td${blocks.length}_${ri}_${ci}`)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>,
+      );
+      continue;
+    }
+
     const b = /^\s*(?:[-*•]|\d+[.)])\s+(.*)$/.exec(raw);
-    if (b) return void list.push(b[1]!);
-    flush();
-    if (raw.trim()) blocks.push(<p key={`p${i}`} className="my-1">{inline(raw.replace(/^#+\s*/, ""), `p${i}`)}</p>);
-  });
-  flush();
+    if (b) {
+      list.push(b[1]!);
+      continue;
+    }
+
+    flushList();
+    if (!trimmed || /^-{3,}$/.test(trimmed)) continue;
+
+    if (/^#{1,4}\s+/.test(trimmed)) {
+      blocks.push(
+        <p key={`h${i}`} className="mt-2.5 mb-1 text-[14.5px] font-bold text-slate-900">
+          {inline(trimmed.replace(/^#{1,4}\s+/, ""), `h${i}`)}
+        </p>,
+      );
+    } else {
+      blocks.push(
+        <p key={`p${i}`} className="my-1.5">
+          {inline(trimmed, `p${i}`)}
+        </p>,
+      );
+    }
+  }
+  flushList();
   return <div dir="auto" className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0">{blocks}</div>;
 }
 
@@ -92,7 +194,7 @@ function Results({ total, items, moreUrl }: { total: number; items: Card[]; more
   if (!items.length) return null;
   const shown = items.slice(0, 5);
   return (
-    <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
       {shown.map((c, i) => (
         <Link key={c.id} href={c.url} className={cn("flex gap-3 p-2.5 transition-colors hover:bg-slate-50", i > 0 && "border-t border-slate-100")}>
           <div className="h-[72px] w-[92px] shrink-0 overflow-hidden rounded-lg bg-slate-100">
@@ -119,7 +221,7 @@ function Results({ total, items, moreUrl }: { total: number; items: Card[]; more
       ))}
       {moreUrl && (
         <Link href={moreUrl} className="flex items-center justify-center gap-1.5 border-t border-slate-200 bg-slate-50 px-3 py-2.5 text-[14px] font-semibold text-primary hover:bg-slate-100">
-          {total > shown.length ? `See all ${total} results` : "Open these results"}
+          {total > shown.length ? `See all ${total} matching properties` : "Open these properties"}
           <ArrowRight className="h-4 w-4" />
         </Link>
       )}
@@ -230,7 +332,6 @@ export default function AssistantWidget() {
         const res = await fetch("/assistant/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // The greeting is part of the conversation the model sees, so "Buy a property" makes sense to it.
           body: JSON.stringify({
             messages: [{ role: "assistant", content: GREETING }, ...history.filter((m) => m.text && !m.error).map((m) => ({ role: m.role, content: m.text }))],
             page: pathname,
@@ -261,6 +362,7 @@ export default function AssistantWidget() {
               continue;
             }
             if (ev.t === "text") update(reply.id, (m) => ({ ...m, text: m.text + ev.d, status: undefined }));
+            else if (ev.t === "reset_text") update(reply.id, (m) => ({ ...m, text: "" }));
             else if (ev.t === "status") update(reply.id, (m) => ({ ...m, status: ev.text }));
             else if (ev.t === "cards" && ev.cards?.kind === "listings")
               update(reply.id, (m) => ({ ...m, results: [...(m.results || []), { total: ev.cards.total, items: ev.cards.items, moreUrl: ev.cards.moreUrl }] }));
@@ -323,7 +425,7 @@ export default function AssistantWidget() {
         <div
           role="dialog"
           aria-label={`Chat with ${brand}`}
-          className="assistant-open fixed inset-0 z-[90] flex flex-col bg-white sm:inset-auto sm:bottom-[100px] sm:right-6 sm:h-[min(640px,calc(100vh-130px))] sm:w-[390px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_20px_60px_-15px_rgba(15,23,42,0.35)]"
+          className="assistant-open fixed inset-0 z-[90] flex flex-col bg-white sm:inset-auto sm:bottom-[100px] sm:right-6 sm:h-[min(660px,calc(100vh-115px))] sm:w-[420px] md:w-[440px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_20px_60px_-15px_rgba(15,23,42,0.35)]"
         >
           <div className="flex items-center gap-3 bg-primary px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] text-white">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/15">
@@ -332,7 +434,6 @@ export default function AssistantWidget() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[16px] font-semibold leading-tight">{brand}</p>
-              <p className="mt-0.5 text-[13px] text-white/80">Property help · replies instantly</p>
             </div>
             {msgs.length > 0 && (
               <button type="button" onClick={reset} title="Start over" aria-label="Start over" className="grid h-9 w-9 place-items-center rounded-full text-white/85 hover:bg-white/15">
@@ -344,16 +445,16 @@ export default function AssistantWidget() {
             </button>
           </div>
 
-          <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 text-[15px] leading-relaxed text-slate-800">
+          <div ref={scroller} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-3.5 py-4 sm:px-4 sm:py-5 text-[14.5px] sm:text-[15px] leading-relaxed text-slate-800">
             {/* The greeting is always the first message. */}
             <div className="flex items-end gap-2">
               <Avatar />
-              <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2.5">{GREETING}</div>
+              <div className="max-w-[88%] rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2.5">{GREETING}</div>
             </div>
             {msgs.length === 0 && (
               <div className="flex flex-col items-stretch gap-2 pl-10">
                 {START.map((s) => (
-                  <button key={s} type="button" onClick={() => void send(s)} className="rounded-xl border border-primary/40 px-4 py-2.5 text-left text-[15px] font-medium text-primary transition-colors hover:bg-primary hover:text-white">
+                  <button key={s} type="button" onClick={() => void send(s)} className="rounded-xl border border-primary/40 px-4 py-2.5 text-left text-[14.5px] font-medium text-primary transition-colors hover:bg-primary hover:text-white">
                     {s}
                   </button>
                 ))}
@@ -373,9 +474,9 @@ export default function AssistantWidget() {
               return (
                 <div key={m.id} className="flex items-end gap-2">
                   <Avatar />
-                  <div className="min-w-0 max-w-[85%] flex-1">
+                  <div className="min-w-0 max-w-[92%] flex-1">
                     {body && (
-                      <div className={cn("rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2.5", m.error && "bg-red-50 text-red-800")}>
+                      <div className={cn("overflow-hidden rounded-2xl rounded-bl-sm bg-slate-100 px-3.5 py-2.5", m.error && "bg-red-50 text-red-800")}>
                         <Markdown text={body} />
                       </div>
                     )}
@@ -398,7 +499,7 @@ export default function AssistantWidget() {
             {lastChoices.length > 0 && (
               <div className="flex flex-wrap gap-2 pl-10">
                 {lastChoices.map((c) => (
-                  <button key={c} type="button" dir="auto" onClick={() => void send(c)} className="rounded-full border border-primary/40 px-3.5 py-2 text-[14px] font-medium text-primary transition-colors hover:bg-primary hover:text-white">
+                  <button key={c} type="button" dir="auto" onClick={() => void send(c)} className="rounded-full border border-primary/40 bg-white px-3.5 py-1.5 text-[13.5px] font-medium text-primary shadow-2xs transition-colors hover:bg-primary hover:text-white">
                     {c}
                   </button>
                 ))}
@@ -419,7 +520,7 @@ export default function AssistantWidget() {
               dir="auto"
               maxLength={1500}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message…"
+              placeholder="Ask about properties, rates, or building costs…"
               className="h-11 min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 text-[15px] text-slate-900 outline-none transition focus:border-primary/50 focus:bg-white"
             />
             {busy ? (

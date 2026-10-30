@@ -48,7 +48,7 @@ function allowed(ip: string): boolean {
 type Msg = { role: "system" | "user" | "assistant" | "tool"; content: string | null; tool_calls?: any[]; tool_call_id?: string };
 
 /** One streamed call to the model. Text goes to `onText` as it arrives; tool calls are collected. */
-async function complete(messages: Msg[], onText: (d: string) => void, signal: AbortSignal) {
+async function complete(messages: Msg[], onText: (d: string) => void, onResetText: () => void, signal: AbortSignal) {
   const res = await fetch(`${BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
@@ -59,7 +59,7 @@ async function complete(messages: Msg[], onText: (d: string) => void, signal: Ab
       tools: TOOL_DEFS,
       tool_choice: "auto",
       stream: true,
-      ...(isReasoningModel ? { reasoning_effort: REASONING, max_completion_tokens: 1800 } : { max_tokens: 900, temperature: 0.4 }),
+      ...(isReasoningModel ? { reasoning_effort: REASONING, max_completion_tokens: 2200 } : { max_tokens: 1200, temperature: 0.35 }),
     }),
   });
   if (!res.ok || !res.body) {
@@ -70,6 +70,7 @@ async function complete(messages: Msg[], onText: (d: string) => void, signal: Ab
   const dec = new TextDecoder();
   let buf = "";
   let text = "";
+  let hasToolCalls = false;
   const calls: { id: string; name: string; args: string }[] = [];
   for (;;) {
     const { done, value } = await reader.read();
@@ -90,7 +91,11 @@ async function complete(messages: Msg[], onText: (d: string) => void, signal: Ab
       }
       const delta = j.choices?.[0]?.delta;
       if (!delta) continue;
-      if (delta.content) {
+      if (delta.tool_calls?.length) {
+        if (!hasToolCalls && text) onResetText();
+        hasToolCalls = true;
+      }
+      if (delta.content && !hasToolCalls) {
         text += delta.content;
         onText(delta.content);
       }
@@ -103,7 +108,9 @@ async function complete(messages: Msg[], onText: (d: string) => void, signal: Ab
       }
     }
   }
-  return { text, calls: calls.filter(Boolean) };
+  const finalCalls = calls.filter(Boolean);
+  if (finalCalls.length && text) onResetText();
+  return { text: finalCalls.length ? "" : text, calls: finalCalls };
 }
 
 export async function POST(req: Request) {
@@ -132,7 +139,7 @@ export async function POST(req: Request) {
       try {
         // Look things up as many times as needed (at most 5 rounds), then answer.
         for (let round = 0; round < 6; round++) {
-          const { text, calls } = await complete(messages, (d) => send({ t: "text", d }), abort.signal);
+          const { text, calls } = await complete(messages, (d) => send({ t: "text", d }), () => send({ t: "reset_text" }), abort.signal);
           if (!calls.length || round === 5) break;
           messages.push({ role: "assistant", content: text || null, tool_calls: calls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.args || "{}" } })) });
           const results = await Promise.all(
