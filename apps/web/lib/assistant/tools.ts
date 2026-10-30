@@ -9,6 +9,7 @@
 import { coveredAreas, emi, estimate, installmentPlan, rentalYield, roomLimits, roomMaxima, usualRooms, withDefaults, CONSTRUCTION_FALLBACK, type ConstructionData, type Quality } from "@/lib/tools";
 import { convert, type UnitKey } from "@/lib/area-units";
 import { searchUrl } from "@/lib/search";
+import type { Visual } from "./types";
 
 const RAW = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 const API = `${RAW.trim().replace(/\/$/, "")}/api`;
@@ -174,6 +175,25 @@ export const TOOL_DEFS = [
   {
     type: "function",
     function: {
+      name: "show_search_form",
+      description: "Show the user a one-step search form (buy/rent, city, area, type, size, budget, bedrooms) prefilled with whatever they already said. Use this when someone wants to buy or rent but has not given BOTH a location and a budget or size — instead of asking questions one by one.",
+      parameters: {
+        type: "object",
+        properties: {
+          purpose: str("Buying or renting", ["sale", "rent"]),
+          city: str("City, if said"),
+          location: str("Area or society, if said"),
+          type: str("Property type, if said", ["house", "plot", "flat", "commercial"]),
+          marla: num("Size in marla, if said"),
+          max_price: num("Budget in PKR, if said"),
+          beds: num("Bedrooms, if said"),
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "find_agents",
       description: "Verified property dealers / agencies working in a city, with their profile links.",
       parameters: { type: "object", properties: { city_id: str("City id from find_places"), city: str("City name, e.g. 'Lahore', 'Karachi', 'Islamabad'") } },
@@ -204,6 +224,8 @@ export function toolLabel(name: string, args: any): string {
       return "Converting area units";
     case "find_agents":
       return "Finding verified dealers";
+    case "show_search_form":
+      return "Opening search";
     default:
       return "Loading details";
   }
@@ -238,10 +260,11 @@ const pkrExact = (n: unknown) => `Rs ${Math.round(Number(n) || 0).toLocaleString
 const isObjectId = (s: unknown) => typeof s === "string" && /^[a-f0-9]{24}$/i.test(s.trim());
 
 /** Automatically resolve location/city text into valid Mongo ObjectIds if the model didn't pass valid ids. */
-async function resolveScope(a: any): Promise<{ placeIds?: string[]; cityId?: string }> {
+async function resolveScope(a: any): Promise<{ placeIds?: string[]; cityId?: string; label?: string }> {
   const validPlaces = Array.isArray(a.place_ids) ? a.place_ids.filter(isObjectId) : [];
   const validCity = isObjectId(a.city_id) ? String(a.city_id).trim() : undefined;
-  if (validPlaces.length || validCity) return { placeIds: validPlaces.length ? validPlaces : undefined, cityId: validCity };
+  const given = [a.location, a.city].filter((x) => typeof x === "string" && x.trim()).join(", ") || undefined;
+  if (validPlaces.length || validCity) return { placeIds: validPlaces.length ? validPlaces : undefined, cityId: validCity, label: given };
 
   const nonIdPlace = Array.isArray(a.place_ids) ? a.place_ids.find((x: any) => typeof x === "string" && x.trim()) : "";
   const nonIdCity = typeof a.city_id === "string" && !isObjectId(a.city_id) ? a.city_id.trim() : "";
@@ -250,14 +273,19 @@ async function resolveScope(a: any): Promise<{ placeIds?: string[]; cityId?: str
   if (!q) return {};
 
   try {
-    const found = await api<{ places?: { id: string; name: string; cityId: string }[]; cities?: { id: string; name: string }[] }>(
+    const found = await api<{ places?: { id: string; name: string; cityId: string }[]; group?: { name: string; city: string; cityId: string; ids: string[] } | null; cities?: { id: string; name: string }[] }>(
       `/assistant/places?q=${encodeURIComponent(q)}${cityHint && cityHint.toLowerCase() !== q.toLowerCase() ? `&city=${encodeURIComponent(cityHint)}` : ""}`,
     );
+    if (found?.group?.ids?.length) {
+      const g = found.group;
+      return { placeIds: g.ids, cityId: g.cityId, label: `${g.name}, ${g.city}` };
+    }
     if (found?.places?.length) {
-      return { placeIds: [found.places[0]!.id], cityId: found.places[0]!.cityId };
+      const p = found.places[0]! as any;
+      return { placeIds: [p.id], cityId: p.cityId, label: [p.name, p.city].filter(Boolean).join(", ") };
     }
     if (found?.cities?.length) {
-      return { cityId: found.cities[0]!.id };
+      return { cityId: found.cities[0]!.id, label: found.cities[0]!.name };
     }
   } catch {
     /* ignore */
@@ -271,7 +299,7 @@ export interface ToolResult {
   /** What the model reads (kept short). */
   forModel: unknown;
   /** Shown to the user as cards. */
-  cards?: { kind: "listings"; total: number; items: any[]; moreUrl?: string };
+  cards?: Visual;
 }
 
 const CITY_SLUG = (s: string) => String(s || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -310,11 +338,16 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
           kind: "listings",
           total: r.total,
           items: r.listings,
+          label: scope.label,
+          priceRange: r.priceRange,
           // The same search on the site's results page, for "See all".
+          // Several areas under one name ("Bahria Town"): the city page, searched by that name.
+          moreExact: !(scope.placeIds && scope.placeIds.length > 1),
           moreUrl: searchUrl({
             purpose: a.purpose === "rent" ? "rent" : "sale",
             citySlug: r.link?.citySlug || "",
-            areaSlug: r.link?.areaSlug || "",
+            areaSlug: scope.placeIds && scope.placeIds.length > 1 ? "" : r.link?.areaSlug || "",
+            search: scope.placeIds && scope.placeIds.length > 1 ? scope.label?.split(",")[0] : undefined,
             type: Array.isArray(a.types) && a.types.length === 1 ? (a.types[0] === "flat" ? "flat" : a.types[0]) : "",
             priceMin: a.min_price || undefined,
             priceMax: a.max_price || undefined,
@@ -335,7 +368,11 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         minMarla: a.min_marla,
         maxMarla: a.max_marla,
       });
-      return { forModel: r };
+      const place = scope.label || "All Pakistan";
+      return {
+        forModel: { place, ...r, shownAsCard: true },
+        cards: { kind: "market", place, market: r.market || [], url: r.link ? searchUrl({ purpose: a.purpose === "rent" ? "rent" : "sale", citySlug: r.link.citySlug, areaSlug: r.link.areaSlug, type: "" }) : undefined },
+      };
     }
     case "material_rates": {
       const [rows, products] = await Promise.all([
@@ -394,12 +431,19 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
           url: p.path || `/${p.categorySlug || "today-cement-rate-in-pakistan"}`,
         }));
 
+      const categories = filteredSummary.length ? filteredSummary : allSummary;
       return {
         forModel: {
-          categories: filteredSummary.length ? filteredSummary : allSummary,
+          categories,
           brandsAndProducts: matchingProducts,
           calculatorUrl: "/tools/construction-cost-calculator",
-          note: "Live rates from suppliers on PropertyDealer.pk today.",
+          note: "Live rates from suppliers on PropertyDealer.pk today. Already shown to the user as a table card.",
+        },
+        cards: {
+          kind: "rates",
+          focus: rawWant || undefined,
+          rows: categories.map((c) => ({ material: c.material, unit: c.unit, rate: c.rate, url: c.pageUrl })),
+          brands: rawWant ? matchingProducts : [],
         },
       };
     }
@@ -470,6 +514,12 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         };
       });
 
+      const options = [
+        { key: "grey", label: "Grey structure", total: rs(greyEst.total) },
+        { key: "economy", label: "Complete · Economy", total: rs(econEst.total) },
+        { key: "standard", label: "Complete · Standard", total: rs(stdEst.total) },
+        { key: "premium", label: "Complete · Premium", total: rs(premEst.total) },
+      ];
       const link = `/tools/construction-cost-calculator?city=${encodeURIComponent(cityName)}&size=${marla}&unit=marla&floors=${floors}&type=${kind}&quality=${quality}${a.basement ? "&basement=1" : ""}`;
       return {
         forModel: {
@@ -491,6 +541,39 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
           quickSizeComparisonDoubleStorey: quickComparison,
           estimatedDurationMonths: e.months,
           calculatorLink: link,
+          shownAsCard: true,
+        },
+        cards: {
+          kind: "construction",
+          city: cityName,
+          plot: marla === 20 ? "1 Kanal" : marla % 20 === 0 ? `${marla / 20} Kanal` : `${marla} Marla`,
+          floors: floors === 1 ? "Single storey" : floors === 2 ? "Double storey" : "Triple storey",
+          covered: `${e.area.toLocaleString("en-PK")} sq ft`,
+          perSqft: `Rs ${Math.round(e.perSqft).toLocaleString("en-PK")} / sq ft`,
+          months: kind === "grey" ? e.months.grey : e.months.grey + e.months.finishing,
+          selected: kind === "grey" ? "grey" : quality === "luxury" ? "premium" : quality,
+          options,
+          stages: e.parts.map((p) => ({ stage: p.title, cost: rs(p.amount), amount: Math.round(p.amount) })),
+          link,
+          input: { marla, floors, city: cityName },
+        },
+      };
+    }
+    case "show_search_form": {
+      return {
+        forModel: { shown: "A search form is now on screen, prefilled with what the user said. Say one short line inviting them to fill it in. Do not ask any questions." },
+        cards: {
+          kind: "form",
+          form: "search",
+          prefill: {
+            purpose: a.purpose === "rent" ? "rent" : "sale",
+            city: a.city || undefined,
+            location: a.location || undefined,
+            type: a.type || undefined,
+            marla: Number(a.marla) || undefined,
+            maxPrice: Number(a.max_price) || undefined,
+            beds: Number(a.beds) || undefined,
+          },
         },
       };
     }

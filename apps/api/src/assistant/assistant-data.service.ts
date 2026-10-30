@@ -189,7 +189,7 @@ export class AssistantDataService {
         const cover = hit / placeTok.length;
         if (cover < 0.6) continue;
         const extra = r.tokens.filter((x) => !placeTok.includes(x)).length;
-        let s = cover * 10 - extra * 0.6 + Math.log10(1 + r.listings) * 1.5;
+        let s = cover * 10 - extra * 0.6 + Math.log10(1 + r.listings) * 1.5 + (cover === 1 && !extra ? 3 : 0);
         if (r.kind === 'society') s += 1.5;
         if (cityIds.size) s += cityIds.has(r.cityId) ? 4 : -6;
         scored.push({ r, s });
@@ -219,8 +219,29 @@ export class AssistantDataService {
         : {}),
       url: `/properties/sale/${slugify(r.city)}/${r.slug}`,
     }));
+    // A broad name ("Bahria Town", "DHA") covers every area named that way in
+    // the city — the areas are often listed piece by piece (sectors, blocks).
+    const best = scored[0]?.r;
+    const has = (r: AreaRow, t: string) => r.tokens.includes(t) || (t.length >= 3 && r.tokens.some((x) => x.startsWith(t)));
+    const members = best
+      ? rows.filter((r) => !r.mergedInto && r.cityId === best.cityId && placeTok.every((t) => has(r, t))).sort((x, y) => x.tokens.length - y.tokens.length || y.listings - x.listings)
+      : [];
+    // Only for a whole name: an area called exactly that exists ("bahria" alone
+    // would also sweep in Bahria Orchard).
+    const exact = members.find((r) => r.tokens.length === placeTok.length && placeTok.every((t) => r.tokens.includes(t)));
+    const group =
+      best && exact && members.length > 1
+        ? {
+            name: titleCase(exact.name),
+            city: titleCase(best.city),
+            cityId: best.cityId,
+            ids: members.map((r) => r._id),
+            listings: members.reduce((n, r) => n + (r.parent && members.some((x) => x._id === r.parent) ? 0 : r.listings), 0),
+          }
+        : null;
     return {
       places,
+      group,
       cities: cityHits.map((c) => ({ id: c._id, name: titleCase(c.name), listings: c.listings })),
     };
   }
@@ -375,7 +396,11 @@ export class AssistantDataService {
           .map(([size, v]) => ({ size, listings: v.length, median: pkr(median(v)) })),
       });
     }
-    return { basedOn: 'Live listings on the site right now', market: out };
+    const { byId } = await this.allAreas();
+    const first = (input.placeIds || []).map((id) => byId.get(String(id))).find(Boolean);
+    const cityOnly = !first && input.cityId ? [...byId.values()].find((r) => r.cityId === input.cityId) : undefined;
+    const link = first ? { citySlug: slugify(first.city), areaSlug: first.slug } : cityOnly ? { citySlug: slugify(cityOnly.city), areaSlug: '' } : null;
+    return { basedOn: 'Live listings on the site right now', market: out, link };
   }
 }
 
