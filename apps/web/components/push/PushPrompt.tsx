@@ -168,7 +168,7 @@ export default function PushPrompt() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[13.5px] font-semibold leading-snug text-slate-900">{ask.title}</p>
-          <p className="mt-0.5 line-clamp-3 text-[12.5px] leading-snug text-slate-500">{ask.body}</p>
+          <p className="mt-0.5 line-clamp-4 text-[12.5px] leading-snug text-slate-500">{ask.body}</p>
         </div>
         <button type="button" onClick={later} aria-label="Close" className="-mr-1 -mt-1 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
           <X className="h-4 w-4" />

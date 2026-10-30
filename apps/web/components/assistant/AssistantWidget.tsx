@@ -553,14 +553,14 @@ export default function AssistantWidget() {
           </div>
         )}
         <div className="relative">
-          {/* "CHAT NOW" curving round the top-right of the button. */}
+          {/* "CHAT NOW" curving round the top-left of the button. */}
           {!open && (
             <svg viewBox="0 0 100 100" aria-hidden className="pointer-events-none absolute -left-5 -top-5 h-[100px] w-[100px] overflow-visible">
               <defs>
                 <path id="pd-chat-ring" d="M 13,50 A 37,37 0 1,1 87,50 A 37,37 0 1,1 13,50" />
               </defs>
               <text className="fill-primary" style={{ fontSize: 14, fontWeight: 800, letterSpacing: 1.4, paintOrder: "stroke", stroke: "#fff", strokeWidth: 3.5, strokeLinejoin: "round" }}>
-                <textPath href="#pd-chat-ring" startOffset="37.5%" textAnchor="middle">
+                <textPath href="#pd-chat-ring" startOffset="12.5%" textAnchor="middle">
                   CHAT NOW
                 </textPath>
               </text>
