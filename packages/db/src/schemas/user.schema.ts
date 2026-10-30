@@ -103,6 +103,17 @@ export class User {
   @Prop({ select: false })
   lockUntil?: Date;
 
+  /** Push notification groups this person switched off (Dashboard → Notifications). */
+  @Prop({ type: [String], default: undefined })
+  pushOff?: string[];
+
+  /** Push daily limit: the day (YYYY-MM-DD, Pakistan time) and how many were sent on it. */
+  @Prop({ default: undefined })
+  pushDay?: string;
+
+  @Prop({ default: undefined })
+  pushDayCount?: number;
+
   // Add profile picture, agencyId, etc. later
 }
 

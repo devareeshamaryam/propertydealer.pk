@@ -24,6 +24,7 @@ import {
   Users,
   Wallet,
   Star,
+  Bell,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -385,6 +386,11 @@ export const NAV_SECTIONS: NavSection[] = [
         keywords: ["plan", "billing", "upgrade"],
       },
       {
+        title: "Notifications",
+        href: "/dashboard/push-settings",
+        keywords: ["push", "notifications", "alerts", "phone", "devices"],
+      },
+      {
         /*
          * The one billing entry an agent can see.
          *
@@ -408,6 +414,12 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/reports",
         adminOnly: true,
         keywords: ["flag", "scam", "fraud", "complaints", "abuse"],
+      },
+      {
+        title: "Push Notifications",
+        href: "/dashboard/push",
+        adminOnly: true,
+        keywords: ["push", "campaign", "broadcast", "subscribers", "notify", "send notification"],
       },
       {
         title: "Reviews",
@@ -459,6 +471,8 @@ export const LEAF_ICONS: Record<
   "/dashboard/insights": BarChart3,
   "/dashboard/reports": Flag,
   "/dashboard/reviews": Star,
+  "/dashboard/push": BellRing,
+  "/dashboard/push-settings": Bell,
   "/dashboard/payment-methods": Banknote,
   "/dashboard/images-gallery": ImageIcon,
   "/dashboard/subscriptions": CreditCard,
@@ -539,6 +553,10 @@ export const SEGMENT_LABELS: Record<string, string> = {
   subscriptions: "Subscriptions",
   "payment-methods": "Payment Methods",
   "my-subscription": "My Subscription",
+  push: "Push Notifications",
+  "push-settings": "Notifications",
+  compose: "New campaign",
+  reviews: "Reviews",
   "purchase-package": "Purchase Package",
   users: "Users",
   appearance: "Appearance",

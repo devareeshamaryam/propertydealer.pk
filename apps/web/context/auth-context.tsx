@@ -231,6 +231,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    // This device stops getting this account's notifications (best effort, never blocks signing out).
+    await import("@/lib/push-client").then((m) => m.detachPushUser()).catch(() => {});
     try {
       await api.post("/auth/logout", {});
     } catch (e) {

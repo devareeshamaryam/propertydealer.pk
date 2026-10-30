@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -13,6 +14,7 @@ import {
 } from '@rent-ghar/db/schemas/report.schema';
 import { Property } from '@rent-ghar/db/schemas/property.schema';
 import { DiscordService, DISCORD_COLORS } from '../notify/discord.service';
+import { PushEventsService } from '../push/push-events.service';
 
 export interface CreateReportInput {
   type: 'listing' | 'agent';
@@ -30,6 +32,7 @@ export class ReportService {
     @InjectModel(Report.name) private readonly reportModel: Model<ReportDocument>,
     @InjectModel(Property.name) private readonly propertyModel: Model<Property>,
     private readonly discord: DiscordService,
+    @Optional() private readonly pushEvents?: PushEventsService,
   ) {}
 
   reasons(): readonly string[] {
@@ -129,6 +132,7 @@ export class ReportService {
         ],
       });
 
+      this.pushEvents?.reported({ reason, what: property?.title ? String(property.title) : input.type === 'agent' ? 'An agent was reported' : 'A listing was reported' });
       return doc;
     } catch (error) {
       // The unique indexes make a second report a no-op rather than an error

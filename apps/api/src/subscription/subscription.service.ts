@@ -1,9 +1,5 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Optional } from '@nestjs/common';
+import { PushEventsService } from '../push/push-events.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import {
@@ -69,6 +65,7 @@ export class SubscriptionService {
     @InjectModel(Property.name)
     private propertyModel: Model<any>,
     private readonly agency: AgencyService,
+    @Optional() private readonly pushEvents?: PushEventsService,
   ) {}
 
   /** Live listings (pending or approved) of a whole team — the number the plan limit is about. */
@@ -437,6 +434,7 @@ export class SubscriptionService {
       links: [{ label: 'Subscriptions', url: '/dashboard/subscriptions' }],
     });
 
+    this.pushEvents?.planActive({ userId: String(saved.userId), plan: saved.planName || '', endDate: saved.endDate });
     return saved;
   }
 
@@ -590,6 +588,7 @@ export class SubscriptionService {
       links: [{ label: 'Verify payment', url: '/dashboard/subscriptions' }, { label: 'Screenshot', url: screenshot }],
     });
 
+    this.pushEvents?.paymentSubmitted({ userId: String(saved.userId), plan: saved.planName || '', amount: saved.amount });
     return saved;
   }
 
@@ -625,6 +624,7 @@ export class SubscriptionService {
       links: [{ label: 'Subscriptions', url: '/dashboard/subscriptions' }],
     });
 
+    this.pushEvents?.paymentRejected({ userId: String(saved.userId), plan: saved.planName || '', reason: saved.rejectionReason });
     return saved;
   }
 

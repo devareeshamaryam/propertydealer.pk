@@ -2,7 +2,7 @@
 import Breadcrumbs from '@/components/Breadcrumbs';
 import { serverApi, isNotFoundError } from '@/lib/server-api';
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { toTitleCase } from '@/lib/utils';
 import { buildPropertySchema, buildBreadcrumbSchema } from '@/lib/schema/listing-schema';
 
@@ -74,6 +74,8 @@ export default async function PropertyDetailPage({ params }: PageProps) {
   const { slug } = await params;
 
   const property: any = await getProperty(slug);
+  // Found through the id at the end of an older title + id address (the title changed): go to the current one.
+  if (property?.slug && property.slug !== slug && /[0-9a-f]{24}$/.test(slug)) permanentRedirect(`/properties/${property.slug}`);
 
   let propertySchema = null;
   let breadcrumbSchema = null;

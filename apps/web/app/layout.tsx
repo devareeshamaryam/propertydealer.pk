@@ -9,6 +9,7 @@ import StructuredData from "@/components/StructuredData";
 import ChunkReloadGuard from "@/components/ChunkReloadGuard";
 import ScrollRestorer from "@/components/ScrollRestorer";
 import { SiteSettingsProvider } from "@/components/SiteSettingsProvider";
+import PushPrompt from "@/components/push/PushPrompt";
 import { MaterialTypesProvider } from "@/components/MaterialTypesProvider";
 import { getMaterialTypes } from "@/lib/materials";
 import { getSiteSettings } from "@/lib/site-settings.server";
@@ -149,6 +150,7 @@ export default async function RootLayout({
                   {children}
                 </MaterialTypesProvider>
               </SiteSettingsProvider>
+              <PushPrompt />
               <Sonner />
             </TooltipProvider>
           </AuthProvider>

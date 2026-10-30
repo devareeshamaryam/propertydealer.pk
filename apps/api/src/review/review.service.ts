@@ -1,4 +1,5 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { PushEventsService } from '../push/push-events.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { AgentReview, AgentReviewDocument, REVIEW_RELATIONS, type ReviewRelation } from '@rent-ghar/db/schemas/agent-review.schema';
@@ -34,6 +35,7 @@ export class ReviewService {
     @InjectModel(User.name) private readonly users: Model<any>,
     @InjectModel(Property.name) private readonly properties: Model<any>,
     private readonly discord: DiscordService,
+    @Optional() private readonly pushEvents?: PushEventsService,
   ) {}
 
   private oid(id: string, what = 'agent'): Types.ObjectId {
@@ -256,6 +258,12 @@ export class ReviewService {
       ],
       ...(status === 'pending' ? { links: [{ label: 'Approve or hide', url: '/dashboard/reviews' }] } : {}),
     });
+    // A new review that went live: tell the agent (not on every edit). Held: tell the admins.
+    if (doc.status === 'published' && (!before || before.status !== 'published')) {
+      this.pushEvents?.reviewLive({ agentId, reviewerName: me.name, rating, text, agentPath: `/agents/${agentId}` });
+    } else if (doc.status === 'pending' && before?.status !== 'pending') {
+      this.pushEvents?.reviewHeld({ agentId, reasons });
+    }
     return {
       _id: String(doc._id),
       rating,
@@ -285,11 +293,12 @@ export class ReviewService {
   }
 
   async reply(reviewId: string, userId: string, text?: string) {
-    await this.ownReview(reviewId, userId);
+    const r = await this.ownReview(reviewId, userId);
     const t = String(text || '').trim().slice(0, 1000);
     await this.reviews
       .updateOne({ _id: reviewId }, t ? { $set: { reply: { text: t, at: new Date() } } } : { $unset: { reply: 1 } })
       .exec();
+    if (t && !r.reply?.text) this.pushEvents?.reviewReply({ reviewerId: String(r.reviewer), agentId: String(r.agent), reply: t, agentPath: `/agents/${String(r.agent)}` });
     return { ok: true, reply: t ? { text: t, at: new Date() } : null };
   }
 
@@ -319,11 +328,18 @@ export class ReviewService {
   /** Admin: hide a review (off the page and out of the rating) or put it back. */
   async setStatus(reviewId: string, status: 'published' | 'hidden') {
     // Approving or hiding settles it: the "waiting" reasons and the agent's flag are done with.
-    const r = await this.reviews
-      .findByIdAndUpdate(this.oid(reviewId, 'review'), { $set: { status, flagged: false } }, { new: true })
+    const r: any = await this.reviews
+      .findByIdAndUpdate(this.oid(reviewId, 'review'), { $set: { status, flagged: false } }, { new: false })
+      .populate('reviewer', 'name')
       .lean()
       .exec();
     if (!r) throw new NotFoundException('Review not found');
+    // An admin approved a held review: the reviewer hears it is live, the agent hears about the review.
+    if (status === 'published' && r.status === 'pending') {
+      const agentId = String(r.agent);
+      this.pushEvents?.reviewApproved({ reviewerId: String(r.reviewer?._id ?? r.reviewer), agentId, agentPath: `/agents/${agentId}` });
+      this.pushEvents?.reviewLive({ agentId, reviewerName: r.reviewer?.name, rating: r.rating, text: String(r.text || ''), agentPath: `/agents/${agentId}` });
+    }
     return { ok: true, status };
   }
 }

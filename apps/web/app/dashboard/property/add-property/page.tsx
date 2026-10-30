@@ -453,6 +453,9 @@ export default function AddProperty() {
         });
       }
 
+      // "Know the moment it's live": offered on the next page.
+      if (!asDraft) void import("@/lib/push-client").then((m) => m.askForPush("post"));
+
       // Redirect to dashboard after a short delay
       setTimeout(() => {
         router.push("/dashboard/property");

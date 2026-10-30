@@ -18,6 +18,7 @@ import { marlaNote, sizeIn } from '@/lib/area-units';
 import { cameFrom } from '@/lib/nav-memory';
 import { agentDisplayName, agentProfilePath } from '@/lib/agent';
 import { trackContact, trackView } from '@/lib/analytics';
+import { askForPush, rememberListing } from '@/lib/push-client';
 import { maskPhone } from '@/lib/auth-intent';
 import { FEATURE_GROUPS } from '@/lib/property-features';
 import { resolved, waDigits } from '@/lib/site-settings';
@@ -147,6 +148,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
     if (!numberShown) {
       setNumberShown(true);
       trackContact(backendProperty?._id, 'phone');
+      askForPush('contact');
       return;
     }
     window.location.href = `tel:${property?.contactNumber ?? ''}`;
@@ -159,6 +161,7 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
 
   const openWhatsApp = useCallback(() => {
     trackContact(backendProperty?._id, 'whatsapp');
+    askForPush('contact');
     window.open(waLink(), '_blank');
   }, [backendProperty?._id, waLink]);
 
@@ -281,6 +284,9 @@ const PropertyDetail = ({ slug, initialProperty }: { slug?: string; initialPrope
   // One view per visitor per session, counted when the listing is known.
   useEffect(() => {
     trackView(backendProperty?._id);
+    // For "new in your area" and price-drop alerts: what this device looks at (kept on the device).
+    const a = backendProperty?.area && typeof backendProperty.area === 'object' ? backendProperty.area : null;
+    rememberListing({ id: backendProperty?._id, areaId: a?._id, area: a?.name, cityId: a?.city?._id, purpose: backendProperty?.listingType, type: backendProperty?.propertyType });
   }, [backendProperty?._id]);
 
   // No link when the poster's plan has no profile page.

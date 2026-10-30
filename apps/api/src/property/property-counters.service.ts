@@ -1,4 +1,5 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, Optional } from '@nestjs/common';
+import { PushEventsService } from '../push/push-events.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Property } from '@rent-ghar/db/schemas/property.schema';
@@ -51,6 +52,7 @@ export class PropertyCountersService implements OnModuleDestroy {
   constructor(
     @InjectModel(Property.name) private readonly propertyModel: Model<Property>,
     private readonly cache: RedisCacheService,
+    @Optional() private readonly pushEvents?: PushEventsService,
   ) {}
 
   /**
@@ -146,6 +148,17 @@ export class PropertyCountersService implements OnModuleDestroy {
 
       try {
         await this.propertyModel.bulkWrite(operations, { ordered: false });
+        // Views milestones ("100 people viewed your listing"): the totals after this flush.
+        const viewed = [...batch.entries()].filter(([, inc]) => inc.views).map(([id, inc]) => [id, inc.views!] as const);
+        if (viewed.length && this.pushEvents) {
+          const added = new Map(viewed);
+          const docs = await this.propertyModel
+            .find({ _id: { $in: viewed.map(([id]) => new Types.ObjectId(id)) }, status: 'approved' })
+            .select('title slug owner views')
+            .lean()
+            .exec();
+          this.pushEvents.viewsCounted(docs.map((d: any) => ({ _id: d._id, title: d.title, slug: d.slug, owner: d.owner, views: Number(d.views) || 0, added: added.get(String(d._id)) || 0 })));
+        }
       } catch (error) {
         // Counters are loss-tolerant: log and move on rather than retrying
         // into a growing backlog.

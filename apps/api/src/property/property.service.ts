@@ -1,5 +1,6 @@
+import { PushEventsService } from '../push/push-events.service';
 import { AgencyService } from '../agency/agency.service';
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Optional } from '@nestjs/common';
 import { Property } from '@rent-ghar/db/schemas/property.schema'
 import { ListingBrainService } from './listing-brain.service'
 import { DiscordService, DISCORD_COLORS } from '../notify/discord.service';
@@ -160,6 +161,7 @@ export class PropertyService {
         private readonly revalidate: RevalidateService,
         private readonly siteSettings: SiteSettingsService,
         private readonly agency: AgencyService,
+        @Optional() private readonly pushEvents?: PushEventsService,
     ) {}
 
     /**
@@ -186,6 +188,29 @@ export class PropertyService {
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-+|-+$/g, '');
       }
+
+    /**
+     * The address of a listing created from now on: its title, then its id —
+     * "5-marla-house-for-sale-in-johar-town-6ae2f3e8ce28c57651ac5259". The id
+     * makes it unique without "-1", "-2" counters, and keeps the page findable
+     * if the title (and so the slug) changes later. Listings made before this
+     * keep the address they have: those URLs are ranked.
+     */
+    static idSlug(title: string, id: string | Types.ObjectId): string {
+        const base = String(title || '')
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 90)
+          .replace(/-+$/g, '');
+        return base ? `${base}-${String(id)}` : String(id);
+    }
+
+    /** A slug of the new kind ends with the listing's own id. */
+    static hasIdSlug(slug: string | undefined | null, id: string | Types.ObjectId): boolean {
+        return !!slug && slug.endsWith(String(id));
+    }
 
     private async generateUniqueSlug(baseSlug: string, excludeId?: string): Promise<string> {
         if (!baseSlug) return '';
@@ -372,12 +397,16 @@ export class PropertyService {
           }
         }
 
-        const baseSlug = dto.slug ? this.toSlug(dto.slug) : (dto.title ? this.toSlug(dto.title) : undefined);
-        const slug = baseSlug ? await this.generateUniqueSlug(baseSlug) : undefined;
+        // The id is made here, so the address can carry it: title + id (see idSlug).
+        const newId = new Types.ObjectId();
+        const slug = dto.slug
+          ? await this.generateUniqueSlug(this.toSlug(dto.slug)) // an address the admin typed is kept as typed
+          : PropertyService.idSlug(dto.title || '', newId);
         
         try {
             // Convert string values from FormData to proper types
             const property = new this.propertyModel({
+              _id: newId,
               listingType: dto.listingType,
               propertyType: dto.propertyType,
               area: dto.area, // Area ID (ObjectId as string, Mongoose will convert)
@@ -440,6 +469,7 @@ export class PropertyService {
             }
 
             this.announceNewListing(saved, brainVerdict, userId);
+            if (saved.status === 'pending') this.pushEvents?.listingHeld(saved);
 
             return saved;
         } catch (error) {
@@ -1493,10 +1523,17 @@ export class PropertyService {
         // every approved property and wrote slugs for any that lacked one.
         // That made an unknown slug — including one typed by a crawler — cost a
         // full collection scan plus writes, on an uncacheable 404 path.
-        const property = await this.propertyModel
+        let property = await this.propertyModel
           // An expired listing's page still answers (with a notice): the URL may be ranked.
           .findOne({ slug: normalizedSlug, status: { $in: ['approved', 'expired'] } })
           .exec();
+        // A title + id address whose title part is out of date (the title was edited, or the
+        // link was mistyped): the id finds the listing; the page redirects to its current address.
+        const idPart = /([0-9a-f]{24})$/.exec(normalizedSlug)?.[1];
+        if (!property && idPart) {
+          const byId = await this.propertyModel.findOne({ _id: new Types.ObjectId(idPart), status: { $in: ['approved', 'expired'] } }).exec();
+          if (byId && PropertyService.hasIdSlug(byId.slug, byId._id)) property = byId;
+        }
         if (!property) {
           throw new NotFoundException(`Property with slug ${slug} not found`)
         }
@@ -1575,6 +1612,7 @@ export class PropertyService {
         const restart = status === 'approved'
           ? await this.propertyModel.exists({ _id: id, expiresAt: { $ne: null, $lt: soon } })
           : null;
+        const was = (await this.propertyModel.findById(id).select('status').lean().exec())?.status;
         const property = await this.propertyModel
           .findByIdAndUpdate(
             id,
@@ -1582,6 +1620,7 @@ export class PropertyService {
             { new: true },
           )
           .exec();
+        if (property && userRole === 'ADMIN') this.pushEvents?.listingStatus(property.toObject(), was);
 
         if (property && property.status === 'approved' && property.slug) {
             const host = this.configService.get<string>('APP_HOST') || 'propertydealer.pk';
@@ -1833,16 +1872,17 @@ export class PropertyService {
             // Explicitly requested a new slug
             const baseSlug = this.toSlug(dto.slug);
             updateData.slug = await this.generateUniqueSlug(baseSlug, id);
-          } else if (dto.title && dto.title !== property.title) {
-            // Title has changed, update the slug based on the new title
-            const baseSlug = this.toSlug(dto.title);
-            updateData.slug = await this.generateUniqueSlug(baseSlug, id);
+          } else if (dto.title && dto.title !== property.title && PropertyService.hasIdSlug(property.slug, property._id)) {
+            // A title + id address follows the new title and keeps the id; the old address
+            // still finds the listing by its id and redirects (findPropertyBySlug).
+            updateData.slug = PropertyService.idSlug(dto.title, property._id);
           } else if (!property.slug && dto.title) {
             // Only generate from title if the property somehow lacks a slug
             const baseSlug = this.toSlug(dto.title);
             updateData.slug = await this.generateUniqueSlug(baseSlug, id);
           }
-          // Otherwise, we maintain the existing slug.
+          // Otherwise the address stays as it is — a listing made before title + id addresses keeps
+          // its URL even when its title is edited: those URLs are ranked and shared.
 
           // Only update photos if new ones are provided
           if (mainPhotoUrl) {
@@ -1948,7 +1988,9 @@ export class PropertyService {
             }
           }
 
+          const oldPrice = property.price;
           const updatedProperty = await this.propertyModel.findByIdAndUpdate(id, updateData, { new: true }).exec();
+          if (updatedProperty) this.pushEvents?.priceChanged(updatedProperty.toObject(), oldPrice);
 
           // Bust caches if the listing is (or just became) publicly visible.
           if (updatedProperty?.status === 'approved' || property.status === 'approved') {

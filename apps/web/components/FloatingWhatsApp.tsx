@@ -21,7 +21,7 @@ export default function FloatingWhatsApp() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Chat on WhatsApp"
-      className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-3 z-40 grid h-13 w-13 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_8px_24px_-6px_rgba(37,211,102,0.6)] transition-transform hover:scale-105 md:bottom-6 md:right-6"
+      className="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-[14px] z-40 grid h-13 w-13 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_8px_24px_-6px_rgba(37,211,102,0.6)] transition-transform hover:scale-105 md:bottom-[6.5rem] md:right-[26px]"
       style={{ height: 52, width: 52 }}
     >
       <svg viewBox="0 0 24 24" className="h-7 w-7 fill-current" aria-hidden>

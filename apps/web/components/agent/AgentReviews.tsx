@@ -437,6 +437,7 @@ function ReviewDialog({
         toast.success(mine ? "Your review is updated and live" : "Thank you — your review is live");
       }
       onSaved(saved);
+      void import("@/lib/push-client").then((m) => m.askForPush("review"));
     } catch (e) {
       toast.error(apiErrorMessage(e, "Could not save your review"));
     } finally {

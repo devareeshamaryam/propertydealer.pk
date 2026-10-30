@@ -683,3 +683,24 @@ a[class*="footerAction"] {
   box-shadow: 0 0 0 1px var(--primary); cursor: grab;
 }
 .tool-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 1px var(--primary), 0 0 0 5px color-mix(in srgb, var(--primary) 25%, transparent); }
+
+/* ── Site assistant (components/assistant/AssistantWidget.tsx) ── */
+@keyframes assistant-open { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes assistant-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes assistant-pop { 0% { opacity: 0; transform: translateY(8px) scale(0.95); } 100% { opacity: 1; transform: none; } }
+@keyframes assistant-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.assistant-open { animation: assistant-open 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: bottom right; }
+.assistant-fade { animation: assistant-fade 0.25s ease-out; }
+.assistant-pop { animation: assistant-pop 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.assistant-shimmer {
+  background: linear-gradient(90deg, #64748b 0%, #64748b 40%, #cbd5e1 50%, #64748b 60%, #64748b 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: assistant-shimmer 1.8s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-open, .assistant-fade, .assistant-pop, .assistant-shimmer { animation: none; }
+  .assistant-shimmer { color: #64748b; }
+}

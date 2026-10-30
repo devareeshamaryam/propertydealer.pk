@@ -38,6 +38,8 @@ import { TileCategoryModule } from './tile-category/tile-category.module';
 import { MediaModule } from './media/media.module';
 import { ReportModule } from './report/report.module';
 import { ReviewModule } from './review/review.module';
+import { PushModule } from './push/push.module';
+import { AssistantModule } from './assistant/assistant.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { ListingApiModule } from './listing-api/listing-api.module';
 import { SiteSettingsModule } from './site-settings/site-settings.module';
@@ -169,6 +171,8 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     MediaModule,
     ReportModule,
     ReviewModule,
+    PushModule,
+    AssistantModule,
     PaymentMethodModule,
     ListingApiModule,
     SiteSettingsModule,

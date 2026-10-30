@@ -4,6 +4,7 @@ import MobileNav from "@/components/MobileNav";
 import { CartProvider } from "@/components/shop/CartProvider";
 import CartSheet from "@/components/shop/CartSheet";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
+import AssistantWidget from "@/components/assistant/AssistantWidget";
 import { OtherPagesAdZone } from "@/components/ads/AdSlot";
 
 export default function PagesLayout({
@@ -31,6 +32,7 @@ export default function PagesLayout({
       <MobileNav />
       <CartSheet />
       <FloatingWhatsApp />
+      <AssistantWidget />
       </div>
     </CartProvider>
   );
