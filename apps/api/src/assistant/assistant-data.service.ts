@@ -197,6 +197,21 @@ export class AssistantDataService {
     return [...m.values()];
   }
 
+  /** Every city on the site, the ones with most listings first — for the chat's city pickers. */
+  async cities() {
+    const [docs, withAreas] = await Promise.all([
+      this.properties.db.collection('cities').find({}, { projection: { name: 1 } }).toArray(),
+      this.cityList(),
+    ]);
+    const count = new Map(withAreas.map((c) => [c._id, c.listings]));
+    return {
+      cities: docs
+        .map((c: any) => ({ name: titleCase(String(c.name || '').trim()), listings: count.get(String(c._id)) || 0 }))
+        .filter((c) => c.name)
+        .sort((a, b) => b.listings - a.listings || a.name.localeCompare(b.name)),
+    };
+  }
+
   /** Places matching what a person typed — areas, societies, phases and cities. */
   async places(q: string, city?: string) {
     const { rows } = await this.allAreas();

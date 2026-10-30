@@ -8,7 +8,7 @@ import { AssistantDataService, type SearchInput } from './assistant-data.service
  * server (apps/web/app/assistant/chat), which calls these.
  */
 @Controller('assistant')
-@Throttle({ default: { limit: 120, ttl: 60_000 } })
+@Throttle({ medium: { limit: 120, ttl: 60_000 } })
 export class AssistantController {
   constructor(private readonly data: AssistantDataService) {}
 
@@ -16,6 +16,12 @@ export class AssistantController {
   @Header('Cache-Control', 'public, max-age=60')
   places(@Query('q') q = '', @Query('city') city?: string) {
     return this.data.places(String(q).slice(0, 120), city ? String(city).slice(0, 60) : undefined);
+  }
+
+  @Get('cities')
+  @Header('Cache-Control', 'public, max-age=300')
+  cities() {
+    return this.data.cities();
   }
 
   @Get('guides')

@@ -15,8 +15,11 @@ export interface DealerCard {
   avatarUrl: string;
   coverUrl: string;
   address: string;
-  phone: string;
-  whatsapp: string;
+  /** Not in the public lists (see DealerContact): only hasPhone / hasWhatsapp. */
+  phone?: string;
+  whatsapp?: string;
+  hasPhone?: boolean;
+  hasWhatsapp?: boolean;
   experienceYears: number;
   listings: number;
   verified: boolean;

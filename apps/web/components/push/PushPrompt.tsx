@@ -4,7 +4,8 @@
  * Asks visitors to allow notifications the way large sites do:
  *   - our own card first; the browser's permission dialog appears only after
  *     "Allow", so a "Not now" never blocks the site for good;
- *   - never on the first page, not straight away (admin: page views + delay),
+ *   - as soon as someone arrives (about 3 seconds in, once the page is up),
+ *     on the first page too — most people open only one page;
  *     never on excluded pages (dashboard, sign-in…), "Not now" snoozes it;
  *   - right after a useful moment — posting a listing, calling an agent,
  *     writing a review, or browsing several listings — with words for that
@@ -48,6 +49,8 @@ export default function PushPrompt() {
   const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The page last counted, so a re-render (sign-in finishing) doesn't count it twice. */
+  const counted = useRef<string>("");
 
   useEffect(() => {
     void getPushConfigClient().then(setCfg);
@@ -71,21 +74,29 @@ export default function PushPrompt() {
     return support;
   }, [cfg]);
 
-  // The general ask: after N page views and a few seconds on the page.
+  // The general ask: a few seconds after arriving.
   useEffect(() => {
     if (!cfg || isLoading) return;
-    const views = Number(read(LS.views) || 0) + 1;
-    write(LS.views, String(views));
+    let views = Number(read(LS.views) || 0);
+    if (counted.current !== pathname) {
+      counted.current = pathname;
+      views += 1;
+      write(LS.views, String(views));
+    }
     if (timer.current) clearTimeout(timer.current);
     const support = canAsk();
     if (!support || excluded(pathname) || ask) return;
-    if (Date.now() < Number(read(LS.snooze) || 0) || views < cfg.prompt.minPageViews) return;
-    timer.current = setTimeout(() => {
+    if (Date.now() < Number(read(LS.snooze) || 0)) return;
+
+    const show = () => {
       if (document.visibilityState !== "visible") return;
       // Someone who has been opening listings hears about alerts for their area.
-      const copy = viewedCount() >= 3 ? cfg.prompt.contexts.browse || cfg.prompt : cfg.prompt;
-      setAsk({ title: copy.title, body: copy.body, source: viewedCount() >= 3 ? "browse" : "prompt", ios: support === "ios-install" });
-    }, Math.max(0, cfg.prompt.delaySec) * 1000);
+      const browsing = viewedCount() >= 3;
+      const copy = browsing ? cfg.prompt.contexts.browse || cfg.prompt : cfg.prompt;
+      setAsk({ title: copy.title, body: copy.body, source: browsing ? "browse" : "prompt", ios: support === "ios-install" });
+    };
+    // Right after they arrive — a few seconds in, once the page is up — on the first page too.
+    timer.current = setTimeout(show, Math.min(3000, Math.max(1500, cfg.prompt.delaySec * 1000)));
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
@@ -144,41 +155,41 @@ export default function PushPrompt() {
       role="dialog"
       aria-live="polite"
       aria-label={ask.title}
-      className="fixed bottom-[calc(env(safe-area-inset-bottom)+9.5rem)] left-3 right-3 z-[70] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl sm:bottom-5 sm:left-5 sm:right-auto sm:w-[380px]"
+      className="assistant-pop fixed left-1/2 top-[max(0.75rem,env(safe-area-inset-top))] z-[95] w-[calc(100%-1.5rem)] max-w-[360px] -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 shadow-[0_10px_30px_-10px_rgba(15,23,42,0.35)]"
     >
-      <button type="button" onClick={later} aria-label="Close" className="absolute right-2.5 top-2.5 rounded-full p-1.5 text-slate-400 hover:bg-slate-100">
-        <X className="h-4 w-4" />
-      </button>
-      <div className="flex gap-3 pr-6">
-        <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-xl bg-primary/10">
+      <div className="flex items-start gap-2.5">
+        <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-primary/10">
           {cfg.icon ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={cfg.icon} alt="" className="h-9 w-9 object-contain" />
+            <img src={cfg.icon} alt="" className="h-7 w-7 object-contain" />
           ) : (
-            <Bell className="h-5 w-5 text-primary" />
+            <Bell className="h-4 w-4 text-primary" />
           )}
         </div>
-        <div className="min-w-0">
-          <p className="text-[14.5px] font-semibold leading-snug text-slate-900">{ask.title}</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-slate-600">{ask.body}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] font-semibold leading-snug text-slate-900">{ask.title}</p>
+          <p className="mt-0.5 line-clamp-3 text-[12.5px] leading-snug text-slate-500">{ask.body}</p>
         </div>
+        <button type="button" onClick={later} aria-label="Close" className="-mr-1 -mt-1 rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <X className="h-4 w-4" />
+        </button>
       </div>
       {ask.ios ? (
-        <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 text-[12.5px] leading-relaxed text-slate-600">
-          On iPhone: tap <Share className="-mt-0.5 inline h-3.5 w-3.5" /> <b>Share</b>, then <b>Add to Home Screen</b>. Open {cfg.siteName} from your Home Screen and turn notifications on there.
+        <p className="mt-2.5 rounded-lg bg-slate-50 px-2.5 py-2 text-[12px] leading-snug text-slate-600">
+          On iPhone: tap <Share className="-mt-0.5 inline h-3 w-3" /> <b>Share</b> → <b>Add to Home Screen</b>, then open {cfg.siteName} from there to turn notifications on.
         </p>
       ) : (
-        <div className="mt-3.5 flex gap-2">
-          <button type="button" onClick={later} className="h-10 flex-1 rounded-xl border border-slate-200 text-[14px] font-semibold text-slate-600 hover:bg-slate-50">
+        <div className="mt-2.5 flex justify-end gap-2">
+          <button type="button" onClick={later} className="h-8 rounded-lg px-3 text-[13px] font-medium text-slate-500 hover:bg-slate-100">
             {cfg.prompt.later}
           </button>
           <button
             type="button"
             onClick={() => void allow()}
             disabled={busy}
-            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-[14px] font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
+            className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-primary px-3.5 text-[13px] font-semibold text-white hover:bg-primary/90 disabled:opacity-60"
           >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />} {cfg.prompt.allow}
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Bell className="h-3.5 w-3.5" />} {cfg.prompt.allow}
           </button>
         </div>
       )}

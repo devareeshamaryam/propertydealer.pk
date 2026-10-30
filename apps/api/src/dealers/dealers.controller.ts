@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import {
@@ -46,6 +47,19 @@ export class DealersController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   saveSettings(@Body() body: Partial<DealerSettings>) {
     return this.dealers.saveSettings(body ?? {});
+  }
+
+  /**
+   * One dealer's phone and WhatsApp, asked for when someone taps Call or
+   * WhatsApp. The lists leave numbers out so they can't be collected in bulk;
+   * this gives them one at a time, a few a minute per visitor, never cached.
+   */
+  @Get('contact/:id')
+  @Throttle({ medium: { limit: 12, ttl: 60_000 } })
+  @Header('Cache-Control', 'no-store')
+  @Header('X-Robots-Tag', 'noindex')
+  contact(@Param('id') id: string) {
+    return this.dealers.contact(String(id).slice(0, 40));
   }
 
   /** One city: its text, agencies, and a page of agents (?page=2). */

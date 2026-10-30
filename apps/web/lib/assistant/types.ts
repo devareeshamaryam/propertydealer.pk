@@ -53,6 +53,8 @@ export type Visual = { q?: Record<string, any> } & (
       stages: { stage: string; cost: string; amount: number }[];
       link: string;
       input: { marla: number; floors: number; city: string };
+      /** Cities the calculator has rates for. */
+      cities?: string[];
     }
   | {
       kind: "market";

@@ -11,8 +11,50 @@ import { ArrowRight, BadgeCheck, Building2, ChevronRight, FileText, Loader2, Map
 import { cn } from "@/lib/utils";
 import type { ConstructionPrefill, SearchPrefill, Visual } from "@/lib/assistant/types";
 
+/** Used only until the live list arrives (or if it can't be loaded). */
 export const CITIES = ["Lahore", "Karachi", "Islamabad", "Rawalpindi", "Faisalabad", "Multan", "Peshawar", "Gujranwala", "Sialkot", "Bahawalpur", "Hyderabad", "Quetta"];
-const BUILD_CITIES = ["Lahore", "Karachi", "Islamabad", "Rawalpindi"];
+
+/* The site's own city lists, loaded once per visit and shared by every picker. */
+let siteCities: Promise<string[]> | null = null;
+let buildCities: Promise<string[]> | null = null;
+function loadList(url: string, pick: (j: any) => string[]): Promise<string[]> {
+  return fetch(url)
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      const list = j ? pick(j).filter(Boolean) : [];
+      return list.length ? [...new Set(list)] : CITIES;
+    })
+    .catch(() => CITIES);
+}
+function useList(get: () => Promise<string[]>): string[] {
+  const [list, setList] = useState<string[]>(CITIES);
+  useEffect(() => {
+    let on = true;
+    void get().then((l) => on && setList(l));
+    return () => {
+      on = false;
+    };
+  }, [get]);
+  return list;
+}
+const getSiteCities = () => (siteCities ??= loadList("/api/assistant/cities", (j) => (j.cities || []).map((c: any) => String(c.name))));
+const getBuildCities = () => (buildCities ??= loadList("/api/tools/construction", (j) => (j.config?.cities || []).map((c: any) => String(c.name))));
+/** Every city on the site, busiest first. */
+export const useCities = () => useList(getSiteCities);
+/** Cities the construction calculator has rates for. */
+const useBuildCities = () => useList(getBuildCities);
+
+/** A city dropdown; the chosen city stays in the list even if it isn't in it. */
+function CityDropdown({ value, list, onChange, disabled, className }: { value: string; list: string[]; onChange: (c: string) => void; disabled?: boolean; className?: string }) {
+  const all = value && !list.some((c) => c.toLowerCase() === value.toLowerCase()) ? [value, ...list] : list;
+  return (
+    <select value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} aria-label="City" className={className}>
+      {all.map((c) => (
+        <option key={c}>{c}</option>
+      ))}
+    </select>
+  );
+}
 
 type V<K extends Visual["kind"]> = Extract<Visual, { kind: K }>;
 
@@ -241,6 +283,7 @@ export function ConstructionCard({
   onChange: (args: { plot_marla: number; floors: number; city: string; kind: string; quality: string }) => void;
 }) {
   const inp = card.input || { marla: 5, floors: 2, city: card.city };
+  const buildList = useBuildCities();
   const run = (p: Partial<{ marla: number; floors: number; city: string; sel: string }>) => {
     const sel = p.sel ?? card.selected;
     onChange({
@@ -261,17 +304,13 @@ export function ConstructionCard({
         <Pills value={inp.marla} options={PLOTS} onChange={(m) => run({ marla: m })} disabled={busy} />
         <div className="flex flex-wrap items-center gap-2">
           <Pills value={inp.floors} options={FLOORS} onChange={(f) => run({ floors: f })} disabled={busy} />
-          <select
+          <CityDropdown
             value={inp.city}
+            list={card.cities?.length ? card.cities : buildList}
             disabled={busy}
-            onChange={(e) => run({ city: e.target.value })}
-            aria-label="City"
+            onChange={(c) => run({ city: c })}
             className="h-9 rounded-full border border-slate-200 bg-white px-3 text-[14.5px] font-medium text-slate-700 outline-none focus:border-primary"
-          >
-            {(BUILD_CITIES.includes(inp.city) ? BUILD_CITIES : [inp.city, ...BUILD_CITIES]).map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+          />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 p-2.5">
@@ -470,18 +509,14 @@ function PlaceInput({ city, value, onChange }: { city: string; value: { text: st
 }
 
 function CitySelect({ value, onChange }: { value: string; onChange: (c: string) => void }) {
-  const list = value && !CITIES.includes(value) ? [value, ...CITIES] : CITIES;
+  const list = useCities();
   return (
-    <select
+    <CityDropdown
       value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label="City"
+      list={list}
+      onChange={onChange}
       className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[16px] text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
-    >
-      {list.map((c) => (
-        <option key={c}>{c}</option>
-      ))}
-    </select>
+    />
   );
 }
 
@@ -673,6 +708,7 @@ export function ConstructionForm({ prefill, onSubmit, disabled }: { prefill?: Co
   const [marla, setMarla] = useState(prefill?.marla || 5);
   const [floors, setFloors] = useState(prefill?.floors || 2);
   const [city, setCity] = useState(prefill?.city || "Lahore");
+  const buildList = useBuildCities();
   return (
     <Shell>
       <div className="space-y-3 p-3.5">
@@ -683,7 +719,12 @@ export function ConstructionForm({ prefill, onSubmit, disabled }: { prefill?: Co
           <Pills value={floors} options={FLOORS} onChange={setFloors} />
         </Field>
         <Field label="City">
-          <Pills value={city} options={BUILD_CITIES.map((c) => ({ v: c, label: c }))} onChange={setCity} />
+          <CityDropdown
+            value={city}
+            list={buildList}
+            onChange={setCity}
+            className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[16px] text-slate-900 outline-none focus:border-primary focus:ring-2 focus:ring-primary/15"
+          />
         </Field>
         <button
           type="button"
@@ -713,6 +754,7 @@ function DealerPhoto({ src, name }: { src: string; name: string }) {
 }
 
 export function AgentsCard({ card, busy, onCity }: { card: V<"agents">; busy?: boolean; onCity: (city: string) => void }) {
+  const cities = useCities();
   return (
     <Shell>
       {busy && <Busy />}
@@ -720,17 +762,13 @@ export function AgentsCard({ card, busy, onCity }: { card: V<"agents">; busy?: b
         title={`Property dealers in ${card.city}`}
         sub={card.total ? `${card.total.toLocaleString("en-PK")} on the site · verified first` : undefined}
         right={
-          <select
+          <CityDropdown
             value={card.city}
+            list={cities}
             disabled={busy}
-            onChange={(e) => onCity(e.target.value)}
-            aria-label="City"
-            className="h-9 shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-[14px] font-medium text-slate-700 outline-none focus:border-primary"
-          >
-            {(CITIES.includes(card.city) ? CITIES : [card.city, ...CITIES]).map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </select>
+            onChange={onCity}
+            className="h-9 max-w-[130px] shrink-0 rounded-lg border border-slate-200 bg-white px-2 text-[14px] font-medium text-slate-700 outline-none focus:border-primary"
+          />
         }
       />
       {!card.items.length ? (

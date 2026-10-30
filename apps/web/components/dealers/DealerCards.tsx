@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { photo } from '@/lib/img';
-import { dealerHref, waNumber, type DealerCard } from '@/lib/dealers';
+import { dealerHref, type DealerCard } from '@/lib/dealers';
+import { DealerContact } from './DealerContact';
 import { cn } from '@/lib/utils';
 
 /*
@@ -86,37 +87,6 @@ export function VerifiedBadge() {
   );
 }
 
-function Contact({ d, small }: { d: DealerCard; small?: boolean }) {
-  const wa = waNumber(d.whatsapp || d.phone);
-  const tel = String(d.phone || d.whatsapp || '').replace(/[^\d+]/g, '');
-  const h = small ? 'h-9 px-3 text-[13.5px]' : 'h-10 px-3.5 text-[14px]';
-  return (
-    <div className="relative z-20 flex gap-2">
-      {tel && (
-        <a href={`tel:${tel}`} className={cn('inline-flex flex-1 items-center justify-center gap-1.5 rounded-md border border-slate-400 bg-white font-semibold text-slate-900 hover:border-slate-900', h)} aria-label={`Call ${d.name}`}>
-          <PhoneGlyph className="h-4 w-4" /> Call
-        </a>
-      )}
-      {wa && (
-        <a
-          href={`https://wa.me/${wa}`}
-          target="_blank"
-          rel="noopener noreferrer nofollow"
-          className={cn('inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-[#1a9e52] font-semibold text-white hover:bg-[#15843f]', h)}
-          aria-label={`WhatsApp ${d.name}`}
-        >
-          <WhatsAppGlyph className="h-4 w-4" /> WhatsApp
-        </a>
-      )}
-      {!tel && !wa && (
-        <Link href={dealerHref(d)} className={cn('inline-flex flex-1 items-center justify-center rounded-md border border-slate-400 bg-white font-semibold text-slate-900', h)}>
-          View profile
-        </Link>
-      )}
-    </div>
-  );
-}
-
 const n = (v: number) => v.toLocaleString('en-PK');
 
 /* ── Cards ── */
@@ -168,7 +138,7 @@ export function AgencyCard({ d, city }: { d: DealerCard; city?: { name: string; 
           )}
         </p>
         <div className="mt-auto">
-          <Contact d={d} />
+          <DealerContact d={d} />
         </div>
       </div>
     </article>
@@ -210,7 +180,7 @@ export function AgentRow({ d }: { d: DealerCard }) {
         {d.experienceYears > 0 && <span>{d.experienceYears}+ yrs experience</span>}
       </div>
       <div className="sm:w-[220px] sm:shrink-0">
-        <Contact d={d} small />
+        <DealerContact d={d} small />
       </div>
     </li>
   );

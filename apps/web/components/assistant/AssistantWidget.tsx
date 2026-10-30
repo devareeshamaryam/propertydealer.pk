@@ -552,15 +552,30 @@ export default function AssistantWidget() {
             </button>
           </div>
         )}
-        <button
-          type="button"
-          onClick={() => setOpen((o) => !o)}
-          aria-label={open ? "Close chat" : "Chat with us"}
-          aria-expanded={open}
-          className="grid h-[60px] w-[60px] place-items-center rounded-full bg-primary text-white shadow-[0_6px_24px_-6px_rgba(15,23,42,0.5)] transition-transform hover:scale-[1.04] active:scale-95"
-        >
-          {open ? <ChevronDown className="h-7 w-7" /> : <ChatIcon />}
-        </button>
+        <div className="relative">
+          {/* "CHAT NOW" curving round the top-right of the button. */}
+          {!open && (
+            <svg viewBox="0 0 100 100" aria-hidden className="pointer-events-none absolute -left-5 -top-5 h-[100px] w-[100px] overflow-visible">
+              <defs>
+                <path id="pd-chat-ring" d="M 13,50 A 37,37 0 1,1 87,50 A 37,37 0 1,1 13,50" />
+              </defs>
+              <text className="fill-primary" style={{ fontSize: 14, fontWeight: 800, letterSpacing: 1.4, paintOrder: "stroke", stroke: "#fff", strokeWidth: 3.5, strokeLinejoin: "round" }}>
+                <textPath href="#pd-chat-ring" startOffset="37.5%" textAnchor="middle">
+                  CHAT NOW
+                </textPath>
+              </text>
+            </svg>
+          )}
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-label={open ? "Close chat" : "Chat now"}
+            aria-expanded={open}
+            className="relative grid h-[60px] w-[60px] place-items-center rounded-full bg-primary text-white shadow-[0_6px_24px_-6px_rgba(15,23,42,0.5)] transition-transform hover:scale-[1.04] active:scale-95"
+          >
+            {open ? <ChevronDown className="h-7 w-7" /> : <ChatIcon />}
+          </button>
+        </div>
       </div>
 
       {open && (

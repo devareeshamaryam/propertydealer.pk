@@ -119,6 +119,18 @@ type Directory = {
   cities: Record<string, { agencies: DealerCard[]; agents: DealerCard[] }>;
 };
 
+/**
+ * A dealer as the public lists show it: without their phone and WhatsApp
+ * numbers, only whether they have them. Lists are easy to collect in bulk;
+ * a number is given one dealer at a time (contact()), when someone taps Call
+ * or WhatsApp, and that is rate limited.
+ */
+export type PublicDealerCard = Omit<DealerCard, 'phone' | 'whatsapp'> & { hasPhone: boolean; hasWhatsapp: boolean };
+function publicCard(d: DealerCard): PublicDealerCard {
+  const { phone, whatsapp, ...rest } = d;
+  return { ...rest, hasPhone: !!String(phone || '').trim(), hasWhatsapp: !!String(whatsapp || phone || '').trim() };
+}
+
 @Injectable()
 export class DealersService {
   constructor(
@@ -450,8 +462,8 @@ export class DealersService {
       },
       page: text,
       defaults: s.cityDefaults,
-      agencies,
-      agents: agents.slice((p - 1) * size, p * size),
+      agencies: agencies.map(publicCard),
+      agents: agents.slice((p - 1) * size, p * size).map(publicCard),
       total: { agencies: all.agencies.length, agents: all.agents.length },
       /** With a search: how many of each match. */
       found: { agencies: agencies.length, agents: agents.length },
@@ -479,7 +491,17 @@ export class DealersService {
         b.listings - a.listings ||
         a.name.localeCompare(b.name),
     );
-    return { total: rows.length, agencies: rows.slice(0, Math.min(60, Math.max(1, Math.floor(limit) || 24))) };
+    return { total: rows.length, agencies: rows.slice(0, Math.min(60, Math.max(1, Math.floor(limit) || 24))).map((r) => ({ ...publicCard(r), city: r.city })) };
+  }
+
+  /** One listed dealer's phone and WhatsApp — only for a dealer in the public directory. */
+  async contact(id: string): Promise<{ phone: string; whatsapp: string }> {
+    const dir = await this.directory();
+    for (const c of Object.values(dir.cities)) {
+      const d = c.agencies.find((x) => x._id === id) ?? c.agents.find((x) => x._id === id);
+      if (d) return { phone: d.phone || '', whatsapp: d.whatsapp || '' };
+    }
+    throw new NotFoundException('Dealer not found');
   }
 
   /** The admin's view of one city: its text and counts. */

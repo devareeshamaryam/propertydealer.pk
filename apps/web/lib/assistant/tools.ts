@@ -485,7 +485,12 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
       const plan = coveredAreas(plotSqft, { floors, basement: !!a.basement });
       const above = plan.filter((f) => !f.basement).reduce((s, f) => s + f.sqft, 0);
       const below = plan.filter((f) => f.basement).reduce((s, f) => s + f.sqft, 0);
-      const cityName = data.config.cities.find((c) => c.name.toLowerCase() === String(a.city || "").toLowerCase())?.name || data.config.cities[0]?.name || "Lahore";
+      const askedCity = String(a.city || "").trim().toLowerCase();
+      const cityName =
+        data.config.cities.find((c) => c.name.toLowerCase() === askedCity)?.name ||
+        data.config.cities.find((c) => askedCity && (c.name.toLowerCase().startsWith(askedCity) || askedCity.startsWith(c.name.toLowerCase())))?.name ||
+        data.config.cities[0]?.name ||
+        "Lahore";
       const cityFactor = data.config.cities.find((c) => c.name === cityName)?.factor ?? 1;
       const limits = roomLimits(above, floors);
       const bedrooms = Math.min(limits.maxBedrooms, Math.max(1, Number(a.bedrooms) || limits.usualBedrooms));
@@ -580,6 +585,7 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
           stages: e.parts.map((p) => ({ stage: p.title, cost: rs(p.amount), amount: Math.round(p.amount) })),
           link,
           input: { marla, floors, city: cityName },
+          cities: data.config.cities.map((c) => c.name),
         },
       };
     }

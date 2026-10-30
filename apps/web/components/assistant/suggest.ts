@@ -18,8 +18,14 @@ export type Chip = { label: string; action: Action };
 export const SEARCH_INTRO = "Fill in what you know — leave the rest on Any.";
 export const searchForm = (prefill?: SearchPrefill): Visual => ({ kind: "form", form: "search", prefill });
 
-const BUILD_CITIES = ["Lahore", "Karachi", "Islamabad", "Rawalpindi"];
-const DEALER_CITIES = ["Lahore", "Karachi", "Islamabad", "Rawalpindi", "Faisalabad", "Multan", "Peshawar", "Gujranwala", "Sialkot", "Bahawalpur", "Hyderabad", "Quetta", "Sargodha", "Sahiwal", "Okara", "Kasur", "Sheikhupura"];
+/** For reading typed messages only; the pickers load the site's own list. */
+const KNOWN_CITIES = [
+  "Lahore", "Karachi", "Islamabad", "Rawalpindi", "Faisalabad", "Multan", "Peshawar", "Gujranwala", "Sialkot", "Bahawalpur", "Hyderabad", "Quetta",
+  "Sargodha", "Sahiwal", "Okara", "Kasur", "Sheikhupura", "Gujrat", "Jhelum", "Jhang", "Chiniot", "Hafizabad", "Kamoke", "Khanewal", "Burewala",
+  "Dera Ghazi Khan", "Rahim Yar Khan", "Sadiqabad", "Larkana", "Sukkur", "Sakrand", "Wah Cantt", "Wah Cant", "Wah", "Mardan", "Abbottabad",
+  "Bahawalnagar", "Mandi Bahauddin", "Attock", "Chakwal", "Mirpur", "Muzaffarabad", "Gwadar", "Nawabshah", "Vehari", "Pakpattan", "Toba Tek Singh",
+];
+const DEALER_CITIES = KNOWN_CITIES;
 const PLOT_STEPS = [3, 5, 7, 10, 20, 40];
 
 const quick = (label: string, tool: QuickRequest["tool"], args: Record<string, unknown>, say = label): Chip => ({ label, action: { type: "quick", req: { tool, args }, say } });
@@ -147,7 +153,7 @@ export function chipsFor(card: Visual | null | undefined): Chip[] {
         if (mm) push(quick(`${s.size} ${T} ${rent ? "for rent" : "for sale"} here`, "search_listings", { ...scope, purpose: m.purpose, types: a.types, min_marla: mm, max_marla: mm }, `${s.size} ${T} ${rent ? "for rent" : "for sale"} in ${place}`));
       }
       const top = marlaOf(sizes[0]?.size || "");
-      if (top && top <= 40 && !rent) push(quick(`Cost to build ${sizeLabel(top)} house`, "construction_cost", { plot_marla: top, floors: 2, city: BUILD_CITIES.includes(city) ? city : "Lahore" }));
+      if (top && top <= 40 && !rent) push(quick(`Cost to build ${sizeLabel(top)} house`, "construction_cost", { plot_marla: top, floors: 2, city: city || "Lahore" }));
       push({ label: "Compare another area", action: { type: "form", card: { kind: "form", form: "market", prefill: { city } }, say: "Compare another area", intro: "Which area would you like to compare?" } });
       return out;
     }
@@ -236,7 +242,7 @@ export function localRoute(text: string): QuickRequest | null {
     const floors = /\b(single|ek manzil|one storey|1 storey|1 story|single story)\b/.test(t) ? 1 : /\b(triple|teen manzil|3 storey|3 story)\b/.test(t) ? 3 : 2;
     const kind = /\b(grey|gray|structure|dhancha)\b/.test(t) ? "grey" : "complete";
     const quality = /\b(premium|luxury|high end)\b/.test(t) ? "premium" : /\b(economy|sasta|budget|cheap)\b/.test(t) ? "economy" : "standard";
-    const city = BUILD_CITIES.find((c) => t.includes(` ${c.toLowerCase()} `)) || "Lahore";
+    const city = KNOWN_CITIES.find((c) => t.includes(` ${c.toLowerCase()} `)) || "Lahore";
     return { tool: "construction_cost", args: { plot_marla: marla, floors, kind, quality, city } };
   }
   return null;
