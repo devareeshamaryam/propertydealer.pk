@@ -31,7 +31,8 @@ export type SearchPrefill = {
 
 export type ConstructionPrefill = { marla?: number; floors?: number; city?: string };
 
-export type Visual =
+/** Every card keeps the lookup behind it (`q`), so follow-up suggestions can name the exact place, size and item. */
+export type Visual = { q?: Record<string, any> } & (
   | { kind: "listings"; total: number; items: ListingCard[]; moreUrl?: string; moreExact?: boolean; label?: string; priceRange?: { min: string; max: string } | null }
   | {
       kind: "rates";
@@ -68,9 +69,31 @@ export type Visual =
         bySize?: { size: string; listings: number; median: string }[];
       }[];
     }
+  | {
+      kind: "agents";
+      city: string;
+      total: number;
+      items: { name: string; url: string; avatar: string; verified: boolean; listings: number; years: number; isAgency: boolean; agency: string; plan: string }[];
+      moreUrl: string;
+    }
+  | {
+      kind: "society";
+      name: string;
+      city: string;
+      image?: string;
+      tagline?: string;
+      overview?: string;
+      facts: { k: string; v: string }[];
+      amenities: string[];
+      listings: number;
+      links: { page?: string; map?: string; listings: string };
+    }
+  | { kind: "guides"; items: { title: string; url: string; excerpt: string; image: string }[] }
   | { kind: "form"; form: "search"; prefill?: SearchPrefill }
   | { kind: "form"; form: "construction"; prefill?: ConstructionPrefill }
-  | { kind: "form"; form: "market"; prefill?: { city?: string; location?: string } };
+  | { kind: "form"; form: "market"; prefill?: { city?: string; location?: string } }
+  | { kind: "form"; form: "society"; prefill?: { city?: string; location?: string } }
+);
 
 /** A request the chat window can run directly, with no model involved. */
-export type QuickRequest = { tool: "search_listings" | "market_prices" | "material_rates" | "construction_cost"; args: Record<string, unknown> };
+export type QuickRequest = { tool: "search_listings" | "market_prices" | "material_rates" | "construction_cost" | "find_agents" | "society_info"; args: Record<string, unknown> };

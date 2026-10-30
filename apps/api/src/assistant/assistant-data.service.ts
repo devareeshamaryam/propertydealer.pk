@@ -114,6 +114,37 @@ export interface SearchInput {
 @Injectable()
 export class AssistantDataService {
   private areas: { at: number; rows: AreaRow[]; byId: Map<string, AreaRow> } | null = null;
+  private blogs: { at: number; rows: { title: string; slug: string; excerpt: string; image: string; tok: string[] }[] } | null = null;
+
+  /** The site's own articles that answer a question (transfer, taxes, how-to…). */
+  async guides(q: string) {
+    if (!this.blogs || Date.now() - this.blogs.at > 10 * 60_000) {
+      const rows = await this.properties.db
+        .collection('blogs')
+        .find({ status: 'published' }, { projection: { title: 1, slug: 1, excerpt: 1, featuredImage: 1, tags: 1 } })
+        .sort({ createdAt: -1 })
+        .limit(800)
+        .toArray();
+      this.blogs = {
+        at: Date.now(),
+        rows: rows.map((b: any) => ({
+          title: String(b.title || ''),
+          slug: String(b.slug || ''),
+          excerpt: String(b.excerpt || '').slice(0, 170),
+          image: b.featuredImage || '',
+          tok: tokens(`${b.title} ${b.title} ${b.excerpt || ''} ${(b.tags || []).join(' ')}`),
+        })),
+      };
+    }
+    const qt = [...new Set(tokens(q).filter((t) => t.length >= 3))];
+    if (!qt.length) return { guides: [] };
+    const scored = this.blogs.rows
+      .map((b) => ({ b, s: qt.reduce((n, t) => n + (b.tok.includes(t) ? 1 : b.tok.some((x) => x.startsWith(t)) ? 0.5 : 0), 0) }))
+      .filter((x) => x.s >= Math.min(2, qt.length) * 0.75)
+      .sort((x, y) => y.s - x.s)
+      .slice(0, 4);
+    return { guides: scored.map(({ b }) => ({ title: b.title, url: `/blog/${b.slug}`, excerpt: b.excerpt, image: b.image })) };
+  }
 
   constructor(
     @InjectModel(Property.name) private readonly properties: Model<Property>,
@@ -212,8 +243,15 @@ export class AssistantDataService {
               possession: r.guide.possession || '',
               plotSizes: r.guide.plotSizes || '',
               address: r.guide.address || '',
-              amenities: (r.guide.amenities || []).slice(0, 8),
+              amenities: (r.guide.amenities || []).slice(0, 10),
+              image: r.guide.image || '',
+              overview: String(r.guide.overview || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 320),
+              totalArea: r.guide.totalArea || '',
+              launched: r.guide.launched || '',
+              paymentPlan: String(r.guide.paymentPlan || '').slice(0, 160),
+              nearby: (r.guide.nearby || []).slice(0, 5),
               url: `/societies/${slugify(r.city)}/${r.slug}`,
+              mapUrl: `/emap/${slugify(r.city)}`,
             },
           }
         : {}),
@@ -330,7 +368,8 @@ export class AssistantDataService {
       total: list.length,
       capped: rows.length >= 600,
       link,
-      priceRange: prices.length ? { min: pkr(Math.min(...prices)), max: pkr(Math.max(...prices)) } : null,
+      // Most of them, not the extremes: one mistyped price shouldn't stretch the range.
+      priceRange: prices.length ? (prices.length >= 5 ? { min: pkr(pct(prices, 10)), max: pkr(pct(prices, 90)) } : { min: pkr(Math.min(...prices)), max: pkr(Math.max(...prices)) }) : null,
       listings: list.slice(0, limit).map(({ p, m }) => {
         const a = byId.get(String(p.area));
         return {

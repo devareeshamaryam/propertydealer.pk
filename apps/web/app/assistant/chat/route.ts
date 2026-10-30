@@ -1,5 +1,6 @@
 import { TOOL_DEFS, runTool, toolLabel } from "@/lib/assistant/tools";
 import { systemPrompt } from "@/lib/assistant/prompt";
+import { refusal } from "@/lib/assistant/guard";
 
 /**
  * POST /assistant/chat — the site assistant.
@@ -59,7 +60,7 @@ async function complete(messages: Msg[], onText: (d: string) => void, onResetTex
       tools: TOOL_DEFS,
       tool_choice: "auto",
       stream: true,
-      ...(isReasoningModel ? { reasoning_effort: REASONING, max_completion_tokens: 2200 } : { max_tokens: 1200, temperature: 0.35 }),
+      ...(isReasoningModel ? { reasoning_effort: REASONING, max_completion_tokens: 1400 } : { max_tokens: 700, temperature: 0.3 }),
     }),
   });
   if (!res.ok || !res.body) {
@@ -120,12 +121,24 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => null);
   const history: { role: string; content: string }[] = Array.isArray(body?.messages) ? body.messages : [];
-  // The last 14 turns, plain text only, each capped — enough context, a bounded bill.
-  const turns: Msg[] = history
+  // The last 8 turns, plain text only, each capped (older replies shorter still,
+  // tables and all) — enough context to follow the conversation, a small bill.
+  const kept = history
     .filter((m) => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
-    .slice(-14)
-    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content.slice(0, 2000) }));
+    .slice(-8);
+  const turns: Msg[] = kept.map((m, i) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content.replace(/\[\[[^\]]*\]\]/g, "").trim().slice(0, m.role === "user" ? 600 : i >= kept.length - 2 ? 900 : 350) || "(options shown)",
+  }));
   if (!turns.length || turns[turns.length - 1]!.role !== "user") return Response.json({ error: "Say something first." }, { status: 400 });
+
+  // Bulk numbers, personal details, spam, fraud, prompt tricks: answered here, the model never sees them.
+  const no = refusal(turns[turns.length - 1]!.content as string);
+  if (no) {
+    return new Response(JSON.stringify({ t: "text", d: no }) + "\n" + JSON.stringify({ t: "done" }) + "\n", {
+      headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
 
   const page = typeof body?.page === "string" ? body.page.slice(0, 200) : "";
   const messages: Msg[] = [{ role: "system", content: systemPrompt(page) }, ...turns];
@@ -154,7 +167,7 @@ export async function POST(req: Request) {
               try {
                 const r = await runTool(c.name, args);
                 if (r.cards) send({ t: "cards", cards: r.cards });
-                return { id: c.id, content: JSON.stringify(r.forModel).slice(0, 12_000) };
+                return { id: c.id, content: JSON.stringify(r.forModel).slice(0, 5_000) };
               } catch (e: any) {
                 return { id: c.id, content: JSON.stringify({ error: `Could not look that up right now (${String(e?.message || e).slice(0, 80)})` }) };
               }

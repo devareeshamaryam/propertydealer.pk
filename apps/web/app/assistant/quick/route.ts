@@ -11,19 +11,29 @@ import { runTool } from "@/lib/assistant/tools";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set(["search_listings", "market_prices", "material_rates", "construction_cost"]);
+const ALLOWED = new Set(["search_listings", "market_prices", "material_rates", "construction_cost", "find_agents", "society_info"]);
 
-/* Generous per-visitor limit: these are cheap, but not free for the database. */
-const usage = new Map<string, { min: number; n: number }>();
+/*
+ * Per visitor: 20 a minute and 300 a day — far more than a person clicking
+ * through the chat, far too few to scrape the site through it.
+ */
+const usage = new Map<string, { min: number; n: number; day: string; d: number }>();
 function allowed(ip: string): boolean {
   const min = Math.floor(Date.now() / 60_000);
-  const u = usage.get(ip);
-  if (!u || u.min !== min) {
-    usage.set(ip, { min, n: 1 });
-    if (usage.size > 20_000) usage.clear();
-    return true;
+  const day = new Date().toISOString().slice(0, 10);
+  let u = usage.get(ip);
+  if (!u || u.day !== day) {
+    if (usage.size > 50_000) usage.clear();
+    u = { min, n: 0, day, d: 0 };
+    usage.set(ip, u);
   }
-  return ++u.n <= 40;
+  if (u.min !== min) {
+    u.min = min;
+    u.n = 0;
+  }
+  u.n += 1;
+  u.d += 1;
+  return u.n <= 20 && u.d <= 300;
 }
 
 export async function POST(req: Request) {

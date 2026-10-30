@@ -18,6 +18,12 @@ export class AssistantController {
     return this.data.places(String(q).slice(0, 120), city ? String(city).slice(0, 60) : undefined);
   }
 
+  @Get('guides')
+  @Header('Cache-Control', 'public, max-age=120')
+  guides(@Query('q') q = '') {
+    return this.data.guides(String(q).slice(0, 160));
+  }
+
   @Post('search')
   search(@Body() body: SearchInput) {
     return this.data.search(body || {});

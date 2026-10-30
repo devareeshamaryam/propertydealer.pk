@@ -13,14 +13,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, ChevronDown, Hammer, Home, KeyRound, Layers, RotateCcw, SendHorizontal, Square, X } from "lucide-react";
+import { BarChart3, Check, ChevronDown, ChevronRight, Hammer, Home, KeyRound, Landmark, Layers, Loader2, RotateCcw, SendHorizontal, Square, Users, X } from "lucide-react";
 import { useSiteSettings } from "@/components/SiteSettingsProvider";
 import { cn } from "@/lib/utils";
-import type { QuickRequest, SearchPrefill, Visual } from "@/lib/assistant/types";
-import { ConstructionCard, ConstructionForm, ListingsCard, MarketCard, MarketForm, RatesCard, SearchForm } from "./AssistantCards";
+import type { QuickRequest, Visual } from "@/lib/assistant/types";
+import { AgentsCard, ConstructionCard, ConstructionForm, GuidesCard, ListingsCard, MarketCard, MarketForm, RatesCard, SearchForm, SocietyCard, sizeLabel } from "./AssistantCards";
+import { SEARCH_INTRO, chipsFor, localRoute, searchForm, type Action, type Chip } from "./suggest";
+import { refusal } from "@/lib/assistant/guard";
 
-type Action = { type: "send"; text: string } | { type: "quick"; req: QuickRequest; say: string } | { type: "form"; card: Visual; say: string; intro: string };
-type Chip = { label: string; action: Action };
 type Msg = {
   id: string;
   role: "user" | "assistant";
@@ -30,6 +30,8 @@ type Msg = {
   reqs?: (QuickRequest | null)[];
   chips?: Chip[];
   status?: string;
+  /** What the assistant looked up on the way, shown as steps. */
+  steps?: string[];
   error?: boolean;
   done?: boolean;
   busyCard?: number;
@@ -39,18 +41,17 @@ const LS = "pd_assistant_v4";
 const SEEN = "pd_assistant_seen";
 const newId = () => Math.random().toString(36).slice(2, 10);
 
-const GREETING = "Assalam-o-Alaikum! What can I help you with today? Pick an option below or just type your question.";
+const GREETING = "Assalam-o-Alaikum! How can we help you today?";
 
-const SEARCH_INTRO = "Fill in what you know — leave the rest on Any.";
 
-const searchForm = (prefill?: SearchPrefill): Visual => ({ kind: "form", form: "search", prefill });
-
-const START: { title: string; sub: string; icon: React.ComponentType<{ className?: string }>; action: Action }[] = [
-  { title: "Buy a property", sub: "Houses, plots, flats", icon: Home, action: { type: "form", card: searchForm({ purpose: "sale" }), say: "Buy a property", intro: SEARCH_INTRO } },
-  { title: "Rent a property", sub: "Homes, flats, offices", icon: KeyRound, action: { type: "form", card: searchForm({ purpose: "rent" }), say: "Rent a property", intro: SEARCH_INTRO } },
-  { title: "Area prices", sub: "What property costs", icon: BarChart3, action: { type: "form", card: { kind: "form", form: "market" }, say: "Check prices in an area", intro: "Which area would you like to check?" } },
-  { title: "Material rates", sub: "Cement, steel, bricks", icon: Layers, action: { type: "quick", req: { tool: "material_rates", args: {} }, say: "Today's material rates" } },
-  { title: "Construction cost", sub: "Cost to build a house", icon: Hammer, action: { type: "form", card: { kind: "form", form: "construction" }, say: "Construction cost", intro: "Pick your plot size and storeys." } },
+const START: { title: string; icon: React.ComponentType<{ className?: string }>; action: Action }[] = [
+  { title: "Buy a property", icon: Home, action: { type: "form", card: searchForm({ purpose: "sale" }), say: "Buy a property", intro: SEARCH_INTRO } },
+  { title: "Rent a property", icon: KeyRound, action: { type: "form", card: searchForm({ purpose: "rent" }), say: "Rent a property", intro: SEARCH_INTRO } },
+  { title: "Property prices in an area", icon: BarChart3, action: { type: "form", card: { kind: "form", form: "market" }, say: "Property prices in an area", intro: "Which area would you like to check?" } },
+  { title: "Society details", icon: Landmark, action: { type: "form", card: { kind: "form", form: "society" }, say: "Society details", intro: "Which society?" } },
+  { title: "Find a property dealer", icon: Users, action: { type: "quick", req: { tool: "find_agents", args: { city: "Lahore" } }, say: "Property dealers in Lahore" } },
+  { title: "Today's material rates", icon: Layers, action: { type: "quick", req: { tool: "material_rates", args: {} }, say: "Today's material rates" } },
+  { title: "House construction cost", icon: Hammer, action: { type: "form", card: { kind: "form", form: "construction" }, say: "House construction cost", intro: "Pick your plot size and storeys." } },
 ];
 
 /* ── text helpers ───────────────────────────────────────────────────────── */
@@ -139,9 +140,9 @@ function Markdown({ text }: { text: string }) {
       const k = blocks.length;
       blocks.push(
         <div key={`t${k}`} className="my-2 overflow-x-auto rounded-xl border border-slate-200 bg-white">
-          <table className="w-full border-collapse text-left text-[13px]">
+          <table className="w-full border-collapse text-left text-[14.5px] sm:text-[14px]">
             <thead>
-              <tr className="bg-slate-50 text-[11.5px] font-semibold uppercase tracking-wide text-slate-500">
+              <tr className="bg-slate-50 text-[12.5px] font-semibold uppercase tracking-wide text-slate-500">
                 {head.map((h, hi) => <th key={hi} className="whitespace-nowrap px-3 py-2">{inline(h, `th${k}_${hi}`)}</th>)}
               </tr>
             </thead>
@@ -173,13 +174,16 @@ function Markdown({ text }: { text: string }) {
 
 /* ── what to say and offer after a card ─────────────────────────────────── */
 
-function summarize(card: Visual | null, req: QuickRequest): string {
+function summarize(card: Visual | null): string {
   if (!card) return "Sorry, I couldn't load that right now. Please try again.";
+  const a: Record<string, any> = card.q || {};
   switch (card.kind) {
     case "listings": {
       if (!card.total) return "Nothing matches all of that right now. Try a higher budget, any size, or a nearby area.";
-      const what = req.args.purpose === "rent" ? "for rent" : "for sale";
-      return `Found **${card.total.toLocaleString("en-PK")}** ${card.total === 1 ? "property" : "properties"} ${what}${card.label ? ` in ${card.label}` : ""}${card.priceRange && card.total > 1 ? `, from **${card.priceRange.min}** to **${card.priceRange.max}**` : ""}.`;
+      const what = a.purpose === "rent" ? "for rent" : "for sale";
+      const one = Array.isArray(a.types) && a.types.length === 1 ? String(a.types[0]) : "property";
+      const word = card.total === 1 ? one : one === "property" ? "properties" : `${one}s`;
+      return `Found **${card.total.toLocaleString("en-PK")}** ${word} ${what}${card.label ? ` in ${card.label}` : ""}${card.priceRange && card.total > 1 ? `, mostly **${card.priceRange.min}** to **${card.priceRange.max}**` : ""}.`;
     }
     case "rates":
       return card.brands.length ? `Today's ${card.focus || "material"} prices by brand.` : "Here are today's construction material rates.";
@@ -189,66 +193,33 @@ function summarize(card: Visual | null, req: QuickRequest): string {
     }
     case "market": {
       const m = card.market.find((x) => x.listings > 0);
-      return m ? `Prices in ${card.place}: a typical property ${m.purpose === "rent" ? "rents for" : "sells for"} **${m.median}**.` : `There aren't enough live listings in ${card.place} yet to show prices.`;
+      const size = a.min_marla && a.min_marla === a.max_marla ? `${sizeLabel(a.min_marla)} ` : "";
+      const type = Array.isArray(a.types) && a.types.length === 1 ? String(a.types[0]) : "property";
+      return m
+        ? `A typical ${size}${type} in ${card.place} ${m.purpose === "rent" ? "rents for" : "sells for"} **${m.median}**${m.perMarla && !size ? ` — about **${m.perMarla}** per marla` : ""}.`
+        : `There aren't enough live listings in ${card.place} yet to show prices.`;
     }
+    case "agents":
+      return card.items.length ? `Property dealers in ${card.city}, verified ones first. Open a profile to see their listings and contact them.` : `No dealers are listed in ${card.city} yet.`;
+    case "society":
+      return card.facts.length ? `Here's the key information on **${card.name}**.` : `Here's what we have on **${card.name}** right now.`;
+    case "guides":
+      return "These guides on the site explain it step by step.";
     default:
       return "";
   }
 }
 
-function chipsFor(card: Visual | null, req: QuickRequest): Chip[] {
-  if (!card) return [];
-  const a = req.args as Record<string, any>;
-  const q = (label: string, tool: QuickRequest["tool"], args: Record<string, unknown>, say = label): Chip => ({ label, action: { type: "quick", req: { tool, args }, say } });
-  const scope = { place_ids: a.place_ids, location: a.location, city: a.city, city_id: a.city_id };
-  switch (card.kind) {
-    case "listings": {
-      const prefill: SearchPrefill = {
-        purpose: a.purpose === "rent" ? "rent" : "sale",
-        city: a.city,
-        location: typeof a.location === "string" ? a.location : card.label?.split(",")[0],
-        placeId: Array.isArray(a.place_ids) ? a.place_ids[0] : undefined,
-        type: Array.isArray(a.types) ? a.types[0] : undefined,
-        marla: a.min_marla,
-        maxPrice: a.max_price,
-        beds: a.min_beds,
-      };
-      const out: Chip[] = [{ label: "Change search", action: { type: "form", card: searchForm(prefill), say: "Change search", intro: SEARCH_INTRO } }];
-      if (!card.total) {
-        if (a.max_price) out.push(q("Any budget", "search_listings", { ...a, max_price: undefined }, "Same search, any budget"));
-        if (a.min_marla) out.push(q("Any size", "search_listings", { ...a, min_marla: undefined, max_marla: undefined }, "Same search, any size"));
-        return out;
-      }
-      if (a.sort !== "cheapest") out.push(q("Cheapest first", "search_listings", { ...a, sort: "cheapest" }));
-      if (a.sort !== "newest") out.push(q("Newest first", "search_listings", { ...a, sort: "newest" }));
-      if (card.label) out.push(q(`Prices in ${card.label.split(",")[0]}`, "market_prices", { ...scope, purpose: a.purpose }));
-      return out;
-    }
-    case "rates":
-      return [q("5 Marla building cost", "construction_cost", { plot_marla: 5, floors: 2 }), q("10 Marla building cost", "construction_cost", { plot_marla: 10, floors: 2 }), q("1 Kanal building cost", "construction_cost", { plot_marla: 20, floors: 2 })];
-    case "construction":
-      return [q("Today's material rates", "material_rates", {}), { label: "Plots for sale", action: { type: "form", card: searchForm({ purpose: "sale", type: "plot", marla: card.input?.marla, city: card.input?.city }), say: "Plots for sale", intro: SEARCH_INTRO } }];
-    case "market":
-      return [
-        q("Show listings here", "search_listings", { ...scope, purpose: "sale" }, `Properties for sale in ${card.place}`),
-        q("Rentals here", "search_listings", { ...scope, purpose: "rent" }, `Properties for rent in ${card.place}`),
-        { label: "Another area", action: { type: "form", card: { kind: "form", form: "market" }, say: "Check another area", intro: "Which area would you like to check?" } },
-      ];
-    default:
-      return [];
-  }
-}
+const QUICK_STEP: Record<string, string> = {
+  search_listings: "Searching live listings",
+  market_prices: "Reading prices from live listings",
+  material_rates: "Loading today's rates",
+  construction_cost: "Working out the cost",
+  find_agents: "Finding dealers",
+  society_info: "Looking up the society",
+};
 
 /* ── the window ─────────────────────────────────────────────────────────── */
-
-function Avatar({ size = 30 }: { size?: number }) {
-  return (
-    <span className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-primary" style={{ width: size, height: size }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/api/push/badge.png" alt="" style={{ width: size * 0.58, height: size * 0.58 }} />
-    </span>
-  );
-}
 
 const ChatIcon = () => (
   <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden fill="currentColor">
@@ -256,8 +227,25 @@ const ChatIcon = () => (
   </svg>
 );
 
+/** What the assistant did to answer, like a short work log. */
+function Steps({ steps, running }: { steps: string[]; running: boolean }) {
+  return (
+    <ul className="space-y-1 text-[13.5px] text-slate-500" aria-live="polite">
+      {steps.map((st, i) => {
+        const active = running && i === steps.length - 1;
+        return (
+          <li key={i} className="flex items-center gap-2">
+            {active ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" /> : <Check className="h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+            <span className={cn(active && "text-slate-700")}>{st}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 const Dots = ({ label }: { label?: string }) => (
-  <div className="inline-flex items-center gap-2 rounded-2xl rounded-bl-md bg-slate-100 px-3.5 py-3 text-[13px] text-slate-500" aria-live="polite">
+  <div className="inline-flex items-center gap-2 py-1 text-[14px] text-slate-500" aria-live="polite">
     <span className="flex gap-1">
       {[0, 1, 2].map((d) => <span key={d} className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" style={{ animationDelay: `${d * 0.15}s` }} />)}
     </span>
@@ -365,12 +353,12 @@ export default function AssistantWidget() {
     async (req: QuickRequest, say: string) => {
       if (busy) return;
       stick.current = true;
-      const reply: Msg = { id: newId(), role: "assistant", text: "", status: "Loading" };
+      const reply: Msg = { id: newId(), role: "assistant", text: "", status: "Loading", steps: [QUICK_STEP[req.tool] || "Looking it up"] };
       setMsgs((all) => [...all, { id: newId(), role: "user", text: say, done: true }, reply]);
       setBusy(true);
       try {
         const card = await quickFetch(req);
-        update(reply.id, (m) => ({ ...m, text: summarize(card, req), cards: card ? [card] : [], reqs: [req], chips: chipsFor(card, req), error: !card, status: undefined, done: true }));
+        update(reply.id, (m) => ({ ...m, text: summarize(card), cards: card ? [card] : [], reqs: [req], chips: chipsFor(card), error: !card, status: undefined, done: true }));
       } catch {
         update(reply.id, (m) => ({ ...m, text: "Connection lost. Please try again.", error: true, status: undefined, done: true }));
       } finally {
@@ -391,7 +379,7 @@ export default function AssistantWidget() {
         const reqs = [...(m.reqs || [])];
         cards[idx] = card;
         reqs[idx] = req;
-        return { ...m, cards, reqs, busyCard: undefined, text: m.chips ? summarize(card, req) : m.text, chips: m.chips ? chipsFor(card, req) : m.chips };
+        return { ...m, cards, reqs, busyCard: undefined, text: m.chips ? summarize(card) : m.text, chips: m.chips ? chipsFor(card) : m.chips };
       });
     } catch {
       update(msgId, (m) => ({ ...m, busyCard: undefined }));
@@ -410,6 +398,16 @@ export default function AssistantWidget() {
       const text = (textIn ?? input).trim();
       if (!text || busy) return;
       setInput("");
+      // Requests that must not be answered (bulk numbers, personal details, spam…): a polite no, nothing sent anywhere.
+      const no = refusal(text);
+      if (no) {
+        stick.current = true;
+        setMsgs((all) => [...all, { id: newId(), role: "user", text, done: true }, { id: newId(), role: "assistant", text: no, done: true }]);
+        return;
+      }
+      // Plain questions ("cement rate", "10 marla ghar ka kharcha") are answered here: instant, no model.
+      const local = localRoute(text);
+      if (local) return void runQuick(local, text);
       stick.current = true;
       const user: Msg = { id: newId(), role: "user", text, done: true };
       const reply: Msg = { id: newId(), role: "assistant", text: "", status: "Typing" };
@@ -453,7 +451,7 @@ export default function AssistantWidget() {
             }
             if (ev.t === "text") update(reply.id, (m) => ({ ...m, text: m.text + ev.d, status: undefined }));
             else if (ev.t === "reset_text") update(reply.id, (m) => ({ ...m, text: "" }));
-            else if (ev.t === "status") update(reply.id, (m) => ({ ...m, status: ev.text }));
+            else if (ev.t === "status") update(reply.id, (m) => ({ ...m, status: ev.text, steps: m.steps?.includes(ev.text) ? m.steps : [...(m.steps || []), ev.text] }));
             else if (ev.t === "cards" && ev.cards?.kind === "form") {
               showTop.current = user.id;
               update(reply.id, (m) => ({ ...m, cards: [...(m.cards || []), ev.cards], reqs: [...(m.reqs || []), null] }));
@@ -469,7 +467,7 @@ export default function AssistantWidget() {
         abort.current = null;
       }
     },
-    [input, busy, msgs, pathname],
+    [input, busy, msgs, pathname, runQuick],
   );
 
   const act = (a: Action) => {
@@ -496,7 +494,12 @@ export default function AssistantWidget() {
     last?.role === "assistant" && last.done && !busy
       ? last.chips?.length
         ? last.chips
-        : splitChoices(last.text).choices.map((c) => ({ label: c, action: { type: "send", text: c } as Action }))
+        : (() => {
+            // The model showed a card: suggest from the card itself; otherwise use the model's own options.
+            const shown = [...(last.cards || [])].reverse().find((c) => c.kind !== "form");
+            const fromCard = chipsFor(shown);
+            return fromCard.length ? fromCard : splitChoices(last.text).choices.map((c) => ({ label: c, action: { type: "send", text: c } as Action }));
+          })()
       : [];
 
   const renderCard = (m: Msg, c: Visual, i: number) => {
@@ -511,10 +514,25 @@ export default function AssistantWidget() {
         return <ConstructionCard card={c} busy={cardBusy} onChange={(args) => void refreshCard(m.id, i, { tool: "construction_cost", args: { ...(req?.args || {}), ...args } })} />;
       case "market":
         return <MarketCard card={c} />;
+      case "agents":
+        return <AgentsCard card={c} busy={cardBusy} onCity={(city) => void refreshCard(m.id, i, { tool: "find_agents", args: { city } })} />;
+      case "society":
+        return <SocietyCard card={c} />;
+      case "guides":
+        return <GuidesCard card={c} />;
       case "form":
         if (c.form === "search")
           return <SearchForm prefill={c.prefill} disabled={busy} onSubmit={(s) => void runQuick({ tool: "search_listings", args: s.args }, s.say)} />;
         if (c.form === "market") return <MarketForm prefill={c.prefill} disabled={busy} onSubmit={(s) => void runQuick({ tool: "market_prices", args: s.args }, s.say)} />;
+        if (c.form === "society")
+          return (
+            <MarketForm
+              prefill={c.prefill}
+              disabled={busy}
+              button="Show society details"
+              onSubmit={(s) => void runQuick({ tool: "society_info", args: { name: s.args.name || s.args.city, city: s.args.city } }, s.say.replace("Property prices in", "About"))}
+            />
+          );
         return <ConstructionForm prefill={c.prefill} disabled={busy} onSubmit={(s) => void runQuick({ tool: "construction_cost", args: s.args }, s.say)} />;
     }
   };
@@ -549,12 +567,12 @@ export default function AssistantWidget() {
         <div
           role="dialog"
           aria-label={`Chat with ${brand}`}
-          className="assistant-open fixed inset-0 z-[90] flex flex-col bg-slate-50 sm:inset-auto sm:bottom-[100px] sm:right-6 sm:h-[min(700px,calc(100vh-120px))] sm:w-[430px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)]"
+          className="assistant-open fixed inset-0 z-[90] flex flex-col bg-white sm:inset-auto sm:bottom-[100px] sm:right-6 sm:h-[min(700px,calc(100vh-120px))] sm:w-[430px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)]"
         >
-          <div className="flex items-center gap-3 bg-primary px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] text-white">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/15">
+          <div className="flex items-center gap-2.5 bg-primary px-3.5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/api/push/badge.png" alt="" className="h-6 w-6" />
+              <img src="/api/push/badge.png" alt="" className="h-5 w-5" />
             </span>
             <p className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-tight">{brand}</p>
             {msgs.length > 0 && (
@@ -567,30 +585,23 @@ export default function AssistantWidget() {
             </button>
           </div>
 
-          <div ref={scroller} onScroll={onScroll} className="relative flex-1 space-y-4 overflow-y-auto overscroll-contain px-3.5 py-4 text-[14.5px] leading-relaxed text-slate-800 sm:px-4">
-            <div className="flex items-end gap-2">
-              <Avatar />
-              <div className="max-w-[86%] rounded-2xl rounded-bl-md border border-slate-200/70 bg-white px-3.5 py-2.5">{GREETING}</div>
+          <div ref={scroller} onScroll={onScroll} className="relative flex-1 space-y-3.5 overflow-y-auto overscroll-contain px-3 py-3.5 text-[16px] leading-relaxed text-slate-800 sm:text-[15px]">
+            <div className="px-0.5">
+              <p className="text-[17px] font-semibold text-slate-900">{GREETING}</p>
+              {msgs.length === 0 && <p className="mt-0.5 text-[14.5px] text-slate-500">Choose an option, or type your question below.</p>}
             </div>
             {msgs.length === 0 && (
-              <div className="grid grid-cols-2 gap-2 pl-[38px]">
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
                 {START.map((s, i) => (
                   <button
                     key={s.title}
                     type="button"
                     onClick={() => act(s.action)}
-                    className={cn(
-                      "group flex items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-primary/40 hover:shadow-sm",
-                      i === START.length - 1 && START.length % 2 === 1 && "col-span-2",
-                    )}
+                    className={cn("flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-slate-50", i > 0 && "border-t border-slate-100")}
                   >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-primary/[0.08] text-primary">
-                      <s.icon className="h-[17px] w-[17px]" />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-[13.5px] font-semibold leading-tight text-slate-900">{s.title}</span>
-                      <span className="mt-0.5 block text-[12px] leading-snug text-slate-500">{s.sub}</span>
-                    </span>
+                    <s.icon className="h-5 w-5 shrink-0 text-primary" />
+                    <span className="flex-1 text-[15.5px] font-medium text-slate-900">{s.title}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-300" />
                   </button>
                 ))}
               </div>
@@ -600,38 +611,37 @@ export default function AssistantWidget() {
               if (m.role === "user")
                 return (
                   <div key={m.id} data-mid={m.id} className="flex justify-end">
-                    <div dir="auto" className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-3.5 py-2.5 text-white">
+                    <div dir="auto" className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-white">
                       {m.text}
                     </div>
                   </div>
                 );
               const { body } = splitChoices(m.text);
-              const waiting = !m.done && !body && !m.cards?.length;
+              const running = !m.done;
+              const steps = (m.steps || []).filter((st) => st !== "Typing" && st !== "Loading");
               return (
-                <div key={m.id} data-mid={m.id} className="flex items-start gap-2">
-                  <Avatar />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    {body && (
-                      <div className={cn("inline-block max-w-full rounded-2xl rounded-tl-md border border-slate-200/70 bg-white px-3.5 py-2.5", m.error && "border-red-200 bg-red-50 text-red-800")}>
-                        <Markdown text={body} />
-                      </div>
-                    )}
-                    {m.cards?.map((c, i) => <div key={i} className="assistant-pop">{renderCard(m, c, i)}</div>)}
-                    {(waiting || (!m.done && m.status && m.status !== "Typing")) && <Dots label={m.status && m.status !== "Typing" ? m.status : undefined} />}
-                  </div>
+                <div key={m.id} data-mid={m.id} className="space-y-2.5">
+                  {steps.length > 0 && (running || !m.error) && <Steps steps={steps} running={running && !body && !m.cards?.length} />}
+                  {body && (
+                    <div className={cn("px-0.5", m.error && "rounded-lg bg-red-50 px-3 py-2 text-red-800")}>
+                      <Markdown text={body} />
+                    </div>
+                  )}
+                  {m.cards?.map((c, i) => <div key={i} className="assistant-pop">{renderCard(m, c, i)}</div>)}
+                  {running && !body && !m.cards?.length && !steps.length && <Dots />}
                 </div>
               );
             })}
 
             {lastChips.length > 0 && (
-              <div className="flex flex-wrap gap-2 pl-[38px]">
+              <div className="flex flex-wrap gap-2">
                 {lastChips.map((c) => (
                   <button
                     key={c.label}
                     type="button"
                     dir="auto"
                     onClick={() => act(c.action)}
-                    className="rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[13px] font-medium text-slate-700 transition-colors hover:border-primary hover:text-primary"
+                    className="rounded-full border border-primary/25 bg-white px-3.5 py-1.5 text-left text-[14.5px] font-medium leading-snug text-primary transition-colors hover:bg-primary hover:text-white"
                   >
                     {c.label}
                   </button>
@@ -654,7 +664,7 @@ export default function AssistantWidget() {
               maxLength={1500}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Type your question…"
-              className="h-11 min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 text-[15px] text-slate-900 outline-none transition focus:border-primary/50 focus:bg-white"
+              className="h-11 min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 text-[16px] text-slate-900 outline-none transition focus:border-primary/50 focus:bg-white"
             />
             {busy && abort.current ? (
               <button type="button" onClick={() => abort.current?.abort()} aria-label="Stop" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-800 text-white">

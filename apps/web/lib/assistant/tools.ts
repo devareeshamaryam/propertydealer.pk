@@ -10,6 +10,7 @@ import { coveredAreas, emi, estimate, installmentPlan, rentalYield, roomLimits, 
 import { convert, type UnitKey } from "@/lib/area-units";
 import { searchUrl } from "@/lib/search";
 import type { Visual } from "./types";
+import { dealerHref, dealersCityPath } from "@/lib/dealers";
 
 const RAW = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3005";
 const API = `${RAW.trim().replace(/\/$/, "")}/api`;
@@ -195,8 +196,24 @@ export const TOOL_DEFS = [
     type: "function",
     function: {
       name: "find_agents",
-      description: "Verified property dealers / agencies working in a city, with their profile links.",
-      parameters: { type: "object", properties: { city_id: str("City id from find_places"), city: str("City name, e.g. 'Lahore', 'Karachi', 'Islamabad'") } },
+      description: "Property dealers, agencies and agents in a city — verified ones first, with listings count and profile link (never phone numbers). Shown to the user as dealer cards. Use for 'dealer', 'agent', 'agency', 'who can help me sell/buy in X'.",
+      parameters: { type: "object", properties: { city: str("City name, e.g. 'Lahore', 'Karachi', 'Islamabad'"), name: str("Part of a dealer or agency name, if the user asked for a specific one") }, required: ["city"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "society_info",
+      description: "Everything about one housing society: developer, approval (LDA/RDA/CDA), possession, plot sizes, total area, payment plan, amenities, nearby places, live listings count, and links to its guide page, map and listings. Shown as a society card. Use for any question about a society (e.g. 'is Park View City approved', 'Etihad Town details').",
+      parameters: { type: "object", properties: { name: str("Society name as the user wrote it"), city: str("City, if known") }, required: ["name"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "site_guides",
+      description: "Articles on PropertyDealer.pk that explain property topics: transfer process, taxes (FBR, stamp duty, CVT), documents, fard, registry, intiqal, NOC, buying tips, investment. Shown as article links. Use for 'how to', process, legal or tax questions, then give a short answer yourself.",
+      parameters: { type: "object", properties: { query: str("Topic in a few English words, e.g. 'property transfer process', 'stamp duty punjab'") }, required: ["query"] },
     },
   },
 ] as const;
@@ -223,7 +240,11 @@ export function toolLabel(name: string, args: any): string {
     case "convert_area":
       return "Converting area units";
     case "find_agents":
-      return "Finding verified dealers";
+      return `Finding dealers in ${args?.city || "your city"}`;
+    case "society_info":
+      return `Looking up ${args?.name || "the society"}`;
+    case "site_guides":
+      return "Finding guides";
     case "show_search_form":
       return "Opening search";
     default:
@@ -336,6 +357,7 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         },
         cards: {
           kind: "listings",
+          q: { ...a, place_ids: scope.placeIds, city_id: scope.cityId },
           total: r.total,
           items: r.listings,
           label: scope.label,
@@ -371,7 +393,7 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
       const place = scope.label || "All Pakistan";
       return {
         forModel: { place, ...r, shownAsCard: true },
-        cards: { kind: "market", place, market: r.market || [], url: r.link ? searchUrl({ purpose: a.purpose === "rent" ? "rent" : "sale", citySlug: r.link.citySlug, areaSlug: r.link.areaSlug, type: "" }) : undefined },
+        cards: { kind: "market", q: { ...a, place_ids: scope.placeIds, city_id: scope.cityId }, place, market: r.market || [], url: r.link ? searchUrl({ purpose: a.purpose === "rent" ? "rent" : "sale", citySlug: r.link.citySlug, areaSlug: r.link.areaSlug, type: "" }) : undefined },
       };
     }
     case "material_rates": {
@@ -441,6 +463,7 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         },
         cards: {
           kind: "rates",
+          q: { material: rawWant || undefined },
           focus: rawWant || undefined,
           rows: categories.map((c) => ({ material: c.material, unit: c.unit, rate: c.rate, url: c.pageUrl })),
           brands: rawWant ? matchingProducts : [],
@@ -545,6 +568,7 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         },
         cards: {
           kind: "construction",
+          q: { plot_marla: marla, floors, city: cityName, kind, quality, basement: !!a.basement },
           city: cityName,
           plot: marla === 20 ? "1 Kanal" : marla % 20 === 0 ? `${marla / 20} Kanal` : `${marla} Marla`,
           floors: floors === 1 ? "Single storey" : floors === 2 ? "Double storey" : "Triple storey",
@@ -626,10 +650,68 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
       return { forModel: { result: +v.toFixed(4), from, to, marlaSqft: marla, calculatorLink: "/tools/area-unit-converter" } };
     }
     case "find_agents": {
-      const scope = await resolveScope(a);
-      const cityId = scope.cityId || String(a.city_id || "");
-      const rows = await api<any[]>(`/agents/city/${encodeURIComponent(cityId)}`).catch(() => []);
-      return { forModel: { agents: (rows || []).slice(0, 8).map((r: any) => ({ name: r.name, listings: r.listings, verified: r.verified, profile: `/agents/${CITY_SLUG(r.name)}-${r._id}` })), directory: "/property-dealers" } };
+      const city = String(a.city || "Lahore").trim();
+      const slug = CITY_SLUG(city);
+      const r = await api<any>(`/dealers/city/${encodeURIComponent(slug)}?limit=60${a.name ? `&q=${encodeURIComponent(String(a.name).slice(0, 40))}` : ""}`).catch(() => null);
+      if (!r) return { forModel: { error: `No dealer directory for ${city}` }, cards: { kind: "agents", q: { city }, city, total: 0, items: [], moreUrl: "/property-dealers" } };
+      const all = [...(r.agencies || []), ...(r.agents || [])].sort(
+        (x: any, y: any) => Number(y.verified) - Number(x.verified) || (y.rank || 0) - (x.rank || 0) || (y.listings || 0) - (x.listings || 0),
+      );
+      const items = all.slice(0, 6).map((d: any) => ({
+        name: d.name,
+        url: dealerHref(d),
+        avatar: d.avatarUrl || "",
+        verified: !!d.verified,
+        listings: d.listings || 0,
+        years: d.experienceYears || 0,
+        isAgency: !!d.isAgency,
+        agency: d.agency?.name || "",
+        // No phone numbers here, on purpose: the assistant must not become a
+        // way to collect dealers' numbers in bulk. Contact is on the profile.
+        plan: d.plan || "",
+      }));
+      const cityName = r.city?.name || city;
+      const total = (r.found?.agencies ?? 0) + (r.found?.agents ?? 0);
+      return {
+        forModel: { city: cityName, total, shownAsCard: true, top: items.map((d) => ({ name: d.name, verified: d.verified, listings: d.listings, agency: d.isAgency })) },
+        cards: { kind: "agents", q: { city: cityName, name: a.name }, city: cityName, total, items, moreUrl: dealersCityPath(r.city?.slug || slug) },
+      };
+    }
+    case "society_info": {
+      const r = await api<any>(`/assistant/places?q=${encodeURIComponent(String(a.name || ""))}${a.city ? `&city=${encodeURIComponent(a.city)}` : ""}`);
+      const p = (r.places || []).find((x: any) => x.society) || r.places?.[0];
+      if (!p) return { forModel: { error: "No society or area by that name on the site" } };
+      const g = p.society || {};
+      const approval = g.approval ? String(g.approval).replace(/\bnot-approved\b/i, "Not approved").replace(/\bin-process\b/i, "In process").replace(/\bapproved\b/, "Approved") : "";
+      const facts = [
+        { k: "Developer", v: g.developer },
+        { k: "Approval", v: approval },
+        { k: "Possession", v: g.possession },
+        { k: "Plot sizes", v: g.plotSizes },
+        { k: "Total area", v: g.totalArea },
+        { k: "Launched", v: g.launched },
+        { k: "Payment plan", v: g.paymentPlan },
+        { k: "Location", v: g.address },
+      ].filter((f) => f.v) as { k: string; v: string }[];
+      const card: Visual = {
+        kind: "society",
+        q: { name: p.name, city: p.city, place_ids: r.group?.ids || [p.id] },
+        name: p.name,
+        city: p.city,
+        image: g.image || undefined,
+        tagline: g.tagline || undefined,
+        overview: g.overview || undefined,
+        facts,
+        amenities: g.amenities || [],
+        listings: r.group?.listings ?? p.listings ?? 0,
+        links: { page: g.url, map: g.url ? g.mapUrl : undefined, listings: String(p.url || "") },
+      };
+      return { forModel: { name: p.name, city: p.city, hasGuide: !!p.society, facts, amenities: g.amenities, nearby: g.nearby, overview: g.overview, listings: (card as any).listings, shownAsCard: true }, cards: card };
+    }
+    case "site_guides": {
+      const r = await api<any>(`/assistant/guides?q=${encodeURIComponent(String(a.query || ""))}`).catch(() => ({ guides: [] }));
+      const items = r.guides || [];
+      return { forModel: { articles: items.map((g: any) => ({ title: g.title, url: g.url, summary: g.excerpt })), shownAsCard: items.length > 0 }, cards: items.length ? { kind: "guides", items } : undefined };
     }
     default:
       return { forModel: { error: `Unknown tool ${name}` } };
