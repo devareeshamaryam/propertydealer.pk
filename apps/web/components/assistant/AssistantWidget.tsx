@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Check, ChevronDown, ChevronRight, Hammer, Home, KeyRound, Landmark, Layers, Loader2, RotateCcw, SendHorizontal, Square, Users, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, Check, ChevronDown, ChevronRight, Copy, Hammer, Home, KeyRound, Landmark, Layers, Loader2, Mic, RotateCcw, Square, Users, X } from "lucide-react";
 import { useSiteSettings } from "@/components/SiteSettingsProvider";
 import { cn } from "@/lib/utils";
 import type { QuickRequest, Visual } from "@/lib/assistant/types";
@@ -33,6 +33,8 @@ type Msg = {
   /** What the assistant looked up on the way, shown as steps. */
   steps?: string[];
   error?: boolean;
+  /** The question to send again from a "Try again" button. */
+  retry?: string;
   done?: boolean;
   busyCard?: number;
 };
@@ -259,12 +261,21 @@ export default function AssistantWidget() {
   const brand = site?.siteName || "Property Dealer";
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
+  /** The messages as of now, for code that runs after a state change in the same tick. */
+  const msgsRef = useRef<Msg[]>([]);
+  msgsRef.current = msgs;
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [teaser, setTeaser] = useState(false);
   const abort = useRef<AbortController | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
-  const box = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLTextAreaElement>(null);
+  /** Scrolled up to read something: offer a button back to the latest message. */
+  const [away, setAway] = useState(false);
+  const [copied, setCopied] = useState("");
+  const [listening, setListening] = useState(false);
+  const [canSpeak, setCanSpeak] = useState(false);
+  const speech = useRef<any>(null);
   const stick = useRef(true);
   /** A form just appeared: show it from its top, not its bottom. */
   const showTop = useRef<string | null>(null);
@@ -337,15 +348,78 @@ export default function AssistantWidget() {
   }, [msgs, open]);
   const onScroll = () => {
     const el = scroller.current;
-    if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (!el) return;
+    stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    setAway(!stick.current);
+  };
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
+  }, [input, open]);
+
+  // Voice typing where the browser offers it (Chrome, Edge, Android, Safari).
+  useEffect(() => {
+    setCanSpeak(typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
+  }, []);
+  const toggleVoice = () => {
+    if (listening) {
+      speech.current?.stop();
+      return;
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    // Pakistani English handles mixed Urdu/English speech best, written in Roman letters.
+    rec.lang = "en-IN";
+    rec.interimResults = true;
+    rec.continuous = false;
+    const before = input ? `${input.trimEnd()} ` : "";
+    rec.onresult = (e: any) => {
+      let said = "";
+      for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript;
+      setInput((before + said).slice(0, 1500));
+    };
+    rec.onend = () => {
+      setListening(false);
+      box.current?.focus();
+    };
+    rec.onerror = () => setListening(false);
+    speech.current = rec;
+    setListening(true);
+    try {
+      rec.start();
+    } catch {
+      setListening(false);
+    }
+  };
+
+  const copy = async (id: string, text: string) => {
+    try {
+      await navigator.clipboard.writeText(text.replace(/\*\*/g, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1"));
+      setCopied(id);
+      setTimeout(() => setCopied((c) => (c === id ? "" : c)), 1500);
+    } catch {
+      /* clipboard blocked */
+    }
   };
 
   const update = (id: string, fn: (m: Msg) => Msg) => setMsgs((all) => all.map((m) => (m.id === id ? fn(m) : m)));
 
   const quickFetch = async (req: QuickRequest): Promise<Visual | null> => {
-    const res = await fetch("/assistant/quick", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) });
-    const j = await res.json().catch(() => null);
-    return res.ok && j?.card ? (j.card as Visual) : null;
+    // A dropped connection (phones switching networks) is tried again, twice, before giving up.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const res = await fetch("/assistant/quick", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(req) });
+        const j = await res.json().catch(() => null);
+        if (res.ok || res.status < 500 || attempt >= 2) return res.ok && j?.card ? (j.card as Visual) : null;
+      } catch (e) {
+        if (attempt >= 2) throw e;
+      }
+      await new Promise((r) => setTimeout(r, 700 * (attempt + 1)));
+    }
   };
 
   /** Runs a lookup directly and shows its card. */
@@ -360,7 +434,7 @@ export default function AssistantWidget() {
         const card = await quickFetch(req);
         update(reply.id, (m) => ({ ...m, text: summarize(card), cards: card ? [card] : [], reqs: [req], chips: chipsFor(card), error: !card, status: undefined, done: true }));
       } catch {
-        update(reply.id, (m) => ({ ...m, text: "Connection lost. Please try again.", error: true, status: undefined, done: true }));
+        update(reply.id, (m) => ({ ...m, text: "The connection dropped. Please check your internet and try again.", error: true, status: undefined, done: true }));
       } finally {
         setBusy(false);
       }
@@ -411,56 +485,80 @@ export default function AssistantWidget() {
       stick.current = true;
       const user: Msg = { id: newId(), role: "user", text, done: true };
       const reply: Msg = { id: newId(), role: "assistant", text: "", status: "Typing" };
-      const history = [...msgs, user];
+      const history = [...msgsRef.current, user];
       setMsgs([...history, reply]);
       setBusy(true);
       const ctrl = new AbortController();
       abort.current = ctrl;
+      const payload = JSON.stringify({
+        messages: [{ role: "assistant", content: GREETING }, ...history.filter((m) => m.text && !m.error).map((m) => ({ role: m.role, content: m.text }))],
+        page: pathname,
+      });
+      let received = false; // any part of the answer arrived
+      let finished = false; // the server said it was done
       try {
-        const res = await fetch("/assistant/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            messages: [{ role: "assistant", content: GREETING }, ...history.filter((m) => m.text && !m.error).map((m) => ({ role: m.role, content: m.text }))],
-            page: pathname,
-          }),
-          signal: ctrl.signal,
-        });
-        if (!res.ok || !res.body) {
-          const j = await res.json().catch(() => ({}));
-          update(reply.id, (m) => ({ ...m, text: j?.error || "Sorry, I couldn't answer that just now. Please try again.", error: true, status: undefined, done: true }));
-          return;
-        }
-        const reader = res.body.getReader();
-        const dec = new TextDecoder();
-        let buf = "";
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buf += dec.decode(value, { stream: true });
-          let i: number;
-          while ((i = buf.indexOf("\n")) >= 0) {
-            const line = buf.slice(0, i);
-            buf = buf.slice(i + 1);
-            if (!line.trim()) continue;
-            let ev: any;
-            try {
-              ev = JSON.parse(line);
-            } catch {
-              continue;
+        // Phones drop connections (switching apps, weak signal). If nothing has arrived yet,
+        // ask again quietly — up to two more times — before showing an error.
+        for (let attempt = 0; attempt < 3 && !finished; attempt++) {
+          if (attempt) {
+            update(reply.id, (m) => ({ ...m, status: "Reconnecting" }));
+            await new Promise((r) => setTimeout(r, 800 * attempt));
+            if (ctrl.signal.aborted) return;
+          }
+          try {
+            const res = await fetch("/assistant/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, signal: ctrl.signal });
+            if (!res.ok || !res.body) {
+              if (res.status >= 500 && attempt < 2) continue;
+              const j = await res.json().catch(() => ({}));
+              update(reply.id, (m) => ({ ...m, text: j?.error || "Sorry, I couldn't answer that just now. Please try again.", error: true, retry: res.status === 429 ? undefined : text, status: undefined, done: true }));
+              return;
             }
-            if (ev.t === "text") update(reply.id, (m) => ({ ...m, text: m.text + ev.d, status: undefined }));
-            else if (ev.t === "reset_text") update(reply.id, (m) => ({ ...m, text: "" }));
-            else if (ev.t === "status") update(reply.id, (m) => ({ ...m, status: ev.text, steps: m.steps?.includes(ev.text) ? m.steps : [...(m.steps || []), ev.text] }));
-            else if (ev.t === "cards" && ev.cards?.kind === "form") {
-              showTop.current = user.id;
-              update(reply.id, (m) => ({ ...m, cards: [...(m.cards || []), ev.cards], reqs: [...(m.reqs || []), null] }));
-            } else if (ev.t === "cards" && ev.cards?.kind) update(reply.id, (m) => ({ ...m, cards: [...(m.cards || []), ev.cards], reqs: [...(m.reqs || []), null] }));
-            else if (ev.t === "error") update(reply.id, (m) => ({ ...m, text: m.text || ev.text, error: !m.text, status: undefined }));
+            const reader = res.body.getReader();
+            const dec = new TextDecoder();
+            let buf = "";
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              buf += dec.decode(value, { stream: true });
+              let i: number;
+              while ((i = buf.indexOf("\n")) >= 0) {
+                const line = buf.slice(0, i);
+                buf = buf.slice(i + 1);
+                if (!line.trim()) continue;
+                let ev: any;
+                try {
+                  ev = JSON.parse(line);
+                } catch {
+                  continue;
+                }
+                if (ev.t === "ping") continue;
+                if (ev.t === "done") finished = true;
+                else if (ev.t === "text") {
+                  received = true;
+                  update(reply.id, (m) => ({ ...m, text: m.text + ev.d, status: undefined }));
+                } else if (ev.t === "reset_text") update(reply.id, (m) => ({ ...m, text: "" }));
+                else if (ev.t === "status") update(reply.id, (m) => ({ ...m, status: ev.text, steps: m.steps?.includes(ev.text) ? m.steps : [...(m.steps || []), ev.text] }));
+                else if (ev.t === "cards" && ev.cards?.kind === "form") {
+                  received = true;
+                  showTop.current = user.id;
+                  update(reply.id, (m) => ({ ...m, cards: [...(m.cards || []), ev.cards], reqs: [...(m.reqs || []), null] }));
+                } else if (ev.t === "cards" && ev.cards?.kind) {
+                  received = true;
+                  update(reply.id, (m) => ({ ...m, cards: [...(m.cards || []), ev.cards], reqs: [...(m.reqs || []), null] }));
+                } else if (ev.t === "error") {
+                  finished = true;
+                  update(reply.id, (m) => ({ ...m, text: m.text || ev.text, error: !m.text, retry: m.text ? undefined : text, status: undefined }));
+                }
+              }
+            }
+            // The stream ended without "done": the connection was cut part way.
+            if (!finished && received) finished = true; // keep what arrived; it's usable
+          } catch (e: any) {
+            if (e?.name === "AbortError" || ctrl.signal.aborted) return;
+            if (received) finished = true; // part of the answer is there: keep it, no error
           }
         }
-      } catch (e: any) {
-        if (e?.name !== "AbortError") update(reply.id, (m) => ({ ...m, text: m.text || "Connection lost. Please try again.", error: !m.text }));
+        if (!finished) update(reply.id, (m) => ({ ...m, text: "The connection dropped. Please check your internet and try again.", error: true, retry: text }));
       } finally {
         update(reply.id, (m) => ({ ...m, status: undefined, done: true }));
         setBusy(false);
@@ -582,7 +680,7 @@ export default function AssistantWidget() {
         <div
           role="dialog"
           aria-label={`Chat with ${brand}`}
-          className="assistant-open fixed inset-0 z-[90] flex flex-col bg-white sm:inset-auto sm:bottom-[100px] sm:right-6 sm:h-[min(700px,calc(100vh-120px))] sm:w-[430px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)]"
+          className="assistant-open fixed inset-0 z-[90] flex flex-col isolate bg-white sm:inset-auto sm:bottom-[100px] sm:right-6 sm:h-[min(700px,calc(100vh-120px))] sm:w-[430px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)]"
         >
           <div className="flex items-center gap-2.5 bg-primary px-3.5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
             <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15">
@@ -640,9 +738,34 @@ export default function AssistantWidget() {
                   {body && (
                     <div className={cn("px-0.5", m.error && "rounded-lg bg-red-50 px-3 py-2 text-red-800")}>
                       <Markdown text={body} />
+                      {m.error && m.retry && !busy && m.id === msgs[msgs.length - 1]?.id && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const q = m.retry!;
+                            // Drop the failed exchange and ask again.
+                            msgsRef.current = msgsRef.current.slice(0, -2);
+                            setMsgs(msgsRef.current);
+                            void send(q);
+                          }}
+                          className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg bg-white px-3 text-[14px] font-semibold text-red-700 ring-1 ring-red-200 hover:bg-red-100"
+                        >
+                          <RotateCcw className="h-3.5 w-3.5" /> Try again
+                        </button>
+                      )}
                     </div>
                   )}
                   {m.cards?.map((c, i) => <div key={i} className="assistant-pop">{renderCard(m, c, i)}</div>)}
+                  {m.done && !m.error && body && (
+                    <button
+                      type="button"
+                      onClick={() => void copy(m.id, body)}
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[12.5px] text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                    >
+                      {copied === m.id ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied === m.id ? "Copied" : "Copy"}
+                    </button>
+                  )}
                   {running && !body && !m.cards?.length && !steps.length && <Dots />}
                 </div>
               );
@@ -665,31 +788,72 @@ export default function AssistantWidget() {
             )}
           </div>
 
+          {away && msgs.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const el = scroller.current;
+                stick.current = true;
+                setAway(false);
+                el?.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+              }}
+              aria-label="Go to the latest message"
+              className="absolute bottom-[calc(5.25rem+env(safe-area-inset-bottom))] left-1/2 z-10 grid h-9 w-9 -translate-x-1/2 place-items-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-md hover:text-slate-900"
+            >
+              <ArrowDown className="h-4 w-4" />
+            </button>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               void send();
             }}
-            className="flex items-center gap-2 border-t border-slate-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3"
+            className="border-t border-slate-200 bg-white px-3 pb-[max(0.625rem,env(safe-area-inset-bottom))] pt-2.5"
           >
-            <input
-              ref={box}
-              value={input}
-              dir="auto"
-              maxLength={1500}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your question…"
-              className="h-11 min-w-0 flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 text-[16px] text-slate-900 outline-none transition focus:border-primary/50 focus:bg-white"
-            />
-            {busy && abort.current ? (
-              <button type="button" onClick={() => abort.current?.abort()} aria-label="Stop" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-800 text-white">
-                <Square className="h-4 w-4 fill-current" />
-              </button>
-            ) : (
-              <button type="submit" disabled={!input.trim() || busy} aria-label="Send" className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-white transition disabled:bg-slate-200 disabled:text-slate-400">
-                <SendHorizontal className="h-5 w-5" />
-              </button>
-            )}
+            <div className="flex items-end gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 py-1.5 pl-3.5 pr-1.5 transition focus-within:border-primary/50 focus-within:bg-white focus-within:ring-2 focus-within:ring-primary/10">
+              <textarea
+                ref={box}
+                rows={1}
+                value={input}
+                dir="auto"
+                maxLength={1500}
+                enterKeyHint="send"
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter sends; Shift+Enter starts a new line. On phones the key adds a line and the button sends.
+                  if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+                  if (window.matchMedia("(pointer: coarse)").matches) return;
+                  e.preventDefault();
+                  void send();
+                }}
+                placeholder={listening ? "Listening…" : "Ask about property, prices, rates…"}
+                className="max-h-[140px] min-h-[36px] flex-1 resize-none overflow-y-auto bg-transparent py-[7px] text-[16px] leading-[22px] text-slate-900 outline-none placeholder:text-slate-400"
+              />
+              {canSpeak && !busy && (
+                <button
+                  type="button"
+                  onClick={toggleVoice}
+                  aria-label={listening ? "Stop voice typing" : "Speak your question"}
+                  title={listening ? "Stop" : "Speak"}
+                  className={cn(
+                    "grid h-9 w-9 shrink-0 place-items-center rounded-full transition",
+                    listening ? "animate-pulse bg-red-500 text-white" : "text-slate-500 hover:bg-slate-200/70 hover:text-slate-700",
+                  )}
+                >
+                  <Mic className="h-[18px] w-[18px]" />
+                </button>
+              )}
+              {busy && abort.current ? (
+                <button type="button" onClick={() => abort.current?.abort()} aria-label="Stop" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-800 text-white">
+                  <Square className="h-3.5 w-3.5 fill-current" />
+                </button>
+              ) : (
+                <button type="submit" disabled={!input.trim() || busy} aria-label="Send" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary text-white transition disabled:bg-slate-200 disabled:text-slate-400">
+                  <ArrowUp className="h-[18px] w-[18px]" />
+                </button>
+              )}
+            </div>
+            {input.length > 1200 && <p className="mt-1 text-right text-[12px] text-slate-400">{input.length}/1500</p>}
           </form>
         </div>
       )}

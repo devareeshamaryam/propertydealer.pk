@@ -49,7 +49,24 @@ function allowed(ip: string): boolean {
 type Msg = { role: "system" | "user" | "assistant" | "tool"; content: string | null; tool_calls?: any[]; tool_call_id?: string };
 
 /** One streamed call to the model. Text goes to `onText` as it arrives; tool calls are collected. */
-async function complete(messages: Msg[], onText: (d: string) => void, onResetText: () => void, signal: AbortSignal) {
+/** A question about property data: the first answer must come from a lookup, not from memory. */
+const NEEDS_DATA =
+  /\b(marla|marle|kanal|crore|cr|lakh|lac|price|prices|rate|rates|qeemat|keemat|kimat|plot|plots|house|houses|ghar|flat|flats|apartment|rent|kiraya|buy|khareed|sale|dealer|dealers|agent|agents|society|societies|dha|bahria|phase|block|sector|town|cement|steel|sarya|bricks|construction|tameer|approved|approval|possession|listing|listings)\b/i;
+
+async function complete(messages: Msg[], onText: (d: string) => void, onResetText: () => void, signal: AbortSignal, toolChoice: "auto" | "required" = "auto") {
+  // The model service sometimes answers 429/5xx for a moment: try once more before giving up.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await completeOnce(messages, onText, onResetText, signal, toolChoice);
+    } catch (e: any) {
+      const status = Number(/model (\d+)/.exec(String(e?.message))?.[1] || 0);
+      if (attempt >= 1 || signal.aborted || !(status === 429 || status >= 500 || !status)) throw e;
+      await new Promise((r) => setTimeout(r, 900));
+    }
+  }
+}
+
+async function completeOnce(messages: Msg[], onText: (d: string) => void, onResetText: () => void, signal: AbortSignal, toolChoice: "auto" | "required") {
   const res = await fetch(`${BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
@@ -58,7 +75,7 @@ async function complete(messages: Msg[], onText: (d: string) => void, onResetTex
       model: MODEL,
       messages,
       tools: TOOL_DEFS,
-      tool_choice: "auto",
+      tool_choice: toolChoice,
       stream: true,
       ...(isReasoningModel ? { reasoning_effort: REASONING, max_completion_tokens: 1400 } : { max_tokens: 700, temperature: 0.3 }),
     }),
@@ -146,13 +163,31 @@ export async function POST(req: Request) {
   const enc = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (o: unknown) => controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
       const abort = new AbortController();
-      req.signal.addEventListener("abort", () => abort.abort());
+      let closed = false;
+      // The visitor may have gone (closed the chat, lost signal): stop writing, stop the model.
+      const send = (o: unknown) => {
+        if (closed) return;
+        try {
+          controller.enqueue(enc.encode(JSON.stringify(o) + "\n"));
+        } catch {
+          closed = true;
+          abort.abort();
+        }
+      };
+      req.signal.addEventListener("abort", () => {
+        closed = true;
+        abort.abort();
+      });
+      // A small line every few seconds while it thinks or looks things up, so no proxy or
+      // mobile network decides the connection has gone quiet and drops it.
+      const ping = setInterval(() => send({ t: "ping" }), 5000);
+      const lastUser = String(turns[turns.length - 1]?.content || "");
       try {
         // Look things up as many times as needed (at most 5 rounds), then answer.
         for (let round = 0; round < 6; round++) {
-          const { text, calls } = await complete(messages, (d) => send({ t: "text", d }), () => send({ t: "reset_text" }), abort.signal);
+          const choice = round === 0 && NEEDS_DATA.test(lastUser) ? "required" : "auto";
+          const { text, calls } = await complete(messages, (d) => send({ t: "text", d }), () => send({ t: "reset_text" }), abort.signal, choice);
           if (!calls.length || round === 5) break;
           messages.push({ role: "assistant", content: text || null, tool_calls: calls.map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.args || "{}" } })) });
           const results = await Promise.all(
@@ -180,7 +215,15 @@ export async function POST(req: Request) {
         console.error("[assistant]", e?.message || e);
         if (!abort.signal.aborted) send({ t: "error", text: "Sorry — I couldn't answer that just now. Please try again." });
       } finally {
-        controller.close();
+        clearInterval(ping);
+        if (!closed) {
+          closed = true;
+          try {
+            controller.close();
+          } catch {
+            /* already gone */
+          }
+        }
       }
     },
   });

@@ -19,6 +19,7 @@ export function systemPrompt(page: string): string {
 - For everything else with numbers (home loan, installment plan, rental yield, area conversion, comparing two places), use a clean Markdown table (\`| Item | Amount |\`). Keep text around tables to 1–2 sentences. Use **bold** for key figures and links like [Home Loan Calculator](/tools/home-loan-calculator).
 
 3. HOW TO HANDLE EACH TOPIC (ACT IMMEDIATELY — NEVER ASK ONE QUESTION AT A TIME)
+- Never answer property facts (prices, listings, rates, costs, dealers, society details) from memory, and never ask "shall I search?" — call the tool first, every time, then answer from what it returns.
 - BUYING OR RENTING:
   - If the user gave a location AND (a budget or a size or a type), call \`search_listings\` right away.
   - Otherwise call \`show_search_form\` with everything they already said (purpose, city, area, type, size, budget, beds). Never ask for city, area, budget and size in separate messages — the form collects them in one step.
