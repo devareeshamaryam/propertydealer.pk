@@ -675,11 +675,19 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         { note: "nearby options in the area", change: { keywords: undefined, min_beds: undefined, min_price: undefined, max_price: undefined, min_marla: undefined, max_marla: undefined, types: undefined } },
       ];
       let change: Record<string, unknown> = {};
+      const loosened: string[] = [];
       for (const s of steps) {
         change = { ...change, ...s.change };
+        // Later steps include earlier ones ("any budget" replaces "a little over your budget").
+        if (s.note === "any budget") {
+          const i = loosened.indexOf("a little over your budget");
+          if (i >= 0) loosened.splice(i, 1);
+        }
+        loosened.push(s.note);
         const near = await runTool("search_listings", { ...args, ...change });
         if (near.cards?.kind === "listings" && near.cards.total) {
-          const note = `No exact match right now — closest options with ${s.note}.`;
+          const said = loosened.length > 1 ? `${loosened.slice(0, -1).join(", ")} and ${loosened[loosened.length - 1]}` : loosened[0];
+          const note = `No exact match right now — closest options with ${said}.`;
           return { forModel: { ...(near.forModel as object), exactMatches: 0, relaxed: s.note }, cards: { ...near.cards, note, q: { ...(near.cards.q || {}), wanted: args } } };
         }
       }

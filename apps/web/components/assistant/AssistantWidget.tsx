@@ -218,6 +218,7 @@ function summarize(card: Visual | null): string {
 
 const QUICK_STEP: Record<string, string> = {
   search_listings: "Searching live listings",
+  smart_search: "Searching live listings",
   market_prices: "Reading prices from live listings",
   material_rates: "Loading today's rates",
   construction_cost: "Working out the cost",
