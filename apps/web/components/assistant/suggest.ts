@@ -256,6 +256,21 @@ export function localRoute(text: string): QuickRequest | null {
   if (t.length > 90) return null;
   const build = BUILD_WORD.test(t);
 
+  // "moez naam ka koi dealer hai?", "is there a dealer named Ali Estate", "agent Usman"
+  const named =
+    /\b([a-z][a-z.]{2,24}(?: [a-z][a-z.]{2,24}){0,2}) (?:name|naam|nam) (?:ka|ki|ke|wala|wali|waly|walay|wale|walay|se)\b/.exec(t) ||
+    /\b(?:dealer|dealers|agent|agents|agency|estate|realtor)s? (?:named|called|name|naam|by the name of|ka naam) ([a-z][a-z.]{2,24}(?: [a-z][a-z.]{2,24}){0,2})/.exec(t) ||
+    /\b(?:named|called) ([a-z][a-z.]{2,24}(?: [a-z][a-z.]{2,24}){0,2}) (?:dealer|agent|agency|estate)/.exec(t);
+  if (named && /\b(dealer|dealers|agent|agents|agency|agencies|estate|realtor|broker|property)\b|ڈیلر/.test(t)) {
+    // Only the name: no filler words, no city ("lahore mein usman" → "usman").
+    const filler = new Set(["koi", "kya", "is", "the", "a", "any", "ek", "wo", "woh", "website", "site", "par", "pr", "pe", "per", "hai", "he", "mein", "main", "me", "in", "se", "ka", "ki", "ke", "yr", "yar", "yaar", "bhai", "property", "dealer", "agent", "of", "from", ...DEALER_CITIES.flatMap((c) => c.toLowerCase().split(" "))]);
+    const name = named[1]!.split(" ").filter((w) => !filler.has(w)).join(" ").trim();
+    if (name.length >= 3) {
+      const city = DEALER_CITIES.find((c) => t.includes(` ${c.toLowerCase()} `));
+      return { tool: "find_agents", args: { name, city } };
+    }
+  }
+
   // "dealers in lahore", "karachi property agent", "lahore ke dealer"
   if (/\b(dealer|dealers|agent|agents|agency|agencies|broker|brokers)\b|ڈیلر|ایجنٹ/.test(t) && !/\b(compare|best|why|kyun|fee|commission|how|kaise)\b/.test(t)) {
     const city = DEALER_CITIES.find((c) => t.includes(` ${c.toLowerCase()} `));

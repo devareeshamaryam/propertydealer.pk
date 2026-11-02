@@ -238,6 +238,127 @@ export class AssistantDataService {
     };
   }
 
+  /**
+   * One live listing, everything a buyer can see on its page — but never the
+   * contact numbers (the page has the buttons; the assistant doesn't hand
+   * numbers out). By slug, or by its id.
+   */
+  async listing(ref: string) {
+    const key = String(ref || '').trim().replace(/^\/?properties\//, '').replace(/[?#].*$/, '');
+    if (!key) return { found: false };
+    const or: Record<string, unknown>[] = [{ slug: key }];
+    const id = /([a-f0-9]{24})$/i.exec(key)?.[1];
+    if (id) or.push({ _id: new Types.ObjectId(id) });
+    const p: any = await this.properties.collection.findOne(
+      { $or: or, status: 'approved' },
+      {
+        projection: {
+          title: 1, slug: 1, price: 1, listingType: 1, propertyType: 1, marla: 1, kanal: 1, areaSize: 1, marlaSqft: 1,
+          bedrooms: 1, bathrooms: 1, description: 1, features: 1, area: 1, location: 1, owner: 1, isFeatured: 1,
+          createdAt: 1, availability: 1, views: 1, mainPhotoUrl: 1, additionalPhotosUrls: 1, videoUrl: 1,
+        },
+      },
+    );
+    if (!p) return { found: false };
+    const { byId } = await this.allAreas();
+    const a = byId.get(String(p.area));
+    const owner: any = p.owner ? await this.properties.db.collection('users').findOne({ _id: p.owner }, { projection: { name: 1, companyName: 1, role: 1 } }) : null;
+    const verified = await this.agency.verifiedIds().catch(() => new Set<string>());
+    const m = marlaOf(p);
+    // What the same size and type costs in the same place, to judge the price.
+    let comparison: any = null;
+    if (a && m > 0) {
+      const peers: any[] = await this.properties.collection
+        .find(
+          { status: 'approved', listingType: p.listingType, propertyType: p.propertyType, area: { $in: [p.area, String(p.area)] }, _id: { $ne: p._id } },
+          { projection: { price: 1, marla: 1, kanal: 1, areaSize: 1, marlaSqft: 1 } },
+        )
+        .limit(400)
+        .toArray();
+      const same = peers.filter((x) => Math.abs(marlaOf(x) - m) / m <= 0.1).map((x) => Number(x.price)).filter((v) => v > 0);
+      if (same.length >= 2) {
+        const med = median(same);
+        comparison = {
+          similarListings: same.length,
+          typicalPrice: pkr(med),
+          thisVsTypical: `${p.price > med ? '+' : ''}${Math.round(((p.price - med) / med) * 100)}%`,
+        };
+      }
+    }
+    return {
+      found: true,
+      title: p.title,
+      url: `/properties/${p.slug}`,
+      purpose: p.listingType,
+      type: p.propertyType,
+      price: pkr(p.price) + (p.listingType === 'rent' ? ' / month' : ''),
+      size: sizeText(m),
+      bedrooms: p.bedrooms || null,
+      bathrooms: p.bathrooms || null,
+      place: titleCase([a?.name || p.location, a?.city].filter(Boolean).join(', ')),
+      features: (p.features || []).slice(0, 25),
+      description: String(p.description || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1500),
+      photos: 1 + (p.additionalPhotosUrls?.length || 0),
+      hasVideo: !!p.videoUrl,
+      postedBy: owner ? String(owner.companyName || owner.name || '').trim() : '',
+      postedByVerified: owner ? verified.has(String(owner._id)) : false,
+      postedOn: p.createdAt,
+      status: p.availability === 'sold' ? 'sold' : p.availability === 'rented' ? 'rented' : 'available',
+      featured: !!p.isFeatured,
+      views: p.views || 0,
+      comparison,
+      card: {
+        id: String(p._id),
+        title: p.title,
+        url: `/properties/${p.slug}`,
+        priceText: pkr(p.price) + (p.listingType === 'rent' ? ' / month' : ''),
+        purpose: p.listingType,
+        type: p.propertyType,
+        size: sizeText(m),
+        beds: p.bedrooms || 0,
+        baths: p.bathrooms || 0,
+        place: titleCase([a?.name || p.location, a?.city].filter(Boolean).join(', ')),
+        photo: p.mainPhotoUrl || null,
+        featured: !!p.isFeatured,
+        verified: owner ? verified.has(String(owner._id)) : false,
+      },
+    };
+  }
+
+  /** The areas and societies of a city with the most live listings — "where can I look in X?" */
+  async areasIn(city: string, limit = 25) {
+    const { rows } = await this.allAreas();
+    const want = tokens(city);
+    const inCity = rows.filter((r) => !r.mergedInto && !r.parent && want.length && tokens(r.city).join(' ') === want.join(' '));
+    return {
+      city: titleCase(city),
+      areas: inCity
+        .sort((a, b) => b.listings - a.listings)
+        .slice(0, Math.min(50, limit))
+        .map((r) => ({ name: titleCase(r.name), kind: r.kind, listings: r.listings, hasGuide: !!r.guide?.published, url: `/properties/sale/${slugify(r.city)}/${r.slug}` })),
+    };
+  }
+
+  /** The whole site in numbers: live listings by city, type and purpose (10 minutes). */
+  private overviewCache: { at: number; v: any } | null = null;
+  async overview() {
+    if (this.overviewCache && Date.now() - this.overviewCache.at < 10 * 60_000) return this.overviewCache.v;
+    const live = { status: 'approved', $or: [{ availability: { $nin: ['sold', 'rented'] } }, { availability: { $exists: false } }] };
+    const [byType, total, cities] = await Promise.all([
+      this.properties.collection.aggregate([{ $match: live }, { $group: { _id: { t: '$propertyType', p: '$listingType' }, n: { $sum: 1 } } }]).toArray(),
+      this.properties.collection.countDocuments(live),
+      this.cityList(),
+    ]);
+    const v = {
+      liveListings: total,
+      byTypeAndPurpose: byType.map((x: any) => ({ type: x._id.t, purpose: x._id.p, listings: x.n })).sort((a: any, b: any) => b.listings - a.listings),
+      topCities: cities.sort((a, b) => b.listings - a.listings).slice(0, 15).map((c) => ({ city: titleCase(c.name), listings: c.listings })),
+      citiesWithListings: cities.filter((c) => c.listings > 0).length,
+    };
+    this.overviewCache = { at: Date.now(), v };
+    return v;
+  }
+
   /** Every city on the site, the ones with most listings first — for the chat's city pickers. */
   async cities() {
     const [docs, withAreas] = await Promise.all([

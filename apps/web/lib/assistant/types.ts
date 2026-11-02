@@ -74,8 +74,11 @@ export type Visual = { q?: Record<string, any> } & (
   | {
       kind: "agents";
       city: string;
+      /** A name search: what was searched, and how many matched exactly (the rest are close spellings). */
+      query?: string;
+      exact?: number;
       total: number;
-      items: { name: string; url: string; avatar: string; verified: boolean; listings: number; years: number; isAgency: boolean; agency: string; plan: string }[];
+      items: { name: string; url: string; avatar: string; verified: boolean; listings: number; years: number; isAgency: boolean; agency: string; plan: string; city?: string }[];
       moreUrl: string;
     }
   | {

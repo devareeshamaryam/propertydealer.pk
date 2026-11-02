@@ -205,6 +205,12 @@ function summarize(card: Visual | null): string {
         : `There aren't enough live listings in ${card.place} yet to show prices.`;
     }
     case "agents":
+      if (card.query)
+        return card.exact
+          ? `Yes — ${card.exact === 1 ? "there is a dealer" : `there are ${card.exact} dealers`} named **${card.query}**${card.city ? ` in ${card.city}` : ""} on the site.`
+          : card.items.length
+            ? `No dealer is named exactly **${card.query}**, but these names are close — is one of them who you mean?`
+            : `No, there's no dealer named **${card.query}** on the site${card.city ? ` in ${card.city}` : ""}. Check the spelling, or browse all dealers.`;
       return card.items.length ? `Property dealers in ${card.city}, verified ones first. Open a profile to see their listings and contact them.` : `No dealers are listed in ${card.city} yet.`;
     case "society":
       return card.facts.length ? `Here's the key information on **${card.name}**.` : `Here's what we have on **${card.name}** right now.`;
@@ -226,6 +232,42 @@ const QUICK_STEP: Record<string, string> = {
   find_agents: "Finding dealers",
   society_info: "Looking up the society",
 };
+
+/** A few words about the cards a reply showed — what the AI needs to follow up on them. */
+function cardNotes(cards?: Visual[]): string {
+  if (!cards?.length) return "";
+  const notes = cards.map((c) => {
+    switch (c.kind) {
+      case "listings":
+        return `[Shown ${c.total} listing(s)${c.label ? ` in ${c.label}` : ""}${c.note ? ` (${c.note})` : ""}: ${c.items
+          .slice(0, 5)
+          .map((l, i) => `${i + 1}) ${l.title} — ${l.priceText} — ${l.size || ""} — ${l.place} — ${l.url}`)
+          .join("; ")}]`;
+      case "market":
+        return `[Shown prices for ${c.place}: ${c.market
+          .filter((m) => m.listings)
+          .map((m) => `${m.purpose} median ${m.median}, per marla ${m.perMarla || "-"}, by size ${(m.bySize || []).map((b) => `${b.size} ${b.median}`).join(", ")}`)
+          .join(" | ")}]`;
+      case "rates":
+        return `[Shown material rates${c.focus ? ` for ${c.focus}` : ""}: ${(c.brands.length ? c.brands.map((b) => `${b.brand} ${b.price}`) : c.rows.map((r) => `${r.material} ${r.rate} ${r.unit}`)).slice(0, 8).join("; ")}]`;
+      case "construction":
+        return `[Shown construction cost: ${c.plot} ${c.floors} in ${c.city}: ${c.options.map((o) => `${o.label} ${o.total}`).join("; ")}]`;
+      case "agents":
+        return `[Shown dealers${c.query ? ` named “${c.query}”` : c.city ? ` in ${c.city}` : ""}: ${c.items.slice(0, 6).map((d) => `${d.name}${d.city ? ` (${d.city})` : ""}`).join(", ") || "none"}]`;
+      case "society":
+        return `[Shown society: ${c.name}, ${c.city}: ${c.facts.map((f) => `${f.k}: ${f.v}`).join("; ")}]`;
+      case "guides":
+        return `[Shown articles: ${c.items.map((g) => `${g.title} ${g.url}`).join("; ")}]`;
+      case "support":
+        return "[Shown the team's WhatsApp/call card]";
+      case "form":
+        return `[Shown a ${c.form} form]`;
+      default:
+        return "";
+    }
+  });
+  return notes.filter(Boolean).join("\n").slice(0, 1200);
+}
 
 /* ── the window ─────────────────────────────────────────────────────────── */
 
@@ -287,6 +329,8 @@ export default function AssistantWidget() {
   const [canSpeak, setCanSpeak] = useState(false);
   const speech = useRef<any>(null);
   const stick = useRef(true);
+  /** The AI answered "not set up": use the quick rules for typed questions. */
+  const aiDown = useRef(false);
   /** A form just appeared: show it from its top, not its bottom. */
   const showTop = useRef<string | null>(null);
 
@@ -499,9 +543,12 @@ export default function AssistantWidget() {
         ]);
         return;
       }
-      // Plain questions ("cement rate", "10 marla ghar ka kharcha") are answered here: instant, no model.
-      const local = localRoute(text);
-      if (local) return void runQuick(local, text);
+      // Typed messages go to the AI: it understands the question and looks things up itself.
+      // (The quick rules below are only the fallback for when the AI isn't available.)
+      if (aiDown.current) {
+        const local = localRoute(text);
+        if (local) return void runQuick(local, text);
+      }
       stick.current = true;
       const user: Msg = { id: newId(), role: "user", text, done: true };
       const reply: Msg = { id: newId(), role: "assistant", text: "", status: "Typing" };
@@ -511,7 +558,13 @@ export default function AssistantWidget() {
       const ctrl = new AbortController();
       abort.current = ctrl;
       const payload = JSON.stringify({
-        messages: [{ role: "assistant", content: GREETING }, ...history.filter((m) => m.text && !m.error).map((m) => ({ role: m.role, content: m.text }))],
+        // Each reply carries a short note of the cards it showed, so "is wali ka price?" or "inme se sasta?" make sense to the AI.
+        messages: [
+          { role: "assistant", content: GREETING },
+          ...history
+            .filter((m) => (m.text || m.cards?.length) && !m.error)
+            .map((m) => ({ role: m.role, content: [m.text, m.role === "assistant" ? cardNotes(m.cards) : ""].filter(Boolean).join("\n") })),
+        ],
         page: pathname,
       });
       let received = false; // any part of the answer arrived
@@ -528,6 +581,18 @@ export default function AssistantWidget() {
           try {
             const res = await fetch("/assistant/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, signal: ctrl.signal });
             if (!res.ok || !res.body) {
+              // The AI isn't set up / unavailable: answer what the quick rules can, from now on.
+              if (res.status === 503) {
+                aiDown.current = true;
+                const local = localRoute(text);
+                if (local) {
+                  setMsgs((all) => all.filter((m) => m.id !== reply.id && m.id !== user.id));
+                  setBusy(false);
+                  abort.current = null;
+                  setTimeout(() => void runQuick(local, text), 0);
+                  return;
+                }
+              }
               if (res.status >= 500 && attempt < 2) continue;
               const j = await res.json().catch(() => ({}));
               update(reply.id, (m) => ({ ...m, text: j?.error || "Sorry, I couldn't answer that just now. Please try again.", error: true, retry: res.status === 429 ? undefined : text, status: undefined, done: true }));

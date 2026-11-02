@@ -431,6 +431,75 @@ export class DealersService {
     }));
   }
 
+  /**
+   * Dealers by name, across every city (or one): "moez" finds Moez, Moeez,
+   * Moiz Estate, "Al-Moez Properties"… Exact word matches first, then close
+   * spellings (one letter off), each with its city. No phone numbers.
+   */
+  async searchByName(q: string, city = '') {
+    const norm = (v: unknown) => String(v ?? '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    const words = norm(q).split(' ').filter((w) => w.length >= 2);
+    if (!words.length) return { query: q, total: 0, exact: 0, dealers: [] };
+    const near = (a: string, b: string) => {
+      if (Math.abs(a.length - b.length) > 1 || a.length < 4) return false;
+      // One letter added, missing or changed.
+      let i = 0;
+      let j = 0;
+      let edits = 0;
+      while (i < a.length && j < b.length) {
+        if (a[i] === b[j]) {
+          i++;
+          j++;
+          continue;
+        }
+        if (++edits > 1) return false;
+        if (a.length > b.length) i++;
+        else if (b.length > a.length) j++;
+        else {
+          i++;
+          j++;
+        }
+      }
+      return edits + (a.length - i) + (b.length - j) <= 1;
+    };
+    const [list, dir] = await Promise.all([this.cityList(), this.directory()]);
+    const cityKey = citySlug(city);
+    const hits: { d: DealerCard; city: { name: string; slug: string }; score: number; exact: boolean }[] = [];
+    const seen = new Set<string>();
+    for (const c of list) {
+      if (cityKey && c.slug !== cityKey) continue;
+      const all = dir.cities[c._id];
+      if (!all) continue;
+      for (const d of [...all.agencies, ...all.agents]) {
+        if (seen.has(d._id)) continue;
+        const nameWords = norm([d.name, d.companyName, d.person, d.agency?.name].filter(Boolean).join(' ')).split(' ');
+        let score = 0;
+        let exact = true;
+        for (const w of words) {
+          if (nameWords.includes(w)) score += 3;
+          else if (nameWords.some((n) => n.startsWith(w) && w.length >= 3)) score += 2;
+          else if (nameWords.some((n) => near(n, w))) {
+            score += 1;
+            exact = false;
+          } else {
+            score = 0;
+            break;
+          }
+        }
+        if (!score) continue;
+        seen.add(d._id);
+        hits.push({ d, city: { name: c.name, slug: c.slug }, score, exact });
+      }
+    }
+    hits.sort((a, b) => Number(b.exact) - Number(a.exact) || b.score - a.score || Number(b.d.verified) - Number(a.d.verified) || b.d.listings - a.d.listings);
+    return {
+      query: q,
+      total: hits.length,
+      exact: hits.filter((h) => h.exact).length,
+      dealers: hits.slice(0, 8).map((h) => ({ ...publicCard(h.d), city: h.city, exact: h.exact })),
+    };
+  }
+
   /** One city's page: its text, its agencies, and a page of its agents. */
   async city(slug: string, page = 1, limit = 30, q = '') {
     const key = citySlug(slug);

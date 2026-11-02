@@ -18,6 +18,24 @@ export class AssistantController {
     return this.data.places(String(q).slice(0, 120), city ? String(city).slice(0, 60) : undefined);
   }
 
+  @Get('listing')
+  @Header('Cache-Control', 'public, max-age=60')
+  listing(@Query('ref') ref = '') {
+    return this.data.listing(String(ref).slice(0, 200));
+  }
+
+  @Get('areas')
+  @Header('Cache-Control', 'public, max-age=300')
+  areas(@Query('city') city = '', @Query('limit') limit?: string) {
+    return this.data.areasIn(String(city).slice(0, 60), Number(limit) || 25);
+  }
+
+  @Get('overview')
+  @Header('Cache-Control', 'public, max-age=300')
+  overview() {
+    return this.data.overview();
+  }
+
   @Get('match')
   @Header('Cache-Control', 'public, max-age=60')
   match(@Query('text') text = '') {

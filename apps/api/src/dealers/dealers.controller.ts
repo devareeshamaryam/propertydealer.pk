@@ -54,6 +54,14 @@ export class DealersController {
    * WhatsApp. The lists leave numbers out so they can't be collected in bulk;
    * this gives them one at a time, a few a minute per visitor, never cached.
    */
+  /** Dealers by name, in every city or one (?city=). For the site assistant and search. */
+  @Get('search')
+  @Throttle({ medium: { limit: 60, ttl: 60_000 } })
+  @Header('Cache-Control', 'public, max-age=60')
+  search(@Query('q') q = '', @Query('city') city = '') {
+    return this.dealers.searchByName(String(q).slice(0, 60), String(city).slice(0, 60));
+  }
+
   @Get('contact/:id')
   @Throttle({ medium: { limit: 12, ttl: 60_000 } })
   @Header('Cache-Control', 'no-store')

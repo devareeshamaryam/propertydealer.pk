@@ -760,10 +760,20 @@ export function AgentsCard({ card, busy, onCity }: { card: V<"agents">; busy?: b
     <Shell>
       {busy && <Busy />}
       <CardHead
-        title={`Property dealers in ${card.city}`}
-        sub={card.total ? `${card.total.toLocaleString("en-PK")} on the site · verified first` : undefined}
+        title={card.query ? `Dealers named “${card.query}”` : `Property dealers in ${card.city}`}
+        sub={
+          card.query
+            ? card.items.length
+              ? card.exact
+                ? `${card.exact} found${card.city ? ` in ${card.city}` : " across all cities"}`
+                : "No exact match — similar names"
+              : undefined
+            : card.total
+              ? `${card.total.toLocaleString("en-PK")} on the site · verified first`
+              : undefined
+        }
         right={
-          <CityDropdown
+          card.query ? undefined : <CityDropdown
             value={card.city}
             list={cities}
             disabled={busy}
@@ -773,7 +783,9 @@ export function AgentsCard({ card, busy, onCity }: { card: V<"agents">; busy?: b
         }
       />
       {!card.items.length ? (
-        <p className="px-3.5 py-3 text-[15px] text-slate-600">No dealers listed in {card.city} yet.</p>
+        <p className="px-3.5 py-3 text-[15px] text-slate-600">
+          {card.query ? `No dealer named “${card.query}” on the site${card.city ? ` in ${card.city}` : ""}.` : `No dealers listed in ${card.city} yet.`}
+        </p>
       ) : (
         <div className="divide-y divide-slate-100">
           {card.items.map((d) => (
@@ -788,7 +800,7 @@ export function AgentsCard({ card, busy, onCity }: { card: V<"agents">; busy?: b
                     {d.verified && <BadgeCheck className="h-4 w-4 shrink-0 text-sky-500" aria-label="Verified" />}
                   </span>
                   <span className="mt-0.5 block truncate text-[13px] text-slate-500">
-                    {[d.isAgency ? "Agency" : d.agency ? `Agent at ${d.agency}` : "Agent", d.listings ? `${d.listings} listing${d.listings === 1 ? "" : "s"}` : "", d.years ? `${d.years} yrs` : ""].filter(Boolean).join(" · ")}
+                    {[d.isAgency ? "Agency" : d.agency ? `Agent at ${d.agency}` : "Agent", d.city || "", d.listings ? `${d.listings} listing${d.listings === 1 ? "" : "s"}` : "", d.years ? `${d.years} yrs` : ""].filter(Boolean).join(" · ")}
                   </span>
                 </span>
               </Link>
@@ -797,7 +809,7 @@ export function AgentsCard({ card, busy, onCity }: { card: V<"agents">; busy?: b
           ))}
         </div>
       )}
-      <FootLink href={card.moreUrl}>All dealers in {card.city}</FootLink>
+      <FootLink href={card.moreUrl}>{card.query || !card.city ? "Browse all property dealers" : `All dealers in ${card.city}`}</FootLink>
     </Shell>
   );
 }

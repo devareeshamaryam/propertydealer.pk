@@ -28,7 +28,9 @@ export const dynamic = "force-dynamic";
 const KEY = process.env.AI_ASSISTANT_API_KEY || process.env.OPENAI_API_KEY || "";
 const MODEL = process.env.AI_ASSISTANT_MODEL || "gpt-5-nano";
 const BASE = (process.env.AI_ASSISTANT_BASE_URL || "https://api.openai.com/v1").replace(/\/$/, "");
-const REASONING = process.env.AI_ASSISTANT_REASONING || "minimal";
+// "low": a little thinking before answering — it understands questions and picks the right lookup far
+// better than "minimal", for a fraction of a rupee more per answer. Set AI_ASSISTANT_REASONING=minimal to save more.
+const REASONING = process.env.AI_ASSISTANT_REASONING || "low";
 const DAILY = Number(process.env.AI_ASSISTANT_DAILY_LIMIT || 60);
 const isReasoningModel = /^(gpt-5|o\d)/i.test(MODEL);
 
@@ -145,7 +147,7 @@ export async function POST(req: Request) {
     .slice(-8);
   const turns: Msg[] = kept.map((m, i) => ({
     role: m.role as "user" | "assistant",
-    content: m.content.replace(/\[\[[^\]]*\]\]/g, "").trim().slice(0, m.role === "user" ? 600 : i >= kept.length - 2 ? 900 : 350) || "(options shown)",
+    content: m.content.replace(/\[\[[^\]]*\]\]/g, "").trim().slice(0, m.role === "user" ? 600 : i >= kept.length - 2 ? 1600 : 500) || "(options shown)",
   }));
   if (!turns.length || turns[turns.length - 1]!.role !== "user") return Response.json({ error: "Say something first." }, { status: 400 });
 

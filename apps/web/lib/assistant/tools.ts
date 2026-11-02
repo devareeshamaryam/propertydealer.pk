@@ -54,6 +54,62 @@ export const TOOL_DEFS = [
   {
     type: "function",
     function: {
+      name: "site_search",
+      description: "Search the WHOLE site at once — listings, areas/societies, dealers and articles — for any words. Use first when a question is broad, vague, or you're not sure which lookup fits (a name, a project, a landmark, a topic).",
+      parameters: { type: "object", properties: { query: str("What to look for, in the user's words"), city: str("City, only if the user said one") }, required: ["query"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_listing",
+      description: "Full public details of ONE listing: price, size, beds/baths, features, description, who posted it (verified or not), when, status, and how its price compares with similar listings nearby. Use when the user asks about a specific property, or says 'this property / is property / yeh wala' while viewing a listing page (pass that page's slug).",
+      parameters: { type: "object", properties: { ref: str("The listing's slug or URL (/properties/...) or id") }, required: ["ref"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_areas",
+      description: "The areas and societies of a city with the most live listings — for 'which areas are there in X', 'where should I look in X', 'popular societies in X'.",
+      parameters: { type: "object", properties: { city: str("City name") }, required: ["city"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "site_overview",
+      description: "The site in numbers right now: total live listings, by type and buy/rent, and the busiest cities.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "read_article",
+      description: "Read one of the site's articles (blog) to answer from it — pass its URL or slug from site_guides/site_search.",
+      parameters: { type: "object", properties: { ref: str("Article URL (/blog/...) or slug") }, required: ["ref"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "dealer_profile",
+      description: "One dealer or agency's public profile: city, experience, verified, live listings, rating and reviews summary, profile link. Never phone numbers. Pass a name (searched across all cities) or a profile URL.",
+      parameters: { type: "object", properties: { name: str("Dealer/agency name"), url: str("Profile URL (/agents/...)") } },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "site_info",
+      description: "About the site itself: 'contact' (the site's own phone/WhatsApp/email), 'plans' (packages for agents and their prices/limits), or a page: 'about', 'terms', 'privacy-policy', or any static page slug (how to post, policies…).",
+      parameters: { type: "object", properties: { topic: str("contact | plans | about | terms | privacy-policy | another page slug") }, required: ["topic"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "find_places",
       description: "Find areas, societies, phases and cities by name (e.g. 'bahria town', 'dha phase 6 lahore', 'johar town'). Returns ids for search_listings / market_prices, listing counts, and society facts (developer, approval, possession, plot sizes).",
       parameters: { type: "object", properties: { query: str("The place as the user wrote it"), city: str("City, if the user said one") }, required: ["query"] },
@@ -204,8 +260,8 @@ export const TOOL_DEFS = [
     type: "function",
     function: {
       name: "find_agents",
-      description: "Property dealers, agencies and agents in a city — verified ones first, with listings count and profile link (never phone numbers). Shown to the user as dealer cards. Use for 'dealer', 'agent', 'agency', 'who can help me sell/buy in X'.",
-      parameters: { type: "object", properties: { city: str("City name, e.g. 'Lahore', 'Karachi', 'Islamabad'"), name: str("Part of a dealer or agency name, if the user asked for a specific one") }, required: ["city"] },
+      description: "Find property dealers / agencies / agents. With `name`: searches EVERY city for a dealer by that name (close spellings too) — use for 'is there a dealer named X', 'X estate', 'find agent X'. With only `city`: the dealers in that city, verified first. Never invent a city the user didn't say. Shown as dealer cards with profile links (never phone numbers).",
+      parameters: { type: "object", properties: { name: str("Dealer, agent or agency name, if the user gave one"), city: str("City, ONLY if the user said one") } },
     },
   },
   {
@@ -248,13 +304,27 @@ export function toolLabel(name: string, args: any): string {
     case "convert_area":
       return "Converting area units";
     case "find_agents":
-      return `Finding dealers in ${args?.city || "your city"}`;
+      return args?.name ? `Searching dealers named “${args.name}”` : `Finding dealers in ${args?.city || "your city"}`;
     case "society_info":
       return `Looking up ${args?.name || "the society"}`;
     case "site_guides":
       return "Finding guides";
     case "contact_support":
       return "Connecting you with our team";
+    case "site_search":
+      return `Searching the site for “${String(args?.query || "").slice(0, 40)}”`;
+    case "get_listing":
+      return "Opening the property";
+    case "list_areas":
+      return `Checking areas in ${args?.city || "the city"}`;
+    case "site_overview":
+      return "Counting live listings";
+    case "read_article":
+      return "Reading the guide";
+    case "dealer_profile":
+      return `Opening ${args?.name || "the dealer"}'s profile`;
+    case "site_info":
+      return "Checking site details";
     case "show_search_form":
       return "Opening search";
     default:
@@ -641,6 +711,103 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         },
       };
     }
+    case "site_search": {
+      const q = String(a.query || "").slice(0, 120);
+      const city = String(a.city || "").trim();
+      const [places, listings, dealers, guides] = await Promise.all([
+        api<any>(`/assistant/places?q=${encodeURIComponent(q)}${city ? `&city=${encodeURIComponent(city)}` : ""}`).catch(() => null),
+        api<any>("/assistant/search", { keywords: q, limit: 5, ...(city ? {} : {}) }).catch(() => null),
+        api<any>(`/dealers/search?q=${encodeURIComponent(q)}${city ? `&city=${encodeURIComponent(city)}` : ""}`).catch(() => null),
+        api<any>(`/assistant/guides?q=${encodeURIComponent(q)}`).catch(() => null),
+      ]);
+      const ls = (listings?.listings || []).slice(0, 5);
+      return {
+        forModel: {
+          places: (places?.places || []).slice(0, 5).map((p: any) => ({ name: p.name, city: p.city, kind: p.kind, listings: p.listings, hasGuide: !!p.society })),
+          listingsMatchingWords: { total: listings?.total || 0, top: ls.map((l: any) => ({ title: l.title, price: l.priceText, size: l.size, place: l.place, url: l.url })) },
+          dealers: (dealers?.dealers || []).slice(0, 5).map((d: any) => ({ name: d.name, city: d.city?.name, exactName: d.exact, listings: d.listings, verified: d.verified })),
+          articles: (guides?.guides || []).slice(0, 4).map((g: any) => ({ title: g.title, url: g.url })),
+        },
+        cards: ls.length ? { kind: "listings", total: listings.total, items: ls, label: `“${q}”`, q: { keywords: q } } : undefined,
+      };
+    }
+    case "get_listing": {
+      const r = await api<any>(`/assistant/listing?ref=${encodeURIComponent(String(a.ref || "").slice(0, 200))}`).catch(() => null);
+      if (!r?.found) return { forModel: { found: false, note: "No live listing with that link — it may be sold, rented or removed." } };
+      const { card, ...facts } = r;
+      return { forModel: facts, cards: { kind: "listings", total: 1, items: [card], label: card.place } };
+    }
+    case "list_areas": {
+      const r = await api<any>(`/assistant/areas?city=${encodeURIComponent(String(a.city || ""))}&limit=25`).catch(() => null);
+      return { forModel: r || { areas: [] } };
+    }
+    case "site_overview": {
+      return { forModel: await api<any>("/assistant/overview").catch(() => ({ error: "unavailable" })) };
+    }
+    case "read_article": {
+      const slug = String(a.ref || "").replace(/^.*\/blog\//, "").replace(/[?#].*$/, "").replace(/\/$/, "").slice(0, 150);
+      const b = await api<any>(`/blog/slug/${encodeURIComponent(slug)}`).catch(() => null);
+      const blog = b?.data || b;
+      if (!blog?.title) return { forModel: { found: false } };
+      const text = String(blog.content || "").replace(/<style[\s\S]*?<\/style>/gi, " ").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+      return { forModel: { title: blog.title, url: `/blog/${blog.slug || slug}`, text: text.slice(0, 3500) }, cards: { kind: "guides", items: [{ title: blog.title, url: `/blog/${blog.slug || slug}`, excerpt: String(blog.excerpt || "").slice(0, 160), image: blog.featuredImage || "" }] } };
+    }
+    case "dealer_profile": {
+      let id = /([a-f0-9]{24})(?:\/?$|[?#])/i.exec(String(a.url || ""))?.[1] || "";
+      let city = "";
+      let fromSearch: any = null;
+      if (!id && a.name) {
+        const s = await api<any>(`/dealers/search?q=${encodeURIComponent(String(a.name).slice(0, 60))}`).catch(() => null);
+        const d = (s?.dealers || [])[0];
+        if (!d) return { forModel: { found: false, note: `No dealer named ${a.name} on the site.` } };
+        id = d._id;
+        city = d.city?.name || "";
+        fromSearch = d;
+      }
+      if (!id) return { forModel: { found: false } };
+      const [p, rev] = await Promise.all([api<any>(`/agents/${id}`).catch(() => null), api<any>(`/agents/${id}/reviews/summary`).catch(() => null)]);
+      const prof = p?.profile || p?.user || p;
+      if (!prof?.name && !prof?.companyName) return { forModel: { found: false } };
+      const name = String(prof.companyName || prof.name);
+      const listings = Number(fromSearch?.listings ?? (Array.isArray(p?.listings) ? p.listings.length : p?.total ?? 0)) || 0;
+      const summary = rev?.data || rev || {};
+      const url = dealerHref({ _id: id, name: prof.name, companyName: prof.companyName, agency: null } as any);
+      return {
+        forModel: {
+          name,
+          city: city || prof.city?.name || "",
+          about: String(prof.bio || "").replace(/<[^>]+>/g, " ").slice(0, 500),
+          experienceYears: prof.experienceYears || fromSearch?.experienceYears || null,
+          verified: !!(p?.verified || fromSearch?.verified),
+          liveListings: listings,
+          rating: summary.average ?? summary.avg ?? null,
+          reviews: summary.count ?? summary.total ?? null,
+          profileUrl: url,
+          note: "Contact is on the profile page; never give numbers.",
+        },
+        cards: { kind: "agents", city: city || "", total: 1, items: [{ name, url, avatar: prof.avatarUrl || "", verified: !!(p?.verified || prof.verified), listings, years: prof.experienceYears || 0, isAgency: !!prof.companyName, agency: "", plan: "", city }], moreUrl: url, query: name, exact: 1 },
+      };
+    }
+    case "site_info": {
+      const topic = String(a.topic || "").toLowerCase().trim();
+      if (/contact|phone|whatsapp|email|number/.test(topic)) {
+        const s = await cached("site_settings", 5 * 60_000, () => api<any>("/site-settings").catch(() => ({})));
+        const v = s?.data || s || {};
+        return { forModel: { siteName: v.siteName, phone: v.contactPhone, whatsapp: v.contactWhatsapp || v.contactPhone, email: v.contactEmail, contactPage: "/contact" }, cards: { kind: "support" } };
+      }
+      if (/plan|package|price|pricing|subscription/.test(topic)) {
+        const r = await cached("packages", 5 * 60_000, () => api<any>("/packages").catch(() => []));
+        const list: any[] = Array.isArray(r) ? r : r?.data || r?.packages || [];
+        const keep = (o: any) => Object.fromEntries(Object.entries(o).filter(([k, v]) => !k.startsWith("_") && !/At$|^id$|stripe|internal/i.test(k) && (typeof v !== "object" || Array.isArray(v))).map(([k, v]) => [k, Array.isArray(v) ? v.slice(0, 8) : v]));
+        return { forModel: { plans: list.slice(0, 8).map(keep), page: "/packages" } };
+      }
+      const slug = topic.replace(/[^a-z0-9-]/g, "") || "about";
+      const pg = await api<any>(`/page/slug/${encodeURIComponent(slug)}`).catch(() => null);
+      const page = pg?.data || pg;
+      if (!page?.title && !page?.content) return { forModel: { found: false, pages: ["about", "contact", "terms", "privacy-policy"] } };
+      const text = String(page.content || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+      return { forModel: { title: page.title, url: `/${slug}`, text: text.slice(0, 3000) } };
+    }
     case "smart_search": {
       const text = String(a.text || "").slice(0, 300);
       const want = readSearch(text);
@@ -776,7 +943,48 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
       return { forModel: { result: +v.toFixed(4), from, to, marlaSqft: marla, calculatorLink: "/tools/area-unit-converter" } };
     }
     case "find_agents": {
-      const city = String(a.city || "Lahore").trim();
+      // A name: look in every city (or the one they said) — never in a guessed one.
+      if (String(a.name || "").trim()) {
+        const name = String(a.name).trim().slice(0, 60);
+        const city = String(a.city || "").trim();
+        const r = await api<any>(`/dealers/search?q=${encodeURIComponent(name)}${city ? `&city=${encodeURIComponent(city)}` : ""}`).catch(() => null);
+        const found: any[] = r?.dealers || [];
+        const items = found.map((d: any) => ({
+          name: d.name,
+          url: dealerHref(d),
+          avatar: d.avatarUrl || "",
+          verified: !!d.verified,
+          listings: d.listings || 0,
+          years: d.experienceYears || 0,
+          isAgency: !!d.isAgency,
+          agency: d.agency?.name ? `${d.agency.name}` : "",
+          plan: d.plan || "",
+          city: d.city?.name || "",
+        }));
+        const exact = r?.exact ?? 0;
+        return {
+          forModel: {
+            searchedFor: name,
+            inCity: city || "all cities",
+            exactMatches: exact,
+            similarNames: exact ? [] : items.map((d) => d.name),
+            matches: items.map((d) => ({ name: d.name, city: d.city, verified: d.verified, listings: d.listings })),
+            shownAsCard: items.length > 0,
+          },
+          cards: {
+            kind: "agents",
+            q: { name, city: city || undefined },
+            city: city || "",
+            query: name,
+            exact,
+            total: r?.total ?? items.length,
+            items,
+            moreUrl: city ? dealersCityPath(CITY_SLUG(city)) : "/property-dealers",
+          },
+        };
+      }
+      const city = String(a.city || "").trim();
+      if (!city) return { forModel: { needCity: "Ask which city in one short line (offer Lahore, Karachi, Islamabad, Rawalpindi)." } };
       const slug = CITY_SLUG(city);
       const r = await api<any>(`/dealers/city/${encodeURIComponent(slug)}?limit=60${a.name ? `&q=${encodeURIComponent(String(a.name).slice(0, 40))}` : ""}`).catch(() => null);
       if (!r) return { forModel: { error: `No dealer directory for ${city}` }, cards: { kind: "agents", q: { city }, city, total: 0, items: [], moreUrl: "/property-dealers" } };
