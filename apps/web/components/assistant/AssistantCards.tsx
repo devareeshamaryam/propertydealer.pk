@@ -153,7 +153,8 @@ export function ListingsCard({ card }: { card: V<"listings"> }) {
   const shown = card.items.slice(0, 6);
   return (
     <Shell>
-      <CardHead title="Best matches" sub={card.label} right={<span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[13px] font-semibold text-slate-600">{card.total.toLocaleString("en-PK")}</span>} />
+      {card.note && <p className="border-b border-amber-100 bg-amber-50 px-3.5 py-2 text-[13.5px] text-amber-800">{card.note}</p>}
+      <CardHead title={card.note ? "Closest options" : "Best matches"} sub={card.label} right={<span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[13px] font-semibold text-slate-600">{card.total.toLocaleString("en-PK")}</span>} />
       <div className="divide-y divide-slate-100">
         {shown.map((c) => (
           <Link key={c.id} href={c.url} className="group flex gap-3 px-3 py-3 transition-colors hover:bg-slate-50">

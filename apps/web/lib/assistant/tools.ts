@@ -314,6 +314,48 @@ async function resolveScope(a: any): Promise<{ placeIds?: string[]; cityId?: str
   return {};
 }
 
+/* ── understanding a typed search ("dha 6 mein 10 marla ghar 3 crore tak") ── */
+
+const MONEY_RE = /(\d+(?:\.\d+)?)\s*(crore|crores|cr|karor|karod|lakh|lakhs|lac|lacs|l|thousand|hazar|hazaar|k|arab)\b/gi;
+function moneyOf(n: string, unit: string): number {
+  const u = unit.toLowerCase();
+  const m = /^(crore|crores|cr|karor|karod)$/.test(u) ? 1e7 : /^(lakh|lakhs|lac|lacs|l)$/.test(u) ? 1e5 : /^(thousand|hazar|hazaar|k)$/.test(u) ? 1e3 : u === "arab" ? 1e9 : 1;
+  return Math.round(Number(n) * m);
+}
+
+/** Purpose, type, size, budget, bedrooms and extras from a sentence. */
+export function readSearch(text: string) {
+  const t = ` ${text.toLowerCase().replace(/[,]/g, " ").replace(/\s+/g, " ")} `;
+  const purpose: "sale" | "rent" = /\b(rent|rental|kiraya|kiraye|kiray|kirae|lease|on rent)\b/.test(t) ? "rent" : "sale";
+  const type = /\b(plot|plots|zameen|land)\b/.test(t)
+    ? "plot"
+    : /\b(flat|flats|apartment|apartments)\b/.test(t)
+      ? "flat"
+      : /\b(shop|shops|dukan|dukaan|office|offices|commercial|plaza|warehouse)\b/.test(t)
+        ? /\boffice/.test(t) ? "office" : /\bshop|dukan|dukaan/.test(t) ? "shop" : "commercial"
+        : /\b(ghar|house|houses|home|makan|makaan|bungalow|villa|portion)\b/.test(t)
+          ? "house"
+          : "";
+  const size = /(\d+(?:\.\d+)?)\s*(marla|marle|marly|kanal|kanaal|knal)\b/.exec(t);
+  const marla = size ? Number(size[1]) * (/^k/.test(size[2]!) ? 20 : 1) : undefined;
+  // "2 se 3 crore", "2 to 3 crore", "2-3 crore": the unit belongs to both numbers.
+  const span = /(\d+(?:\.\d+)?)\s*(?:se|to|-|–|and|aur)\s*(\d+(?:\.\d+)?)\s*(crore|crores|cr|karor|karod|lakh|lakhs|lac|lacs|thousand|hazar|hazaar|k)(?![a-z])/i.exec(t);
+  const amounts = span
+    ? [moneyOf(span[1]!, span[3]!), moneyOf(span[2]!, span[3]!)]
+    : [...t.matchAll(MONEY_RE)].map((m) => moneyOf(m[1]!, m[2]!)).filter((v) => v >= 5000);
+  let minPrice: number | undefined;
+  let maxPrice: number | undefined;
+  if (amounts.length >= 2) [minPrice, maxPrice] = [Math.min(...amounts), Math.max(...amounts)];
+  else if (amounts.length === 1) {
+    if (/\b(above|over|se zyada|se ziada|se upar|minimum|min|at least|kam az kam)\b/.test(t)) minPrice = amounts[0];
+    else maxPrice = amounts[0];
+  }
+  const bedsM = /(\d)\s*(bed|beds|bedroom|bedrooms|bed room|kamre|kamray|kamra|rooms?)\b/.exec(t);
+  const extras = ["corner", "park facing", "furnished", "main boulevard", "brand new", "double storey", "single storey"].filter((k) => t.includes(` ${k}`));
+  const priceQuestion = /\b(price|prices|rate|rates|qeemat|keemat|kimat|kitne ka|kitny ka|kitne ki|worth|market value)\b/.test(t) && !/\b(lena|leni|khareed|kharidna|buy|chahiye|chahye|chahiyay|dikhao|dikhayen|show|find|dhoond|dhundo|search|available)\b/.test(t);
+  return { purpose, type, marla, minPrice, maxPrice, beds: bedsM ? Number(bedsM[1]) : undefined, extras, priceQuestion };
+}
+
 /* ── running a tool ─────────────────────────────────────────────────────── */
 
 export interface ToolResult {
@@ -588,6 +630,60 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
           cities: data.config.cities.map((c) => c.name),
         },
       };
+    }
+    case "smart_search": {
+      const text = String(a.text || "").slice(0, 300);
+      const want = readSearch(text);
+      const where = await api<any>(`/assistant/match?text=${encodeURIComponent(text)}`).catch(() => null);
+      const place = where?.place;
+      const city = where?.city;
+      // Nowhere named: the search form, already filled in with what they said.
+      if (!place && !city) {
+        return {
+          forModel: { needsPlace: true },
+          cards: { kind: "form", form: "search", prefill: { purpose: want.purpose, type: want.type || undefined, marla: want.marla, maxPrice: want.maxPrice } },
+        };
+      }
+      const scope = place ? { place_ids: place.ids, city: place.city, city_id: place.cityId, location: place.name } : { city: city.name, city_id: city.id, location: city.name };
+      if (want.priceQuestion) {
+        return runTool("market_prices", { ...scope, purpose: want.purpose, types: want.type ? [want.type] : undefined, min_marla: want.marla, max_marla: want.marla });
+      }
+      const args = {
+        ...scope,
+        purpose: want.purpose,
+        types: want.type ? [want.type] : undefined,
+        min_marla: want.marla,
+        max_marla: want.marla,
+        min_price: want.minPrice,
+        max_price: want.maxPrice,
+        min_beds: want.beds,
+        keywords: want.extras.length ? want.extras.join(" ") : undefined,
+        sort: "best",
+      };
+      const r = await runTool("search_listings", args);
+      if (r.cards?.kind !== "listings" || r.cards.total) return r;
+      // Nothing matches everything: loosen one thing at a time and show the closest, saying what changed.
+      const steps: { note: string; change: Record<string, unknown> }[] = [
+        ...(args.keywords ? [{ note: `without "${args.keywords}"`, change: { keywords: undefined } }] : []),
+        ...(args.min_beds ? [{ note: "any number of bedrooms", change: { keywords: undefined, min_beds: undefined } }] : []),
+        ...(args.max_price || args.min_price
+          ? [{ note: `a little over your budget`, change: { keywords: undefined, min_beds: undefined, min_price: undefined, max_price: args.max_price ? Math.round(Number(args.max_price) * 1.25) : undefined } }]
+          : []),
+        ...(args.min_marla ? [{ note: "other sizes", change: { keywords: undefined, min_beds: undefined, min_marla: undefined, max_marla: undefined } }] : []),
+        ...(args.max_price || args.min_price ? [{ note: "any budget", change: { keywords: undefined, min_beds: undefined, min_price: undefined, max_price: undefined } }] : []),
+        ...(args.types ? [{ note: "other property types", change: { keywords: undefined, min_beds: undefined, types: undefined } }] : []),
+        { note: "nearby options in the area", change: { keywords: undefined, min_beds: undefined, min_price: undefined, max_price: undefined, min_marla: undefined, max_marla: undefined, types: undefined } },
+      ];
+      let change: Record<string, unknown> = {};
+      for (const s of steps) {
+        change = { ...change, ...s.change };
+        const near = await runTool("search_listings", { ...args, ...change });
+        if (near.cards?.kind === "listings" && near.cards.total) {
+          const note = `No exact match right now — closest options with ${s.note}.`;
+          return { forModel: { ...(near.forModel as object), exactMatches: 0, relaxed: s.note }, cards: { ...near.cards, note, q: { ...(near.cards.q || {}), wanted: args } } };
+        }
+      }
+      return r;
     }
     case "show_search_form": {
       return {

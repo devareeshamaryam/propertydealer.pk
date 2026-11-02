@@ -18,6 +18,12 @@ export class AssistantController {
     return this.data.places(String(q).slice(0, 120), city ? String(city).slice(0, 60) : undefined);
   }
 
+  @Get('match')
+  @Header('Cache-Control', 'public, max-age=60')
+  match(@Query('text') text = '') {
+    return this.data.match(String(text).slice(0, 300));
+  }
+
   @Get('cities')
   @Header('Cache-Control', 'public, max-age=300')
   cities() {

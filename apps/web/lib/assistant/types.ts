@@ -33,7 +33,7 @@ export type ConstructionPrefill = { marla?: number; floors?: number; city?: stri
 
 /** Every card keeps the lookup behind it (`q`), so follow-up suggestions can name the exact place, size and item. */
 export type Visual = { q?: Record<string, any> } & (
-  | { kind: "listings"; total: number; items: ListingCard[]; moreUrl?: string; moreExact?: boolean; label?: string; priceRange?: { min: string; max: string } | null }
+  | { kind: "listings"; total: number; items: ListingCard[]; moreUrl?: string; moreExact?: boolean; label?: string; priceRange?: { min: string; max: string } | null; note?: string }
   | {
       kind: "rates";
       focus?: string;
@@ -98,4 +98,4 @@ export type Visual = { q?: Record<string, any> } & (
 );
 
 /** A request the chat window can run directly, with no model involved. */
-export type QuickRequest = { tool: "search_listings" | "market_prices" | "material_rates" | "construction_cost" | "find_agents" | "society_info"; args: Record<string, unknown> };
+export type QuickRequest = { tool: "search_listings" | "market_prices" | "material_rates" | "construction_cost" | "find_agents" | "society_info" | "smart_search"; args: Record<string, unknown> };

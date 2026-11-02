@@ -12,8 +12,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ArrowDown, ArrowUp, BarChart3, Check, ChevronDown, ChevronRight, Copy, Hammer, Home, KeyRound, Landmark, Layers, Loader2, Mic, RotateCcw, Square, Users, X } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ArrowDown, ArrowUp, BarChart3, Headset, Check, ChevronDown, ChevronRight, Copy, Hammer, Home, KeyRound, Landmark, Layers, Loader2, Mic, RotateCcw, Square, Users, X } from "lucide-react";
 import { useSiteSettings } from "@/components/SiteSettingsProvider";
 import { cn } from "@/lib/utils";
 import type { QuickRequest, Visual } from "@/lib/assistant/types";
@@ -53,6 +53,7 @@ const START: { title: string; icon: React.ComponentType<{ className?: string }>;
   { title: "Society details", icon: Landmark, action: { type: "form", card: { kind: "form", form: "society" }, say: "Society details", intro: "Which society?" } },
   { title: "Find a property dealer", icon: Users, action: { type: "quick", req: { tool: "find_agents", args: { city: "Lahore" } }, say: "Property dealers in Lahore" } },
   { title: "Today's material rates", icon: Layers, action: { type: "quick", req: { tool: "material_rates", args: {} }, say: "Today's material rates" } },
+  { title: "Let our team find a property for you", icon: Headset, action: { type: "link", href: "/find-property-for-me" } },
   { title: "House construction cost", icon: Hammer, action: { type: "form", card: { kind: "form", form: "construction" }, say: "House construction cost", intro: "Pick your plot size and storeys." } },
 ];
 
@@ -181,7 +182,8 @@ function summarize(card: Visual | null): string {
   const a: Record<string, any> = card.q || {};
   switch (card.kind) {
     case "listings": {
-      if (!card.total) return "Nothing matches all of that right now. Try a higher budget, any size, or a nearby area.";
+      if (!card.total) return "Nothing matches all of that right now. Try a higher budget, any size, or a nearby area — or let our team find it for you.";
+      if (card.note) return `${card.note} Our team can also search for you.`;
       const what = a.purpose === "rent" ? "for rent" : "for sale";
       const one = Array.isArray(a.types) && a.types.length === 1 ? String(a.types[0]) : "property";
       const word = card.total === 1 ? one : one === "property" ? "properties" : `${one}s`;
@@ -207,6 +209,8 @@ function summarize(card: Visual | null): string {
       return card.facts.length ? `Here's the key information on **${card.name}**.` : `Here's what we have on **${card.name}** right now.`;
     case "guides":
       return "These guides on the site explain it step by step.";
+    case "form":
+      return card.form === "search" ? "Which city or area? I've filled in the rest — just pick the place." : "";
     default:
       return "";
   }
@@ -257,6 +261,7 @@ const Dots = ({ label }: { label?: string }) => (
 
 export default function AssistantWidget() {
   const pathname = usePathname() || "/";
+  const router = useRouter();
   const site = useSiteSettings() as { siteName?: string };
   const brand = site?.siteName || "Property Dealer";
   const [open, setOpen] = useState(false);
@@ -570,6 +575,11 @@ export default function AssistantWidget() {
 
   const act = (a: Action) => {
     if (busy) return;
+    if (a.type === "link") {
+      router.push(a.href);
+      if (!window.matchMedia("(min-width: 640px)").matches) setOpen(false);
+      return;
+    }
     if (a.type === "send") void send(a.text);
     else if (a.type === "quick") void runQuick(a.req, a.say);
     else showForm(a.card, a.say, a.intro);

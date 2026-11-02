@@ -48,6 +48,8 @@ export const TYPE_ALIASES: Record<string, string[]> = {
 };
 
 const SYN: Record<string, string> = { ph: 'phase', phs: 'phase', sec: 'sector', sect: 'sector', blk: 'block', bt: 'bahria', dha: 'dha', defence: 'dha', defense: 'dha', lhr: 'lahore', isb: 'islamabad', khi: 'karachi', rwp: 'rawalpindi', pindi: 'rawalpindi', fsd: 'faisalabad', mtn: 'multan', soc: 'society', town: 'town', scheme: 'scheme' };
+/** Words that name no place on their own. */
+const GENERIC = new Set(['town', 'city', 'phase', 'block', 'sector', 'colony', 'garden', 'gardens', 'park', 'road', 'scheme', 'model', 'new', 'old', 'extension', 'avenue', 'enclave', 'valley', 'villas', 'homes', 'residencia', 'heights', 'main', 'boulevard', 'market', 'chowk', 'bazar', 'canal', 'view', 'green', 'royal', 'city', 'house', 'plot', 'flat', 'cantt', 'cant', 'east', 'west', 'north', 'south', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l']);
 const STOP = new Set(['in', 'the', 'of', 'at', 'near', 'mein', 'me', 'main', 'k', 'ka', 'ki', 'ke', 'and', 'housing', 'society', 'lahore-']);
 const tokens = (s: string) =>
   String(s || '')
@@ -195,6 +197,45 @@ export class AssistantDataService {
       m.set(r.cityId, c);
     }
     return [...m.values()];
+  }
+
+  /**
+   * The place a whole sentence talks about: "mujhy dha phase 6 mein 10 marla
+   * ghar chahiye" → DHA Phase 6, Lahore. An area matches when every word of
+   * its name is in the sentence; the most specific one wins (Phase 6 over
+   * DHA), then the busiest. A name that covers several areas ("Bahria Town")
+   * comes back with all of them, as places() does.
+   */
+  async match(text: string) {
+    const { rows } = await this.allAreas();
+    const words = new Set(tokens(text));
+    const cities = await this.cityList();
+    const city = cities
+      .filter((c) => { const t = tokens(c.name); return t.length > 0 && t.every((w) => words.has(w)); })
+      .sort((a, b) => tokens(b.name).length - tokens(a.name).length || b.listings - a.listings)[0];
+    const cityWords = new Set(city ? tokens(city.name) : []);
+    let best: AreaRow | null = null;
+    let bestScore = -1;
+    for (const r of rows) {
+      if (r.mergedInto || !r.tokens.length) continue;
+      // A one-word name that is a common word ("Town", "Park") can't be told apart from a sentence; "Park View City" can.
+      if (r.tokens.length === 1 && (GENERIC.has(r.tokens[0]!) || /^\d+$/.test(r.tokens[0]!))) continue;
+      if (!r.tokens.every((t) => words.has(t))) continue;
+      if (r.tokens.every((t) => cityWords.has(t))) continue; // the city's own name
+      if (city && r.cityId !== city._id) continue;
+      const score = r.tokens.length * 10 + Math.log10(1 + r.listings) + (r.kind === 'society' ? 0.5 : 0);
+      if (score > bestScore) {
+        best = r;
+        bestScore = score;
+      }
+    }
+    if (!best) return { place: null, city: city ? { id: city._id, name: titleCase(city.name) } : null };
+    const found = await this.places(best.name, best.city);
+    const ids = found.group?.ids?.length && tokens(found.group.name).length === best.tokens.length ? found.group.ids : [best._id];
+    return {
+      place: { ids, name: titleCase(best.name), city: titleCase(best.city), cityId: best.cityId },
+      city: { id: best.cityId, name: titleCase(best.city) },
+    };
   }
 
   /** Every city on the site, the ones with most listings first — for the chat's city pickers. */

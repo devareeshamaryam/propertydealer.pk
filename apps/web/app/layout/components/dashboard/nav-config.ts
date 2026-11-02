@@ -25,6 +25,7 @@ import {
   Wallet,
   Star,
   Bell,
+  HousePlus,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -410,6 +411,12 @@ export const NAV_SECTIONS: NavSection[] = [
     label: "Administration",
     entries: [
       {
+        title: "Property Requests",
+        href: "/dashboard/property-requests",
+        adminOnly: true,
+        keywords: ["find property for me", "leads", "requests", "buyers", "tenants", "enquiries"],
+      },
+      {
         title: "Reports",
         href: "/dashboard/reports",
         adminOnly: true,
@@ -470,6 +477,7 @@ export const LEAF_ICONS: Record<
   "/dashboard": LayoutDashboard,
   "/dashboard/insights": BarChart3,
   "/dashboard/reports": Flag,
+  "/dashboard/property-requests": HousePlus,
   "/dashboard/reviews": Star,
   "/dashboard/push": BellRing,
   "/dashboard/push-settings": Bell,
@@ -519,6 +527,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
   insights: "Insights",
   reports: "Reports",
+  "property-requests": "Property Requests",
   property: "Properties",
   "add-property": "Add Property",
   "listed-properties": "Listed Properties",

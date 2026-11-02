@@ -11,7 +11,7 @@ import { runTool } from "@/lib/assistant/tools";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set(["search_listings", "market_prices", "material_rates", "construction_cost", "find_agents", "society_info"]);
+const ALLOWED = new Set(["search_listings", "market_prices", "material_rates", "construction_cost", "find_agents", "society_info", "smart_search"]);
 
 /*
  * Per visitor: 20 a minute and 300 a day — far more than a person clicking

@@ -156,6 +156,7 @@ const FIELDS = {
   notifyListingsAuto: { kind: 'bool', def: true },
   notifyListingChanges: { kind: 'bool', def: true },
   notifyReports: { kind: 'bool', def: true },
+  notifyRequests: { kind: 'bool', def: true },
   notifyOrders: { kind: 'bool', def: true },
   notifyPayments: { kind: 'bool', def: true },
   notifyTeam: { kind: 'bool', def: true },

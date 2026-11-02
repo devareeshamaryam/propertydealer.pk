@@ -11,6 +11,7 @@ export const NOTIFY_KINDS = [
   { key: 'Payments', icon: '💳', label: 'Plans & payments', hint: 'A plan bought, a payment to verify (with the screenshot), verified, rejected, granted or cancelled.' },
   { key: 'Orders', icon: '🧱', label: 'Material orders', hint: 'Items, total, address, phone — with a WhatsApp link to the customer.' },
   { key: 'Reports', icon: '🚩', label: 'Reports', hint: 'A listing or agent reported: reason, both people, open reports on that agent.' },
+  { key: 'Requests', icon: '🏠', label: 'Find-a-property requests', hint: 'A visitor asks the team to find a property: what, where, budget, size — with their phone and a WhatsApp link.' },
   { key: 'Team', icon: '👥', label: 'Agency teams', hint: 'An agency adds or removes an agent account.' },
   { key: 'Places', icon: '📍', label: 'New areas & cities', hint: 'An agent adds an area or city that was not there — check the spelling or merge it.' },
   { key: 'Security', icon: '🔒', label: 'Security', hint: 'An account locked after wrong passwords; a role changed, an account deactivated or deleted, a new admin.' },

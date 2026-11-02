@@ -43,6 +43,7 @@ export const NOTIFY_CATEGORIES = [
   'ListingsAuto',
   'ListingChanges',
   'Reports',
+  'Requests',
   'Orders',
   'Payments',
   'Team',

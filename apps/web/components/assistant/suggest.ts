@@ -12,7 +12,14 @@
 import type { QuickRequest, SearchPrefill, Visual } from "@/lib/assistant/types";
 import { moneyText, sizeLabel } from "./AssistantCards";
 
-export type Action = { type: "send"; text: string } | { type: "quick"; req: QuickRequest; say: string } | { type: "form"; card: Visual; say: string; intro: string };
+export type Action =
+  | { type: "send"; text: string }
+  | { type: "quick"; req: QuickRequest; say: string }
+  | { type: "form"; card: Visual; say: string; intro: string }
+  | { type: "link"; href: string };
+
+/** The page where the team searches for them. */
+export const FIND_FOR_ME: Chip = { label: "Let our team find it for you", action: { type: "link", href: "/find-property-for-me" } };
 export type Chip = { label: string; action: Action };
 
 export const SEARCH_INTRO = "Fill in what you know — leave the rest on Any.";
@@ -98,6 +105,7 @@ export function chipsFor(card: Visual | null | undefined): Chip[] {
       const edit: Chip = { label: "Edit search", action: { type: "form", card: searchForm(prefill), say: "Edit search", intro: SEARCH_INTRO } };
 
       if (!card.total) {
+        push(FIND_FOR_ME);
         if (a.max_price) push(quick(`${cap(T)} at any budget${where ? ` in ${where}` : ""}`, "search_listings", { ...a, max_price: undefined }));
         if (a.min_marla) push(quick(`Any size ${T}${where ? ` in ${where}` : ""}`, "search_listings", { ...a, min_marla: undefined, max_marla: undefined }));
         if (place && city) push(quick(`${cap(T)} anywhere in ${city}`, "search_listings", { ...a, place_ids: undefined, location: undefined, city }));
@@ -133,6 +141,7 @@ export function chipsFor(card: Visual | null | undefined): Chip[] {
       if (card.total > items.length && a.sort !== "cheapest") push(quick(`Cheapest ${T} first`, "search_listings", { ...a, sort: "cheapest" }));
       if (where) push(quick(`${cap(T)} for ${rent ? "sale" : "rent"} in ${where}`, "search_listings", { ...a, purpose: rent ? "sale" : "rent", max_price: undefined, sort: "best" }));
       if (out.length < 4) push(edit);
+      out.push(FIND_FOR_ME);
       return out;
     }
 
@@ -219,9 +228,17 @@ const BUILD_WORD = /\b(construction|constuction|tameer|tamir|banane|banana|banwa
 /** Anything that needs thinking, comparing or explaining goes to the model. */
 const NEEDS_MODEL = /\b(compare|vs|versus|difference|farq|fark|better|behtar|kaun sa|konsa|which|why|kyun|kyon|should|chahiye|loan|emi|installment|qist|rent|kiraya|plot|buy|khareed|sell|bech)\b|\?.*\?/;
 
+/** "I want / show me a house / plot / flat … in X, N marla, Y crore": a search, answered with property cards. */
+const SEARCH_THING = /\b(ghar|house|houses|home|makan|makaan|plot|plots|flat|flats|apartment|apartments|shop|shops|dukan|office|portion|bungalow|villa|property|properties|zameen)\b/;
+const SEARCH_DETAIL = /\b(marla|marle|kanal|crore|cr|karor|lakh|lac|budget|rent|kiraya|kiraye|sale|buy|lena|leni|khareedna|chahiye|chahye|chahiyay|dikhao|dikhayen|show|find|dhoond|dhundo|available|mein|main|in|tak|under|upto)\b/;
+const NOT_A_SEARCH = /\b(compare|vs|versus|difference|farq|fark|why|kyun|kyon|kaise|how|should|better|behtar|investment|invest|return|profit|loan|emi|qist|installment|tax|transfer|registry|fard|intiqal|documents|legal|approved|approval|construction|banane|tameer)\b/;
+
 /** A typed message the app can answer itself, or null to ask the model. */
 export function localRoute(text: string): QuickRequest | null {
   const t = ` ${text.toLowerCase().replace(/[^\p{L}\p{N}\s.]/gu, " ").replace(/\s+/g, " ")} `;
+  if (t.length < 160 && SEARCH_THING.test(t) && SEARCH_DETAIL.test(t) && !NOT_A_SEARCH.test(t) && !/\?.*\?/.test(t)) {
+    return { tool: "smart_search", args: { text: text.slice(0, 300) } };
+  }
   if (t.length > 90) return null;
   const build = BUILD_WORD.test(t);
 

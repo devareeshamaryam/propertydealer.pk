@@ -37,6 +37,7 @@ import { BricksRateModule } from './bricks-rate/bricks-rate.module';
 import { TileCategoryModule } from './tile-category/tile-category.module';
 import { MediaModule } from './media/media.module';
 import { ReportModule } from './report/report.module';
+import { PropertyRequestModule } from './property-request/property-request.module';
 import { ReviewModule } from './review/review.module';
 import { PushModule } from './push/push.module';
 import { AssistantModule } from './assistant/assistant.module';
@@ -170,6 +171,7 @@ const uploadsPath = isInAppsApi ? path.join(cwd, '..', '..', 'uploads') : path.j
     TileCategoryModule,
     MediaModule,
     ReportModule,
+    PropertyRequestModule,
     ReviewModule,
     PushModule,
     AssistantModule,
