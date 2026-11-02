@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, BarChart3, Headset, Check, ChevronDown, ChevronRight, Copy, Hammer, Home, KeyRound, Landmark, Layers, Loader2, Mic, RotateCcw, Square, Users, X } from "lucide-react";
+import { ArrowDown, ArrowUp, BarChart3, Headset, Check, ChevronDown, ChevronRight, Copy, Hammer, Home, KeyRound, Landmark, Layers, Loader2, RotateCcw, Square, Users, X } from "lucide-react";
 import { useSiteSettings } from "@/components/SiteSettingsProvider";
 import { cn } from "@/lib/utils";
 import type { QuickRequest, Visual } from "@/lib/assistant/types";
@@ -342,9 +342,6 @@ export default function AssistantWidget() {
   /** Scrolled up to read something: offer a button back to the latest message. */
   const [away, setAway] = useState(false);
   const [copied, setCopied] = useState("");
-  const [listening, setListening] = useState(false);
-  const [canSpeak, setCanSpeak] = useState(false);
-  const speech = useRef<any>(null);
   const stick = useRef(true);
   /** The AI answered "not set up": use the quick rules for typed questions. */
   const aiDown = useRef(false);
@@ -430,42 +427,6 @@ export default function AssistantWidget() {
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
   }, [input, open]);
-
-  // Voice typing where the browser offers it (Chrome, Edge, Android, Safari).
-  useEffect(() => {
-    setCanSpeak(typeof window !== "undefined" && !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition));
-  }, []);
-  const toggleVoice = () => {
-    if (listening) {
-      speech.current?.stop();
-      return;
-    }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) return;
-    const rec = new SR();
-    // Pakistani English handles mixed Urdu/English speech best, written in Roman letters.
-    rec.lang = "en-IN";
-    rec.interimResults = true;
-    rec.continuous = false;
-    const before = input ? `${input.trimEnd()} ` : "";
-    rec.onresult = (e: any) => {
-      let said = "";
-      for (let i = 0; i < e.results.length; i++) said += e.results[i][0].transcript;
-      setInput((before + said).slice(0, 1500));
-    };
-    rec.onend = () => {
-      setListening(false);
-      box.current?.focus();
-    };
-    rec.onerror = () => setListening(false);
-    speech.current = rec;
-    setListening(true);
-    try {
-      rec.start();
-    } catch {
-      setListening(false);
-    }
-  };
 
   const copy = async (id: string, text: string) => {
     try {
@@ -963,23 +924,9 @@ export default function AssistantWidget() {
                   e.preventDefault();
                   void send();
                 }}
-                placeholder={listening ? "Listening…" : "Ask about property, prices, rates…"}
+                placeholder="Ask about property, prices, rates…"
                 className="max-h-[140px] min-h-[36px] flex-1 resize-none overflow-y-auto bg-transparent py-[7px] text-[16px] leading-[22px] text-slate-900 outline-none placeholder:text-slate-400"
               />
-              {canSpeak && !busy && (
-                <button
-                  type="button"
-                  onClick={toggleVoice}
-                  aria-label={listening ? "Stop voice typing" : "Speak your question"}
-                  title={listening ? "Stop" : "Speak"}
-                  className={cn(
-                    "grid h-9 w-9 shrink-0 place-items-center rounded-full transition",
-                    listening ? "animate-pulse bg-red-500 text-white" : "text-slate-500 hover:bg-slate-200/70 hover:text-slate-700",
-                  )}
-                >
-                  <Mic className="h-[18px] w-[18px]" />
-                </button>
-              )}
               {busy && abort.current ? (
                 <button type="button" onClick={() => abort.current?.abort()} aria-label="Stop" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-slate-800 text-white">
                   <Square className="h-3.5 w-3.5 fill-current" />
