@@ -91,6 +91,8 @@ export type Visual = { q?: Record<string, any> } & (
       links: { page?: string; map?: string; listings: string };
     }
   | { kind: "guides"; items: { title: string; url: string; excerpt: string; image: string }[] }
+  /** Reach a person: WhatsApp first, then a call, then the "find it for me" request. */
+  | { kind: "support"; topic?: string }
   | { kind: "form"; form: "search"; prefill?: SearchPrefill }
   | { kind: "form"; form: "construction"; prefill?: ConstructionPrefill }
   | { kind: "form"; form: "market"; prefill?: { city?: string; location?: string } }

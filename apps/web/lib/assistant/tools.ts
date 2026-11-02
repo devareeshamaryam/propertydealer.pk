@@ -195,6 +195,14 @@ export const TOOL_DEFS = [
   {
     type: "function",
     function: {
+      name: "contact_support",
+      description: "Show the site team's WhatsApp, call and 'find it for me' options. Use when the user wants to talk to a person, asks for a contact/helpline, is unhappy or stuck, or you cannot help with something.",
+      parameters: { type: "object", properties: { topic: str("What they need help with, in a few words, in their language") } },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "find_agents",
       description: "Property dealers, agencies and agents in a city — verified ones first, with listings count and profile link (never phone numbers). Shown to the user as dealer cards. Use for 'dealer', 'agent', 'agency', 'who can help me sell/buy in X'.",
       parameters: { type: "object", properties: { city: str("City name, e.g. 'Lahore', 'Karachi', 'Islamabad'"), name: str("Part of a dealer or agency name, if the user asked for a specific one") }, required: ["city"] },
@@ -245,6 +253,8 @@ export function toolLabel(name: string, args: any): string {
       return `Looking up ${args?.name || "the society"}`;
     case "site_guides":
       return "Finding guides";
+    case "contact_support":
+      return "Connecting you with our team";
     case "show_search_form":
       return "Opening search";
     default:
@@ -692,6 +702,12 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         }
       }
       return r;
+    }
+    case "contact_support": {
+      return {
+        forModel: { shown: "The team's WhatsApp and call buttons are on screen. Say one short, warm line; no phone numbers in text." },
+        cards: { kind: "support", topic: String(a.topic || "").slice(0, 120) || undefined },
+      };
     }
     case "show_search_form": {
       return {

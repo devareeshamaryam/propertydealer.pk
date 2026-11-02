@@ -46,6 +46,7 @@ const NAV_LINKS = [
   { name: 'Rent', path: '/properties/rent' },
   { name: 'Societies', path: '/societies' },
   { name: 'Tools', path: '/tools' },
+  { name: 'Find for Me', path: '/find-property-for-me' },
 ];
 
 /** The construction-rate pages — the site's other half, and well ranked. */

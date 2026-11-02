@@ -25,6 +25,7 @@ const EXPLORE = [
   { name: 'Search on Map', href: '/emap' },
   { name: 'Agent Packages', href: '/packages' },
   { name: 'Blog', href: '/blog' },
+  { name: 'Find a Property for Me', href: '/find-property-for-me' },
   { name: 'Property Dealers', href: '/property-dealers' },
   { name: 'Property Tools', href: '/tools' },
   { name: 'About Us', href: '/about' },

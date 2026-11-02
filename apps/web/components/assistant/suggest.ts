@@ -16,7 +16,20 @@ export type Action =
   | { type: "send"; text: string }
   | { type: "quick"; req: QuickRequest; say: string }
   | { type: "form"; card: Visual; say: string; intro: string }
-  | { type: "link"; href: string };
+  | { type: "link"; href: string }
+  | { type: "support"; topic?: string };
+
+/** Hand over to a person (WhatsApp first). */
+export const TALK_TO_TEAM: Chip = { label: "Talk to our team", action: { type: "support" } };
+
+/** "I want to talk to a person", "helpline", "apka number", "contact"… */
+export function wantsPerson(text: string): boolean {
+  const t = ` ${text.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ")} `;
+  return (
+    /\b(human|insaan|insan|banda|bande|person|real person|representative|customer care|customer support|support|helpline|help line|call center|operator|team se|aap ka number|apka number|aapka number|your number|contact number|contact you|contact karna|baat karni|baat krni|baat karna|baat krna|rabta|raabta)\b/.test(t) &&
+    !/\b(dealer|dealers|agent|agents|owner|owners|seller|sellers)\b/.test(t)
+  );
+}
 
 /** The page where the team searches for them. */
 export const FIND_FOR_ME: Chip = { label: "Let our team find it for you", action: { type: "link", href: "/find-property-for-me" } };
@@ -106,6 +119,7 @@ export function chipsFor(card: Visual | null | undefined): Chip[] {
 
       if (!card.total) {
         push(FIND_FOR_ME);
+        push(TALK_TO_TEAM);
         if (a.max_price) push(quick(`${cap(T)} at any budget${where ? ` in ${where}` : ""}`, "search_listings", { ...a, max_price: undefined }));
         if (a.min_marla) push(quick(`Any size ${T}${where ? ` in ${where}` : ""}`, "search_listings", { ...a, min_marla: undefined, max_marla: undefined }));
         if (place && city) push(quick(`${cap(T)} anywhere in ${city}`, "search_listings", { ...a, place_ids: undefined, location: undefined, city }));

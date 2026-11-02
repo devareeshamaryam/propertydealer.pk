@@ -24,6 +24,14 @@ import {
 } from "@/lib/push-client";
 
 const LS = { views: "push_pv", snooze: "push_snooze", ctxAt: "push_ctx_at" };
+
+/** Chrome, Edge, Opera, Samsung Internet: may show the permission prompt without a tap. */
+function askWithoutTap(): boolean {
+  const ua = navigator.userAgent;
+  const brands: { brand: string }[] = (navigator as any).userAgentData?.brands || [];
+  if (brands.some((b) => /Chromium|Google Chrome|Microsoft Edge/i.test(b.brand))) return true;
+  return /Chrome|CriOS|Edg\/|SamsungBrowser|OPR\//.test(ua) && !/Firefox|FxiOS/.test(ua) && !/iPhone|iPad/.test(ua);
+}
 const read = (k: string) => {
   try {
     return localStorage.getItem(k);
@@ -49,6 +57,7 @@ export default function PushPrompt() {
   const [ask, setAsk] = useState<Ask | null>(null);
   const [busy, setBusy] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const asking = useRef(false);
   /** The page last counted, so a re-render (sign-in finishing) doesn't count it twice. */
   const counted = useRef<string>("");
 
@@ -74,31 +83,57 @@ export default function PushPrompt() {
     return support;
   }, [cfg]);
 
-  // The general ask: a few seconds after arriving.
+  /*
+   * The browser's own Allow prompt, straight away — no card of ours.
+   * Chrome and Edge let a site ask on arrival; Firefox and Safari only
+   * after the visitor taps or clicks, so there it comes with their first
+   * tap anywhere on the page. iPhone can't ask until the site is on the
+   * Home Screen, so nothing is shown there.
+   * A dismissed prompt (closed without choosing) waits 3 days before
+   * asking again: browsers start blocking sites that ask too often.
+   */
+  const nativeAsk = useCallback(
+    async (source: string) => {
+      if (asking.current) return;
+      asking.current = true;
+      try {
+        const r = await enablePush(source, who);
+        if (r.ok) toast.success("Notifications are on");
+        else if (pushPermission() === "default") write(LS.snooze, String(Date.now() + 3 * 86_400_000));
+        else if (r.reason === "denied") write(LS.snooze, String(Date.now() + 90 * 86_400_000));
+      } finally {
+        asking.current = false;
+      }
+    },
+    [who],
+  );
+
   useEffect(() => {
     if (!cfg || isLoading) return;
-    let views = Number(read(LS.views) || 0);
     if (counted.current !== pathname) {
       counted.current = pathname;
-      views += 1;
-      write(LS.views, String(views));
+      write(LS.views, String(Number(read(LS.views) || 0) + 1));
     }
     if (timer.current) clearTimeout(timer.current);
-    const support = canAsk();
-    if (!support || excluded(pathname) || ask) return;
+    if (canAsk() !== "ok" || excluded(pathname)) return;
     if (Date.now() < Number(read(LS.snooze) || 0)) return;
+    const source = viewedCount() >= 3 ? "browse" : "prompt";
 
-    const show = () => {
-      if (document.visibilityState !== "visible") return;
-      // Someone who has been opening listings hears about alerts for their area.
-      const browsing = viewedCount() >= 3;
-      const copy = browsing ? cfg.prompt.contexts.browse || cfg.prompt : cfg.prompt;
-      setAsk({ title: copy.title, body: copy.body, source: browsing ? "browse" : "prompt", ios: support === "ios-install" });
-    };
-    // Right after they arrive — a few seconds in, once the page is up — on the first page too.
-    timer.current = setTimeout(show, Math.min(3000, Math.max(1500, cfg.prompt.delaySec * 1000)));
+    if (askWithoutTap()) {
+      timer.current = setTimeout(() => {
+        if (document.visibilityState === "visible") void nativeAsk(source);
+      }, 1500);
+      return () => {
+        if (timer.current) clearTimeout(timer.current);
+      };
+    }
+    // Firefox / Safari: the first tap or click (it has to come from one).
+    const onTap = () => void nativeAsk(source);
+    document.addEventListener("click", onTap, { once: true, capture: true });
+    document.addEventListener("keydown", onTap, { once: true, capture: true });
     return () => {
-      if (timer.current) clearTimeout(timer.current);
+      document.removeEventListener("click", onTap, { capture: true });
+      document.removeEventListener("keydown", onTap, { capture: true });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, cfg, isLoading]);
@@ -109,11 +144,13 @@ export default function PushPrompt() {
       const support = canAsk();
       if (!support || !cfg) return;
       if (Date.now() - Number(read(LS.ctxAt) || 0) < 3 * 86_400_000) return;
-      const copy = cfg.prompt.contexts[context] || cfg.prompt;
       write(LS.ctxAt, String(Date.now()));
-      setAsk({ title: copy.title, body: copy.body, source: context || "prompt", ios: support === "ios-install" });
+      if (support === "ok") return void nativeAsk(context || "prompt");
+      // iPhone, not on the Home Screen: the one case that needs words — how to add it.
+      const copy = cfg.prompt.contexts[context] || cfg.prompt;
+      setAsk({ title: copy.title, body: copy.body, source: context || "prompt", ios: true });
     },
-    [cfg, canAsk],
+    [cfg, canAsk, nativeAsk],
   );
 
   useEffect(() => {

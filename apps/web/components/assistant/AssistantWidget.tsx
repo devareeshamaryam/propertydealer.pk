@@ -17,8 +17,9 @@ import { ArrowDown, ArrowUp, BarChart3, Headset, Check, ChevronDown, ChevronRigh
 import { useSiteSettings } from "@/components/SiteSettingsProvider";
 import { cn } from "@/lib/utils";
 import type { QuickRequest, Visual } from "@/lib/assistant/types";
-import { AgentsCard, ConstructionCard, ConstructionForm, GuidesCard, ListingsCard, MarketCard, MarketForm, RatesCard, SearchForm, SocietyCard, sizeLabel } from "./AssistantCards";
-import { SEARCH_INTRO, chipsFor, localRoute, searchForm, type Action, type Chip } from "./suggest";
+import { SupportCard, AgentsCard, ConstructionCard, ConstructionForm, GuidesCard, ListingsCard, MarketCard, MarketForm, RatesCard, SearchForm, SocietyCard, sizeLabel } from "./AssistantCards";
+import { SEARCH_INTRO, TALK_TO_TEAM, chipsFor, localRoute, searchForm, wantsPerson, type Action, type Chip } from "./suggest";
+import { resolved, waDigits } from "@/lib/site-settings";
 import { refusal } from "@/lib/assistant/guard";
 
 type Msg = {
@@ -263,8 +264,11 @@ const Dots = ({ label }: { label?: string }) => (
 export default function AssistantWidget() {
   const pathname = usePathname() || "/";
   const router = useRouter();
-  const site = useSiteSettings() as { siteName?: string };
+  const settings = useSiteSettings();
+  const site = settings as { siteName?: string };
   const brand = site?.siteName || "Property Dealer";
+  const contact = resolved(settings);
+  const teamWhatsapp = contact.whatsapp ? waDigits(contact.whatsapp) : "";
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   /** The messages as of now, for code that runs after a state change in the same tick. */
@@ -485,6 +489,16 @@ export default function AssistantWidget() {
         setMsgs((all) => [...all, { id: newId(), role: "user", text, done: true }, { id: newId(), role: "assistant", text: no, done: true }]);
         return;
       }
+      // "I want to talk to a person": the team's WhatsApp, at once.
+      if (wantsPerson(text)) {
+        stick.current = true;
+        setMsgs((all) => [
+          ...all,
+          { id: newId(), role: "user", text, done: true },
+          { id: newId(), role: "assistant", text: "Of course — here's how to reach our team. WhatsApp is the quickest.", cards: [{ kind: "support", topic: lastTopic() }], done: true },
+        ]);
+        return;
+      }
       // Plain questions ("cement rate", "10 marla ghar ka kharcha") are answered here: instant, no model.
       const local = localRoute(text);
       if (local) return void runQuick(local, text);
@@ -576,6 +590,11 @@ export default function AssistantWidget() {
 
   const act = (a: Action) => {
     if (busy) return;
+    if (a.type === "support") {
+      stick.current = true;
+      setMsgs((all) => [...all, { id: newId(), role: "assistant", text: "Here's how to reach our team — WhatsApp is the quickest.", cards: [{ kind: "support", topic: a.topic || lastTopic() }], done: true }]);
+      return;
+    }
     if (a.type === "link") {
       router.push(a.href);
       if (!window.matchMedia("(min-width: 640px)").matches) setOpen(false);
@@ -584,6 +603,12 @@ export default function AssistantWidget() {
     if (a.type === "send") void send(a.text);
     else if (a.type === "quick") void runQuick(a.req, a.say);
     else showForm(a.card, a.say, a.intro);
+  };
+
+  /** What they were last asking about, to start the WhatsApp message with. */
+  const lastTopic = () => {
+    const q = [...msgsRef.current].reverse().find((m) => m.role === "user" && !wantsPerson(m.text));
+    return q?.text.slice(0, 120);
   };
 
   const reset = () => {
@@ -603,7 +628,9 @@ export default function AssistantWidget() {
     last?.role === "assistant" && last.done && !busy
       ? last.chips?.length
         ? last.chips
-        : (() => {
+        : last.error
+          ? [TALK_TO_TEAM]
+          : (() => {
             // The model showed a card: suggest from the card itself; otherwise use the model's own options.
             const shown = [...(last.cards || [])].reverse().find((c) => c.kind !== "form");
             const fromCard = chipsFor(shown);
@@ -629,6 +656,8 @@ export default function AssistantWidget() {
         return <SocietyCard card={c} />;
       case "guides":
         return <GuidesCard card={c} />;
+      case "support":
+        return <SupportCard topic={c.topic} whatsapp={teamWhatsapp} phone={contact.phone} site={brand} />;
       case "form":
         if (c.form === "search")
           return <SearchForm prefill={c.prefill} disabled={busy} onSubmit={(s) => void runQuick({ tool: "search_listings", args: s.args }, s.say)} />;
@@ -699,6 +728,17 @@ export default function AssistantWidget() {
               <img src="/api/push/badge.png" alt="" className="h-5 w-5" />
             </span>
             <p className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-tight">{brand}</p>
+            {teamWhatsapp && (
+              <button
+                type="button"
+                onClick={() => act({ type: "support" })}
+                title="Talk to our team"
+                className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white/15 px-3 text-[13px] font-semibold text-white hover:bg-white/25"
+              >
+                <Headset className="h-4 w-4" />
+                <span className="max-[359px]:hidden">Talk to us</span>
+              </button>
+            )}
             {msgs.length > 0 && (
               <button type="button" onClick={reset} title="Start over" aria-label="Start over" className="grid h-9 w-9 place-items-center rounded-full text-white/85 hover:bg-white/15">
                 <RotateCcw className="h-[18px] w-[18px]" />
