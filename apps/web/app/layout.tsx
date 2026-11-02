@@ -111,7 +111,25 @@ export async function generateMetadata(): Promise<Metadata> {
     meta.publisher = s.siteName;
   }
   if (s.googleVerification) meta.verification = { google: s.googleVerification };
-  if (s.faviconUrl) meta.icons = { icon: s.faviconUrl, apple: s.faviconUrl };
+  /*
+   * The favicon from Settings → Appearance, and only that one: the built-in
+   * favicon.ico now lives in public/ (still served at /favicon.ico) instead
+   * of app/, where Next added it to every page ahead of the admin's — so
+   * browsers kept showing the old one. A PNG made from the same picture
+   * (/api/push/icon.png) is listed too, for browsers and iPhones that don't
+   * take .webp or .svg icons.
+   */
+  if (s.faviconUrl) {
+    const v = encodeURIComponent((s.faviconUrl.split('/').pop() || '1').slice(0, 60));
+    const png = `/api/push/icon.png?v=${v}`;
+    meta.icons = {
+      icon: [{ url: png, type: 'image/png', sizes: '192x192' }, { url: s.faviconUrl }],
+      shortcut: png,
+      apple: [{ url: png, sizes: '192x192' }],
+    };
+  } else {
+    meta.icons = { icon: '/favicon.ico', shortcut: '/favicon.ico' };
+  }
   return meta;
 }
 

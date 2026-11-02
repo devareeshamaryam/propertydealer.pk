@@ -328,6 +328,7 @@ export default function AssistantWidget() {
   const brand = site?.siteName || "Property Dealer";
   const contact = resolved(settings);
   const teamWhatsapp = contact.whatsapp ? waDigits(contact.whatsapp) : "";
+  const siteIcon = (settings as { faviconUrl?: string }).faviconUrl || "/api/push/icon.png";
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   /** The messages as of now, for code that runs after a state change in the same tick. */
@@ -770,9 +771,18 @@ export default function AssistantWidget() {
           className="assistant-open fixed inset-0 z-[90] flex flex-col isolate bg-white sm:inset-auto sm:bottom-[100px] sm:right-6 sm:h-[min(700px,calc(100vh-120px))] sm:w-[430px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)]"
         >
           <div className="flex items-center gap-2.5 bg-primary px-3.5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15">
+            {/* The site's own favicon (Settings → Appearance), in full colour on white. */}
+            <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/api/push/badge.png" alt="" className="h-5 w-5" />
+              <img
+                src={siteIcon}
+                alt=""
+                className="h-6 w-6 object-contain"
+                onError={(e) => {
+                  // The favicon file didn't load: the PNG made from it (Settings → Appearance) instead.
+                  if (!e.currentTarget.src.includes("/api/push/icon.png")) e.currentTarget.src = "/api/push/icon.png";
+                }}
+              />
             </span>
             <p className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-tight">{brand}</p>
             {teamWhatsapp && (
