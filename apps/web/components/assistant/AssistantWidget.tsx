@@ -34,6 +34,8 @@ type Msg = {
   /** What the assistant looked up on the way, shown as steps. */
   steps?: string[];
   error?: boolean;
+  /** Links the lookups returned for this reply — the only ones shown as links (besides the fixed pages). */
+  links?: string[];
   /** The question to send again from a "Try again" button. */
   retry?: string;
   done?: boolean;
@@ -96,7 +98,9 @@ function inline(text: string, key: string) {
     if (m[1]) out.push(<strong key={`${key}b${i++}`} className="font-semibold text-slate-900">{m[1]}</strong>);
     else {
       const href = m[3]!;
-      if (href.startsWith("/") && !href.startsWith("//")) out.push(<Link key={`${key}l${i++}`} href={href} className="font-medium text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary">{m[2]}</Link>);
+      // A link no lookup returned (made up, or mistyped): show the words, not a link that may 404.
+      if (!linkOk(href)) out.push(<span key={`${key}l${i++}`} className="font-medium">{m[2]}</span>);
+      else if (href.startsWith("/") && !href.startsWith("//")) out.push(<Link key={`${key}l${i++}`} href={href} className="font-medium text-primary underline decoration-primary/30 underline-offset-2 hover:decoration-primary">{m[2]}</Link>);
       else if (/^https?:\/\//.test(href)) out.push(<a key={`${key}l${i++}`} href={href} target="_blank" rel="noopener noreferrer" className="font-medium text-primary underline decoration-primary/30 underline-offset-2">{m[2]}</a>);
       else out.push(m[2]);
     }
@@ -114,7 +118,20 @@ const isSep = (line: string) => {
   return c.length >= 2 && c.every((x) => /^:?-{2,}:?$/.test(x));
 };
 
-function Markdown({ text }: { text: string }) {
+/** The site's fixed pages: always safe to link. Anything else must have come from a lookup. */
+const FIXED_PAGES = /^\/(?:|properties|properties\/(?:sale|rent|all)|tools(?:\/(?:construction-cost-calculator|area-unit-converter|home-loan-calculator|installment-plan-calculator|price-per-marla-calculator|rental-yield-calculator))?|blog|contact|about|packages|find-property-for-me|property-dealers|emap|societies|privacy-policy|terms|today-(?:cement|steel|bricks|sand|bajri|tile|wood|door)-rate-in-pakistan)\/?$/;
+
+/** Links in this reply that are real: fixed pages, or ones a lookup returned. */
+let allowedLinks: Set<string> | null = null;
+function linkOk(href: string): boolean {
+  const path = href.replace(/[?#].*$/, "");
+  if (FIXED_PAGES.test(path)) return true;
+  if (!allowedLinks) return false;
+  return allowedLinks.has(href) || allowedLinks.has(path) || [...allowedLinks].some((l) => l.replace(/[?#].*$/, "") === path);
+}
+
+function Markdown({ text, links }: { text: string; links?: string[] }) {
+  allowedLinks = new Set(links || []);
   const blocks: React.ReactNode[] = [];
   let list: string[] = [];
   const lines = text.replace(/\r/g, "").split("\n");
@@ -617,6 +634,10 @@ export default function AssistantWidget() {
                   continue;
                 }
                 if (ev.t === "ping") continue;
+                if (ev.t === "links") {
+                  update(reply.id, (m) => ({ ...m, links: Array.isArray(ev.links) ? ev.links : [] }));
+                  continue;
+                }
                 if (ev.t === "done") finished = true;
                 else if (ev.t === "text") {
                   received = true;
@@ -853,7 +874,7 @@ export default function AssistantWidget() {
                   {steps.length > 0 && (running || !m.error) && <Steps steps={steps} running={running && !body && !m.cards?.length} />}
                   {body && (
                     <div className={cn("px-0.5", m.error && "rounded-lg bg-red-50 px-3 py-2 text-red-800")}>
-                      <Markdown text={body} />
+                      <Markdown text={body} links={m.links} />
                       {m.error && m.retry && !busy && m.id === msgs[msgs.length - 1]?.id && (
                         <button
                           type="button"

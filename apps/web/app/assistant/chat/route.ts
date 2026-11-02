@@ -185,6 +185,12 @@ export async function POST(req: Request) {
       // mobile network decides the connection has gone quiet and drops it.
       const ping = setInterval(() => send({ t: "ping" }), 5000);
       const lastUser = String(turns[turns.length - 1]?.content || "");
+      // Every link the lookups returned this time: the only ones the window will make clickable.
+      const links = new Set<string>();
+      const collect = (o: unknown) => {
+        const json = JSON.stringify(o ?? null);
+        for (const m of json.matchAll(/"((?:\/|https?:\/\/)[^"\s]{1,300})"/g)) links.add(m[1]!);
+      };
       try {
         // Look things up as many times as needed (at most 5 rounds), then answer.
         for (let round = 0; round < 6; round++) {
@@ -203,6 +209,8 @@ export async function POST(req: Request) {
               send({ t: "status", text: toolLabel(c.name, args) });
               try {
                 const r = await runTool(c.name, args);
+                collect(r.forModel);
+                collect(r.cards);
                 if (r.cards) send({ t: "cards", cards: r.cards });
                 return { id: c.id, content: JSON.stringify(r.forModel).slice(0, 5_000) };
               } catch (e: any) {
@@ -212,6 +220,7 @@ export async function POST(req: Request) {
           );
           for (const r of results) messages.push({ role: "tool", tool_call_id: r.id, content: r.content });
         }
+        send({ t: "links", links: [...links].slice(0, 300) });
         send({ t: "done" });
       } catch (e: any) {
         console.error("[assistant]", e?.message || e);

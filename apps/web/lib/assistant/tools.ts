@@ -723,9 +723,9 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
       const ls = (listings?.listings || []).slice(0, 5);
       return {
         forModel: {
-          places: (places?.places || []).slice(0, 5).map((p: any) => ({ name: p.name, city: p.city, kind: p.kind, listings: p.listings, hasGuide: !!p.society })),
+          places: (places?.places || []).slice(0, 5).map((p: any) => ({ name: p.name, city: p.city, kind: p.kind, listings: p.listings, listingsUrl: p.url, guideUrl: p.society?.url })),
           listingsMatchingWords: { total: listings?.total || 0, top: ls.map((l: any) => ({ title: l.title, price: l.priceText, size: l.size, place: l.place, url: l.url })) },
-          dealers: (dealers?.dealers || []).slice(0, 5).map((d: any) => ({ name: d.name, city: d.city?.name, exactName: d.exact, listings: d.listings, verified: d.verified })),
+          dealers: (dealers?.dealers || []).slice(0, 5).map((d: any) => ({ name: d.name, city: d.city?.name, exactName: d.exact, listings: d.listings, verified: d.verified, profileUrl: dealerHref(d) })),
           articles: (guides?.guides || []).slice(0, 4).map((g: any) => ({ title: g.title, url: g.url })),
         },
         cards: ls.length ? { kind: "listings", total: listings.total, items: ls, label: `“${q}”`, q: { keywords: q } } : undefined,
