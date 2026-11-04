@@ -185,6 +185,13 @@ export class Property extends Document {
   @Prop({ type: String, default: 'manual' })
   source?: string
 
+  /**
+   * The listing's id in the system it came from (Listing API / automation):
+   * sending the same one again finds this listing instead of adding a copy.
+   */
+  @Prop({ type: String, default: undefined })
+  externalId?: string
+
   @Prop({ type: Number })
   latitude?: number
 
@@ -224,6 +231,7 @@ PropertySchema.index({ title: 'text', location: 'text' });
 
 // Compound index for common listing queries
 PropertySchema.index({ status: 1, listingType: 1, propertyType: 1 });
+PropertySchema.index({ source: 1, externalId: 1 }, { sparse: true });
 
 /*
  * 🚀 PERF: indexes for the dashboard list query.

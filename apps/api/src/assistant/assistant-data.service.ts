@@ -62,7 +62,11 @@ const tokens = (s: string) =>
 
 /** Marla of a listing: kanal and marla if given, else its square feet. */
 export function marlaOf(p: any): number {
-  const m = (Number(p.kanal) || 0) * 20 + (Number(p.marla) || 0);
+  const kanal = Number(p.kanal) || 0;
+  const marla = Number(p.marla) || 0;
+  // Two ways sizes are stored: older listings "1 kanal 5 marla" (kanal 1, marla 5);
+  // the form now sends the whole size in marla (1 kanal = marla 20, kanal 1).
+  const m = kanal > 0 && marla >= kanal * 20 - 0.01 ? marla : kanal * 20 + marla;
   if (m > 0) return m;
   const sqft = Number(p.areaSize) || 0;
   return sqft > 0 ? sqft / (Number(p.marlaSqft) || 225) : 0;

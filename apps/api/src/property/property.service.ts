@@ -283,7 +283,7 @@ export class PropertyService {
         );
     }
 
-    async create(userId: string, dto: CreatePropertyDto, mainPhotoUrl?: string, additionalPhotosUrls?: string[], userRole?: string, options?: { source?: string; status?: 'pending' | 'approved' | 'rejected' | 'draft' }) {
+    async create(userId: string, dto: CreatePropertyDto, mainPhotoUrl?: string, additionalPhotosUrls?: string[], userRole?: string, options?: { source?: string; status?: 'pending' | 'approved' | 'rejected' | 'draft'; screen?: boolean }) {
         // Validation: Verify user exists if not admin (though controller handles auth)
         // Check subscription unless user is admin
         let subscriptionId: string | undefined;
@@ -316,7 +316,9 @@ export class PropertyService {
          */
         let brainVerdict: Awaited<ReturnType<ListingBrainService['review']>> | null = null;
 
-        if (finalStatus === 'pending' && userRole !== 'ADMIN' && source === 'manual' && this.brain.isEnabled()) {
+        // `screen`: the Listing API asks for the same check on what it imports — clean listings
+        // go live, questionable ones wait for the admin with the reasons attached.
+        if (finalStatus === 'pending' && ((userRole !== 'ADMIN' && source === 'manual') || options?.screen) && this.brain.isEnabled()) {
             const photos = [mainPhotoUrl, ...(additionalPhotosUrls ?? [])].filter(
                 (url): url is string => Boolean(url),
             );
@@ -343,6 +345,9 @@ export class PropertyService {
             );
 
             if (brainVerdict.action === 'publish') finalStatus = 'approved';
+        } else if (options?.screen && finalStatus === 'pending' && !this.brain.isEnabled()) {
+            // Asked to be checked, but the check is switched off (LISTING_BRAIN_ENABLED=false): publish.
+            finalStatus = 'approved';
         }
 
 
