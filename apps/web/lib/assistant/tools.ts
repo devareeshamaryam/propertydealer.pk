@@ -6,7 +6,7 @@
  * use (lib/tools.ts, lib/area-units.ts) — so an answer in the chat and the
  * calculator page always agree, and the model never does arithmetic itself.
  */
-import { brickwork, concrete as concreteMix, plaster as plasterMix, rateOf, CONCRETE_MIXES, type ConcreteMix } from "@/lib/tools";
+import { boundaryLength, brickwork, concrete as concreteMix, plaster as plasterMix, rateOf, rateRange, roomsWallLength, CONCRETE_MIXES, PLOTS, type ConcreteMix } from "@/lib/tools";
 import { coveredAreas, emi, estimate, installmentPlan, rentalYield, roomLimits, roomMaxima, usualRooms, withDefaults, CONSTRUCTION_FALLBACK, type ConstructionData, type Quality } from "@/lib/tools";
 import { convert, type UnitKey } from "@/lib/area-units";
 import { searchUrl } from "@/lib/search";
@@ -194,17 +194,28 @@ export const TOOL_DEFS = [
     type: "function",
     function: {
       name: "bricks_calculator",
-      description: "How many bricks a wall (or several walls) needs, with the cement and sand for the mortar and today's cost. Pakistani standard: 1,350 bricks per 100 cft of brickwork. Use for 'kitni eenten lagengi', 'bricks for a 10x12 room', 'bricks per sq ft'. A room of L×W: wall length = 2×(L+W).",
+      description: "How many bricks a job needs, with cement and sand for the mortar and today's cost. Pakistani standard: 1,350 bricks per 100 cft of brickwork. Pick the job: 'room' (L×W rooms — 'kamre ke liye kitni eenten'), 'boundary' (boundary wall round a plot — 'chaar diwari'), 'house' (whole house by plot size and storeys), 'wall' (any wall by length).",
       parameters: {
         type: "object",
         properties: {
-          wall_length_ft: num("Total length of all walls, feet (a 12×10 room = 44)"),
-          wall_height_ft: num("Height, feet (default 10)"),
-          wall_area_sqft: num("Or the wall face area directly, sq ft"),
+          job: str("What is being built (default: room if room size given, boundary if 'boundary/chaar diwari', house if plot size + house, else wall)", ["room", "boundary", "house", "wall"]),
+          room_length_ft: num("room: length of a room, feet"),
+          room_width_ft: num("room: width of a room, feet"),
+          rooms: num("room: how many rooms of that size (default 1)"),
+          plot: str("boundary/house: plot size like '5 marla', '10 marla', '1 kanal'"),
+          plot_front_ft: num("boundary: plot front, feet (if not a standard plot)"),
+          plot_depth_ft: num("boundary: plot depth, feet"),
+          sides: num("boundary: 4 (all, default), 3 (back shared) or 1 (front only)"),
+          gate_ft: num("boundary: gate opening, feet (default 10)"),
+          floors: num("house: storeys 1–3 (default 2)"),
+          wall_length_ft: num("wall: total length of walls, feet"),
+          wall_height_ft: num("Height, feet (default 10; boundary 7)"),
+          wall_area_sqft: num("wall: or the wall face area directly, sq ft"),
           thickness_in: num("4.5, 9 (default) or 13.5 inches"),
-          doors: num("Doors to subtract (about 21 sq ft each)"),
-          windows: num("Windows to subtract (about 16 sq ft each)"),
+          doors: num("Doors to subtract (per room for job room; about 21 sq ft each)"),
+          windows: num("Windows to subtract (per room for job room; about 16 sq ft each)"),
           mortar: num("Mortar 1:N — 4, 5 or 6 (default 6)"),
+          quality: str("Brick quality (default first)", ["first", "second"]),
           city: str("City for rates (default Lahore)"),
         },
       },
@@ -214,17 +225,26 @@ export const TOOL_DEFS = [
     type: "function",
     function: {
       name: "cement_calculator",
-      description: "Cement bags (50 kg), sand, crush and water for concrete (slab, beam, column, footing), plaster, or brick mortar — any mix — with today's cost. Use for 'slab ke liye kitne bag', 'plaster cement', '1:2:4 concrete'.",
+      description: "Cement bags (50 kg), sand, crush and water with today's cost. Jobs: 'roof' (lenter/slab of a room or of a whole floor by plot size), 'plaster' (a room's walls ± ceiling, or an area), 'floor' (PCC base under tiles), 'concrete' (columns, beams, footings or any volume), 'brick_mortar', 'house' (whole house by plot size and storeys). Use for 'lenter ke liye kitne bag', 'kamre ka plaster', '5 marla ghar mein kitna cement'.",
       parameters: {
         type: "object",
         properties: {
-          work: str("What is being made", ["concrete", "plaster", "brick_mortar"]),
-          length_ft: num("Concrete/wall length, feet"),
-          width_ft: num("Concrete width, feet (or wall height for brick_mortar)"),
-          thickness_in: num("Concrete or plaster thickness in inches (slab 5–6, plaster 0.5); wall thickness for brick_mortar (4.5/9/13.5)"),
-          count: num("How many identical pieces (beams, columns, footings)"),
-          volume_cft: num("Or the concrete volume directly, cft"),
-          area_sqft: num("Plaster area, sq ft"),
+          work: str("What is being made", ["roof", "plaster", "floor", "concrete", "brick_mortar", "house"]),
+          room_length_ft: num("roof/plaster/floor: room length, feet"),
+          room_width_ft: num("roof/plaster/floor: room width, feet"),
+          room_height_ft: num("plaster: room height, feet (default 10)"),
+          rooms: num("How many rooms of that size (default 1)"),
+          plot: str("roof (whole floor) / house: plot size like '5 marla', '1 kanal'"),
+          floors: num("house: storeys 1–3 (default 2)"),
+          ceiling: str("plaster: include the ceiling (default yes)", ["yes", "no"]),
+          beams: str("roof: include beams under the slab, +12% (default yes)", ["yes", "no"]),
+          length_ft: num("concrete: length/height of each piece, feet; brick_mortar: wall length"),
+          width_ft: num("concrete: width, feet; brick_mortar: wall height"),
+          depth_ft: num("concrete: depth of each piece, feet (column/beam: e.g. 1.25)"),
+          thickness_in: num("Slab 4–6 (default 5), floor 3, plaster 0.5; wall thickness for brick_mortar (4.5/9/13.5)"),
+          count: num("How many identical pieces (columns, beams, footings)"),
+          volume_cft: num("concrete: or the volume directly, cft"),
+          area_sqft: num("plaster: area, sq ft (instead of a room)"),
           mix: str("Concrete '1:2:4' (default), '1:1.5:3', '1:3:6', '1:4:8'; plaster/mortar '1:4', '1:6'…"),
           city: str("City for rates (default Lahore)"),
         },
@@ -962,28 +982,94 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         return n >= 2 && n <= 8 ? n : d;
       };
 
+      // "5 marla", "10m", "1 kanal" → a plot (standard sizes, else a 1 : 1.8 rectangle).
+      const plotOf = (v: unknown) => {
+        const t = String(v ?? "").toLowerCase();
+        const n = parseFloat(t);
+        if (!Number.isFinite(n) || n <= 0) return null;
+        const marla = /kanal|\dk\b/.test(t) ? n * 20 : n;
+        const std = PLOTS.find((x) => x.marla === marla);
+        if (std) return std;
+        const front = Math.round(Math.sqrt((marla * 225) / 1.8));
+        return { key: "", label: `${marla} Marla`, marla, front, depth: Math.round((marla * 225) / front) };
+      };
+      const storeys = Math.min(3, Math.max(1, Math.round(Number(a.floors) || 2)));
+      const coveredOf = (marla: number, f: number) => coveredAreas(marla * 225, { floors: f, basement: false }).reduce((s, x) => s + x.sqft, 0);
+      const yes = (v: unknown, d: boolean) => (v === undefined || v === null || v === "" ? d : !/^(no|false|0)$/i.test(String(v)));
+
       if (name === "bricks_calculator") {
-        const thick = [4.5, 9, 13.5].includes(Number(a.thickness_in)) ? Number(a.thickness_in) : 9;
         const mortar = ratio(a.mortar, 6);
-        const height = Number(a.wall_height_ft) || 10;
-        const length = Number(a.wall_length_ft) || (Number(a.wall_area_sqft) ? Number(a.wall_area_sqft) / height : 0);
-        if (!length) return { forModel: { needInput: "Ask for the wall length (or the room size) in one short question." } };
-        const openings = (Number(a.doors) || 0) * 21 + (Number(a.windows) || 0) * 16;
-        const r = brickwork({ lengthFt: length, heightFt: height, thicknessIn: thick, openingsSqft: openings, mortar }, m);
-        const brickRate = rateOf(data, "bricks", city);
+        const plot = plotOf(a.plot);
+        const job =
+          a.job === "room" || a.job === "boundary" || a.job === "house" || a.job === "wall"
+            ? a.job
+            : Number(a.room_length_ft) && Number(a.room_width_ft)
+              ? "room"
+              : plot && !Number(a.wall_length_ft)
+                ? "boundary"
+                : "wall";
+        const range = rateRange(data, "bricks", city);
+        const second = a.quality === "second";
+        const brickRate = second ? range.low : range.high;
+        let r: { bricks: number; cementBags: number; sandCft: number; volumeCft: number };
+        let title = "";
+        if (job === "house") {
+          if (!plot) return { forModel: { needInput: "Ask the plot size (e.g. 5 marla) and storeys in one short question." } };
+          const covered = coveredOf(plot.marla, storeys);
+          const bricks = Math.ceil(covered * data.config.qty.bricks);
+          const vol = (bricks / (1 + m.brickWastagePct / 100) / m.bricksPer100Cft) * 100;
+          const b = brickwork({ lengthFt: vol, heightFt: 1, thicknessIn: 12, openingsSqft: 0, mortar }, m);
+          r = { ...b, bricks };
+          title = `${plot.label} house, ${storeys} storey${storeys > 1 ? "s" : ""} · ${n0(covered)} sq ft covered`;
+        } else {
+          const thick = [4.5, 9, 13.5].includes(Number(a.thickness_in)) ? Number(a.thickness_in) : 9;
+          const height = Math.max(1, Number(a.wall_height_ft) || (job === "boundary" ? 7 : 10));
+          let length = 0;
+          let openings = 0;
+          if (job === "room") {
+            const L = Number(a.room_length_ft) || 0;
+            const W = Number(a.room_width_ft) || 0;
+            if (!L || !W) return { forModel: { needInput: "Ask for the room size (length × width) in one short question." } };
+            const n = Math.max(1, Math.round(Number(a.rooms) || 1));
+            length = roomsWallLength(L, W, n, n > 1);
+            // A door and a window per room unless told otherwise.
+            const doors = a.doors === undefined ? 1 : Number(a.doors) || 0;
+            const windows = a.windows === undefined ? 1 : Number(a.windows) || 0;
+            openings = (doors * 21 + windows * 16) * n;
+            title = `${n > 1 ? `${n} rooms of ` : ""}${L}' × ${W}'${n > 1 ? " side by side" : " room"}, ${height} ft high, ${thick}" walls`;
+          } else if (job === "boundary") {
+            const front = Number(a.plot_front_ft) || plot?.front || 0;
+            const depth = Number(a.plot_depth_ft) || plot?.depth || 0;
+            if (!front || !depth) return { forModel: { needInput: "Ask the plot size (e.g. 5 marla) in one short question." } };
+            const sides = ([4, 3, 1] as const).find((x) => x === Number(a.sides)) ?? 4;
+            length = boundaryLength(front, depth, sides, a.gate_ft === undefined ? 10 : Number(a.gate_ft) || 0);
+            title = `Boundary wall, ${plot && plot.front === front && plot.depth === depth ? plot.label : `${front}' × ${depth}'`} plot, ${sides === 4 ? "all sides" : sides === 3 ? "3 sides" : "front only"}, ${height} ft high + foundation`;
+          } else {
+            length = Number(a.wall_length_ft) || (Number(a.wall_area_sqft) ? Number(a.wall_area_sqft) / height : 0);
+            if (!length) return { forModel: { needInput: "Ask what they're building — a room (size), a boundary wall (plot size) or a wall (length) — in one short question." } };
+            openings = (Number(a.doors) || 0) * 21 + (Number(a.windows) || 0) * 16;
+            title = `${n0(length)} ft of ${thick}" wall, ${height} ft high`;
+          }
+          const w = brickwork({ lengthFt: length, heightFt: height, thicknessIn: thick, openingsSqft: openings, mortar }, m);
+          if (job === "boundary") {
+            // Foundation below ground: about 2 ft deep, 13.5" wide.
+            const f = brickwork({ lengthFt: length, heightFt: 2, thicknessIn: 13.5, openingsSqft: 0, mortar }, m);
+            r = { bricks: w.bricks + f.bricks, cementBags: w.cementBags + f.cementBags, sandCft: w.sandCft + f.sandCft, volumeCft: w.volumeCft + f.volumeCft };
+          } else r = w;
+        }
         const bags = Math.ceil(r.cementBags);
         const total = r.bricks * brickRate + bags * cementRate + r.sandCft * sandRate;
         return {
-          forModel: { wallAreaSqft: Math.round(r.faceSqft), brickworkCft: Math.round(r.volumeCft), bricks: r.bricks, wastagePct: m.brickWastagePct, cementBags: bags, sandCft: Math.round(r.sandCft), totalCost: rs(total), city, shownAsCard: true },
+          forModel: { job, bricks: r.bricks, brickworkCft: Math.round(r.volumeCft), wastagePct: m.brickWastagePct, brickQuality: second ? "second class" : "first class", cementBags: bags, sandCft: Math.round(r.sandCft), totalCost: rs(total), city, shownAsCard: true },
           cards: {
             kind: "estimate",
-            title: `${thick}" wall · ${n0(r.faceSqft)} sq ft · 1:${mortar} mortar`,
+            title: `${title} · 1:${mortar} mortar`,
             headline: n0(r.bricks),
             headlineLabel: "Bricks needed",
             rows: [
-              { k: "Bricks", v: `${n0(r.bricks)} × ${rs(brickRate).replace("PKR ", "Rs ")}`, note: `${m.bricksPer100Cft} per 100 cft + ${m.brickWastagePct}% wastage` },
-              { k: "Cement", v: `${bags} bags`, note: `${rs(bags * cementRate)}` },
-              { k: "Sand", v: `${n0(r.sandCft)} cft`, note: `${rs(r.sandCft * sandRate)}` },
+              { k: `Bricks (${second ? "second" : "first"} class)`, v: n0(r.bricks), note: `${rs(r.bricks * brickRate)} · ${rs(brickRate * 1000).replace("PKR ", "Rs ")} per 1,000` },
+              { k: "Cement", v: `${bags} bags`, note: rs(bags * cementRate) },
+              { k: "Sand", v: `${n0(r.sandCft)} cft`, note: rs(r.sandCft * sandRate) },
             ],
             total: `${rs(total)} in ${city} (material only)`,
             link: "/tools/bricks-calculator",
@@ -992,22 +1078,58 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
         };
       }
 
-      const work = a.work === "plaster" ? "plaster" : a.work === "brick_mortar" ? "brick_mortar" : "concrete";
+      const work = (["roof", "plaster", "floor", "concrete", "brick_mortar", "house"] as const).find((x) => x === a.work) ?? "concrete";
+      const roomL = Number(a.room_length_ft) || 0;
+      const roomW = Number(a.room_width_ft) || 0;
+      const nRooms = Math.max(1, Math.round(Number(a.rooms) || 1));
+      const roomText = `${nRooms > 1 ? `${nRooms} rooms of ` : ""}${roomL}' × ${roomW}'`;
+      const mixOf = (d: ConcreteMix) => (CONCRETE_MIXES.find((x) => x.v === String(a.mix || "").replace(/\s/g, ""))?.v || d) as ConcreteMix;
       let r: { cementBags: number; sandCft: number; crushCft: number; waterLitres?: number };
       let title = "";
-      if (work === "concrete") {
-        const mix = (CONCRETE_MIXES.find((x) => x.v === String(a.mix || "").replace(/\s/g, ""))?.v || "1:2:4") as ConcreteMix;
-        const vol = Number(a.volume_cft) || (Number(a.length_ft) || 0) * (Number(a.width_ft) || 0) * ((Number(a.thickness_in) || 5) / 12) * (Number(a.count) || 1);
-        if (!vol) return { forModel: { needInput: "Ask for the length, width and thickness in one short question." } };
+      if (work === "roof") {
+        const plot = plotOf(a.plot);
+        const area = roomL && roomW ? roomL * roomW * nRooms : plot ? coveredOf(plot.marla, 1) : 0;
+        if (!area) return { forModel: { needInput: "Ask the room size (or plot size for a whole floor) in one short question." } };
+        const t = Number(a.thickness_in) || 5;
+        const beams = yes(a.beams, true);
+        const mix = mixOf("1:2:4");
+        // Beams under a slab add roughly an eighth to its concrete.
+        r = concreteMix(area * (t / 12) * (beams ? 1.12 : 1), mix, m);
+        title = `Roof (lenter) of ${roomL && roomW ? roomText : `a ${plot!.label} floor`} · ${n0(area)} sq ft × ${t}"${beams ? " + beams" : ""}, ${mix}`;
+      } else if (work === "plaster") {
+        let area = Number(a.area_sqft) || 0;
+        const fromRoom = !area && !!roomL && !!roomW;
+        if (fromRoom) {
+          const h = Number(a.room_height_ft) || 10;
+          // Four walls less a door and a window, plus the ceiling.
+          area = (Math.max(0, 2 * (roomL + roomW) * h - 37) + (yes(a.ceiling, true) ? roomL * roomW : 0)) * nRooms;
+        }
+        if (!area) return { forModel: { needInput: "Ask the room size (or the area to plaster) in one short question." } };
+        const t = Number(a.thickness_in) || 0.5;
+        const mix = ratio(a.mix, 6);
+        r = plasterMix(area, t, mix, m);
+        title = `${fromRoom ? `Plaster of ${roomText} · ` : ""}${n0(area)} sq ft of ${t}" plaster, 1:${mix}`;
+      } else if (work === "floor") {
+        const area = roomL * roomW * nRooms || Number(a.area_sqft) || 0;
+        if (!area) return { forModel: { needInput: "Ask the floor size in one short question." } };
+        const t = Number(a.thickness_in) || 3;
+        const mix = mixOf("1:4:8");
+        r = concreteMix(area * (t / 12), mix, m);
+        title = `Floor base (PCC) · ${n0(area)} sq ft × ${t}", ${mix}`;
+      } else if (work === "house") {
+        const plot = plotOf(a.plot);
+        if (!plot) return { forModel: { needInput: "Ask the plot size (e.g. 5 marla) and storeys in one short question." } };
+        const covered = coveredOf(plot.marla, storeys);
+        const q = data.config.qty;
+        r = { cementBags: covered * q.cement, sandCft: covered * q.sand, crushCft: covered * q.crush };
+        title = `${plot.label} house, ${storeys} storey${storeys > 1 ? "s" : ""} · ${n0(covered)} sq ft covered (foundations to plaster)`;
+      } else if (work === "concrete") {
+        const mix = mixOf("1:2:4");
+        const depth = Number(a.depth_ft) || (Number(a.thickness_in) || 5) / 12;
+        const vol = Number(a.volume_cft) || (Number(a.length_ft) || 0) * (Number(a.width_ft) || 0) * depth * (Number(a.count) || 1);
+        if (!vol) return { forModel: { needInput: "Ask for the size (length, width, depth) and how many, in one short question." } };
         r = concreteMix(vol, mix, m);
         title = `${n0(vol)} cft of ${mix} concrete`;
-      } else if (work === "plaster") {
-        const area = Number(a.area_sqft) || (Number(a.length_ft) || 0) * (Number(a.width_ft) || 0);
-        if (!area) return { forModel: { needInput: "Ask for the area to plaster in one short question." } };
-        const t = Number(a.thickness_in) || 0.5;
-        const mix = ratio(a.mix, 4);
-        r = plasterMix(area, t, mix, m);
-        title = `${n0(area)} sq ft of ${t}" plaster, 1:${mix}`;
       } else {
         const thick = [4.5, 9, 13.5].includes(Number(a.thickness_in)) ? Number(a.thickness_in) : 9;
         const len = Number(a.length_ft) || 0;

@@ -242,6 +242,43 @@ export function plaster(areaSqft: number, thicknessIn: number, mix: number, m: M
   return { areaSqft, wetCft, dryCft, ...split(dryCft, [1, mix], m) };
 }
 
+/*
+ * ── What people actually build ───────────────────────────────────────────
+ * Plot sizes as societies lay them out (Lahore / most of Punjab, 225 sq ft
+ * marla): 5 marla 25×45, 10 marla 35×65, 1 kanal 50×90.
+ */
+export const PLOTS: { key: string; label: string; marla: number; front: number; depth: number }[] = [
+  { key: '3m', label: '3 Marla', marla: 3, front: 20, depth: 34 },
+  { key: '5m', label: '5 Marla', marla: 5, front: 25, depth: 45 },
+  { key: '7m', label: '7 Marla', marla: 7, front: 30, depth: 52 },
+  { key: '8m', label: '8 Marla', marla: 8, front: 30, depth: 60 },
+  { key: '10m', label: '10 Marla', marla: 10, front: 35, depth: 65 },
+  { key: '1k', label: '1 Kanal', marla: 20, front: 50, depth: 90 },
+  { key: '2k', label: '2 Kanal', marla: 40, front: 75, depth: 120 },
+];
+
+/** Wall length of rooms: each room's four walls; rooms side by side share a wall. */
+export function roomsWallLength(lengthFt: number, widthFt: number, rooms: number, sideBySide: boolean): number {
+  const n = Math.max(1, Math.round(rooms));
+  if (!sideBySide || n === 1) return n * 2 * (lengthFt + widthFt);
+  // A row of n rooms: 2n long walls, n + 1 cross walls.
+  return 2 * n * lengthFt + (n + 1) * widthFt;
+}
+
+/** Wall length of a boundary wall round a plot, less the gate. */
+export function boundaryLength(frontFt: number, depthFt: number, sides: 4 | 3 | 1, gateFt: number): number {
+  const all = sides === 4 ? 2 * (frontFt + depthFt) : sides === 3 ? frontFt + 2 * depthFt : frontFt;
+  return Math.max(0, all - gateFt);
+}
+
+/** A material's price by quality: low (second class / cheapest), mid, high (first class). */
+export function rateRange(data: ConstructionData, material: Material, city?: string): { low: number; mid: number; high: number } {
+  const own = city ? data.cityRates?.[city]?.find((r) => r.material === material) : undefined;
+  const r = own || data.rates.find((x) => x.material === material) || CONSTRUCTION_FALLBACK.rates.find((x) => x.material === material);
+  const mid = r?.mid || 0;
+  return { low: r?.low || mid, mid, high: r?.high || mid };
+}
+
 /** Today's price of a material (the city's own when it has one). */
 export function rateOf(data: ConstructionData, material: Material, city?: string): number {
   const own = city ? data.cityRates?.[city]?.find((r) => r.material === material)?.mid : undefined;
