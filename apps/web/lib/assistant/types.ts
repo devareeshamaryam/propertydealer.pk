@@ -94,6 +94,8 @@ export type Visual = { q?: Record<string, any> } & (
       links: { page?: string; map?: string; listings: string };
     }
   | { kind: "guides"; items: { title: string; url: string; excerpt: string; image: string }[] }
+  /** A materials estimate (bricks / cement calculators): the answer, its parts and their cost. */
+  | { kind: "estimate"; title: string; headline: string; headlineLabel: string; rows: { k: string; v: string; note?: string }[]; total?: string; link: string; linkLabel: string }
   /** Reach a person: WhatsApp first, then a call, then the "find it for me" request. */
   | { kind: "support"; topic?: string }
   | { kind: "form"; form: "search"; prefill?: SearchPrefill }

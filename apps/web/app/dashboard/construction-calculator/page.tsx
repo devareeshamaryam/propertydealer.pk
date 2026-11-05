@@ -49,9 +49,34 @@ interface Config {
   contingencyPct: number;
   basementFactor: number;
   cities: { name: string; factor: number }[];
+  masonry: Masonry;
   autoIndex: boolean;
   updatedAt?: string;
 }
+
+/** The bricks and cement calculators' standards (PWD analysis-of-rates basis). */
+interface Masonry {
+  bricksPer100Cft: number;
+  dryMortarPer100Cft: number;
+  cementBagCft: number;
+  cementBagKg: number;
+  concreteDryFactor: number;
+  plasterDryFactor: number;
+  brickWastagePct: number;
+  cementWastagePct: number;
+  waterCementRatio: number;
+}
+const MASONRY_FIELDS: { k: keyof Masonry; label: string; hint: string; step?: string }[] = [
+  { k: "bricksPer100Cft", label: "Bricks in 100 cft of brickwork", hint: "PWD: 1,350 (9\" × 4.5\" × 3\" brick with joints)" },
+  { k: "dryMortarPer100Cft", label: "Dry mortar in 100 cft of brickwork (cft)", hint: "PWD: 30" },
+  { k: "cementBagCft", label: "One cement bag (cft)", hint: "50 kg = 1.25 cft", step: "0.01" },
+  { k: "cementBagKg", label: "One cement bag (kg)", hint: "50" },
+  { k: "concreteDryFactor", label: "Concrete dry volume factor", hint: "1.54 × the finished volume", step: "0.01" },
+  { k: "plasterDryFactor", label: "Plaster dry volume factor", hint: "1.30 × (joints, uneven walls, spill)", step: "0.01" },
+  { k: "brickWastagePct", label: "Brick wastage (%)", hint: "5 — breakage and cutting", step: "0.5" },
+  { k: "cementWastagePct", label: "Cement wastage (%)", hint: "2", step: "0.5" },
+  { k: "waterCementRatio", label: "Water–cement ratio", hint: "0.5 (litres of water per kg of cement)", step: "0.05" },
+];
 interface ShopRate {
   low: number;
   mid: number;
@@ -360,6 +385,22 @@ export default function ConstructionCalculatorSettings() {
                     Basement multiplier
                     <Num value={form.basementFactor} step="0.05" onChange={(n) => patch((c) => void (c.basementFactor = n))} />
                   </label>
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Bricks & cement calculators</h3>
+                  <p className="text-xs text-muted-foreground">The standards behind /tools/bricks-calculator and /tools/cement-bags-calculator. Prices come from today&apos;s material rates.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {MASONRY_FIELDS.map((f) => (
+                    <label key={f.k} className="space-y-1.5 text-xs font-medium text-muted-foreground">
+                      {f.label}
+                      <Num value={form.masonry?.[f.k] ?? 0} step={f.step ?? "1"} onChange={(n) => patch((c) => void (c.masonry = { ...(c.masonry ?? ({} as Masonry)), [f.k]: n }))} />
+                      <span className="block text-[11px] font-normal">{f.hint}</span>
+                    </label>
+                  ))}
                 </div>
               </section>
 

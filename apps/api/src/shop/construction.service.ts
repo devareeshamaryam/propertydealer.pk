@@ -39,6 +39,36 @@ export const GREY_WORKS = [
 ] as const;
 export type GreyWork = (typeof GREY_WORKS)[number];
 
+/*
+ * Bricks & cement, counted the way Pakistani engineers and the PWD analysis of
+ * rates do: 100 cft of brickwork = 1,350 bricks (9" × 4.5" × 3") and 30 cft of
+ * dry mortar; a 50 kg bag = 1.25 cft; concrete dry volume 1.54 × wet; plaster
+ * 1.30 × wet.
+ */
+export interface Masonry {
+  bricksPer100Cft: number;
+  dryMortarPer100Cft: number;
+  cementBagCft: number;
+  cementBagKg: number;
+  concreteDryFactor: number;
+  plasterDryFactor: number;
+  brickWastagePct: number;
+  cementWastagePct: number;
+  waterCementRatio: number;
+}
+
+export const MASONRY_DEFAULTS: Masonry = {
+  bricksPer100Cft: 1350,
+  dryMortarPer100Cft: 30,
+  cementBagCft: 1.25,
+  cementBagKg: 50,
+  concreteDryFactor: 1.54,
+  plasterDryFactor: 1.3,
+  brickWastagePct: 5,
+  cementWastagePct: 2,
+  waterCementRatio: 0.5,
+};
+
 export interface ConstructionConfig {
   /** Material per square foot of covered area, grey structure. */
   qty: Record<ConstructionMaterial, number>;
@@ -66,6 +96,8 @@ export interface ConstructionConfig {
   basementFactor: number;
   /** City factors the office typed. Every other city is worked out. */
   cities: { name: string; factor: number }[];
+  /** The bricks and cement calculators' standards (PWD analysis-of-rates basis). */
+  masonry: Masonry;
   /** Finishing and other works follow material prices. */
   autoIndex: boolean;
   /** Material cost per sq ft when finishing / other works were last typed. */
@@ -118,6 +150,7 @@ export const CONSTRUCTION_DEFAULTS: ConstructionConfig = {
   contingencyPct: 5,
   basementFactor: 1.35,
   cities: [],
+  masonry: MASONRY_DEFAULTS,
   autoIndex: true,
 };
 
@@ -292,6 +325,7 @@ export class ConstructionService {
         : d.finishSplit,
       basementFactor: saved.basementFactor ?? d.basementFactor,
       cities: saved.cities ?? d.cities,
+      masonry: { ...d.masonry, ...(saved.masonry ?? {}) },
       autoIndex: saved.autoIndex ?? d.autoIndex,
       basket: saved.basket,
       updatedAt: saved.updatedAt,
@@ -465,6 +499,7 @@ export class ConstructionService {
         contingencyPct: config.contingencyPct,
         finishSplit: config.finishSplit,
         basementFactor: config.basementFactor,
+        masonry: config.masonry,
         cities: cities.map(({ name, factor, source }) => ({
           name,
           factor,
@@ -588,6 +623,17 @@ export class ConstructionService {
       finishSplit: split,
       basementFactor: num(input.basementFactor, 1, 3, d.basementFactor),
       cities,
+      masonry: {
+        bricksPer100Cft: num(input.masonry?.bricksPer100Cft, 500, 3000, d.masonry.bricksPer100Cft),
+        dryMortarPer100Cft: num(input.masonry?.dryMortarPer100Cft, 5, 60, d.masonry.dryMortarPer100Cft),
+        cementBagCft: num(input.masonry?.cementBagCft, 0.5, 3, d.masonry.cementBagCft),
+        cementBagKg: num(input.masonry?.cementBagKg, 10, 100, d.masonry.cementBagKg),
+        concreteDryFactor: num(input.masonry?.concreteDryFactor, 1, 2, d.masonry.concreteDryFactor),
+        plasterDryFactor: num(input.masonry?.plasterDryFactor, 1, 2, d.masonry.plasterDryFactor),
+        brickWastagePct: num(input.masonry?.brickWastagePct, 0, 25, d.masonry.brickWastagePct),
+        cementWastagePct: num(input.masonry?.cementWastagePct, 0, 25, d.masonry.cementWastagePct),
+        waterCementRatio: num(input.masonry?.waterCementRatio, 0.3, 0.8, d.masonry.waterCementRatio),
+      },
       autoIndex: input.autoIndex !== false,
       ...(basket ? { basket } : {}),
       updatedAt: new Date(),

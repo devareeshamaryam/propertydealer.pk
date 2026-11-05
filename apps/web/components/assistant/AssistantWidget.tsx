@@ -17,7 +17,8 @@ import { ArrowDown, ArrowUp, BarChart3, Headset, Check, ChevronDown, ChevronRigh
 import { useSiteSettings } from "@/components/SiteSettingsProvider";
 import { cn } from "@/lib/utils";
 import type { QuickRequest, Visual } from "@/lib/assistant/types";
-import { SupportCard, AgentsCard, ConstructionCard, ConstructionForm, GuidesCard, ListingsCard, MarketCard, MarketForm, RatesCard, SearchForm, SocietyCard, sizeLabel } from "./AssistantCards";
+import Launcher from "./Launcher";
+import { EstimateCard, SupportCard, AgentsCard, ConstructionCard, ConstructionForm, GuidesCard, ListingsCard, MarketCard, MarketForm, RatesCard, SearchForm, SocietyCard, sizeLabel } from "./AssistantCards";
 import { SEARCH_INTRO, TALK_TO_TEAM, chipsFor, localRoute, searchForm, wantsPerson, type Action, type Chip } from "./suggest";
 import { resolved, waDigits } from "@/lib/site-settings";
 import { refusal } from "@/lib/assistant/guard";
@@ -119,7 +120,7 @@ const isSep = (line: string) => {
 };
 
 /** The site's fixed pages: always safe to link. Anything else must have come from a lookup. */
-const FIXED_PAGES = /^\/(?:|properties|properties\/(?:sale|rent|all)|tools(?:\/(?:construction-cost-calculator|area-unit-converter|home-loan-calculator|installment-plan-calculator|price-per-marla-calculator|rental-yield-calculator))?|blog|contact|about|packages|find-property-for-me|property-dealers|emap|societies|privacy-policy|terms|today-(?:cement|steel|bricks|sand|bajri|tile|wood|door)-rate-in-pakistan)\/?$/;
+const FIXED_PAGES = /^\/(?:|properties|properties\/(?:sale|rent|all)|tools(?:\/(?:construction-cost-calculator|bricks-calculator|cement-bags-calculator|area-unit-converter|home-loan-calculator|installment-plan-calculator|price-per-marla-calculator|rental-yield-calculator))?|blog|contact|about|packages|find-property-for-me|property-dealers|emap|societies|privacy-policy|terms|today-(?:cement|steel|bricks|sand|bajri|tile|wood|door)-rate-in-pakistan)\/?$/;
 
 /** Links in this reply that are real: fixed pages, or ones a lookup returned. */
 let allowedLinks: Set<string> | null = null;
@@ -275,6 +276,8 @@ function cardNotes(cards?: Visual[]): string {
         return `[Shown society: ${c.name}, ${c.city}: ${c.facts.map((f) => `${f.k}: ${f.v}`).join("; ")}]`;
       case "guides":
         return `[Shown articles: ${c.items.map((g) => `${g.title} ${g.url}`).join("; ")}]`;
+      case "estimate":
+        return `[Shown ${c.headlineLabel}: ${c.headline} — ${c.title}; ${c.rows.map((r) => `${r.k} ${r.v}`).join(", ")}; ${c.total || ""}]`;
       case "support":
         return "[Shown the team's WhatsApp/call card]";
       case "form":
@@ -288,11 +291,6 @@ function cardNotes(cards?: Visual[]): string {
 
 /* ── the window ─────────────────────────────────────────────────────────── */
 
-const ChatIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-7 w-7" aria-hidden fill="currentColor">
-    <path d="M12 3C6.48 3 2 6.94 2 11.8c0 2.4 1.1 4.58 2.9 6.17-.15 1.1-.62 2.3-1.67 3.2a.5.5 0 0 0 .3.88c1.95.08 3.6-.6 4.82-1.43A11.6 11.6 0 0 0 12 20.6c5.52 0 10-3.94 10-8.8S17.52 3 12 3Z" />
-  </svg>
-);
 
 /** What the assistant did to answer, like a short work log. */
 function Steps({ steps, running }: { steps: string[]; running: boolean }) {
@@ -344,6 +342,8 @@ export default function AssistantWidget() {
   const [away, setAway] = useState(false);
   const [copied, setCopied] = useState("");
   const stick = useRef(true);
+  /** Which edge the chat button is on — the chat window opens on that side (desktop). */
+  const [launcherSide, setLauncherSide] = useState<"left" | "right">("right");
   /** The AI answered "not set up": use the quick rules for typed questions. */
   const aiDown = useRef(false);
   /** A form just appeared: show it from its top, not its bottom. */
@@ -704,6 +704,8 @@ export default function AssistantWidget() {
         return <SocietyCard card={c} />;
       case "guides":
         return <GuidesCard card={c} />;
+      case "estimate":
+        return <EstimateCard card={c} />;
       case "support":
         return <SupportCard topic={c.topic} whatsapp={teamWhatsapp} phone={contact.phone} site={brand} />;
       case "form":
@@ -725,50 +727,14 @@ export default function AssistantWidget() {
 
   return (
     <>
-      {/* Launcher. Phones: above the bottom menu; hidden while the chat covers the screen. */}
-      <div className={cn("fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-[91] flex items-end gap-3 md:bottom-6 md:right-6", open && "max-sm:hidden")}>
-        {teaser && !open && (
-          <div className="relative mb-1.5 w-[260px] rounded-2xl border border-slate-200 bg-white p-3.5 shadow-[0_8px_30px_-8px_rgba(15,23,42,0.25)]">
-            <button type="button" onClick={markSeen} aria-label="Dismiss" className="absolute right-2 top-2 rounded p-0.5 text-slate-400 hover:text-slate-600">
-              <X className="h-4 w-4" />
-            </button>
-            <button type="button" onClick={() => setOpen(true)} className="pr-4 text-left">
-              <span className="block text-[14px] font-semibold text-slate-900">Looking for a property?</span>
-              <span className="mt-0.5 block text-[13.5px] leading-snug text-slate-600">Tell us your budget and area — see what&apos;s available right away.</span>
-            </button>
-          </div>
-        )}
-        <div className="relative">
-          {/* "CHAT NOW" curving round the top-left of the button. */}
-          {!open && (
-            <svg viewBox="0 0 100 100" aria-hidden className="pointer-events-none absolute -left-5 -top-5 h-[100px] w-[100px] overflow-visible">
-              <defs>
-                <path id="pd-chat-ring" d="M 50,87 A 37,37 0 1,1 50,13 A 37,37 0 1,1 50,87" />
-              </defs>
-              <text className="fill-primary" style={{ fontSize: 14, fontWeight: 800, letterSpacing: 1.4, paintOrder: "stroke", stroke: "#fff", strokeWidth: 3.5, strokeLinejoin: "round" }}>
-                <textPath href="#pd-chat-ring" startOffset="37.5%" textAnchor="middle">
-                  CHAT NOW
-                </textPath>
-              </text>
-            </svg>
-          )}
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            aria-label={open ? "Close chat" : "Chat now"}
-            aria-expanded={open}
-            className="relative grid h-[60px] w-[60px] place-items-center rounded-full bg-primary text-white shadow-[0_6px_24px_-6px_rgba(15,23,42,0.5)] transition-transform hover:scale-[1.04] active:scale-95"
-          >
-            {open ? <ChevronDown className="h-7 w-7" /> : <ChatIcon />}
-          </button>
-        </div>
-      </div>
+      {/* The chat button: drag it along either edge; it stays clear of bottom bars and the phone menu. */}
+      <Launcher open={open} onToggle={() => setOpen((o) => !o)} teaser={teaser} onTeaserOpen={() => setOpen(true)} onTeaserClose={markSeen} onSide={setLauncherSide} />
 
       {open && (
         <div
           role="dialog"
           aria-label={`Chat with ${brand}`}
-          className="assistant-open fixed inset-0 z-[90] flex flex-col isolate bg-white sm:inset-auto sm:bottom-[100px] sm:right-6 sm:h-[min(700px,calc(100vh-120px))] sm:w-[430px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)]"
+          className={cn("assistant-open fixed inset-0 z-[90] flex flex-col isolate bg-white sm:inset-auto sm:bottom-[100px]", launcherSide === "left" ? "sm:left-6" : "sm:right-6", " sm:h-[min(700px,calc(100vh-120px))] sm:w-[430px] sm:overflow-hidden sm:rounded-2xl sm:border sm:border-slate-200 sm:shadow-[0_24px_64px_-16px_rgba(15,23,42,0.35)]")}
         >
           <div className="flex items-center gap-2.5 bg-primary px-3.5 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
             {/* The site's own favicon (Settings → Appearance), in full colour on white. */}

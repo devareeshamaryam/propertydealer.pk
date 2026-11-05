@@ -6,6 +6,7 @@
  * use (lib/tools.ts, lib/area-units.ts) — so an answer in the chat and the
  * calculator page always agree, and the model never does arithmetic itself.
  */
+import { brickwork, concrete as concreteMix, plaster as plasterMix, rateOf, CONCRETE_MIXES, type ConcreteMix } from "@/lib/tools";
 import { coveredAreas, emi, estimate, installmentPlan, rentalYield, roomLimits, roomMaxima, usualRooms, withDefaults, CONSTRUCTION_FALLBACK, type ConstructionData, type Quality } from "@/lib/tools";
 import { convert, type UnitKey } from "@/lib/area-units";
 import { searchUrl } from "@/lib/search";
@@ -192,6 +193,48 @@ export const TOOL_DEFS = [
   {
     type: "function",
     function: {
+      name: "bricks_calculator",
+      description: "How many bricks a wall (or several walls) needs, with the cement and sand for the mortar and today's cost. Pakistani standard: 1,350 bricks per 100 cft of brickwork. Use for 'kitni eenten lagengi', 'bricks for a 10x12 room', 'bricks per sq ft'. A room of L×W: wall length = 2×(L+W).",
+      parameters: {
+        type: "object",
+        properties: {
+          wall_length_ft: num("Total length of all walls, feet (a 12×10 room = 44)"),
+          wall_height_ft: num("Height, feet (default 10)"),
+          wall_area_sqft: num("Or the wall face area directly, sq ft"),
+          thickness_in: num("4.5, 9 (default) or 13.5 inches"),
+          doors: num("Doors to subtract (about 21 sq ft each)"),
+          windows: num("Windows to subtract (about 16 sq ft each)"),
+          mortar: num("Mortar 1:N — 4, 5 or 6 (default 6)"),
+          city: str("City for rates (default Lahore)"),
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "cement_calculator",
+      description: "Cement bags (50 kg), sand, crush and water for concrete (slab, beam, column, footing), plaster, or brick mortar — any mix — with today's cost. Use for 'slab ke liye kitne bag', 'plaster cement', '1:2:4 concrete'.",
+      parameters: {
+        type: "object",
+        properties: {
+          work: str("What is being made", ["concrete", "plaster", "brick_mortar"]),
+          length_ft: num("Concrete/wall length, feet"),
+          width_ft: num("Concrete width, feet (or wall height for brick_mortar)"),
+          thickness_in: num("Concrete or plaster thickness in inches (slab 5–6, plaster 0.5); wall thickness for brick_mortar (4.5/9/13.5)"),
+          count: num("How many identical pieces (beams, columns, footings)"),
+          volume_cft: num("Or the concrete volume directly, cft"),
+          area_sqft: num("Plaster area, sq ft"),
+          mix: str("Concrete '1:2:4' (default), '1:1.5:3', '1:3:6', '1:4:8'; plaster/mortar '1:4', '1:6'…"),
+          city: str("City for rates (default Lahore)"),
+        },
+        required: ["work"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "home_loan",
       description: "Monthly instalment (EMI) of a home loan on a reducing balance, with down payment and total interest.",
       parameters: { type: "object", properties: { price: num("Property price PKR"), down_payment_percent: num("Down payment % (default 20)"), annual_rate: num("Interest % per year (default 20)"), years: num("Years (default 20)") }, required: ["price"] },
@@ -297,6 +340,10 @@ export function toolLabel(name: string, args: any): string {
       return "Calculating construction cost";
     case "home_loan":
       return "Calculating loan instalments";
+    case "bricks_calculator":
+      return "Counting bricks";
+    case "cement_calculator":
+      return "Working out cement bags";
     case "installment_plan":
       return "Creating payment plan";
     case "rental_yield":
@@ -891,6 +938,103 @@ export async function runTool(name: string, args: any): Promise<ToolResult> {
             maxPrice: Number(a.max_price) || undefined,
             beds: Number(a.beds) || undefined,
           },
+        },
+      };
+    }
+    case "bricks_calculator":
+    case "cement_calculator": {
+      const data: ConstructionData = await cached("construction", 5 * 60_000, async () => {
+        try {
+          const raw = await api<any>("/tools/construction");
+          return raw && Array.isArray(raw.rates) && raw.config ? withDefaults(raw) : CONSTRUCTION_FALLBACK;
+        } catch {
+          return CONSTRUCTION_FALLBACK;
+        }
+      });
+      const m = data.config.masonry;
+      const city = data.config.cities.find((c) => c.name.toLowerCase() === String(a.city || "").toLowerCase())?.name || data.config.cities[0]?.name || "Lahore";
+      const cementRate = rateOf(data, "cement", city);
+      const sandRate = rateOf(data, "sand", city);
+      const n0 = (x: number) => Math.round(x).toLocaleString("en-PK");
+      const ratio = (v: unknown, d: number) => {
+        const t = String(v ?? "").split(":").map(Number);
+        const n = t.length > 1 ? t[t.length - 1]! : Number(v);
+        return n >= 2 && n <= 8 ? n : d;
+      };
+
+      if (name === "bricks_calculator") {
+        const thick = [4.5, 9, 13.5].includes(Number(a.thickness_in)) ? Number(a.thickness_in) : 9;
+        const mortar = ratio(a.mortar, 6);
+        const height = Number(a.wall_height_ft) || 10;
+        const length = Number(a.wall_length_ft) || (Number(a.wall_area_sqft) ? Number(a.wall_area_sqft) / height : 0);
+        if (!length) return { forModel: { needInput: "Ask for the wall length (or the room size) in one short question." } };
+        const openings = (Number(a.doors) || 0) * 21 + (Number(a.windows) || 0) * 16;
+        const r = brickwork({ lengthFt: length, heightFt: height, thicknessIn: thick, openingsSqft: openings, mortar }, m);
+        const brickRate = rateOf(data, "bricks", city);
+        const bags = Math.ceil(r.cementBags);
+        const total = r.bricks * brickRate + bags * cementRate + r.sandCft * sandRate;
+        return {
+          forModel: { wallAreaSqft: Math.round(r.faceSqft), brickworkCft: Math.round(r.volumeCft), bricks: r.bricks, wastagePct: m.brickWastagePct, cementBags: bags, sandCft: Math.round(r.sandCft), totalCost: rs(total), city, shownAsCard: true },
+          cards: {
+            kind: "estimate",
+            title: `${thick}" wall · ${n0(r.faceSqft)} sq ft · 1:${mortar} mortar`,
+            headline: n0(r.bricks),
+            headlineLabel: "Bricks needed",
+            rows: [
+              { k: "Bricks", v: `${n0(r.bricks)} × ${rs(brickRate).replace("PKR ", "Rs ")}`, note: `${m.bricksPer100Cft} per 100 cft + ${m.brickWastagePct}% wastage` },
+              { k: "Cement", v: `${bags} bags`, note: `${rs(bags * cementRate)}` },
+              { k: "Sand", v: `${n0(r.sandCft)} cft`, note: `${rs(r.sandCft * sandRate)}` },
+            ],
+            total: `${rs(total)} in ${city} (material only)`,
+            link: "/tools/bricks-calculator",
+            linkLabel: "Open the bricks calculator",
+          },
+        };
+      }
+
+      const work = a.work === "plaster" ? "plaster" : a.work === "brick_mortar" ? "brick_mortar" : "concrete";
+      let r: { cementBags: number; sandCft: number; crushCft: number; waterLitres?: number };
+      let title = "";
+      if (work === "concrete") {
+        const mix = (CONCRETE_MIXES.find((x) => x.v === String(a.mix || "").replace(/\s/g, ""))?.v || "1:2:4") as ConcreteMix;
+        const vol = Number(a.volume_cft) || (Number(a.length_ft) || 0) * (Number(a.width_ft) || 0) * ((Number(a.thickness_in) || 5) / 12) * (Number(a.count) || 1);
+        if (!vol) return { forModel: { needInput: "Ask for the length, width and thickness in one short question." } };
+        r = concreteMix(vol, mix, m);
+        title = `${n0(vol)} cft of ${mix} concrete`;
+      } else if (work === "plaster") {
+        const area = Number(a.area_sqft) || (Number(a.length_ft) || 0) * (Number(a.width_ft) || 0);
+        if (!area) return { forModel: { needInput: "Ask for the area to plaster in one short question." } };
+        const t = Number(a.thickness_in) || 0.5;
+        const mix = ratio(a.mix, 4);
+        r = plasterMix(area, t, mix, m);
+        title = `${n0(area)} sq ft of ${t}" plaster, 1:${mix}`;
+      } else {
+        const thick = [4.5, 9, 13.5].includes(Number(a.thickness_in)) ? Number(a.thickness_in) : 9;
+        const len = Number(a.length_ft) || 0;
+        if (!len) return { forModel: { needInput: "Ask for the wall length and height in one short question." } };
+        const mix = ratio(a.mix, 6);
+        r = { ...brickwork({ lengthFt: len, heightFt: Number(a.width_ft) || 10, thicknessIn: thick, openingsSqft: 0, mortar: mix }, m) };
+        title = `Mortar for ${n0(len)} ft × ${Number(a.width_ft) || 10} ft of ${thick}" wall, 1:${mix}`;
+      }
+      const bags = Math.ceil(r.cementBags);
+      const crushRate = rateOf(data, "crush", city);
+      const total = bags * cementRate + r.sandCft * sandRate + r.crushCft * crushRate;
+      return {
+        forModel: { work, cementBags: bags, sandCft: Math.round(r.sandCft), crushCft: Math.round(r.crushCft), waterLitres: r.waterLitres ? Math.round(r.waterLitres) : undefined, totalCost: rs(total), city, shownAsCard: true },
+        cards: {
+          kind: "estimate",
+          title,
+          headline: n0(bags),
+          headlineLabel: "Cement bags (50 kg)",
+          rows: [
+            { k: "Cement", v: `${bags} bags`, note: rs(bags * cementRate) },
+            { k: "Sand", v: `${n0(r.sandCft)} cft`, note: rs(r.sandCft * sandRate) },
+            ...(r.crushCft ? [{ k: "Crush (bajri)", v: `${n0(r.crushCft)} cft`, note: rs(r.crushCft * crushRate) }] : []),
+            ...(r.waterLitres ? [{ k: "Water", v: `${n0(r.waterLitres)} litres` }] : []),
+          ],
+          total: `${rs(total)} in ${city} (material only)`,
+          link: "/tools/cement-bags-calculator",
+          linkLabel: "Open the cement bags calculator",
         },
       };
     }

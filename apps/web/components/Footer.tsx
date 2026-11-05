@@ -53,6 +53,8 @@ const RATES = [
   { name: 'Wood Rates', href: '/today-wood-rate-in-pakistan' },
   { name: 'Door Rates', href: '/today-door-rate-in-pakistan' },
   { name: 'Construction Cost Calculator', href: '/tools/construction-cost-calculator' },
+  { name: 'Bricks Calculator', href: '/tools/bricks-calculator' },
+  { name: 'Cement Bags Calculator', href: '/tools/cement-bags-calculator' },
 ];
 
 

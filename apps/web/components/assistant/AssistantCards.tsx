@@ -876,6 +876,33 @@ export function SocietyCard({ card }: { card: V<"society"> }) {
   );
 }
 
+/* ── a materials estimate ─────────────────────────────────────────────── */
+
+export function EstimateCard({ card }: { card: V<"estimate"> }) {
+  return (
+    <Shell>
+      <div className="bg-primary px-3.5 py-3 text-white">
+        <p className="text-[13px] font-medium text-white/90">{card.headlineLabel}</p>
+        <p className="text-[28px] font-extrabold leading-tight tabular-nums">{card.headline}</p>
+        <p className="text-[13px] text-white/90">{card.title}</p>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {card.rows.map((r) => (
+          <div key={r.k} className="flex items-baseline justify-between gap-3 px-3.5 py-2 text-[14.5px]">
+            <span className="text-slate-600">{r.k}</span>
+            <span className="text-right">
+              <span className="font-semibold tabular-nums text-slate-900">{r.v}</span>
+              {r.note && <span className="block text-[12.5px] text-slate-500">{r.note}</span>}
+            </span>
+          </div>
+        ))}
+      </div>
+      {card.total && <p className="border-t border-slate-100 bg-slate-50 px-3.5 py-2 text-[14px] font-semibold text-slate-900">{card.total}</p>}
+      <FootLink href={card.link}>{card.linkLabel}</FootLink>
+    </Shell>
+  );
+}
+
 /* ── a person ───────────────────────────────────────────────────────────── */
 
 const WaGlyph = ({ className }: { className?: string }) => (

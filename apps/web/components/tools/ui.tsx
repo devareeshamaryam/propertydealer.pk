@@ -323,8 +323,35 @@ export function useOnScreen<T extends Element>() {
  * jump to the answer.
  */
 export function StickyAnswer({ show, label, value, onTap }: { show: boolean; label: string; value: string; onTap?: () => void }) {
+  const ref = useRef<HTMLButtonElement | null>(null);
+  // Tell floating buttons (the chat) how much of the bottom of the screen this bar takes, so they move above it.
+  useEffect(() => {
+    const report = () => {
+      const el = ref.current;
+      const visible = show && el && getComputedStyle(el).display !== 'none';
+      const px = visible ? Math.max(0, window.innerHeight - el!.getBoundingClientRect().top + 4) : 0;
+      window.dispatchEvent(new CustomEvent('pd:bottom-bar', { detail: px }));
+    };
+    report();
+    const t = setTimeout(report, 250); // after its slide-in
+    let wait: ReturnType<typeof setTimeout> | undefined;
+    const later = () => {
+      clearTimeout(wait);
+      wait = setTimeout(report, 120);
+    };
+    window.addEventListener('resize', report);
+    window.addEventListener('scroll', later, { passive: true });
+    return () => {
+      clearTimeout(t);
+      clearTimeout(wait);
+      window.removeEventListener('resize', report);
+      window.removeEventListener('scroll', later);
+      window.dispatchEvent(new CustomEvent('pd:bottom-bar', { detail: 0 }));
+    };
+  }, [show]);
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onTap}
       aria-hidden={!show}

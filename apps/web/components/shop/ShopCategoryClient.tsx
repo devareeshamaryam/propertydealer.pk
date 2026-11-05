@@ -30,6 +30,15 @@ interface TileCategory {
   subcategories?: { name: string; slug: string }[];
 }
 
+/** The calculator that says how much of this material a job takes. */
+const CALC: Record<string, { label: string; href: string }> = {
+  bricks: { label: 'How many bricks do you need? Bricks calculator', href: '/tools/bricks-calculator' },
+  cement: { label: 'How many bags do you need? Cement bags calculator', href: '/tools/cement-bags-calculator' },
+  sand: { label: 'How much sand do you need? Cement & sand calculator', href: '/tools/cement-bags-calculator' },
+  bajri: { label: 'How much crush do you need? Concrete calculator', href: '/tools/cement-bags-calculator' },
+  steel: { label: 'Steel for a whole house? Construction cost calculator', href: '/tools/construction-cost-calculator' },
+};
+
 type Sort = 'popular' | 'price-asc' | 'price-desc' | 'name';
 
 const selectCls =
@@ -120,6 +129,17 @@ export default function ShopCategoryClient({
             <span className="font-semibold text-slate-900">{rs(low)}</span> to{' '}
             <span className="font-semibold text-slate-900">{rs(high)}</span>
           </p>
+        )}
+
+        {/* How much you need — the calculator for this material. */}
+        {CALC[String(type)] && (
+          <Link
+            href={CALC[String(type)]!.href}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-[13.5px] font-semibold text-primary hover:bg-primary/10"
+          >
+            {CALC[String(type)]!.label}
+            <ChevronRight className="h-4 w-4" />
+          </Link>
         )}
 
         {/* Material switcher */}

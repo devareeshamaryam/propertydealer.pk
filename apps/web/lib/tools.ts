@@ -9,7 +9,7 @@ export interface ToolInfo {
   /** Under the icon on the tools screen — a few words. */
   short: string;
   description: string;
-  icon: 'ruler' | 'hammer' | 'landmark' | 'calendar' | 'trending' | 'tag';
+  icon: 'ruler' | 'hammer' | 'landmark' | 'calendar' | 'trending' | 'tag' | 'bricks' | 'bag';
   /** The icon tile's colour. */
   color: string;
 }
@@ -22,6 +22,22 @@ export const TOOLS: ToolInfo[] = [
     description: "House construction cost calculator for Pakistan: estimate grey structure or complete house cost from today's cement, steel, bricks, sand and crush rates.",
     icon: 'hammer',
     color: '#ea580c',
+  },
+  {
+    slug: 'bricks-calculator',
+    title: 'Bricks Calculator',
+    short: 'Bricks, cement & sand for any wall',
+    description: "Bricks calculator for Pakistan: how many bricks, cement bags and sand a wall needs — 4.5, 9 or 13.5 inch, with doors and windows taken out — and what it costs on today's rates.",
+    icon: 'bricks',
+    color: '#b45309',
+  },
+  {
+    slug: 'cement-bags-calculator',
+    title: 'Cement Bags Calculator',
+    short: 'Cement, sand & crush for concrete or plaster',
+    description: "Cement bags calculator for Pakistan: cement, sand and crush (bajri) for a slab, beam, column or foundation, for plaster and for brick masonry — any mix — on today's rates.",
+    icon: 'bag',
+    color: '#475569',
   },
   {
     slug: 'area-unit-converter',
@@ -119,6 +135,8 @@ export interface ConstructionData {
     contingencyPct: number;
     basementFactor: number;
     cities: { name: string; factor: number; source?: string }[];
+    /** The bricks and cement calculators' standards (Dashboard → Construction calculator). */
+    masonry: Masonry;
     updatedAt?: string;
   };
   rates: MaterialRate[];
@@ -127,6 +145,107 @@ export interface ConstructionData {
   /** How far material prices have moved since the per-sq-ft figures were set. */
   index?: number;
   generatedAt?: string;
+}
+
+/*
+ * ── Bricks & cement: the standards ───────────────────────────────────────
+ *
+ * The way Pakistani engineers and the PWD analysis of rates count them:
+ *  - A Pakistani brick is 9" × 4.5" × 3"; with 3/8–1/2" mortar joints, 100 cft
+ *    of brickwork takes 1,350 bricks (13.5 a cft — about 10 a sq ft of a 9"
+ *    wall, 5 of a 4.5" wall) and 30 cft of dry mortar.
+ *  - A 50 kg bag of cement is 1.25 cft.
+ *  - Concrete: the dry materials are 1.54 × the finished (wet) volume.
+ *  - Plaster: 1.30 × (joints, uneven walls and what falls).
+ *  - Wastage: bricks 5% (breakage, cutting), cement 2%.
+ * All of these can be changed in the dashboard.
+ */
+export interface Masonry {
+  bricksPer100Cft: number;
+  dryMortarPer100Cft: number;
+  cementBagCft: number;
+  cementBagKg: number;
+  concreteDryFactor: number;
+  plasterDryFactor: number;
+  brickWastagePct: number;
+  cementWastagePct: number;
+  waterCementRatio: number;
+}
+
+export const MASONRY_DEFAULTS: Masonry = {
+  bricksPer100Cft: 1350,
+  dryMortarPer100Cft: 30,
+  cementBagCft: 1.25,
+  cementBagKg: 50,
+  concreteDryFactor: 1.54,
+  plasterDryFactor: 1.3,
+  brickWastagePct: 5,
+  cementWastagePct: 2,
+  waterCementRatio: 0.5,
+};
+
+/** Cement, sand and (for concrete) crush from a dry volume and a mix like [1, 2, 4]. */
+function split(dryCft: number, mix: number[], m: Masonry) {
+  const parts = mix.reduce((a, b) => a + b, 0) || 1;
+  const cementCft = (dryCft * (mix[0] ?? 1)) / parts;
+  const bags = (cementCft / m.cementBagCft) * (1 + m.cementWastagePct / 100);
+  return {
+    cementBags: bags,
+    cementKg: bags * m.cementBagKg,
+    sandCft: (dryCft * (mix[1] ?? 0)) / parts,
+    crushCft: mix.length > 2 ? (dryCft * (mix[2] ?? 0)) / parts : 0,
+  };
+}
+
+export interface WallInput {
+  /** Total length of the walls, feet. */
+  lengthFt: number;
+  heightFt: number;
+  /** 4.5, 9 or 13.5 inches. */
+  thicknessIn: number;
+  /** Doors, windows and other openings, sq ft. */
+  openingsSqft: number;
+  /** Mortar 1:N (cement : sand). */
+  mortar: number;
+}
+
+/** Bricks, mortar and their materials for a wall. */
+export function brickwork(w: WallInput, m: Masonry = MASONRY_DEFAULTS) {
+  const faceSqft = Math.max(0, w.lengthFt * w.heightFt - w.openingsSqft);
+  const volumeCft = (faceSqft * w.thicknessIn) / 12;
+  const bricksNet = (volumeCft * m.bricksPer100Cft) / 100;
+  const bricks = Math.ceil(bricksNet * (1 + m.brickWastagePct / 100));
+  const dryMortarCft = (volumeCft * m.dryMortarPer100Cft) / 100;
+  return { faceSqft, volumeCft, bricksNet, bricks, dryMortarCft, ...split(dryMortarCft, [1, w.mortar], m) };
+}
+
+export type ConcreteMix = '1:1.5:3' | '1:2:4' | '1:3:6' | '1:4:8';
+export const CONCRETE_MIXES: { v: ConcreteMix; label: string; use: string }[] = [
+  { v: '1:1.5:3', label: '1 : 1.5 : 3', use: 'Columns, heavy beams (M20)' },
+  { v: '1:2:4', label: '1 : 2 : 4', use: 'Roof slab, beams, lintels (M15) — the usual' },
+  { v: '1:3:6', label: '1 : 3 : 6', use: 'Plain concrete under floors (M10)' },
+  { v: '1:4:8', label: '1 : 4 : 8', use: 'Lean concrete under foundations (M7.5)' },
+];
+
+/** Cement, sand, crush and water for a volume of concrete (cft, as finished). */
+export function concrete(volumeCft: number, mix: ConcreteMix, m: Masonry = MASONRY_DEFAULTS) {
+  const parts = mix.split(':').map(Number);
+  const dryCft = volumeCft * m.concreteDryFactor;
+  const s = split(dryCft, parts, m);
+  return { volumeCft, dryCft, ...s, waterLitres: s.cementKg * m.waterCementRatio };
+}
+
+/** Cement and sand for plaster over an area (sq ft) at a thickness (inches) and mix 1:N. */
+export function plaster(areaSqft: number, thicknessIn: number, mix: number, m: Masonry = MASONRY_DEFAULTS) {
+  const wetCft = (areaSqft * thicknessIn) / 12;
+  const dryCft = wetCft * m.plasterDryFactor;
+  return { areaSqft, wetCft, dryCft, ...split(dryCft, [1, mix], m) };
+}
+
+/** Today's price of a material (the city's own when it has one). */
+export function rateOf(data: ConstructionData, material: Material, city?: string): number {
+  const own = city ? data.cityRates?.[city]?.find((r) => r.material === material)?.mid : undefined;
+  return own || data.rates.find((r) => r.material === material)?.mid || CONSTRUCTION_FALLBACK.rates.find((r) => r.material === material)?.mid || 0;
 }
 
 /** Used when the API cannot be reached — the calculator still works. */
@@ -149,6 +268,7 @@ export const CONSTRUCTION_FALLBACK: ConstructionData = {
     contractorPct: 10,
     contingencyPct: 5,
     basementFactor: 1.35,
+    masonry: MASONRY_DEFAULTS,
     cities: [
       { name: 'Lahore', factor: 1 },
       { name: 'Karachi', factor: 1.05 },
@@ -190,6 +310,7 @@ export function withDefaults(raw: Partial<ConstructionData> | null | undefined):
       contingencyPct: c.contingencyPct !== undefined && Number.isFinite(Number(c.contingencyPct)) ? Number(c.contingencyPct) : d.config.contingencyPct,
       basementFactor: Number(c.basementFactor) > 0 ? Number(c.basementFactor) : d.config.basementFactor,
       cities: Array.isArray(c.cities) && c.cities.length ? c.cities : d.config.cities,
+      masonry: n(d.config.masonry as unknown as Record<string, number>, c.masonry) as unknown as Masonry,
       updatedAt: c.updatedAt,
     },
     rates: Array.isArray(raw?.rates) && raw.rates.length ? raw.rates : d.rates,

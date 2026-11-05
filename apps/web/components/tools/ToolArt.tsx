@@ -73,6 +73,30 @@ function Art({ icon, dark }: { icon: ToolInfo['icon']; dark: string }) {
           })}
         </>
       );
+    case 'bricks': // bricks: a wall of bricks laid in bond
+      return (
+        <>
+          {[0, 1, 2, 3, 4].map((row) =>
+            [0, 1, 2, 3].map((col) => {
+              const off = row % 2 ? -6 : 0;
+              const x = 7 + col * 11 + off;
+              const w = Math.min(10, 41 - x);
+              const x0 = Math.max(7, x);
+              const w0 = w - (x0 - x);
+              return w0 > 1 ? <rect key={`${row}-${col}`} x={x0} y={9 + row * 6.4} width={w0} height="5.2" rx="0.8" fill={W} /> : null;
+            }),
+          )}
+        </>
+      );
+    case 'bag': // cement: a cement bag and its weight
+      return (
+        <>
+          <path d="M13 10 Q24 7 35 10 L38 38 Q24 42 10 38 Z" fill={W} />
+          <path d="M13 10 Q24 13 35 10" fill="none" stroke={dark} strokeWidth="1.4" />
+          <rect x="15" y="20" width="18" height="10" rx="1.5" fill={dark} />
+          <text x="24" y="27.6" textAnchor="middle" fontSize="7.5" fontWeight="800" fill={W} fontFamily="system-ui, sans-serif">50kg</text>
+        </>
+      );
     case 'trending': // rental yield: returns climbing
       return (
         <>
