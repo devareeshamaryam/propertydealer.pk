@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import CementCalculator from '@/components/tools/CementCalculator';
 import ToolShell from '@/components/tools/ToolShell';
-import { getConstructionData } from '@/lib/server-api';
+import { toolPageMetadata, TOOL_PAGE_DEFAULTS } from '@/lib/tool-pages';
+import { getConstructionData, getToolPage } from '@/lib/server-api';
 import { concrete, coveredAreas, CONSTRUCTION_FALLBACK, plaster, PLOTS, rateOf, rupees, toolBySlug } from '@/lib/tools';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
@@ -9,17 +10,11 @@ const tool = toolBySlug('cement-bags-calculator');
 
 export const revalidate = 300;
 
-const TITLE = `Cement Bags Calculator Pakistan ${new Date().getFullYear()} — Roof, Plaster, Floor & House`;
-const DESCRIPTION =
-  "Free cement calculator for Pakistan: cement bags, sand and crush (bajri) for a roof (lenter), a room's plaster, a floor, columns and beams, brickwork or a whole house — on today's rates, ready to WhatsApp.";
+const D = TOOL_PAGE_DEFAULTS['cement-bags-calculator']!;
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  keywords: ['cement calculator', 'cement bags calculator', 'cement calculator pakistan', 'how many cement bags for slab', 'cement sand crush calculator', '1:2:4 concrete calculator', 'plaster cement calculator', 'cement for lenter', 'cement bags for 5 marla house', 'cement for one room'],
-  alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: `${BASE_URL}/tools/${tool.slug}`, type: 'website' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return toolPageMetadata('cement-bags-calculator', await getToolPage('cement-bags-calculator'));
+}
 
 export default async function Page() {
   const data = (await getConstructionData()) ?? CONSTRUCTION_FALLBACK;
@@ -50,8 +45,8 @@ export default async function Page() {
   return (
     <ToolShell
       tool={tool}
-      heading="Cement Bags Calculator"
-      intro="Pick the job — a roof (lenter), plaster for a room, a floor, columns and beams, brickwork or a whole house — and see the cement bags, sand and crush it takes on today's rates. Send the list to your supplier on WhatsApp."
+      heading={D.heading}
+      intro={D.intro}
       faqs={faqs}
       guide={
         <>

@@ -1,16 +1,18 @@
 import type { Metadata } from 'next';
 import LoanCalculator from '@/components/tools/LoanCalculator';
 import ToolShell from '@/components/tools/ToolShell';
+import { toolPageMetadata, TOOL_PAGE_DEFAULTS } from '@/lib/tool-pages';
+import { getToolPage } from '@/lib/server-api';
 import { toolBySlug } from '@/lib/tools';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 const tool = toolBySlug('home-loan-calculator');
 
-export const metadata: Metadata = {
-  title: `Home Loan Calculator Pakistan — Monthly Instalment & Interest`,
-  description: tool.description,
-  alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
-};
+const D = TOOL_PAGE_DEFAULTS['home-loan-calculator']!;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return toolPageMetadata('home-loan-calculator', await getToolPage('home-loan-calculator'));
+}
 
 const FAQS = [
   { q: `How is the monthly instalment worked out?`, a: `Home loans in Pakistan are reducing-balance loans: each month you pay interest only on what you still owe, and the rest of the instalment pays the loan down. The instalment stays the same while the rate stays the same.` },
@@ -21,7 +23,7 @@ const FAQS = [
 
 export default function Page() {
   return (
-    <ToolShell tool={tool} heading="Home Loan Calculator" intro="Your monthly instalment, the interest you pay over the loan and the income a bank will expect — for any price, down payment, rate and term." faqs={FAQS}>
+    <ToolShell tool={tool} heading={D.heading} intro={D.intro} faqs={FAQS}>
       <LoanCalculator />
     </ToolShell>
   );

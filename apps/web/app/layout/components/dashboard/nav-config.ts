@@ -288,6 +288,12 @@ export const NAV_SECTIONS: NavSection[] = [
           { title: "Add Page", href: "/dashboard/pages/add-page" },
         ],
       },
+      {
+        title: "Tools & Calculators",
+        href: "/dashboard/tool-pages",
+        adminOnly: true,
+        keywords: ["tools", "calculator", "tool pages", "construction calculator", "construction cost", "grey structure", "labour", "finishing", "per sq ft", "bricks", "cement", "masonry", "rates", "cities", "seo", "meta title", "meta description", "keywords", "content", "home loan", "area converter", "rental yield"],
+      },
     ],
   },
   {
@@ -310,12 +316,6 @@ export const NAV_SECTIONS: NavSection[] = [
         href: "/dashboard/shop-settings",
         adminOnly: true,
         keywords: ["delivery", "cod", "minimum order", "checkout"],
-      },
-      {
-        title: "Construction Calculator",
-        href: "/dashboard/construction-calculator",
-        adminOnly: true,
-        keywords: ["construction cost", "calculator", "grey structure", "labour", "finishing", "per sq ft", "tools"],
       },
       {
         id: "material-rates",
@@ -494,7 +494,7 @@ export const LEAF_ICONS: Record<
   "/dashboard/settings": Settings,
   "/dashboard/ads": Megaphone,
   "/dashboard/notifications": BellRing,
-  "/dashboard/construction-calculator": Calculator,
+  "/dashboard/tool-pages": Calculator,
 };
 
 /**

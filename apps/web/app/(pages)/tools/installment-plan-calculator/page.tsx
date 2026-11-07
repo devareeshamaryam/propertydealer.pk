@@ -1,16 +1,18 @@
 import type { Metadata } from 'next';
 import InstallmentPlanner from '@/components/tools/InstallmentPlanner';
 import ToolShell from '@/components/tools/ToolShell';
+import { toolPageMetadata, TOOL_PAGE_DEFAULTS } from '@/lib/tool-pages';
+import { getToolPage } from '@/lib/server-api';
 import { toolBySlug } from '@/lib/tools';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 const tool = toolBySlug('installment-plan-calculator');
 
-export const metadata: Metadata = {
-  title: `Plot Installment Plan Calculator — Down Payment, Balloon & Possession`,
-  description: tool.description,
-  alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
-};
+const D = TOOL_PAGE_DEFAULTS['installment-plan-calculator']!;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return toolPageMetadata('installment-plan-calculator', await getToolPage('installment-plan-calculator'));
+}
 
 const FAQS = [
   { q: `What is a balloon payment?`, a: `A larger lump sum due at set points of an instalment plan, on top of the regular instalments — often every six months or once a year. More balloons mean smaller regular instalments.` },
@@ -20,7 +22,7 @@ const FAQS = [
 
 export default function Page() {
   return (
-    <ToolShell tool={tool} heading="Plot Installment Plan Calculator" intro="Lay out a society plot or house instalment plan: down payment, monthly, quarterly or half-yearly instalments, balloon payments and the amount due on possession." faqs={FAQS}>
+    <ToolShell tool={tool} heading={D.heading} intro={D.intro} faqs={FAQS}>
       <InstallmentPlanner />
     </ToolShell>
   );

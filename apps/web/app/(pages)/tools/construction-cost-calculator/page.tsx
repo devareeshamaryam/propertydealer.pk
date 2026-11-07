@@ -3,8 +3,9 @@ import { Suspense } from 'react';
 import ConstructionCalculator from '@/components/tools/ConstructionCalculator';
 import CostIndex from '@/components/tools/CostIndex';
 import ToolShell from '@/components/tools/ToolShell';
+import { toolPageMetadata, TOOL_PAGE_DEFAULTS } from '@/lib/tool-pages';
 import { CC_SIZES, sampleHouse } from '@/lib/construction-pages';
-import { getConstructionData } from '@/lib/server-api';
+import { getConstructionData, getToolPage } from '@/lib/server-api';
 import { CONSTRUCTION_FALLBACK, rsShort, rupees, toolBySlug } from '@/lib/tools';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
@@ -12,17 +13,11 @@ const tool = toolBySlug('construction-cost-calculator');
 
 export const revalidate = 300;
 
-const TITLE = `House Construction Cost Calculator Pakistan ${new Date().getFullYear()} — Grey & Complete`;
-const DESCRIPTION =
-  "Free house construction cost calculator for Pakistan: estimate grey structure and complete house cost on today's cement, steel and brick rates — by city, plot size and storeys.";
+const D = TOOL_PAGE_DEFAULTS['construction-cost-calculator']!;
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  keywords: ['house construction cost calculator', 'house construction cost calculator pakistan', 'construction cost calculator pakistan', 'construction cost calculator', 'grey structure cost', 'construction cost per square foot pakistan'],
-  alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: `${BASE_URL}/tools/${tool.slug}`, type: 'website' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return toolPageMetadata('construction-cost-calculator', await getToolPage('construction-cost-calculator'));
+}
 
 export default async function Page() {
   const data = (await getConstructionData()) ?? CONSTRUCTION_FALLBACK;
@@ -63,8 +58,8 @@ export default async function Page() {
   return (
     <ToolShell
       tool={tool}
-      heading="House Construction Cost Calculator Pakistan"
-      intro="A construction cost calculator for Pakistan on live rates: pick your plot, storeys and city — see the grey structure and complete house cost on today's cement, steel and brick prices, and where every rupee goes."
+      heading={D.heading}
+      intro={D.intro}
       faqs={faqs}
       guide={<CostIndex data={data} city={city} />}
     >

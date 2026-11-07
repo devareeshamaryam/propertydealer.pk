@@ -1,16 +1,18 @@
 import type { Metadata } from 'next';
 import PriceCompare from '@/components/tools/PriceCompare';
 import ToolShell from '@/components/tools/ToolShell';
+import { toolPageMetadata, TOOL_PAGE_DEFAULTS } from '@/lib/tool-pages';
+import { getToolPage } from '@/lib/server-api';
 import { toolBySlug } from '@/lib/tools';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 const tool = toolBySlug('price-per-marla-calculator');
 
-export const metadata: Metadata = {
-  title: 'Price per Marla Calculator — Compare Plot Rates per Marla, Sq Ft & Sq Yd',
-  description: tool.description,
-  alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
-};
+const D = TOOL_PAGE_DEFAULTS['price-per-marla-calculator']!;
+
+export async function generateMetadata(): Promise<Metadata> {
+  return toolPageMetadata('price-per-marla-calculator', await getToolPage('price-per-marla-calculator'));
+}
 
 const FAQS = [
   {
@@ -35,8 +37,8 @@ export default function Page() {
   return (
     <ToolShell
       tool={tool}
-      heading="Price per Marla Calculator"
-      intro="See any plot's real rate — per marla, square foot and square yard — and compare up to three to find the better buy."
+      heading={D.heading}
+      intro={D.intro}
       faqs={FAQS}
     >
       <PriceCompare />

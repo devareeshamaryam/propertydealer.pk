@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { BookOpen, ChevronDown } from 'lucide-react';
 import { AdZone } from '@/components/ads/AdSlot';
+import { getToolPage } from '@/lib/server-api';
+import { fillYear } from '@/lib/tool-pages';
 import { TOOLS, type ToolInfo } from '@/lib/tools';
 import ToolArt from './ToolArt';
 
@@ -21,8 +23,12 @@ export function ToolIcon({ tool, size = 'md' }: { tool: ToolInfo; size?: 'sm' | 
  * the tool's icon and name, and share; the tool itself; then — folded away
  * until wanted — how it works and the questions people ask; and the other
  * tools as icons.
+ *
+ * The admin's text for the tool (Dashboard → Tool Pages) is read here: its
+ * heading and intro replace the page's, its rich text shows under the tool
+ * and its questions join the page's own. Not on a page under a tool.
  */
-export default function ToolShell({
+export default async function ToolShell({
   tool,
   heading,
   intro,
@@ -40,6 +46,11 @@ export default function ToolShell({
   /** A page under the tool (a ready-made estimate): its title and path. */
   page?: { title: string; path: string };
 }) {
+  const saved = page ? null : await getToolPage(tool.slug);
+  if (saved?.heading) heading = fillYear(saved.heading);
+  if (saved?.intro) intro = fillYear(saved.intro);
+  if (saved?.faqs?.length) faqs = [...faqs, ...saved.faqs.filter((f) => !faqs.some((x) => x.q.trim().toLowerCase() === f.q.trim().toLowerCase()))];
+  const content = saved?.content?.trim() ? saved.content : '';
   const toolUrl = `${BASE_URL}/tools/${tool.slug}`;
   const url = page ? `${BASE_URL}${page.path}` : toolUrl;
   const schema = [
@@ -112,6 +123,18 @@ export default function ToolShell({
       <div className="container mx-auto px-[var(--gutter)] pt-4 sm:px-4 sm:pt-6">{children}</div>
 
       <AdZone page="tools" at="after:tool" className="my-6" wrap="container mx-auto px-[var(--gutter)] sm:px-4" />
+
+      {content && (
+        <div className="container mx-auto mt-8 px-[var(--gutter)] sm:px-4 print:hidden">
+          <section className="rounded-xl border border-slate-300 bg-white px-4 py-5 sm:px-6 sm:py-6">
+            {saved?.contentTitle && <h2 className="mb-3 text-[19px] font-bold leading-snug text-slate-900 sm:text-[21px]">{fillYear(saved.contentTitle)}</h2>}
+            <div
+              className="prose max-w-none text-[15px] leading-relaxed text-slate-700 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-lg [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
+              dangerouslySetInnerHTML={{ __html: content }}
+            />
+          </section>
+        </div>
+      )}
 
       <div className="container mx-auto mt-8 space-y-3 px-[var(--gutter)] sm:px-4 print:hidden">
         {guide && (

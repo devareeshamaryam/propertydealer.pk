@@ -406,6 +406,16 @@ export async function getConstructionData(): Promise<import('./tools').Construct
   return res && Array.isArray(res.rates) && res.config ? withDefaults(res) : null;
 }
 
+/**
+ * The admin's SEO and text for a tool page (lib/tool-pages.ts) — "index" is
+ * /tools. One request for every page, shared by the metadata and the page.
+ */
+export async function getToolPage(slug: string): Promise<import('./tool-pages').ToolPageText | null> {
+  const all = await optionalGet<Record<string, import('./tool-pages').ToolPageText>>('/tools/pages', 300, ['tool-pages']);
+  const page = all && typeof all === 'object' ? all[slug] : null;
+  return page && typeof page === 'object' ? page : null;
+}
+
 /* ── Property dealers directory (lib/dealers.ts) ── */
 
 // 'properties' too: a Free account joins its city's page with its first approved listing.

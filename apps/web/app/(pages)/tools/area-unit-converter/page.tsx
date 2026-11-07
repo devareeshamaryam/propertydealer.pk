@@ -1,22 +1,18 @@
 import type { Metadata } from 'next';
 import AreaConverter from '@/components/tools/AreaConverter';
 import ToolShell from '@/components/tools/ToolShell';
+import { toolPageMetadata, TOOL_PAGE_DEFAULTS } from '@/lib/tool-pages';
+import { getToolPage } from '@/lib/server-api';
 import { toolBySlug } from '@/lib/tools';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 const tool = toolBySlug('area-unit-converter');
 
-const TITLE = 'Area Converter Online — Square Feet to Marla, Kanal & Acres';
-const DESCRIPTION =
-  'Free online area converter: convert square feet to marla, kanal, square yards and acres, or any area to square feet. Area size converter for Pakistani plots.';
+const D = TOOL_PAGE_DEFAULTS['area-unit-converter']!;
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  keywords: ['area converter', 'online area converter', 'area converter square feet to marla', 'convert area to acres', 'convert area to square feet', 'area size converter', 'marla to square feet', 'kanal to marla'],
-  alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: `${BASE_URL}/tools/${tool.slug}`, type: 'website' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return toolPageMetadata('area-unit-converter', await getToolPage('area-unit-converter'));
+}
 
 const FAQS = [
   {
@@ -57,8 +53,8 @@ export default function Page() {
   return (
     <ToolShell
       tool={tool}
-      heading="Area Converter — Square Feet to Marla, Kanal & Acres"
-      intro="A free online area size converter: convert square feet to marla, marla to kanal, any area to acres or to square feet — on the marla your area actually uses."
+      heading={D.heading}
+      intro={D.intro}
       faqs={FAQS}
       guide={
         <>

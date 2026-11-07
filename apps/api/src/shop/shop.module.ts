@@ -15,6 +15,8 @@ import { ShopService } from './shop.service';
 import { ShopController } from './shop.controller';
 import { ConstructionService } from './construction.service';
 import { ConstructionController } from './construction.controller';
+import { ToolPagesService } from './tool-pages.service';
+import { ToolPagesController } from './tool-pages.controller';
 
 @Module({
   imports: [
@@ -32,7 +34,7 @@ import { ConstructionController } from './construction.controller';
     SiteSettingsModule,
     MaterialTypeModule,
   ],
-  providers: [ShopService, ConstructionService],
-  controllers: [ShopController, ConstructionController],
+  providers: [ShopService, ConstructionService, ToolPagesService],
+  controllers: [ShopController, ConstructionController, ToolPagesController],
 })
 export class ShopModule {}

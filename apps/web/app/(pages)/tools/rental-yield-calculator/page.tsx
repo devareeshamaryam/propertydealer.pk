@@ -1,22 +1,18 @@
 import type { Metadata } from 'next';
 import YieldCalculator from '@/components/tools/YieldCalculator';
 import ToolShell from '@/components/tools/ToolShell';
+import { toolPageMetadata, TOOL_PAGE_DEFAULTS } from '@/lib/tool-pages';
+import { getToolPage } from '@/lib/server-api';
 import { toolBySlug } from '@/lib/tools';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
 const tool = toolBySlug('rental-yield-calculator');
 
-const TITLE = 'Rental Yield Calculator — Annual Rental Yield & Rental Income Yield';
-const DESCRIPTION =
-  'Free rental yield calculator for Pakistan: work out annual rental yield, gross and net rental income yield and ROI — and see how to calculate rental yield step by step.';
+const D = TOOL_PAGE_DEFAULTS['rental-yield-calculator']!;
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  keywords: ['rental yield calculator', 'how to calculate rental yield', 'annual rental yield', 'rental income yield', 'net rental yield', 'gross rental yield', 'rental yield pakistan'],
-  alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: `${BASE_URL}/tools/${tool.slug}`, type: 'website' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return toolPageMetadata('rental-yield-calculator', await getToolPage('rental-yield-calculator'));
+}
 
 const FAQS = [
   { q: `How do I calculate rental yield?`, a: `Rental yield = a year's rent ÷ the property's price × 100. A house bought for Rs 2 crore that rents for Rs 80,000 a month earns Rs 9.6 lakh a year — a 4.8% gross rental yield. For net yield, take off the empty months and the yearly costs first, and divide by everything you spent buying it.` },
@@ -31,8 +27,8 @@ export default function Page() {
   return (
     <ToolShell
       tool={tool}
-      heading="Rental Yield Calculator"
-      intro="See what a property really earns: annual rental yield, gross and net rental income yield, how many years the rent takes to pay for it, and the total return with price growth — compared with a bank deposit."
+      heading={D.heading}
+      intro={D.intro}
       faqs={FAQS}
       guide={
         <>

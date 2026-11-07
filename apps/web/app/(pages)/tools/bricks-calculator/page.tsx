@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import BricksCalculator from '@/components/tools/BricksCalculator';
 import ToolShell from '@/components/tools/ToolShell';
-import { getConstructionData } from '@/lib/server-api';
+import { toolPageMetadata, TOOL_PAGE_DEFAULTS } from '@/lib/tool-pages';
+import { getConstructionData, getToolPage } from '@/lib/server-api';
 import { boundaryLength, brickwork, coveredAreas, CONSTRUCTION_FALLBACK, PLOTS, rateRange, roomsWallLength, rupees, toolBySlug } from '@/lib/tools';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
@@ -9,17 +10,11 @@ const tool = toolBySlug('bricks-calculator');
 
 export const revalidate = 300;
 
-const TITLE = `Bricks Calculator Pakistan ${new Date().getFullYear()} — Room, Boundary Wall & House`;
-const DESCRIPTION =
-  "Free bricks calculator for Pakistan: how many bricks, cement bags and sand for a room, a boundary wall round your plot, a whole house or any wall — priced on today's rates, ready to WhatsApp to your supplier.";
+const D = TOOL_PAGE_DEFAULTS['bricks-calculator']!;
 
-export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  keywords: ['bricks calculator', 'brick calculator pakistan', 'how many bricks in 1 sq ft', 'bricks per square foot', 'bricks in 9 inch wall', 'brick wall calculator', 'bricks cement sand calculator', 'bricks for boundary wall', 'bricks for 5 marla house', 'bricks for one room'],
-  alternates: { canonical: `${BASE_URL}/tools/${tool.slug}` },
-  openGraph: { title: TITLE, description: DESCRIPTION, url: `${BASE_URL}/tools/${tool.slug}`, type: 'website' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return toolPageMetadata('bricks-calculator', await getToolPage('bricks-calculator'));
+}
 
 export default async function Page() {
   const data = (await getConstructionData()) ?? CONSTRUCTION_FALLBACK;
@@ -52,8 +47,8 @@ export default async function Page() {
   return (
     <ToolShell
       tool={tool}
-      heading="Bricks Calculator"
-      intro="Pick what you're building — a room, a boundary wall, a whole house or one wall — and see the bricks, cement and sand it takes, priced on today's rates. Send the list to your supplier on WhatsApp."
+      heading={D.heading}
+      intro={D.intro}
       faqs={faqs}
       guide={
         <>
