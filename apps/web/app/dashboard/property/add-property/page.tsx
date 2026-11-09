@@ -35,6 +35,7 @@ import {
 } from "@/components/dashboard";
 import { toTitleCase } from "@/lib/utils";
 import { marlaKanalFor } from "@/lib/pk";
+import { NO_BEDS } from "@/lib/search";
 import { useAuth } from "@/context/auth-context";
 import dynamic from "next/dynamic";
 import { CityPicker } from "@/components/ui/city-picker";
@@ -128,6 +129,8 @@ export default function AddProperty() {
   const [location, setLocation] = useState("");
   const [bedrooms, setBedrooms] = useState("");
   const [bathrooms, setBathrooms] = useState("");
+  // Shops, offices, plots and land have no bedrooms or bathrooms.
+  const noRooms = NO_BEDS.includes(propertyType.toLowerCase());
   const [areaSize, setAreaSize] = useState(""); // Property size in sq ft
   const [price, setPrice] = useState("");
   const [description, setDescription] = useState("");
@@ -351,8 +354,7 @@ export default function AddProperty() {
         !title ||
         !computedSlug ||
         !location ||
-        !bedrooms ||
-        !bathrooms ||
+        (!noRooms && (!bedrooms || !bathrooms)) ||
         !areaSize ||
         !price ||
         !description ||
@@ -395,8 +397,8 @@ export default function AddProperty() {
       formData.append("title", title);
       formData.append("slug", computedSlug);
       formData.append("location", location);
-      formData.append("bedrooms", bedrooms);
-      formData.append("bathrooms", bathrooms);
+      formData.append("bedrooms", noRooms ? "0" : bedrooms);
+      formData.append("bathrooms", noRooms ? "0" : bathrooms);
       formData.append("areaSize", areaSize); // Property size in sq ft
       formData.append("price", price);
       // Kept in step with the size: these two columns drive the marla/kanal
@@ -507,8 +509,8 @@ export default function AddProperty() {
     }
 
     if (step === 2) {
-      if (!bedrooms) return toast.error("Enter the number of bedrooms");
-      if (!bathrooms) return toast.error("Enter the number of bathrooms");
+      if (!noRooms && !bedrooms) return toast.error("Enter the number of bedrooms");
+      if (!noRooms && !bathrooms) return toast.error("Enter the number of bathrooms");
       if (!areaSize) return toast.error("Enter the property size");
       if (!price) return toast.error("Enter the price");
     }
@@ -799,6 +801,7 @@ export default function AddProperty() {
             {step === 2 && <>
             {/* Beds, baths and size */}
             <div className="grid md:grid-cols-3 gap-6">
+              {!noRooms && <>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   Bedrooms *
@@ -827,6 +830,7 @@ export default function AddProperty() {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
+              </>}
               {/*
                 Marla / Kanal / sq ft in one control.
 
