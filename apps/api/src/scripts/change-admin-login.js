@@ -13,7 +13,7 @@
 
 // ── Fill these in ─────────────────────────────────────────────
 const CURRENT_EMAIL = 'user@gmail.com'; // the admin's email today
-const NEW_EMAIL = 'logicalmoez@gmail.com';     // leave '' to keep the same email
+const NEW_EMAIL = 'admin@propertydealer.pk';     // leave '' to keep the same email
 const NEW_PASSWORD = 'Multanpakistan1!';  // at least 8 characters
 // ──────────────────────────────────────────────────────────────
 
