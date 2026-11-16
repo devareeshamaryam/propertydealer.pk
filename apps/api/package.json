@@ -13,7 +13,6 @@
     "start:debug": "node node_modules/@nestjs/cli/bin/nest.js start --debug --watch",
     "start:prod": "node dist/apps/api/src/main",
     "seed:packages": "node -r ts-node/register -r tsconfig-paths/register src/scripts/seed-packages.ts",
-    "import:wp": "node -r ts-node/register -r tsconfig-paths/register src/scripts/import-wp.ts",
     "import:media": "node -r ts-node/register -r tsconfig-paths/register src/scripts/import-existing-media.ts",
     "check:photos": "node -r ts-node/register -r tsconfig-paths/register src/scripts/check-missing-photos.ts",
     "society:dha-multan": "node -r ts-node/register -r tsconfig-paths/register src/scripts/society-dha-multan.ts",
