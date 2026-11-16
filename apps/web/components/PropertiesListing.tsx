@@ -1,5 +1,6 @@
  'use client'
 
+import { MARLA_TYPES } from '@/lib/search';
 import { useState, useMemo, useEffect, useRef, Suspense, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import SearchParamsBridge from '@/components/SearchParamsBridge';
@@ -169,7 +170,7 @@ export default function PropertiesListing({
   const propertyTypes = useMemo(() => {
     if (allPropertyTypes?.length)
       return allPropertyTypes.map(t => t.charAt(0).toUpperCase() + t.slice(1)).sort();
-    const valid: Property['type'][] = ['House','Apartment','Flat','Commercial','Office','Plot','Land','Shop','Factory','Hotel','Restaurant','Other'];
+    const valid: Property['type'][] = ['House','Apartment','Flat','Commercial','Office','Plot','Land','Shop','Factory','Hotel','Restaurant','Upper Portion','Lower Portion','Other'];
     return Array.from(new Set(
       properties.map((p: Property) => p.type).filter((t): t is Property['type'] => valid.includes(t))
     )).sort();
@@ -181,6 +182,8 @@ export default function PropertiesListing({
       Plot: 'Plots', Shop: 'Shops', Office: 'Offices',
       Land: 'Land', Commercial: 'Commercial', Factory: 'Factories',
       Hotel: 'Hotels', Restaurant: 'Restaurants', Other: 'Other',
+      'Upper-portion': 'Upper Portions', 'Lower-portion': 'Lower Portions',
+      'Upper Portion': 'Upper Portions', 'Lower Portion': 'Lower Portions',
     };
     return map[t] || `${t}s`;
   };
@@ -236,7 +239,7 @@ export default function PropertiesListing({
   };
 
   useEffect(() => {
-    if (type.toLowerCase() !== 'house' && type.toLowerCase() !== 'plot') {
+    if (!MARLA_TYPES.includes(type.toLowerCase())) {
       setSelectedMarla(null);
     }
   }, [type]);
@@ -569,7 +572,7 @@ export default function PropertiesListing({
 
   const navigateType = (t: string) => {
     setIsLocationPanelOpen(false);
-    const supportsMarla = t === 'house' || t === 'plot';
+    const supportsMarla = MARLA_TYPES.includes(t);
     const marlaToKeep  = supportsMarla ? selectedMarla : null;
 
     if (useCleanUrls) {
@@ -674,9 +677,9 @@ export default function PropertiesListing({
     ...propertyTypes
       .filter(t => t.toLowerCase() !== 'other')
       .map(t => ({
-        key: t.toLowerCase(),
+        key: t.toLowerCase().replace(/\s+/g, '-'),
         label: typeLabel(t),
-        count: properties.filter(p => p.type?.toLowerCase() === t.toLowerCase()).length,
+        count: properties.filter(p => p.type?.toLowerCase().replace(/\s+/g, '-') === t.toLowerCase().replace(/\s+/g, '-')).length,
       })),
   ];
 
@@ -717,7 +720,7 @@ export default function PropertiesListing({
   })();
   const LOCATION_CHIPS = 10;
 
-  const showMarlaChips = type.toLowerCase() === 'house' || type.toLowerCase() === 'plot' || !!(matchedCity);
+  const showMarlaChips = MARLA_TYPES.includes(type.toLowerCase()) || !!(matchedCity);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -734,7 +737,7 @@ export default function PropertiesListing({
 
               <h1 className="text-[21px] font-bold tracking-tight text-slate-900 sm:text-[28px]">
                 {heading && !searchParams.toString() ? heading : <>{type !== 'all'
-                  ? (type.toLowerCase() === 'house' ? 'Property' : `${type.charAt(0).toUpperCase() + type.slice(1)}s`)
+                  ? (type.toLowerCase() === 'house' ? 'Property' : typeLabel(type.charAt(0).toUpperCase() + type.slice(1)))
                   : 'Properties'}
                 {purpose === 'rent' ? ' for Rent ' : purpose === 'buy' ? ' for Sale ' : ' '}
                 in {matchedCity || 'Pakistan'}</>}

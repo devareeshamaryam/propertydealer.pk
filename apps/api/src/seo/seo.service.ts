@@ -18,7 +18,7 @@ import { RedisCacheService } from '../redis-cache/redis-cache.service';
  * `owner` are stored as ObjectId on some rows and as strings on others.
  */
 
-const TYPES = new Set(['house', 'apartment', 'flat', 'plot', 'shop', 'office', 'land', 'commercial', 'factory', 'hotel', 'restaurant']);
+const TYPES = new Set(['house', 'apartment', 'flat', 'plot', 'shop', 'office', 'land', 'commercial', 'factory', 'hotel', 'restaurant', 'upper-portion', 'lower-portion']);
 const slugOf = (s: string) => String(s ?? '').toLowerCase().trim().replace(/\s+/g, '-');
 
 @Injectable()

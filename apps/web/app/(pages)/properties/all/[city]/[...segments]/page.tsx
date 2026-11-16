@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { Metadata, ResolvingMetadata } from 'next';
 import { serverApi, fetchInitialListings } from '@/lib/server-api';
 import { toTitleCase } from '@/lib/utils';
+import { typeTitle } from '@/lib/search';
 import { buildCollectionPageSchema } from '@/lib/schema/listing-schema';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
@@ -67,7 +68,7 @@ async function resolveSegments(citySlug: string, segments: string[]) {
     if (cleanSegments.length === 1) {
       const seg = cleanSegments[0] as string;
       // The site's fixed types count even when no listing uses one yet (it is still a type page, not an area).
-      const KNOWN = ['house', 'apartment', 'flat', 'plot', 'shop', 'office', 'land', 'commercial', 'factory', 'hotel', 'restaurant'];
+      const KNOWN = ['house', 'apartment', 'flat', 'plot', 'shop', 'office', 'land', 'commercial', 'factory', 'hotel', 'restaurant', 'upper-portion', 'lower-portion'];
       const matchedType = propertyTypes.find(t => t.toLowerCase() === seg.toLowerCase()) ?? KNOWN.find(t => t === seg.toLowerCase());
       if (matchedType) {
         return { cityData, areaData: null, propertyType: matchedType, areaSlug: null, marla };
@@ -124,7 +125,7 @@ export async function generateMetadata(
 
     if (propertyType) {
       const areaName = toTitleCase(areaData.name);
-      const typeName = propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType);
+      const typeName = propertyType.toLowerCase() === 'house' ? 'Property' : typeTitle(propertyType);
       return {
         title: areaData.metaTitle || `${typeName} for ${purpose} in ${areaName}, ${cityName}`,
         description: areaData.metaDescription || `Find ${typeName.toLowerCase()} for ${purpose.toLowerCase()} in ${areaName}, ${cityName}. Browse verified listings on Property Dealer.`,
@@ -160,7 +161,7 @@ export async function generateMetadata(
         ? 'Houses'
         : propertyType.toLowerCase() === 'plot'
           ? 'Plots'
-          : `${toTitleCase(propertyType)}s`;
+          : `${typeTitle(propertyType)}s`;
       const marlaPrefix = marla ? (marla === 20 ? '1 Kanal ' : `${marla} Marla `) : '';
       const autoTitle   = `${marlaPrefix}${typePlural} For Rent & Sale in ${cityName}`;
       const autoDesc    = `Find ${marlaPrefix.toLowerCase()}${typePlural.toLowerCase()} for rent & sale in ${cityName}. Browse verified listings on Property Dealer.`;
@@ -215,7 +216,7 @@ export default async function AllCitySegmentsPage(props: PageProps) {
 
   const cityName  = cityData ? toTitleCase(cityData.name) : toTitleCase(city);
   const areaName  = areaData ? toTitleCase(areaData.name) : null;
-  const typeName  = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType)) : null;
+  const typeName  = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : typeTitle(propertyType)) : null;
   const pageUrl   = `${BASE_URL}/properties/all/${city}/${segments.join('/')}`;
   const pageTitle = [
     typeName ? (typeName === 'Property' ? 'Property' : `${typeName}s`) : 'Properties',

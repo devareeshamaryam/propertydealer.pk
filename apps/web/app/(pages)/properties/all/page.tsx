@@ -3,6 +3,7 @@ import { serverApi, fetchInitialListings } from '@/lib/server-api';
 import { Metadata } from 'next';
 import { Suspense } from 'react';
 import { toTitleCase } from '@/lib/utils';
+import { typeTitle } from '@/lib/search';
 
 import { buildCollectionPageSchema } from '@/lib/schema/listing-schema';
 
@@ -19,7 +20,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
 
   const purpose = 'Rent & Sale';
   const typeName = type && type !== 'all'
-    ? (type.toLowerCase() === 'house' ? 'Property' : toTitleCase(type))
+    ? (type.toLowerCase() === 'house' ? 'Property' : typeTitle(type))
     : 'Properties';
   let title = `${typeName} for ${purpose} in Pakistan `;
   let description = `Search and find ${typeName.toLowerCase()} for ${purpose.toLowerCase()} across Pakistan. Browse houses, apartments, plots and commercial properties on Property Dealer.`;
@@ -29,7 +30,7 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
       const cityData = await serverApi.getCityByName(cityName);
       if (cityData) {
         const typeName = type && type !== 'all'
-          ? (type.toLowerCase() === 'house' ? 'Property' : toTitleCase(type))
+          ? (type.toLowerCase() === 'house' ? 'Property' : typeTitle(type))
           : 'Properties';
         const formattedCity = toTitleCase(cityData.name);
 
@@ -95,7 +96,7 @@ export default async function AllRootPage({ searchParams }: PageProps) {
 
   // --- Schema ---
   const typeName = type && type !== 'all'
-    ? (type.toLowerCase() === 'house' ? 'Property' : toTitleCase(type))
+    ? (type.toLowerCase() === 'house' ? 'Property' : typeTitle(type))
     : 'Properties';
   const pageUrl = `${BASE_URL}/properties/all${cityName ? `/${cityName.toLowerCase()}` : ''}${type && type !== 'all' ? `/${type.toLowerCase()}` : ''}`;
   const pageTitle = `${typeName} for Rent & Sale${cityName ? ` in ${toTitleCase(cityName)}` : ' in Pakistan'}`;

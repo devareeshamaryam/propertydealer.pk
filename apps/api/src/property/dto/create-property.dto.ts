@@ -26,6 +26,8 @@ export class CreatePropertyDto {
     'hotel',
     'restaurant',
     'plot',
+    'upper-portion',
+    'lower-portion',
   ])
   propertyType:
     | 'house'
@@ -39,7 +41,9 @@ export class CreatePropertyDto {
     | 'other'
     | 'hotel'
     | 'restaurant'
-    | 'plot';
+    | 'plot'
+    | 'upper-portion'
+    | 'lower-portion';
 
   @IsOptional()
   @IsString()

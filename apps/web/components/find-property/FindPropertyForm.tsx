@@ -36,7 +36,7 @@ const TIMELINES = [
 ];
 /** The site search's types, for showing matches right away. */
 const SEARCH_TYPE: Record<string, string[] | undefined> = {
-  house: ["house"], plot: ["plot"], flat: ["flat"], "upper-portion": ["house"], "lower-portion": ["house"], commercial: ["commercial"], shop: ["shop"], office: ["office"], farmhouse: ["house"], room: ["house"],
+  house: ["house"], plot: ["plot"], flat: ["flat"], "upper-portion": ["upper-portion", "house"], "lower-portion": ["lower-portion", "house"], commercial: ["commercial"], shop: ["shop"], office: ["office"], farmhouse: ["house"], room: ["house"],
 };
 
 const inputCls =

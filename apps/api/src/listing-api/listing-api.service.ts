@@ -27,7 +27,7 @@ const SITE = (process.env.WEB_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https:
 
 /** Words people use for a type → the site's type. */
 const TYPE_WORDS: Record<string, string> = {
-  house: 'house', home: 'house', ghar: 'house', villa: 'house', bungalow: 'house', portion: 'house', 'upper portion': 'house', 'lower portion': 'house', farmhouse: 'house', 'farm house': 'house', room: 'house',
+  house: 'house', home: 'house', ghar: 'house', villa: 'house', bungalow: 'house', portion: 'house', 'upper portion': 'upper-portion', 'lower portion': 'lower-portion', 'upper-portion': 'upper-portion', 'lower-portion': 'lower-portion', farmhouse: 'house', 'farm house': 'house', room: 'house',
   apartment: 'apartment', flat: 'flat', penthouse: 'apartment', studio: 'apartment',
   plot: 'plot', 'residential plot': 'plot', 'commercial plot': 'plot', 'plot file': 'plot', file: 'plot',
   land: 'land', 'agricultural land': 'land', 'agriculture land': 'land',

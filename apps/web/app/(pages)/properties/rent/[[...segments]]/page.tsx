@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import { serverApi, fetchInitialListings, isNotFoundError } from '@/lib/server-api';
 import { toTitleCase } from '@/lib/utils';
+import { typeTitle } from '@/lib/search';
 import { buildCollectionPageSchema } from '@/lib/schema/listing-schema';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
@@ -34,7 +35,7 @@ const parseSizeToMarla = (s: string) => {
 
 const KNOWN_TYPES = [
   'house','apartment','flat','plot','shop','office',
-  'land','commercial','factory','hotel','restaurant','other'
+  'land','commercial','factory','hotel','restaurant','upper-portion','lower-portion','other'
 ];
 
 /** Canonical path; a merged duplicate's pages point at the area it was merged into. */
@@ -122,7 +123,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const purpose  = 'Rent';
   const cityName = cityData ? toTitleCase(cityData.name) : citySlug ? toTitleCase(citySlug) : '';
   const typeName = propertyType
-    ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType))
+    ? (propertyType.toLowerCase() === 'house' ? 'Property' : typeTitle(propertyType))
     : 'Properties';
   const areaName = areaData ? toTitleCase(areaData.name) : null;
   const locationStr = areaName ? `${areaName}${cityName ? `, ${cityName}` : ''}` : cityName || 'Pakistan';
@@ -226,7 +227,7 @@ export default async function RentPage({ params }: PageProps) {
             ? (specificContent?.content?.trim() || undefined)
             : (cityData?.rentContent || undefined);
 
-  const typeName   = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : toTitleCase(propertyType)) : null;
+  const typeName   = propertyType ? (propertyType.toLowerCase() === 'house' ? 'Property' : typeTitle(propertyType)) : null;
   const areaName   = areaData ? toTitleCase(areaData.name) : null;
   const pageUrl    = `${BASE_URL}/properties/rent${segments.length ? `/${segments.join('/')}` : ''}`;
   const pageTitle  = [

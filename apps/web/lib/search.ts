@@ -11,7 +11,7 @@
 
 export type Purpose = 'sale' | 'rent' | 'all';
 
-export const KNOWN_TYPES = ['house', 'apartment', 'flat', 'plot', 'shop', 'office', 'land', 'commercial', 'factory', 'hotel', 'restaurant', 'other'];
+export const KNOWN_TYPES = ['house', 'apartment', 'flat', 'plot', 'shop', 'office', 'land', 'commercial', 'factory', 'hotel', 'restaurant', 'upper-portion', 'lower-portion', 'other'];
 
 export interface SearchState {
   purpose: Purpose;
@@ -156,7 +156,16 @@ export const TYPE_LABELS: Record<string, string> = {
   factory: 'Factory',
   hotel: 'Hotel',
   restaurant: 'Restaurant',
+  'upper-portion': 'Upper Portion',
+  'lower-portion': 'Lower Portion',
   other: 'Other',
 };
+/** A type's name for headings: "upper-portion" → "Upper Portion". */
+export const typeTitle = (t: string) =>
+  TYPE_LABELS[String(t || '').toLowerCase()] ?? String(t || '').replace(/[-\s]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Types sized in marla / kanal (the marla filter applies). */
+export const MARLA_TYPES = ['house', 'plot', 'upper-portion', 'lower-portion'];
+
 /** Types without bedrooms. */
 export const NO_BEDS = ['plot', 'shop', 'office', 'commercial', 'land', 'factory'];

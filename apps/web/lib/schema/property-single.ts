@@ -23,7 +23,7 @@ export function generateSinglePropertySchema(property: any, images: string[], ba
   const itemType = getItemType(property.type);
 
   // Decide if residential-style fields make sense
-  const isResidential = ['flat', 'apartment', 'house'].includes(
+  const isResidential = ['flat', 'apartment', 'house', 'upper portion', 'lower portion', 'upper-portion', 'lower-portion'].includes(
     property.type?.toLowerCase().trim() || ''
   );
 

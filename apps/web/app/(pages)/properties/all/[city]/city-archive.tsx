@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { serverApi, fetchInitialListings } from '@/lib/server-api';
 import { toTitleCase } from '@/lib/utils';
+import { typeTitle } from '@/lib/search';
 import { buildCollectionPageSchema } from '@/lib/schema/listing-schema';
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://propertydealer.pk';
@@ -31,7 +32,7 @@ export async function cityMetadata(citySlug: string, type: string): Promise<Meta
     if (!cityData) return { title: `Properties in ${toTitleCase(citySlug)}` };
     const cityName = toTitleCase(cityData.name);
     const typeName = type && type !== 'all'
-      ? (type.toLowerCase() === 'house' ? 'Property' : toTitleCase(type))
+      ? (type.toLowerCase() === 'house' ? 'Property' : typeTitle(type))
       : 'Properties';
 
     // If type is and no custom meta, auto-generate
@@ -78,7 +79,7 @@ export async function CityArchive({ city, type }: { city: string; type: string }
 
   const cityName = cityDetails ? toTitleCase(cityDetails.name) : toTitleCase(city);
   const typeName = type && type !== 'all'
-    ? (type.toLowerCase() === 'house' ? 'Property' : toTitleCase(type))
+    ? (type.toLowerCase() === 'house' ? 'Property' : typeTitle(type))
     : 'Properties';
   const pageUrl = `${BASE_URL}/properties/all/${city}${type && type !== 'all' ? `?type=${type}` : ''}`;
 

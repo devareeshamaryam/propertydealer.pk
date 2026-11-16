@@ -45,6 +45,9 @@ export const TYPE_ALIASES: Record<string, string[]> = {
   factory: ['factory'],
   hotel: ['hotel'],
   restaurant: ['restaurant'],
+  portion: ['upper-portion', 'lower-portion', 'house'],
+  'upper-portion': ['upper-portion'],
+  'lower-portion': ['lower-portion'],
 };
 
 const SYN: Record<string, string> = { ph: 'phase', phs: 'phase', sec: 'sector', sect: 'sector', blk: 'block', bt: 'bahria', dha: 'dha', defence: 'dha', defense: 'dha', lhr: 'lahore', isb: 'islamabad', khi: 'karachi', rwp: 'rawalpindi', pindi: 'rawalpindi', fsd: 'faisalabad', mtn: 'multan', soc: 'society', town: 'town', scheme: 'scheme' };

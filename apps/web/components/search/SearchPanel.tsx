@@ -328,7 +328,7 @@ export default function SearchPanel({
   const prices = s.purpose === 'rent' ? RENT_PRICES : SALE_PRICES;
   const typeOptions = useMemo(() => {
     const list = types.length ? types : ['house', 'flat', 'plot', 'shop', 'office', 'commercial'];
-    const order = ['house', 'flat', 'apartment', 'plot', 'shop', 'office', 'commercial', 'land', 'factory', 'hotel', 'restaurant'];
+    const order = ['house', 'upper-portion', 'lower-portion', 'flat', 'apartment', 'plot', 'shop', 'office', 'commercial', 'land', 'factory', 'hotel', 'restaurant'];
     return [...new Set(list)].filter((t) => t !== 'other').sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
   }, [types]);
   const showBeds = !NO_BEDS.includes(s.type);

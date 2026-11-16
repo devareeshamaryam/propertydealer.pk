@@ -8,8 +8,8 @@ export class Property extends Document {
   @Prop({ required: true, enum: ['rent', 'sale'], index: true })
   listingType: 'rent' | 'sale'
 
-  @Prop({ required: true, enum: ['house', 'apartment', 'flat', 'commercial', 'land', 'shop', 'office', 'factory', 'other', 'hotel', 'restaurant', 'plot'], index: true })
-  propertyType: 'house' | 'apartment' | 'flat' | 'commercial' | 'land' | 'shop' | 'office' | 'factory' | 'other' | 'hotel' | 'restaurant' | 'plot'
+  @Prop({ required: true, enum: ['house', 'apartment', 'flat', 'commercial', 'land', 'shop', 'office', 'factory', 'other', 'hotel', 'restaurant', 'plot', 'upper-portion', 'lower-portion'], index: true })
+  propertyType: 'house' | 'apartment' | 'flat' | 'commercial' | 'land' | 'shop' | 'office' | 'factory' | 'other' | 'hotel' | 'restaurant' | 'plot' | 'upper-portion' | 'lower-portion'
 
   // @Prop({ required: true })
   // city: string

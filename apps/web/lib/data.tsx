@@ -2,7 +2,7 @@ export interface Property {
   id: string;
   name: string;
   slug: string;
-  type: 'House' | 'Apartment' | 'Flat' | 'Commercial' | 'Office' | 'Plot' | 'Land' | 'Shop' | 'Factory' | 'Hotel' | 'Restaurant' | 'Other';
+  type: 'House' | 'Apartment' | 'Flat' | 'Commercial' | 'Office' | 'Plot' | 'Land' | 'Shop' | 'Factory' | 'Hotel' | 'Restaurant' | 'Upper Portion' | 'Lower Portion' | 'Other';
   city: string;
   citySlug?: string;
   location: string;
@@ -656,4 +656,4 @@ export const hotels: Hotel[] = [
 ];
 
 export const cities = ['Multan', 'Lahore', 'Karachi', 'Islamabad'] as const;
-export const propertyTypes = ['House', 'Apartment', 'Flat', 'Commercial', 'Office', 'Plot', 'Land', 'Shop', 'Factory', 'Hotel', 'Restaurant', 'Other'] as const;
+export const propertyTypes = ['House', 'Apartment', 'Flat', 'Commercial', 'Office', 'Plot', 'Land', 'Shop', 'Factory', 'Hotel', 'Restaurant', 'Upper Portion', 'Lower Portion', 'Other'] as const;

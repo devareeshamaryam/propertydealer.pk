@@ -129,7 +129,7 @@ export const TOOL_DEFS = [
           location: str("Area, society or city name (e.g. 'Bahria Town Lahore', 'DHA Phase 6', 'Johar Town')"),
           city: str("City name (e.g. 'Lahore', 'Karachi', 'Islamabad')"),
           purpose: str("Buying or renting", ["sale", "rent"]),
-          types: { type: "array", items: { type: "string", enum: ["house", "plot", "flat", "commercial", "shop", "office", "factory", "hotel", "restaurant"] }, description: "Property types" },
+          types: { type: "array", items: { type: "string", enum: ["house", "upper-portion", "lower-portion", "plot", "flat", "commercial", "shop", "office", "factory", "hotel", "restaurant"] }, description: "Property types (a portion of a house: upper-portion / lower-portion)" },
           min_price: num("Minimum price in PKR (rent: per month)"),
           max_price: num("Maximum price in PKR (rent: per month)"),
           min_marla: num("Minimum size in marla (1 kanal = 20 marla)"),

@@ -317,6 +317,8 @@ export default function AddProperty() {
       Factory: "factory",
       Hotel: "hotel",
       Restaurant: "restaurant",
+      "Upper Portion": "upper-portion",
+      "Lower Portion": "lower-portion",
       Other: "other",
     };
     return mapping[type] || type.toLowerCase();
@@ -605,6 +607,8 @@ export default function AddProperty() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="House">House</SelectItem>
+                  <SelectItem value="Upper Portion">Upper Portion</SelectItem>
+                  <SelectItem value="Lower Portion">Lower Portion</SelectItem>
                   <SelectItem value="Apartment">Apartment</SelectItem>
                   <SelectItem value="Shop">Shop</SelectItem>
                   <SelectItem value="Office">Office</SelectItem>

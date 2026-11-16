@@ -21,7 +21,7 @@ const toList = ({ value }: { value: unknown }) =>
 const toBool = ({ value }: { value: unknown }) =>
   value === undefined || value === '' ? undefined : value === true || value === 'true' || value === '1' || value === 1;
 
-export const LISTING_TYPES = ['house', 'apartment', 'flat', 'commercial', 'land', 'shop', 'office', 'factory', 'other', 'hotel', 'restaurant', 'plot'] as const;
+export const LISTING_TYPES = ['house', 'apartment', 'flat', 'commercial', 'land', 'shop', 'office', 'factory', 'other', 'hotel', 'restaurant', 'plot', 'upper-portion', 'lower-portion'] as const;
 export const SIZE_UNITS = ['sqft', 'marla', 'kanal', 'sqyd', 'sqm', 'acre'] as const;
 
 export class CreateListingDto {

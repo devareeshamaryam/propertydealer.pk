@@ -29,6 +29,8 @@ export type PropertyTypeKey =
   | "Factory"
   | "Hotel"
   | "Restaurant"
+  | "Upper Portion"
+  | "Lower Portion"
   | "Other";
 
 export interface FeatureGroup {
@@ -46,9 +48,11 @@ export interface FeatureGroup {
   features: string[];
 }
 
-const RESIDENTIAL: PropertyTypeKey[] = ["House", "Apartment", "Flat", "Hotel"];
+const RESIDENTIAL: PropertyTypeKey[] = ["House", "Upper Portion", "Lower Portion", "Apartment", "Flat", "Hotel"];
 const BUILT: PropertyTypeKey[] = [
   "House",
+  "Upper Portion",
+  "Lower Portion",
   "Apartment",
   "Flat",
   "Commercial",

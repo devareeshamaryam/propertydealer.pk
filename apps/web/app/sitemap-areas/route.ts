@@ -4,7 +4,7 @@
 
 import { getSitemapData, sitemapXml, xmlResponse, SITE_URL } from '@/lib/sitemap-data';
 
-const TYPE = /\/(house|apartment|flat|plot|shop|office|land|commercial|factory|hotel|restaurant)$/;
+const TYPE = /\/(house|apartment|flat|plot|shop|office|land|commercial|factory|hotel|restaurant|upper-portion|lower-portion)$/;
 
 export async function GET() {
   const rows: Parameters<typeof sitemapXml>[0] = [];

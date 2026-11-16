@@ -17,6 +17,8 @@ export interface BackendProperty {
     | 'hotel'
     | 'restaurant'
     | 'plot'
+    | 'upper-portion'
+    | 'lower-portion'
     | 'other';
   city?: string; // Legacy field, may not be present
   slug?: string;
@@ -93,6 +95,8 @@ export const PROPERTY_TYPE_ORDER = [
   'factory',
   'hotel',
   'restaurant',
+  'upper-portion',
+  'lower-portion',
   'other'
 ];
 
@@ -134,6 +138,8 @@ export function mapBackendToFrontendProperty(backend: BackendProperty): Property
     hotel: 'Hotel',
     restaurant: 'Restaurant',
     plot: 'Plot',
+    'upper-portion': 'Upper Portion',
+    'lower-portion': 'Lower Portion',
     other: 'Other'
   };
 

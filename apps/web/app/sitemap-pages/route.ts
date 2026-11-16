@@ -42,7 +42,7 @@ export async function GET() {
     for (const a of data.archives) {
       // /properties/<purpose>/<city> and /properties/<purpose>/<city>/<type>; areas are in sitemap-areas.
       if (a.depth > 4) continue;
-      const isType = a.depth === 4 && /\/(house|apartment|flat|plot|shop|office|land|commercial|factory|hotel|restaurant)$/.test(a.path);
+      const isType = a.depth === 4 && /\/(house|apartment|flat|plot|shop|office|land|commercial|factory|hotel|restaurant|upper-portion|lower-portion)$/.test(a.path);
       if (a.depth === 4 && !isType) continue;
       rows.push({ loc: `${SITE_URL}${a.path}`, lastmod: a.lastmod, changefreq: 'daily', priority: a.depth === 3 ? '0.8' : '0.6' });
     }

@@ -299,6 +299,8 @@ export default function EditProperty() {
           factory: "Factory",
           hotel: "Hotel",
           restaurant: "Restaurant",
+          "upper-portion": "Upper Portion",
+          "lower-portion": "Lower Portion",
           plot: "Plot",
         };
         setPropertyType(typeMapping[property.propertyType] || "House");
@@ -502,6 +504,8 @@ export default function EditProperty() {
       Factory: "factory",
       Hotel: "hotel",
       Restaurant: "restaurant",
+      "Upper Portion": "upper-portion",
+      "Lower Portion": "lower-portion",
       Other: "other",
     };
     return mapping[type] || type.toLowerCase();
@@ -782,6 +786,8 @@ export default function EditProperty() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="House">House</SelectItem>
+                  <SelectItem value="Upper Portion">Upper Portion</SelectItem>
+                  <SelectItem value="Lower Portion">Lower Portion</SelectItem>
                   <SelectItem value="Apartment">Apartment</SelectItem>
                   <SelectItem value="Shop">Shop</SelectItem>
                   <SelectItem value="Office">Office</SelectItem>
